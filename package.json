@@ -1,0 +1,52 @@
+{
+  "//1": "describes your app and its dependencies",
+  "//2": "https://docs.npmjs.com/files/package.json",
+  "//3": "updating this file will download and update your packages",
+  "name": "@ep/ictetus",
+  "version": "0.0.1",
+  "description": "RPG Bot",
+  "author": "pg805",
+  "main": "./src/init.ts",
+  "scripts": {
+    "start": "node ./lib/init.js",
+    "build": "tsc ./src/init.ts --outDir lib",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@discordjs/opus": "^0.1.0",
+    "discord.js": "^12.5.1",
+    "express": "^4.17.1",
+    "ffmpeg": "0.0.4",
+    "ffmpeg-static": "^4.2.5",
+    "googleapis": "^39.2.0",
+    "m3u8stream": "^0.6.5",
+    "node-fetch": "^2.6.1",
+    "node-opus": "^0.3.2",
+    "node-schedule": "^1.3.2",
+    "prism-media": "^1.2.0",
+    "simple-youtube-api": "^5.2.1",
+    "typescript": "^4.1.3",
+    "winston": "^3.2.1",
+    "ytdl-core": "^2.1.7",
+    "ytdl-core-discord": "^1.2.0"
+  },
+  "engines": {
+    "node": "12.x"
+  },
+  "repository": {
+    "url": "https://github.com/pg805/B-Sharp.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "node",
+    "express"
+  ],
+  "devDependencies": {
+    "@types/node": "^14.14.35",
+    "@typescript-eslint/eslint-plugin": "^4.14.1",
+    "@typescript-eslint/parser": "^4.14.1",
+    "eslint": "^7.18.0",
+    "eslint-config-google": "^0.14.0",
+    "jest": "^26.4.2"
+  }
+}
