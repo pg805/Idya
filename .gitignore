@@ -1,0 +1,35 @@
+# B-Sharp git ignore file
+
+# ignore data
+data/settings.json
+data/keys.json
+data/settings.jsonc
+data/keys.jsonc
+data/commands.jsonc
+data/guilds.jsonc
+data/sketch.jsonc
+data/bot.jsonc
+
+# ignore all polls
+data/polls
+
+# ignore logs
+data/logs
+
+# ignore node modules
+node_modules
+
+# ingnore package-lock
+package-lock.json
+
+# ignore vs-code workspace
+**.code-workspace
+
+# ignore data.zip
+data.zip
+
+old.js
+
+old
+
+*.js
