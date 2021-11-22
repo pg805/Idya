@@ -3,6 +3,7 @@
 // library dependencies
 import logger from './util/logger.js';
 import * as Discord from 'discord.js';
+import * as fs from 'fs';
 
 // exit message
 process.on('exit', (code) => {
@@ -38,6 +39,6 @@ client.once('ready', () => {
     `);
 });
 
-client.login('OTEyMTI5MTUzMjE2Njc1ODUx.YZrceA.A__cSsigtW_mKeQ9daNNn92xFMI');
+client.login(JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN);
 
 client.destroy();
