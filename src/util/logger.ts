@@ -29,11 +29,11 @@ const logger = createLogger({
         // Write to all logs with level `info` and below to ida-combined.log`.
         // Write all logs error (and below) to `idya-error.log`.
         new transports.File({
-            filename: './data/logs/idya-error.log',
+            filename: `./data/logs/error/${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}-error.log`,
             level: 'error'
         }),
         new transports.File({
-            filename: './data/logs/idya-combined.log'
+            filename: `./data/logs/combined/${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}-combined.log`
         }),
         terminal
     ],
@@ -50,7 +50,7 @@ function terminalConsole() {
                 format.colorize(),
                 loggerFormat,
             ),
-            level: getBotSettings().debug ? 'debug' : 'info'
+            level: 'debug'
         });
     }
 }
