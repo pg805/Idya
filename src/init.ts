@@ -4,6 +4,7 @@
 import logger from './util/logger.js';
 import * as Discord from 'discord.js';
 import * as fs from 'fs';
+import { time } from 'console';
 
 // exit message
 process.on('exit', (code) => {
@@ -22,7 +23,6 @@ const client = new Discord.Client(
     { intents:
         [
             Discord.Intents.FLAGS.GUILDS,
-            Discord.Intents.FLAGS.GUILD_MEMBERS,
             Discord.Intents.FLAGS.GUILD_MESSAGES,
             Discord.Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
             Discord.Intents.FLAGS.DIRECT_MESSAGES,
@@ -39,6 +39,6 @@ client.once('ready', () => {
     `);
 });
 
-client.login(JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN);
-
-client.destroy();
+client
+    .login(JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN)
+    .then(() => client.destroy());
