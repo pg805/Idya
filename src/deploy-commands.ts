@@ -11,13 +11,11 @@ const check_path = './lib/commands';
 const commands = [];
 const command_files = fs.readdirSync(check_path).filter((file: any) => file.endsWith('.js'));
 
-logger.info(`Found these files: ${fs.readdirSync(check_path)}`);
-logger.info(`Found these commands: ${fs.readdirSync(check_path).filter((file: any) => file.endsWith('.js'))}`);
 logger.info(`${command_files.length} Commands Found`);
 
 for (const file of command_files) {
 	const command = require(`./commands/${file}`);
-    logger.info(`logging ${file}`);
+    logger.info(`deploying ${file}`);
 	commands.push(command.data.toJSON());
 }
 
