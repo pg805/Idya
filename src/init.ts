@@ -40,5 +40,4 @@ client.once('ready', () => {
 });
 
 client
-    .login(JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN)
-    .then(() => client.destroy());
+    .login(JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN);
