@@ -5,6 +5,8 @@ import logger from './util/logger.js';
 import * as Discord from 'discord.js';
 import * as fs from 'fs';
 import { time } from 'console';
+import './combat/test_battle.js';
+import { battle_attack, battle_defend, battle_special, start_battle } from './combat/test_battle.js';
 
 // exit message
 process.on('exit', (code) => {
@@ -69,7 +71,16 @@ client.on('interactionCreate', async interaction => {
     } else if (interaction.isButton()) {
         switch(interaction.customId) {
             case "start":
-                
+                start_battle(interaction);
+                break;
+            case "defend":
+                battle_defend(interaction);
+                break;
+            case "attack":
+                battle_attack(interaction);
+                break;
+            case "special":
+                battle_special(interaction);
                 break;
             default:
                 logger.error("Unkown Button Pressed");

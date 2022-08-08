@@ -8,6 +8,7 @@
 import { Message } from 'discord.js';
 import Player from './player';
 import Battle_Player from './battle_player';
+import logger from "../util/logger";
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -65,6 +66,9 @@ export default class Battle {
                 team_index++;
         });
         this.number_of_teams = team_index;
+        // TODO: team colors rather than numbers
+        logger.info("Starting Battle");
+        return 'Starting Battle'
     }
 
     add_defend(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
@@ -81,6 +85,7 @@ export default class Battle {
                     damage_array.push(damage_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Defend.")
                 }
             });
 
@@ -90,6 +95,7 @@ export default class Battle {
                     heal_array.push(heal_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Defend.")
                 }
             });
 
@@ -98,6 +104,7 @@ export default class Battle {
             defend_player.battle_status = DEFEND;
         } else {
             // Log event
+            logger.info("Player not found.  Defend.")
         }        
     }
     
@@ -115,6 +122,7 @@ export default class Battle {
                     damage_array.push(damage_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Attack.")
                 }
             });
 
@@ -124,6 +132,7 @@ export default class Battle {
                     heal_array.push(heal_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Attack.")
                 }
             });
 
@@ -132,6 +141,7 @@ export default class Battle {
             attack_player.battle_status = ATTACK;
         } else {
             // Log event
+            logger.info("Player not found.  Attack.")
         }        
         
     }
@@ -150,6 +160,7 @@ export default class Battle {
                     damage_array.push(damage_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Special.")
                 }
             });
 
@@ -159,6 +170,7 @@ export default class Battle {
                     heal_array.push(heal_target);
                 } else {
                     // log event
+                    logger.info("Target not found.  Special.")
                 }
             });
 
@@ -167,6 +179,7 @@ export default class Battle {
             special_player.battle_status = SPECIAL;
         } else {
             // Log event
+            logger.info("Player not found.  Special.")
         }      
     }
 
@@ -178,8 +191,11 @@ export default class Battle {
                 (player: Battle_Player) => player.battle_status == NONE )
         ) {
             // log event
-            return;
+            logger.info("Player hasn't input action")
+            return "Player hasn't input action";
         }
+
+        let dead_message = '';
 
         // resolve defend
         this.defend_actions.forEach((action: Battle_Action) => {
@@ -188,15 +204,21 @@ export default class Battle {
         
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
-                player.battle_status = DEAD
+                player.battle_status = DEAD;
+                dead_message.concat(`${player.name} has died!\n`);
             }
         });
-        
-        if(this.players
-            .filter((player: Battle_Player) => player.battle_status != DEAD)
+
+        let possible_winners: Array<Battle_Player>= this.players
+            .filter((player: Battle_Player) => player.battle_status != DEAD);
+
+        if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                return;
+                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
+                logger.info("Battle Over gg.")
+                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                return dead_message;
         }
         
         // resolve attack
@@ -206,15 +228,21 @@ export default class Battle {
         
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
-                player.battle_status = DEAD
+                player.battle_status = DEAD;
+                dead_message.concat(`${player.name} has died!\n`);
             }
         });
         
-        if(this.players
-            .filter((player: Battle_Player) => player.battle_status != DEAD)
+        possible_winners = this.players
+            .filter((player: Battle_Player) => player.battle_status != DEAD);
+
+        if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                return;
+                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
+                logger.info("Battle Over gg.")
+                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                return dead_message;
         }
         
         // resolve special
@@ -224,15 +252,23 @@ export default class Battle {
         
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
-                player.battle_status = DEAD
+                if(player.health <= 0) {
+                    player.battle_status = DEAD;
+                    dead_message.concat(`${player.name} has died!\n`);
+                }
             }
         });
         
-        if(this.players
-            .filter((player: Battle_Player) => player.battle_status != DEAD)
+        possible_winners = this.players
+            .filter((player: Battle_Player) => player.battle_status != DEAD);
+
+        if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                return;
+                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
+                logger.info("Battle Over gg.")
+                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                return dead_message;
         }
         
         // Cleanup
@@ -245,6 +281,10 @@ export default class Battle {
         this.defend_actions = [];
         this.attack_actions = [];
         this.special_actions = [];
+
+        this.round_count++;
+        logger.info(`Next Round Start: ${this.round_count}`);
+        return dead_message;
     }
 
 }
