@@ -43,8 +43,8 @@ export default class Battle {
     defend_actions: Array<Battle_Action>;
     attack_actions: Array<Battle_Action>;
     special_actions: Array<Battle_Action>;
-
-
+    
+    
     constructor (id: number) {
         this.id = id;
         this.players = [];
@@ -64,23 +64,23 @@ export default class Battle {
                     this.players.push(new Battle_Player(player, team_index))
                 });
                 team_index++;
-        });
-        this.number_of_teams = team_index;
-        // TODO: team colors rather than numbers
-        logger.info("Starting Battle");
-        return 'Starting Battle'
-    }
-
-    add_defend(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
-        let defend_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
-
-        if (defend_player) {
-            let damage_array: Array<Battle_Player> = [];
-
-            let heal_array: Array<Battle_Player> = [];
-
-            damage_targets.forEach((player: Player) => {
-                let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
+            });
+            this.number_of_teams = team_index;
+            // TODO: team colors rather than numbers
+            logger.info("Starting Battle");
+            return 'Starting Battle'
+        }
+        
+        add_defend(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
+            let defend_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
+            
+            if (defend_player) {
+                let damage_array: Array<Battle_Player> = [];
+                
+                let heal_array: Array<Battle_Player> = [];
+                
+                damage_targets.forEach((player: Player) => {
+                    let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (damage_target) {
                     damage_array.push(damage_target);
                 } else {
@@ -88,7 +88,7 @@ export default class Battle {
                     logger.info("Target not found.  Defend.")
                 }
             });
-
+            
             heal_targets.forEach((player: Player) => {
                 let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (heal_target) {
@@ -98,9 +98,9 @@ export default class Battle {
                     logger.info("Target not found.  Defend.")
                 }
             });
-
+            
             this.defend_actions.push(new Battle_Action(defend_player.defend, defend_player, damage_array, heal_array));
-
+            
             defend_player.battle_status = DEFEND;
         } else {
             // Log event
@@ -110,12 +110,12 @@ export default class Battle {
     
     add_attack(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
         let attack_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
-
+        
         if (attack_player) {
             let damage_array: Array<Battle_Player> = [];
-
+            
             let heal_array: Array<Battle_Player> = [];
-
+            
             damage_targets.forEach((player: Player) => {
                 let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (damage_target) {
@@ -125,7 +125,7 @@ export default class Battle {
                     logger.info("Target not found.  Attack.")
                 }
             });
-
+            
             heal_targets.forEach((player: Player) => {
                 let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (heal_target) {
@@ -135,9 +135,9 @@ export default class Battle {
                     logger.info("Target not found.  Attack.")
                 }
             });
-
+            
             this.attack_actions.push(new Battle_Action(attack_player.attack, attack_player, damage_array, heal_array));
-
+            
             attack_player.battle_status = ATTACK;
         } else {
             // Log event
@@ -148,12 +148,12 @@ export default class Battle {
     
     add_special(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
         let special_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
-
+        
         if (special_player) {
             let damage_array: Array<Battle_Player> = [];
-
+            
             let heal_array: Array<Battle_Player> = [];
-
+            
             damage_targets.forEach((player: Player) => {
                 let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (damage_target) {
@@ -163,7 +163,7 @@ export default class Battle {
                     logger.info("Target not found.  Special.")
                 }
             });
-
+            
             heal_targets.forEach((player: Player) => {
                 let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
                 if (heal_target) {
@@ -175,32 +175,34 @@ export default class Battle {
             });
 
             this.special_actions.push(new Battle_Action(special_player.special, special_player, damage_array, heal_array));
-
+            
             special_player.battle_status = SPECIAL;
         } else {
             // Log event
             logger.info("Player not found.  Special.")
         }      
     }
-
+    
     // check who hasn't input action yet function?
-
+    
     resolve() {
+        let return_message: string = 'Health Left\n';
+        
         // check if all players input actions
         if (this.players.find(
-                (player: Battle_Player) => player.battle_status == NONE )
-        ) {
-            // log event
-            logger.info("Player hasn't input action")
-            return "Player hasn't input action";
-        }
+            (player: Battle_Player) => player.battle_status == NONE )
+            ) {
+                // log event
+                logger.info("Player hasn't input action")
+                return "Player hasn't input action";
+            }
+            
+            let dead_message = '';
 
-        let dead_message = '';
-
-        // resolve defend
-        this.defend_actions.forEach((action: Battle_Action) => {
-            action.run_action();
-        });
+            // resolve defend
+            this.defend_actions.forEach((action: Battle_Action) => {
+                action.run_action();
+            });
         
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
@@ -215,9 +217,8 @@ export default class Battle {
         if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
                 logger.info("Battle Over gg.")
-                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                dead_message += (`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners.flatMap((winner: Battle_Player) => winner.name)}`);
                 return dead_message;
         }
         
@@ -239,9 +240,8 @@ export default class Battle {
         if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
                 logger.info("Battle Over gg.")
-                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                dead_message += (`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners.flatMap((winner: Battle_Player) => winner.name)}`);
                 return dead_message;
         }
         
@@ -265,9 +265,8 @@ export default class Battle {
         if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                const winners = this.players.filter((winner: Battle_Player) => winner.team == possible_winners[0].team);
                 logger.info("Battle Over gg.")
-                dead_message.concat(`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners}`);
+                dead_message += (`Battle Over, team ${possible_winners[0].team} won!! Congratz ${possible_winners.flatMap((winner: Battle_Player) => winner.name)}`);
                 return dead_message;
         }
         
@@ -284,9 +283,8 @@ export default class Battle {
 
         this.round_count++;
         logger.info(`Next Round Start: ${this.round_count}`);
-
-        let return_message: string = 'Health Left\n';
-
+        return_message += 'Health Left\n';
+        
         this.players.forEach((player: Battle_Player) => {
             if (player.health <= 0) {
                 return_message += `${player.name}: 0\n`;
