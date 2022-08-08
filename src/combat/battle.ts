@@ -205,7 +205,7 @@ export default class Battle {
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
                 player.battle_status = DEAD;
-                dead_message.concat(`${player.name} has died!\n`);
+                dead_message += `${player.name} has died!\n`;
             }
         });
 
@@ -229,7 +229,7 @@ export default class Battle {
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
                 player.battle_status = DEAD;
-                dead_message.concat(`${player.name} has died!\n`);
+                dead_message += `${player.name} has died!\n`;
             }
         });
         
@@ -254,7 +254,7 @@ export default class Battle {
             if(player.health <= 0) {
                 if(player.health <= 0) {
                     player.battle_status = DEAD;
-                    dead_message.concat(`${player.name} has died!\n`);
+                    dead_message += `${player.name} has died!\n`;
                 }
             }
         });
@@ -284,7 +284,18 @@ export default class Battle {
 
         this.round_count++;
         logger.info(`Next Round Start: ${this.round_count}`);
-        return dead_message;
+
+        let return_message: string = 'Health Left\n';
+
+        this.players.forEach((player: Battle_Player) => {
+            if (player.health <= 0) {
+                return_message += `${player.name}: 0\n`;
+            } else {
+                return_message += `${player.name}: ${player.health}\n`;
+            }
+        });
+
+        return return_message.concat(dead_message);
     }
 
 }

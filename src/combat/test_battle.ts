@@ -12,7 +12,7 @@ const SPECIAL: string = "SPECIAL";
 
 let message: string = '';
 
-const battle_embed: MessageEmbed = new MessageEmbed()
+let battle_embed: MessageEmbed = new MessageEmbed()
     .setColor('#00FFFF')
     .setTitle('Choose your action')
     .setDescription(`CHOOSE YOUR ACTIOOOOON`);
@@ -49,8 +49,10 @@ const rat: Player = new Player(
 
         if(damage_targets[0].battle_status == SPECIAL){
             damage_targets[0].health -= (damage * 2);
+            logger.info(`Rat Critical Attacks Player Character for ${damage * 2} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
         } else {
             damage_targets[0].health -= damage;
+            logger.info(`Rat Attacks Player Character for ${damage} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
         } 
     },
     // Special
@@ -58,9 +60,11 @@ const rat: Player = new Player(
         const damage: number = Math.ceil(Math.random() * 30);
 
         if(damage_targets[0].battle_status == DEFEND){
-            damage_targets[0].health -= (damage * 1.5);
+            damage_targets[0].health -= (Math.floor(damage * 1.5));
+            logger.info(`Rat Critically Specials Player Character for ${Math.floor(damage * 1.5)} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
         } else {
             damage_targets[0].health -= damage;
+            logger.info(`Rat Specials Player Character for ${damage} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
         } 
     }
 )
@@ -75,34 +79,40 @@ const player_character: Player = new Player(
 
         if(damage_targets[0].battle_status == ATTACK) {
             player_character.health += (heal * 2);
+            logger.info(`Player Character Critical Defends Against Rat for ${heal * 2} health\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         } else {
             player_character.health += heal;
+            logger.info(`Player Character Defends Against Rat for ${heal} health\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         }
 
         return;
     },
     // Attack
-    (rat: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
+    (player_character: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
         // Will just be a heal for now
         const damage: number = Math.ceil(Math.random() * 30);
 
         if(damage_targets[0].battle_status == SPECIAL) {
             damage_targets[0].health -= (damage * 2);
+            logger.info(`Player Character Critically Attacks Rat for ${damage * 2} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         } else {
             damage_targets[0].health -= damage;
+            logger.info(`Player Character Attacks Rat for ${damage} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         }
-
+        
         return;
     },
     // Special
-    (rat: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
+    (player_character: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
         // Will just be a heal for now
         const damage: number = Math.ceil(Math.random() * 30);
-
+        
         if(damage_targets[0].battle_status == DEFEND) {
             damage_targets[0].health -= (damage * 4);
+            logger.info(`Player Character Critically Specials Rat for ${damage * 4} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         } else {
             damage_targets[0].health -= damage;
+            logger.info(`Player Character Specials Rat for ${damage} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
         }
 
         return;
@@ -143,7 +153,7 @@ export async function battle_defend(interaction: any) {
     logger.info('Player is defending, resolving...');
 
     message = test_battle.resolve();
-    battle_embed.setDescription(message);
+    battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
 
     logger.info('resolved');
 
@@ -173,7 +183,7 @@ export async function battle_attack(interaction: any) {
     logger.info('Player is attacking, resolving...');
 
     message = test_battle.resolve();
-    battle_embed.setDescription(message);
+    battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
 
 
     logger.info('resolved');
@@ -204,7 +214,7 @@ export async function battle_special(interaction: any) {
     logger.info('Player is specialing, resolving ...');
    
     message = test_battle.resolve();
-    battle_embed.setDescription(message);
+    battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
 
     logger.info('resolved');
 
