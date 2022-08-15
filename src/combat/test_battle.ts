@@ -3,8 +3,8 @@ import Battle_Player from './battle_player';
 import Battle from './battle';
 import logger from "../util/logger";
 import { Interaction, MessageActionRow, MessageButton, MessageEmbed } from "discord.js";
-import { Action, Effect } from './action';
-import STATE, { EFFECT } from './constant';
+import { Action, Heal_Effect, Damage_Effect } from './action';
+import STATE, { EFFECT, TARGET_REQ } from './constant';
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -38,23 +38,23 @@ const battle_row: MessageActionRow = new MessageActionRow()
     .addComponents([attack_button, defend_button, special_button]);
 
 const rat_defend: Action = new Action(STATE.DEFEND);
-rat_defend.add_effect(new Effect(0, 0, EFFECT.HEAL));
+rat_defend.add_effect(new Heal_Effect(0, 0, TARGET_REQ.SELF));
 
 const rat_attack: Action = new Action(STATE.ATTACK);
-rat_attack.add_effect(new Effect(10, 2, EFFECT.DAMAGE));
+rat_attack.add_effect(new Damage_Effect(10, 2, TARGET_REQ.SINGLE));
 
 const rat_special: Action = new Action(STATE.SPECIAL);
-rat_special.add_effect(new Effect(30, 1.5, EFFECT.DAMAGE));
+rat_special.add_effect(new Damage_Effect(30, 1.5, TARGET_REQ.SINGLE));
 
 
 const pc_defend: Action = new Action(STATE.DEFEND);
-pc_defend.add_effect(new Effect(30, 2, EFFECT.HEAL));
+pc_defend.add_effect(new Heal_Effect(30, 2, TARGET_REQ.SELF));
 
 const pc_attack: Action = new Action(STATE.ATTACK);
-pc_attack.add_effect(new Effect(30, 2, EFFECT.DAMAGE));
+pc_attack.add_effect(new Damage_Effect(30, 2, TARGET_REQ.SINGLE));
 
 const pc_special: Action = new Action(STATE.SPECIAL);
-pc_special.add_effect(new Effect(30, 4, EFFECT.DAMAGE));
+pc_special.add_effect(new Damage_Effect(30, 4, TARGET_REQ.SINGLE));
 
 const rat: Player = new Player(
     // Name

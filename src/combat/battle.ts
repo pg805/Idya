@@ -26,7 +26,7 @@ class Battle_Action {
     }
 
     run_action(turn_data: Battle_Data) {
-        logger.debug(`Running saved action:\nSelf: ${this.player.name}\nAction Type: ${this.action.type}
+        logger.debug(`Running saved action:\nSelf: ${this.player.name}\nAction Type: ${this.action.type}\n
         D Targets:${this.damage_targets.flatMap((p: Battle_Player) => p.name).join(', ')}
         H Targets:${this.heal_targets.flatMap((p: Battle_Player) => p.name).join(', ')}`);
         this.action.run(turn_data, this.player, this.damage_targets, this.heal_targets);
