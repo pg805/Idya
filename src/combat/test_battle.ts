@@ -3,6 +3,8 @@ import Battle_Player from './battle_player';
 import Battle from './battle';
 import logger from "../util/logger";
 import { Interaction, MessageActionRow, MessageButton, MessageEmbed } from "discord.js";
+import { Action, Effect } from './action';
+import STATE, { EFFECT } from './constant';
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -35,88 +37,45 @@ const special_button: MessageButton = new MessageButton()
 const battle_row: MessageActionRow = new MessageActionRow()
     .addComponents([attack_button, defend_button, special_button]);
 
+const rat_defend: Action = new Action(STATE.DEFEND);
+rat_defend.add_effect(new Effect(0, 0, EFFECT.HEAL));
+
+const rat_attack: Action = new Action(STATE.ATTACK);
+rat_attack.add_effect(new Effect(10, 2, EFFECT.DAMAGE));
+
+const rat_special: Action = new Action(STATE.SPECIAL);
+rat_special.add_effect(new Effect(30, 1.5, EFFECT.DAMAGE));
+
+
+const pc_defend: Action = new Action(STATE.DEFEND);
+pc_defend.add_effect(new Effect(30, 2, EFFECT.HEAL));
+
+const pc_attack: Action = new Action(STATE.ATTACK);
+pc_attack.add_effect(new Effect(30, 2, EFFECT.DAMAGE));
+
+const pc_special: Action = new Action(STATE.SPECIAL);
+pc_special.add_effect(new Effect(30, 4, EFFECT.DAMAGE));
+
 const rat: Player = new Player(
     // Name
     'Rat', 
     // Defend
-    (rat: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        return;
-    },
+    rat_defend,
     // Attack
-    (rat: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        // Bite
-        const damage: number = Math.ceil(Math.random() * 10);
-
-        if(damage_targets[0].battle_status == SPECIAL){
-            damage_targets[0].health -= (damage * 2);
-            logger.info(`Rat Critical Attacks Player Character for ${damage * 2} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
-        } else {
-            damage_targets[0].health -= damage;
-            logger.info(`Rat Attacks Player Character for ${damage} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
-        } 
-    },
+    rat_attack,
     // Special
-    (rat: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        const damage: number = Math.ceil(Math.random() * 30);
-
-        if(damage_targets[0].battle_status == DEFEND){
-            damage_targets[0].health -= (Math.floor(damage * 1.5));
-            logger.info(`Rat Critically Specials Player Character for ${Math.floor(damage * 1.5)} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
-        } else {
-            damage_targets[0].health -= damage;
-            logger.info(`Rat Specials Player Character for ${damage} damage\nPC ${damage_targets[0].health}\nRat ${rat.health}`);
-        } 
-    }
+    rat_special
 )
 
 const player_character: Player = new Player(
     // name
     'Player Character',
     // Defend
-    (player_character: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        // Will just be a heal for now
-        const heal: number = Math.ceil(Math.random() * 30);
-
-        if(damage_targets[0].battle_status == ATTACK) {
-            player_character.health += (heal * 2);
-            logger.info(`Player Character Critical Defends Against Rat for ${heal * 2} health\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        } else {
-            player_character.health += heal;
-            logger.info(`Player Character Defends Against Rat for ${heal} health\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        }
-
-        return;
-    },
+    pc_defend,
     // Attack
-    (player_character: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        // Will just be a heal for now
-        const damage: number = Math.ceil(Math.random() * 30);
-
-        if(damage_targets[0].battle_status == SPECIAL) {
-            damage_targets[0].health -= (damage * 2);
-            logger.info(`Player Character Critically Attacks Rat for ${damage * 2} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        } else {
-            damage_targets[0].health -= damage;
-            logger.info(`Player Character Attacks Rat for ${damage} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        }
-        
-        return;
-    },
+    pc_attack,
     // Special
-    (player_character: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) => {
-        // Will just be a heal for now
-        const damage: number = Math.ceil(Math.random() * 30);
-        
-        if(damage_targets[0].battle_status == DEFEND) {
-            damage_targets[0].health -= (damage * 4);
-            logger.info(`Player Character Critically Specials Rat for ${damage * 4} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        } else {
-            damage_targets[0].health -= damage;
-            logger.info(`Player Character Specials Rat for ${damage} damage\nPC ${player_character.health}\nRat ${damage_targets[0].health}`);
-        }
-
-        return;
-    }
+    pc_special
 )
 
 const rat_AI = [1, 2];
@@ -134,7 +93,7 @@ export async function start_battle(interaction: any) {
 }
 
 export async function battle_defend(interaction: any) {
-    test_battle.add_defend(player_character, [rat], []);
+    test_battle.add_defend(player_character, [rat], [player_character]);
     
     if (Math.ceil(Math.random() * 10) == 10) {
         rat_move = Math.floor(Math.random() * 2);

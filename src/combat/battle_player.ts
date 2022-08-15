@@ -1,28 +1,26 @@
 
+import { Action } from './action';
 import Player from './player';
-
-const DEAD: string = "DEAD";
-const NONE: string = "NONE";
-const DEFEND: string = "DEFEND";
-const ATTACK: string = "ATTACK";
-const SPECIAL: string = "SPECIAL";
+import STATE from './constant';
 
 export default class Battle_Player {
     name: string;
     health: number;
+    max_health: number;
     team: number;
-    attack: Function;
-    defend: Function;
-    special: Function;
+    attack: Action;
+    defend: Action;
+    special: Action;
     battle_status: string;
 
     constructor (player: Player, team: number) {
         this.name = player.name;
         this.health = player.health;
+        this.max_health = player.health;
         this.team = team;
         this.attack = player.attack;
         this.defend = player. defend;
         this.special = player.special;
-        this.battle_status = NONE;
+        this.battle_status = STATE.NONE;
     }
 }

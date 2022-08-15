@@ -1,13 +1,14 @@
+import { Action } from "./action";
 
 
 export default class Player {
     name: string;
     health: number;
-    attack: Function;
-    defend: Function;
-    special: Function;
+    attack: Action;
+    defend: Action;
+    special: Action;
 
-    constructor (name: string, defend: Function, attack: Function, special: Function) {
+    constructor (name: string, defend: Action, attack: Action, special: Action) {
         this.name = name;
         this.health = 100;
         this.defend = defend;

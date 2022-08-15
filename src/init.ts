@@ -10,6 +10,9 @@ import { battle_attack, battle_defend, battle_special, start_battle } from './co
 
 // exit message
 process.on('exit', (code) => {
+    if(client.isReady()) {
+        client.destroy();
+    }
     logger.info(`About to exit with code: ${code}`);
 });
 
@@ -17,9 +20,9 @@ process.on('exit', (code) => {
 process.on('unhandledRejection', (error) => logger.error(`Uncaught Promise Rejection: ${error}`));
 
 // exit
-process.on('SIGTERM', () =>
-    process.exit(0),
-);
+process.on('SIGTERM', () =>{
+    process.exit(0)
+});
 
 const client = new Discord.Client(
     { intents:
@@ -40,12 +43,13 @@ client.commands = new Discord.Collection();
 const command_files = fs.readdirSync(check_path).filter((file: any) => file.endsWith('.js'));
 
 for (const file of command_files) {
-	const command = require(`./commands/${file}`);
-	// Set a new item in the Collection
-	// With the key as the command name and the value as the exported module
+    const command = require(`./commands/${file}`);
+    // Set a new item in the Collection
+    // With the key as the command name and the value as the exported module
 
+    logger.info(`Adding command ${command.data.name} to the command list!`);
     // @ts-ignore: Adding commands to client
-	client.commands.set(command.data.name, command);
+    client.commands.set(command.data.name, command);
 }
 
 // create custom startup option for logger?
@@ -65,7 +69,7 @@ client.on('interactionCreate', async interaction => {
         try {
             await command.execute(interaction);
         } catch (error) {
-            console.error(error);
+            logger.error(error);
             await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
         }
     } else if (interaction.isButton()) {
