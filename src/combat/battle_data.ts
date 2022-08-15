@@ -1,4 +1,5 @@
 import logger from "../util/logger";
+import { check_crit } from "./action";
 import Battle_Player from "./battle_player";
 import STATE, { EFFECT } from './constant';
 
@@ -6,11 +7,13 @@ class Target_Data {
     target: Battle_Player;
     amount: number;
     type: string;
+    crit: boolean;
 
-    constructor(target: Battle_Player, amount: number, type: string) {
+    constructor(target: Battle_Player, amount: number, type: string, crit: boolean) {
         this.target = target;
         this.amount = amount;
         this.type = type;
+        this.crit = crit;
     }
 
     to_string() {
@@ -19,14 +22,6 @@ class Target_Data {
         let resource: string = '';
 
         switch(this.type) {
-            // case STATE.ATTACK:
-            //     attack_type = 'attacks'
-            //     resource = 'damage';
-            //     break;
-            // case STATE.SPECIAL:
-            //     attack_type = 'special attacks'
-            //     resource = 'damage';
-            //     break; 
             case EFFECT.HEAL:
                 attack_type = 'heals';
                 resource = 'health';
@@ -35,17 +30,13 @@ class Target_Data {
                 attack_type = 'damages';
                 resource = 'health';
                 break;
-            // case STATE.DEFEND:
-            //     attack_type = 'defends against';
-            //     resource = 'health';
-            //     break;
             default:
                 logger.warn(`Unknown Target Data type: ${this.type}`);
                 resource = 'potatoes';
                 attack_type = 'fries';
         }
 
-        return `${attack_type} ${this.target.name} for ${this.amount} ${resource}`
+        return `${this.crit ? 'critically ':''}${attack_type} ${this.target.name} for ${this.amount} ${resource}`
     }
 }
 
@@ -59,9 +50,9 @@ class Action_Data {
         this.targets = [];
     }
 
-    add_target(player: Battle_Player, amount: number, type: string) {
+    add_target(player: Battle_Player, amount: number, type: string, crit: boolean) {
         logger.debug(`Adding Target to ${this.executor.name}'s action in action:\nTarget: ${player.name}\nAmount: ${amount}\nType:${type}`);
-        this.targets.push(new Target_Data(player, amount, type));
+        this.targets.push(new Target_Data(player, amount, type, crit));
     }
 
     to_string() {
@@ -134,12 +125,12 @@ export default class Battle_Data {
         this.action_log.push(new Action_Data(player));
     }
 
-    add_target(executor: Battle_Player, target: Battle_Player, amount: number, type: string) {
+    add_target(executor: Battle_Player, target: Battle_Player, amount: number, type: string, crit: boolean) {
         logger.debug(`Adding Target to ${executor.name}'s action data:\nName: ${target.name}\nAmount: ${amount}\nType: ${type}`);
         const target_action = this.action_log.find((action: Action_Data) => action.executor == executor);
         logger.debug(`Found action for this target: ${!!target_action}`);
         if(target_action) {
-            target_action.add_target(target, amount, type)
+            target_action.add_target(target, amount, type, crit)
         }
     }
 
