@@ -6,7 +6,7 @@ import * as Discord from 'discord.js';
 import * as fs from 'fs';
 import { time } from 'console';
 import './combat/test_battle.js';
-import { battle_attack, battle_defend, battle_special, start_battle } from './combat/test_battle.js';
+import { battle_action, start_battle } from './combat/test_battle.js';
 
 // exit message
 process.on('exit', (code) => {
@@ -78,13 +78,13 @@ client.on('interactionCreate', async interaction => {
                 start_battle(interaction);
                 break;
             case "defend":
-                battle_defend(interaction);
+                battle_action(interaction, "DEFEND");
                 break;
             case "attack":
-                battle_attack(interaction);
+                battle_action(interaction, "ATTACK");
                 break;
             case "special":
-                battle_special(interaction);
+                battle_action(interaction, "SPECIAL");
                 break;
             default:
                 logger.error("Unkown Button Pressed");

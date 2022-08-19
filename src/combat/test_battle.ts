@@ -3,8 +3,10 @@ import Battle_Player from './battle_player';
 import Battle from './battle';
 import logger from "../util/logger";
 import { Interaction, MessageActionRow, MessageButton, MessageEmbed } from "discord.js";
-import { Action, Heal_Effect, Damage_Effect } from './action';
-import STATE, { EFFECT, TARGET_REQ } from './constant';
+import { Action, Heal_Effect, Damage_Effect, Effect_Group } from './action';
+import { STATE, EFFECT, TARGET_REQ } from './constant';
+import { Group_Target, Numbered_Target, Self_Target, Target_Group } from './target_group';
+import { group } from 'console';
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -38,23 +40,34 @@ const battle_row: MessageActionRow = new MessageActionRow()
     .addComponents([attack_button, defend_button, special_button]);
 
 const rat_defend: Action = new Action(STATE.DEFEND);
-rat_defend.add_effect(new Heal_Effect(0, 0, TARGET_REQ.SELF));
+const rat_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+rat_defend_group.add_effect(new Heal_Effect(0, 0, 0));
+rat_defend.add_effect(rat_defend_group);
 
 const rat_attack: Action = new Action(STATE.ATTACK);
-rat_attack.add_effect(new Damage_Effect(10, 2, TARGET_REQ.SINGLE));
+const rat_attack_group: Effect_Group = new Effect_Group("1");
+rat_attack_group.add_effect(new Damage_Effect(10, 0, 2));
+rat_attack.add_effect(rat_attack_group);
 
 const rat_special: Action = new Action(STATE.SPECIAL);
-rat_special.add_effect(new Damage_Effect(30, 1.5, TARGET_REQ.SINGLE));
-
+const rat_special_group: Effect_Group = new Effect_Group("1");
+rat_special_group.add_effect(new Damage_Effect(30, 0, 1.5));
+rat_special.add_effect(rat_special_group);
 
 const pc_defend: Action = new Action(STATE.DEFEND);
-pc_defend.add_effect(new Heal_Effect(30, 2, TARGET_REQ.SELF));
+const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+pc_defend_group.add_effect(new Heal_Effect(30, 10, 2));
+pc_defend.add_effect(pc_defend_group);
 
 const pc_attack: Action = new Action(STATE.ATTACK);
-pc_attack.add_effect(new Damage_Effect(30, 2, TARGET_REQ.SINGLE));
+const pc_attack_group: Effect_Group = new Effect_Group("1");
+pc_attack_group.add_effect(new Damage_Effect(30, 10, 2));
+pc_attack.add_effect(pc_attack_group);
 
 const pc_special: Action = new Action(STATE.SPECIAL);
-pc_special.add_effect(new Damage_Effect(30, 4, TARGET_REQ.SINGLE));
+const pc_special_group: Effect_Group = new Effect_Group("1");
+pc_special_group.add_effect(new Damage_Effect(30, 10, 4));
+pc_special.add_effect(pc_special_group);
 
 const rat: Player = new Player(
     // Name
@@ -92,24 +105,83 @@ export async function start_battle(interaction: any) {
     });
 }
 
-export async function battle_defend(interaction: any) {
-    test_battle.add_defend(player_character, [rat], [player_character]);
-    
+// function create_target_group(effect_group: Effect_Group, user: Player) {
+//     switch(effect_group.target_req) {
+//         case TARGET_REQ.SELF:
+//             // should probably change this
+//             // @ts-ignore: accessing commands
+//             return new Self_Target(effect_group.effects, test_battle.self_target(user));
+//             break;
+//         case TARGET_REQ.ALL:
+//             // @ts-ignore: accessing commands
+//             return new Group_Target(effect_group.effects, effect_group.target_req, test_battle.all())
+//             break;
+//         case TARGET_REQ.ALLIES:
+//             // @ts-ignore: accessing commands
+//             return new Group_Target(effect_group.effects, effect_group.target_req, test_battle.all_allies())
+//         case TARGET_REQ.ENEMIES:
+//             // @ts-ignore: accessing commands
+//             const group = new Group_Target(effect_group.effects, effect_group.target_req, test_battle.all_enemies(user))
+//         case TARGET_REQ.OTHERS:
+//             // @ts-ignore: accessing commands
+//             const group = new Group_Target(effect_group.effects, effect_group.target_req, test_battle.all_others(user))
+//         default:
+//             if(parseInt(effect_group.target_req)) {
+//                 // put a loop here or something
+//                 // @ts-ignore: accessing commands
+//                 const group = new Group_Target(effect_group.effects, effect_group.target_req, test_battle.all_enemies(user))
+//             } else {
+//                 logger.warn(`${effect_group.target_req} is not a real target requirement :(`);
+//             }
+//     }
+
+//     return group;
+// }
+
+export async function battle_action(interaction: any, type: string) {
+
+    logger.debug(`${type} selected for Player Character`)
+    const groups: Array<Target_Group> = [];
+
+    if(type == STATE.DEFEND) {
+        logger.debug('Made it to Defend');
+        // @ts-ignore: accessing commands
+        groups.push(new Self_Target(player_character.defend.action_list[0].effects, test_battle.self_target(player_character)));
+    } else if (type == STATE.ATTACK) {
+        logger.debug('Made it to Attack');
+        // @ts-ignore: accessing commands
+        groups.push(new Group_Target(player_character.attack.action_list[0].effects, player_character.attack.action_list[0].target_req, test_battle.all_enemies(player_character)));
+    } else {
+        logger.debug('Made it to Special');
+        // @ts-ignore: accessing commands
+        groups.push(new Group_Target(player_character.special.action_list[0].effects, player_character.special.action_list[0].target_req, test_battle.all_enemies(player_character)));
+    }
+
+    test_battle.add_action(player_character, groups, type);
+
     if (Math.ceil(Math.random() * 10) == 10) {
         rat_move = Math.floor(Math.random() * 2);
     }
-
+    
     if (rat_move) {
         logger.info('Rat is specialing');
-        test_battle.add_special(rat, [player_character], []);
+        const rat_group = new Numbered_Target(rat.special.action_list[0].effects, 1);
+        // @ts-ignore: accessing commands
+        rat_group.add_target(test_battle.self_target(player_character))
+        // @ts-ignore: accessing commands
+        test_battle.add_action(rat, [rat_group], STATE.SPECIAL);
         rat_move = 0;
     } else {
         logger.info('Rat is attacking');
-        test_battle.add_attack(rat, [player_character], []);
+        const rat_group = new Numbered_Target(rat.attack.action_list[0].effects, 1);
+        // @ts-ignore: accessing commands
+        rat_group.add_target(test_battle.self_target(player_character))
+        // @ts-ignore: accessing commands
+        test_battle.add_action(rat, [rat_group], STATE.ATTACK);
         rat_move = 1;
     }
 
-    logger.info('Player is defending, resolving...');
+    logger.info(`Player is ${type}ing, resolving...`);
 
     message = test_battle.resolve();
     battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
@@ -122,65 +194,5 @@ export async function battle_defend(interaction: any) {
     });
 }
 
-export async function battle_attack(interaction: any) {
-    test_battle.add_attack(player_character, [rat], []);
-    
-    if (Math.ceil(Math.random() * 10) == 10) {
-        rat_move = Math.floor(Math.random() * 2);
-    }
-
-    if (rat_move) {
-        logger.info('Rat is specialing');
-        test_battle.add_special(rat, [player_character], []);
-        rat_move = 0;
-    } else {
-        logger.info('Rat is attacking');
-        test_battle.add_attack(rat, [player_character], []);
-        rat_move = 1;
-    }
-
-    logger.info('Player is attacking, resolving...');
-
-    message = test_battle.resolve();
-    battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
-
-
-    logger.info('resolved');
-
-    await interaction.reply({
-        embeds: [battle_embed],
-        components: [battle_row]
-    });
-}
-
-export async function battle_special(interaction: any) {
-    test_battle.add_special(player_character, [rat], []);
-    
-    if (Math.ceil(Math.random() * 10) == 10) {
-        rat_move = Math.floor(Math.random() * 2);
-    }
-
-    if (rat_move) {
-        logger.info('Rat is specialing');
-        test_battle.add_special(rat, [player_character], []);
-        rat_move = 0;
-    } else {
-        logger.info('Rat is attacking');
-        test_battle.add_attack(rat, [player_character], []);
-        rat_move = 1;
-    }
-
-    logger.info('Player is specialing, resolving ...');
-   
-    message = test_battle.resolve();
-    battle_embed = battle_embed.setDescription(`${message}\nChoose your action!`);
-
-    logger.info('resolved');
-
-    await interaction.reply({
-        embeds: [battle_embed],
-        components: [battle_row]
-    });
-}
 
 

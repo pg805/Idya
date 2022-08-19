@@ -1,7 +1,7 @@
 import logger from "../util/logger";
 import { check_crit } from "./action";
 import Battle_Player from "./battle_player";
-import STATE, { EFFECT } from './constant';
+import { STATE, EFFECT } from './constant';
 
 class Target_Data {
     target: Battle_Player;
