@@ -1,4 +1,6 @@
+import logger from "../util/logger";
 import { Action } from "./action";
+import { STATE } from "./constant";
 
 
 export default class Player {
@@ -14,5 +16,18 @@ export default class Player {
         this.defend = defend;
         this.attack = attack;
         this.special = special;
+    }
+
+    get_action(type: string) {
+        switch(type) {
+            case STATE.DEFEND:
+                return this.defend;
+            case STATE.ATTACK:
+                return this.attack;
+            case STATE.SPECIAL:
+                return this.special;
+            default:
+                logger.warn(`${type} not found`);
+        }
     }
 }

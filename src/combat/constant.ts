@@ -1,4 +1,4 @@
-export default {
+export const STATE = {
     DEAD: "DEAD",
     NONE: "NONE",
     DEFEND: "DEFEND",
@@ -14,6 +14,8 @@ export const EFFECT =  {
 // one for all numbers??
 export const TARGET_REQ = {
     SELF: "SELF",
-    SINGLE: "SINGLE",
     ALL: "ALL",
+    OTHERS: "OTHERS",
+    ENEMIES: "ENEMIES",
+    ALLIES: "ALLIES"
 }

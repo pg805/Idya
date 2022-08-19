@@ -8,28 +8,26 @@
 import Player from './player';
 import Battle_Player from './battle_player';
 import logger from "../util/logger";
-import STATE from './constant'
+import { STATE } from './constant'
 import Battle_Data from './battle_data';
-import { Action } from './action';
+import { Action, Effect_Group } from './action';
+import { Target_Group } from './target_group';
 
 class Battle_Action {
-    action: Action;
     player: Battle_Player;
-    damage_targets: Array<Battle_Player>;
-    heal_targets: Array<Battle_Player>;
+    target_effects: Array<Target_Group>;
 
-    constructor(action: Action, player: Battle_Player, damage_targets: Array<Battle_Player>, heal_targets: Array<Battle_Player>) {
-        this.action = action;
+    constructor(player: Battle_Player, targets: Array<Target_Group>) {
         this.player = player;
-        this.damage_targets = damage_targets;
-        this.heal_targets = heal_targets;
+        this.target_effects = targets;
     }
 
     run_action(turn_data: Battle_Data) {
-        logger.debug(`Running saved action:\nSelf: ${this.player.name}\nAction Type: ${this.action.type}\n
-        D Targets:${this.damage_targets.flatMap((p: Battle_Player) => p.name).join(', ')}
-        H Targets:${this.heal_targets.flatMap((p: Battle_Player) => p.name).join(', ')}`);
-        this.action.run(turn_data, this.player, this.damage_targets, this.heal_targets);
+        logger.debug(`Battle Action Targets: ${this.target_effects.flatMap(effect => effect.targets)}`);
+        turn_data.add_action(this.player);
+        this.target_effects.forEach((tg: Target_Group) => {
+            tg.affect_targets(this.player, turn_data);
+        });
     }
 }
 
@@ -42,8 +40,7 @@ export default class Battle {
     defend_actions: Array<Battle_Action>;
     attack_actions: Array<Battle_Action>;
     special_actions: Array<Battle_Action>;
-    
-    
+     
     constructor (id: number) {
         this.id = id;
         this.players = [];
@@ -68,130 +65,90 @@ export default class Battle {
             // TODO: team colors rather than numbers
             logger.info("Starting Battle");
             return 'Starting Battle'
+    }
+    
+    self_target(user: Player) {
+        const player = this.players.find((p: Battle_Player) => p.name == user.name);
+
+        if(player) {
+            return player
+        } else {
+            logger.warn(`Battle Player ${user.name} not found when looking for self`);
+            return undefined
         }
-        
-        add_defend(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
-            let defend_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
-            
-            logger.debug(`Adding ${player.name} to defense`);
-            logger.debug(`Damage Targets: ${damage_targets.flatMap((p: Player) => p.name).join(",")}`);
-            logger.debug(`Heal Targets: ${heal_targets.flatMap((p: Player) => p.name).join(",")}`);
-            
-            if (defend_player) {
-                let damage_array: Array<Battle_Player> = [];
-                
-                let heal_array: Array<Battle_Player> = [];
-                
-                damage_targets.forEach((player: Player) => {
-                    let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                    if (damage_target) {
-                        damage_array.push(damage_target);
-                    } else {
-                        // log event
-                        logger.warn("Target not found in battle.  Defend.")
-                    }
-                });
-                
-                heal_targets.forEach((player: Player) => {
-                    let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                    if (heal_target) {
-                        heal_array.push(heal_target);
-                    } else {
-                        // log event
-                        logger.warn("Target not found in battle.  Defend.")
-                    }
-                });
-                
-                this.defend_actions.push(new Battle_Action(defend_player.defend, defend_player, damage_array, heal_array));
-                
-                defend_player.battle_status = STATE.DEFEND;
-            } else {
-            // Log event
-            logger.warn("Player not found.  Defend.")
-        }        
     }
-    
-    add_attack(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
-        let attack_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
 
-        logger.debug(`Adding ${player.name} to attack`);
-        logger.debug(`Damage Targets: ${damage_targets.flatMap((p: Player) => p.name).join(",")}`);
-        logger.debug(`Heal Targets: ${heal_targets.flatMap((p: Player) => p.name).join(",")}`);
-        
-        if (attack_player) {
-            let damage_array: Array<Battle_Player> = [];
-            
-            let heal_array: Array<Battle_Player> = [];
-            
-            damage_targets.forEach((player: Player) => {
-                let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                if (damage_target) {
-                    damage_array.push(damage_target);
-                } else {
-                    // log event
-                    logger.info("Target not found in battle.  Attack.")
-                }
-            });
-            
-            heal_targets.forEach((player: Player) => {
-                let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                if (heal_target) {
-                    heal_array.push(heal_target);
-                } else {
-                    // log event
-                    logger.info("Target not found in battle.  Attack.")
-                }
-            });
-            
-            this.attack_actions.push(new Battle_Action(attack_player.attack, attack_player, damage_array, heal_array));
-            
-            attack_player.battle_status = STATE.ATTACK;
+    all_enemies(user: Player) {
+        logger.debug(`Getting all enemies for ${user.name}`);
+        const player = this.players.find((p: Battle_Player) => p.name == user.name);
+
+        if(player) {
+            return this.players.filter((bplayer: Battle_Player) => bplayer.team != player.team)
         } else {
-            // Log event
-            logger.warn("Player not found.  Attack.")
-        }        
-        
+            logger.warn(`Battle Player ${user.name} not found when looking for enemies`);
+            return undefined
+        }
     }
-    
-    add_special(player: Player, damage_targets: Array<Player>, heal_targets: Array<Player>) {
-        let special_player = this.players.find((b_player: Battle_Player) => b_player.name == player.name);
-        
-        logger.debug(`Adding ${player.name} to special`);
-        logger.debug(`Damage Targets: ${damage_targets.flatMap((p: Player) => p.name).join(",")}`);
-        logger.debug(`Heal Targets: ${heal_targets.flatMap((p: Player) => p.name).join(",")}`);
-        
-        if (special_player) {
-            let damage_array: Array<Battle_Player> = [];
-            
-            let heal_array: Array<Battle_Player> = [];
-            
-            damage_targets.forEach((player: Player) => {
-                let damage_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                if (damage_target) {
-                    damage_array.push(damage_target);
-                } else {
-                    // log event
-                    logger.info("Target not found in battle.  Special.")
-                }
-            });
-            
-            heal_targets.forEach((player: Player) => {
-                let heal_target = this.players.find((target: Battle_Player) => target.name == player.name);
-                if (heal_target) {
-                    heal_array.push(heal_target);
-                } else {
-                    // log event
-                    logger.info("Target not found in battle.  Special.")
-                }
-            });
 
-            this.special_actions.push(new Battle_Action(special_player.special, special_player, damage_array, heal_array));
-            
-            special_player.battle_status = STATE.SPECIAL;
+    all_allies(user: Player) {
+        const player = this.players.find((p: Battle_Player) => p.name == user.name);
+
+        if(player) {
+            return this.players.filter((bplayer: Battle_Player) => bplayer.team == player.team)
         } else {
-            // Log event
-            logger.warn("Player not found.  Special.")
-        }      
+            logger.warn(`Battle Player ${user.name} not found when looking for allies`);
+            return undefined
+        }
+    }
+
+    all_others(user: Player) {
+        const player = this.players.find((p: Battle_Player) => p.name == user.name);
+
+        if(player) {
+            return this.players.filter((bplayer: Battle_Player) => bplayer.name == player.name)
+        } else {
+            logger.warn(`Battle Player ${user.name} not found when looking for others`);
+            return undefined
+        }
+    }
+
+    all() {
+        return this.players;
+    }
+
+    // this is a bit silly, but the mental distinction is important, I think
+    possible_targets(user: Player) {
+        return this.all_others(user);
+    }
+
+    add_action(user: Player, targets: Array<Target_Group>, type: string) {
+        const player: Battle_Player | undefined = this.players.find((bplayer: Battle_Player) => bplayer.name == user.name);
+        
+        logger.debug(`adding for actions ${targets.flatMap(targe => targe.targets.length)}`)
+
+        if(player) {
+            const battle_action: Battle_Action = new Battle_Action(player, targets);
+            
+            switch(type) {
+                case STATE.DEFEND:
+                    logger.debug(`adding ${player.name} defend action to queue`);
+                    this.defend_actions.push(battle_action);
+                    player.battle_status = STATE.DEFEND;
+                    break;
+                case STATE.ATTACK:
+                    logger.debug(`adding ${player.name} attack action to queue`);
+                    this.attack_actions.push(battle_action);
+                    player.battle_status = STATE.ATTACK;
+                    break;
+                case STATE.SPECIAL:
+                    logger.debug(`adding ${player.name} special action to queue`);
+                    this.special_actions.push(battle_action);
+                    player.battle_status = STATE.SPECIAL;
+                    break;
+            }
+        } else {
+            logger.warn(`Player not found when trying to add action: ${user.name}`)
+        }
     }
     
     health_check() {
@@ -242,8 +199,8 @@ export default class Battle {
         // check if all players input actions
         if (!!no_action.length) {
             // log event
-            logger.warn(`${no_action} havn't input action`);
-            return `${no_action} havn't input action`;
+            logger.warn(`${no_action.flatMap((p: Battle_Player) => p.name)} havn't input action`);
+            return `${no_action.flatMap((p: Battle_Player) => p.name)} havn't input action`;
         }
         
         const turn_data: Battle_Data = new Battle_Data(this.round_count);

@@ -1,7 +1,7 @@
 
 import { Action } from './action';
 import Player from './player';
-import STATE from './constant';
+import { STATE } from './constant';
 
 export default class Battle_Player {
     name: string;
