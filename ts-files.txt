@@ -1,0 +1,4 @@
+./src/init.ts 
+./src/deploy-commands.ts 
+./src/commands/*.ts 
+--outDir lib

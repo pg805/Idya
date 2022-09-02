@@ -7,12 +7,17 @@
   "description": "RPG Bot",
   "author": "pg805",
   "main": "./src/init.ts",
+  "module": "./lib/deploy_commands.js",
   "scripts": {
     "start": "node ./lib/init.js",
-    "build": "tsc ./src/init.ts --outDir lib",
+    "refresh_commands": "node ./lib/deploy-commands.js",
+    "build": "tsc --project tsconfig.json",
     "lint": "eslint ."
   },
   "dependencies": {
+    "@discordjs/builders": "^0.13.0",
+    "@discordjs/rest": "^0.4.1",
+    "discord-api-types": "^0.32.1",
     "discord.js": "^13.3.1",
     "node-fetch": "^2.6.1",
     "node-schedule": "^1.3.2",
@@ -30,7 +35,7 @@
     "express"
   ],
   "devDependencies": {
-    "@types/node": "^14.14.35",
+    "@types/node": "^16.6.0",
     "@typescript-eslint/eslint-plugin": "^4.14.1",
     "@typescript-eslint/parser": "^4.14.1",
     "eslint": "^7.18.0",
