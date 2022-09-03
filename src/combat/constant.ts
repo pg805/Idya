@@ -9,6 +9,7 @@ export const STATE = {
 export const EFFECT =  {
     HEAL: "HEAL",
     DAMAGE: "DAMAGE",
+    STATUS: "STATUS",
 }
 
 // one for all numbers??

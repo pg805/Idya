@@ -1,8 +1,9 @@
+
 import logger from "../util/logger";
 import Battle_Data from "./battle_data";
-import Battle_Player from "./battle_player";
+import Battle_Player, { Battle_Status } from "./battle_player";
 import { STATE, EFFECT, TARGET_REQ } from './constant';
-import { Target_Group } from "./target_group";
+import { Status } from './status';
 
 export class Action {
     action_list: Array<Effect_Group>;
@@ -76,7 +77,11 @@ export class Damage_Effect extends Effect {
         
         const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
 
-        const damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
+        let damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
+
+        user.statuses.forEach((stats: Battle_Status) => {
+            damage = stats.action_effect(damage)
+        });
 
         target.health = target.health - damage;
 
@@ -95,12 +100,43 @@ export class Heal_Effect extends Effect {
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) {
         const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
         
-        const health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
+        let health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);    
         
+        user.statuses.forEach((stats: Battle_Status) => {
+            health = stats.action_effect(health)
+        });
+
         target.health = target.health + health;
 
         turn_data.add_target(user, target, health, EFFECT.HEAL, check_crit(user.battle_status, target.battle_status));
 
         return health
+    }
+}
+
+export class Status_Effect extends Effect {
+    status: Status
+
+    constructor(status: Status, critical: number) {
+        super(0, 0, critical, EFFECT.STATUS)
+        this.status = status;
+    }
+
+    execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data): number {
+        const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
+
+        const battle_intensity = Math.floor(Math.ceil(Math.random() * this.status.intensity) * crit);
+
+
+        const old_status = target.statuses.find((stats: Battle_Status) => stats.status.name == this.status.name);
+
+        if(!old_status) {
+            target.add_status(new Battle_Status(this.status, battle_intensity));
+        } else {
+            old_status.duration += this.status.duration;
+            old_status.intensity += battle_intensity;
+        }
+
+        return target.health
     }
 }

@@ -6,12 +6,13 @@
 */
 
 import Player from './player';
-import Battle_Player from './battle_player';
+import Battle_Player, { Battle_Status } from './battle_player';
 import logger from "../util/logger";
 import { STATE } from './constant'
 import Battle_Data from './battle_data';
 import { Action, Effect_Group } from './action';
 import { Target_Group } from './target_group';
+import { Status } from './status';
 
 class Battle_Action {
     player: Battle_Player;
@@ -243,7 +244,12 @@ export default class Battle {
             return turn_data.to_string().concat(this.health_check());
         }
         
-        // Passives/Statuses
+        // Statuses
+        this.players.forEach((player: Battle_Player) => {
+            player.statuses.forEach((stats: Battle_Status) => {
+                stats.end_of_turn_effect(player)
+            })
+        })
 
         // Cleanup
         this.players.forEach((player: Battle_Player) => {
