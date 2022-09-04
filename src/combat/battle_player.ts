@@ -3,6 +3,7 @@ import { Action } from './action';
 import Player from './player';
 import { STATE } from './constant';
 import { Status } from './status';
+import Battle_Data from './battle_data';
 
 export class Battle_Status {
     duration: number;
@@ -15,14 +16,14 @@ export class Battle_Status {
         this.intensity = intensity;
     }
 
-    end_of_turn_effect(player: Battle_Player) {
+    end_of_turn_effect(player: Battle_Player, turn_data: Battle_Data) {
         this.duration -= 1;
-        this.status.end_of_turn_effect(player, this.intensity)
+        this.status.end_of_turn_effect(player, this.intensity, turn_data)
     }
 
-    action_effect(amount: number) {
+    action_effect(amount: number, turn_data: Battle_Data) {
         this.duration -= 1
-        return this.status.action_effect(amount, this.intensity)
+        return this.status.action_effect(amount, this.intensity, turn_data)
     }
 }
 

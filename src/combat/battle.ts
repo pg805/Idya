@@ -247,7 +247,7 @@ export default class Battle {
         // Statuses
         this.players.forEach((player: Battle_Player) => {
             player.statuses.forEach((stats: Battle_Status) => {
-                stats.end_of_turn_effect(player)
+                stats.end_of_turn_effect(player, turn_data)
             })
         })
 
