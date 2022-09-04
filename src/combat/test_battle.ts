@@ -3,10 +3,11 @@ import Battle_Player from './battle_player';
 import Battle from './battle';
 import logger from "../util/logger";
 import { Interaction, MessageActionRow, MessageButton, MessageEmbed } from "discord.js";
-import { Action, Heal_Effect, Damage_Effect, Effect_Group } from './action';
+import { Action, Heal_Effect, Damage_Effect, Effect_Group, Status_Effect } from './action';
 import { STATE, EFFECT, TARGET_REQ } from './constant';
 import { Group_Target, Numbered_Target, Self_Target, Target_Group } from './target_group';
 import { group } from 'console';
+import { Damage_Reduction_Status, Damage_Status } from './status';
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -40,36 +41,77 @@ const battle_row: MessageActionRow = new MessageActionRow()
     .addComponents([attack_button, defend_button, special_button]);
 
 const rat_defend: Action = new Action(STATE.DEFEND);
-const rat_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
-rat_defend_group.add_effect(new Heal_Effect(0, 0, 0));
-rat_defend.add_effect(rat_defend_group);
-
 const rat_attack: Action = new Action(STATE.ATTACK);
-const rat_attack_group: Effect_Group = new Effect_Group("1");
-rat_attack_group.add_effect(new Damage_Effect(10, 0, 2));
-rat_attack.add_effect(rat_attack_group);
-
 const rat_special: Action = new Action(STATE.SPECIAL);
-const rat_special_group: Effect_Group = new Effect_Group("1");
-rat_special_group.add_effect(new Damage_Effect(30, 0, 1.5));
-rat_special.add_effect(rat_special_group);
 
 const pc_defend: Action = new Action(STATE.DEFEND);
-const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
-pc_defend_group.add_effect(new Heal_Effect(30, 10, 2));
-pc_defend.add_effect(pc_defend_group);
-
 const pc_attack: Action = new Action(STATE.ATTACK);
-const pc_attack_group: Effect_Group = new Effect_Group("1");
-pc_attack_group.add_effect(new Damage_Effect(30, 10, 2));
-pc_attack.add_effect(pc_attack_group);
-
 const pc_special: Action = new Action(STATE.SPECIAL);
-const pc_special_group: Effect_Group = new Effect_Group("1");
-pc_special_group.add_effect(new Damage_Effect(30, 10, 4));
-pc_special.add_effect(pc_special_group);
 
-const rat: Player = new Player(
+if(2) {
+    // rat defend
+    const rat_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+    rat_defend_group.add_effect(new Heal_Effect(0, 0, 0));
+    rat_defend.add_effect(rat_defend_group);
+    
+    // rat attack with poison
+    const rat_poison = new Damage_Status(2, 10, 'poison');
+
+    const rat_attack_group: Effect_Group = new Effect_Group("1");
+    rat_attack_group.add_effect(new Damage_Effect(10, 0, 2));
+    rat_attack_group.add_effect(new Status_Effect(rat_poison, 2));
+    rat_attack.add_effect(rat_attack_group);
+
+    // rat special
+    const rat_special_group: Effect_Group = new Effect_Group("1");
+    rat_special_group.add_effect(new Damage_Effect(30, 0, 1.5));
+    rat_special.add_effect(rat_special_group);
+
+    // PC defend with damage reduction
+    const shield_block = new Damage_Reduction_Status(1, 30, 'shield');
+
+    const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+    pc_defend_group.add_effect(new Heal_Effect(30, 10, 2));
+    pc_defend_group.add_effect(new Status_Effect(shield_block, 2));
+    pc_defend.add_effect(pc_defend_group);
+
+    // PC attack
+    const pc_attack_group: Effect_Group = new Effect_Group("1");
+    pc_attack_group.add_effect(new Damage_Effect(30, 10, 2));
+    pc_attack.add_effect(pc_attack_group);
+    
+    // PC special
+    const pc_special_group: Effect_Group = new Effect_Group("1");
+    pc_special_group.add_effect(new Damage_Effect(30, 10, 4));
+    pc_special.add_effect(pc_special_group);
+
+} else {
+    const rat_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+    rat_defend_group.add_effect(new Heal_Effect(0, 0, 0));
+    rat_defend.add_effect(rat_defend_group);
+    
+    const rat_attack_group: Effect_Group = new Effect_Group("1");
+    rat_attack_group.add_effect(new Damage_Effect(10, 0, 2));
+    rat_attack.add_effect(rat_attack_group);
+    
+    const rat_special_group: Effect_Group = new Effect_Group("1");
+    rat_special_group.add_effect(new Damage_Effect(30, 0, 1.5));
+    rat_special.add_effect(rat_special_group);
+    
+    const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
+    pc_defend_group.add_effect(new Heal_Effect(30, 10, 2));
+    pc_defend.add_effect(pc_defend_group);
+
+    const pc_attack_group: Effect_Group = new Effect_Group("1");
+    pc_attack_group.add_effect(new Damage_Effect(30, 10, 2));
+    pc_attack.add_effect(pc_attack_group);
+
+    const pc_special_group: Effect_Group = new Effect_Group("1");
+    pc_special_group.add_effect(new Damage_Effect(30, 10, 4));
+    pc_special.add_effect(pc_special_group);
+}
+    
+    const rat: Player = new Player(
     // Name
     'Rat', 
     // Defend
