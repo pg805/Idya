@@ -11,6 +11,10 @@ export default class Player {
     special: Action;
 
     constructor (name: string, defend: Action, attack: Action, special: Action) {
+        // TODO: Action Names
+        logger.info(`Creating Player:
+Name: ${name}
+Health: ${100}`);
         this.name = name;
         this.health = 100;
         this.defend = defend;
@@ -27,7 +31,7 @@ export default class Player {
             case STATE.SPECIAL:
                 return this.special;
             default:
-                logger.warn(`${type} not found`);
+                logger.warn(`Action ${type} not found for player ${this.name}`);
         }
     }
 }

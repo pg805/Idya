@@ -80,7 +80,7 @@ export class Damage_Effect extends Effect {
         let damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
 
         user.statuses.forEach((stats: Battle_Status) => {
-            damage = stats.action_effect(damage)
+            damage += stats.action_effect(damage, turn_data)
         });
 
         target.health = target.health - damage;
@@ -103,7 +103,7 @@ export class Heal_Effect extends Effect {
         let health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);    
         
         user.statuses.forEach((stats: Battle_Status) => {
-            health = stats.action_effect(health)
+            health += stats.action_effect(health, turn_data)
         });
 
         target.health = target.health + health;
