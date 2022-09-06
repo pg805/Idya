@@ -38,7 +38,7 @@ const special_button: MessageButton = new MessageButton()
     .setStyle('PRIMARY');
 
 const battle_row: MessageActionRow = new MessageActionRow()
-    .addComponents([attack_button, defend_button, special_button]);
+    .addComponents([defend_button, attack_button, special_button]);
 
 const rat_defend: Action = new Action(STATE.DEFEND);
 const rat_attack: Action = new Action(STATE.ATTACK);

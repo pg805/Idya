@@ -24,7 +24,7 @@ class Battle_Action {
     }
 
     run_action(turn_data: Battle_Data) {
-        logger.debug(`Battle Action - Targets: ${this.target_effects.flatMap(effect => effect.targets)}`);
+        logger.debug(`Battle Action - Targets: ${this.target_effects.flatMap(effect => effect.targets.flatMap((p: Battle_Player) => p.name).join(',')).join(';')}`);
         turn_data.add_action(this.player);
         this.target_effects.forEach((tg: Target_Group) => {
             tg.affect_targets(this.player, turn_data);
@@ -126,34 +126,35 @@ export default class Battle {
     add_action(user: Player, targets: Array<Target_Group>, type: string) {
         const player: Battle_Player | undefined = this.players.find((bplayer: Battle_Player) => bplayer.name == user.name);
         
-        logger.debug(`adding for actions ${targets.flatMap(targe => targe.targets.length)}`)
+        logger.debug(`Battle - adding for actions ${targets.flatMap(targe => targe.targets.length)}`)
 
         if(player) {
             const battle_action: Battle_Action = new Battle_Action(player, targets);
             
             switch(type) {
                 case STATE.DEFEND:
-                    logger.debug(`adding ${player.name} defend action to queue`);
+                    logger.debug(`Battle - adding ${player.name} defend action to queue`);
                     this.defend_actions.push(battle_action);
                     player.battle_status = STATE.DEFEND;
                     break;
                 case STATE.ATTACK:
-                    logger.debug(`adding ${player.name} attack action to queue`);
+                    logger.debug(`Battle - adding ${player.name} attack action to queue`);
                     this.attack_actions.push(battle_action);
                     player.battle_status = STATE.ATTACK;
                     break;
                 case STATE.SPECIAL:
-                    logger.debug(`adding ${player.name} special action to queue`);
+                    logger.debug(`Battle - adding ${player.name} special action to queue`);
                     this.special_actions.push(battle_action);
                     player.battle_status = STATE.SPECIAL;
                     break;
             }
         } else {
-            logger.warn(`Player not found when trying to add action: ${user.name}`)
+            logger.warn(`Battle - Player not found when trying to add action: ${user.name}`)
         }
     }
     
     health_check() {
+        logger.debug(`Battle - Checking Health`);
         let return_message = '\n**Health Left**:\n';
         
         this.players.forEach((player: Battle_Player) => {
@@ -168,7 +169,7 @@ export default class Battle {
     }
 
     death_check(turn_data: Battle_Data) {
-        logger.debug('Checking deaths');
+        logger.debug('Battle - Checking deaths');
         this.players.forEach((player: Battle_Player) => {
             if(player.health <= 0) {
                 // info?
@@ -178,16 +179,16 @@ export default class Battle {
             }
         });
 
-        logger.debug('Checking Wins')
+        logger.debug('Battle - Checking Wins')
         const possible_winners = this.players
             .filter((player: Battle_Player) => player.battle_status != STATE.DEAD);
 
         if(possible_winners
             .every((player: Battle_Player, index: number, array: Array<Battle_Player>) => player.team == array[0].team)) {
                 // declare winner
-                logger.debug(`${possible_winners.flatMap((winner: Battle_Player) => winner.name).join(" and ")} have won.`);
+                logger.debug(`Battle - ${possible_winners.flatMap((winner: Battle_Player) => winner.name).join(" and ")} have won.`);
                 turn_data.set_winners(possible_winners);
-                logger.info("Battle Over gg.")
+                // logger.info("Battle Over gg.")
         }
     }
     // check who hasn't input action yet function?

@@ -1,19 +1,21 @@
 import logger from "../util/logger";
 import Battle_Data from "./battle_data";
 import Battle_Player from "./battle_player";
-import { TARGET_REQ } from "./constant";
+import { STATUS, TARGET_REQ } from "./constant";
 
 export class Status {
     duration: number;
     intensity: number;
     name: string;
     target: string;
+    type: string;
 
-    constructor(duration: number, intensity: number, name: string, target: string) {
+    constructor(duration: number, intensity: number, name: string, target: string, type: string) {
         this.duration = duration;
         this.intensity = intensity;
         this.name = name;
-        this.target = target
+        this.target = target;
+        this.type = type
     }
 
     end_of_turn_effect(player: Battle_Player, intensity: number, turn_data: Battle_Data): void {
@@ -27,7 +29,7 @@ export class Status {
 
 export class Damage_Status extends Status {
     constructor(duration: number, intensity: number, name: string) {
-        super(duration, intensity, name, TARGET_REQ.SELF)
+        super(duration, intensity, name, TARGET_REQ.SELF, STATUS.EOT)
     }
 
     end_of_turn_effect(player: Battle_Player, intensity: number, turn_data: Battle_Data): void {
@@ -38,7 +40,7 @@ export class Damage_Status extends Status {
 
 export class Health_Status extends Status {
     constructor(duration: number, intensity: number, name: string) {
-        super(duration, intensity, name, TARGET_REQ.SELF)
+        super(duration, intensity, name, TARGET_REQ.SELF, STATUS.EOT)
     }
     
     end_of_turn_effect(player: Battle_Player, intensity: number, turn_data: Battle_Data): void {
@@ -49,22 +51,22 @@ export class Health_Status extends Status {
 
 export class Damage_Reduction_Status extends Status {
     constructor(duration: number, intensity: number, name: string, target: string) {
-        super(duration, intensity, name, target)
+        super(duration, intensity, name, target, STATUS.ACTION)
     }
     
     action_effect(amount: number, intensity: number, turn_data: Battle_Data): number {
         logger.debug(`Status - Running action damage reduction effect ${this.name} with intensity ${intensity}`);
-        return Math.max(amount - intensity, 0);
+        return intensity  * -1;
     }
 }
 
 export class Damage_Increase_Status extends Status {
     constructor(duration: number, intensity: number, name: string, target: string) {
-        super(duration, intensity, name, target)
+        super(duration, intensity, name, target, STATUS.ACTION)
     }
     
     apply_effect(amount: number, intensity: number, turn_data: Battle_Data): number {
         logger.debug(`Status - Running action damage increase effect ${this.name} with intensity ${intensity}`);
-        return amount + intensity;
+        return intensity;
     }
 }

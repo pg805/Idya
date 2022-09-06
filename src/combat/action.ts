@@ -88,16 +88,25 @@ export class Damage_Effect extends Effect {
         let damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
 
         user.statuses.forEach((stats: Battle_Status) => {
-            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect`)
-            if(stats.status.target == TARGET_REQ.SELF) {
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect.  Target Req: ${stats.status.target}`)
+            if(stats.status.target != TARGET_REQ.SELF) {
                 damage += stats.action_effect(damage, turn_data)
             }
         });
 
+        target.statuses.forEach((stats: Battle_Status) => {
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect.  Target Req: ${stats.status.target}`)
+            if(stats.status.target == TARGET_REQ.SELF) {
+                damage += stats.action_effect(damage, turn_data)
+            }
+        })
+
+        damage = Math.max(damage, 0);
+
         logger.debug(`Effect - Damage Effect
 User: ${user.name}
 Target: ${target.name}
-Crit: ${crit}
+Crit: ${check_crit(user.battle_status, target.battle_status)}
 damage: ${damage}
 Target Original Health: ${target.health}
 Target New Health: ${Math.max(target.health - damage, 0)}`);
@@ -122,16 +131,25 @@ export class Heal_Effect extends Effect {
         let health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);    
         
         user.statuses.forEach((stats: Battle_Status) => {
-            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect`)
-            if(stats.status.target == TARGET_REQ.SELF) {
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Heal Effect.  Target Req: ${stats.status.target}`)
+            if(stats.status.target != TARGET_REQ.SELF) {
                 health += stats.action_effect(health, turn_data)
             }
         });
 
+        target.statuses.forEach((stats: Battle_Status) => {
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Heal Effect.  Target Req: ${stats.status.target}`)
+            if(stats.status.target == TARGET_REQ.SELF) {
+                health += stats.action_effect(health, turn_data)
+            }
+        })
+
+        health = Math.max(health, 0);
+
         logger.debug(`Effect - Heal Effect
 User: ${user.name}
 Target: ${target.name}
-Crit: ${crit}
+Crit: ${check_crit(user.battle_status, target.battle_status)}
 Health: ${health}
 Target Original Health: ${target.health}
 Target Mew Health: ${Math.min(target.health + health, target.max_health)}`);
@@ -165,7 +183,7 @@ User: ${user.name}
 Target: ${target.name}
 Status: ${this.status.name}
 Already Applied: ${!!old_status}
-Crit: ${crit}
+Crit: ${check_crit(user.battle_status, target.battle_status)}
 Rolled Intensity: ${battle_intensity}
 Total Intensity: ${!!old_status ? old_status.intensity + battle_intensity : battle_intensity}
 Total Duration: ${!!old_status ? old_status.duration + this.status.duration : this.status.duration}`)
@@ -176,7 +194,7 @@ Total Duration: ${!!old_status ? old_status.duration + this.status.duration : th
             old_status.intensity += battle_intensity;
         }
 
-        turn_data.add_target(user, target, battle_intensity, EFFECT.STATUS, !!crit);
+        turn_data.add_target(user, target, battle_intensity, EFFECT.STATUS, check_crit(user.battle_status, target.battle_status));
 
         return target.health
     }

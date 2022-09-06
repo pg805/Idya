@@ -12,6 +12,11 @@ export const EFFECT =  {
     STATUS: "STATUS",
 }
 
+export const STATUS = {
+    EOT: "EOT",
+    ACTION: "ACTION",
+}
+
 // one for all numbers??
 export const TARGET_REQ = {
     SELF: "SELF",

@@ -1,7 +1,7 @@
 
 import { Action } from './action';
 import Player from './player';
-import { STATE } from './constant';
+import { STATE, STATUS } from './constant';
 import { Status } from './status';
 import Battle_Data from './battle_data';
 import logger from '../util/logger';
@@ -18,14 +18,18 @@ export class Battle_Status {
     }
 
     end_of_turn_effect(player: Battle_Player, turn_data: Battle_Data) {
-        logger.debug(`Battle Status - Running end of turn effect ${this.status.name} on ${player.name} with intensity ${this.intensity}.  ${this.duration - 1} turns left of status.`)
-        this.duration -= 1;
+        if(this.status.type == STATUS.EOT) {
+            logger.debug(`Battle Status - Running end of turn effect ${this.status.name} on ${player.name} with intensity ${this.intensity}.  ${this.duration - 1} turns left of status.`)
+            this.duration -= 1;
+        }
         this.status.end_of_turn_effect(player, this.intensity, turn_data)
     }
     
     action_effect(amount: number, turn_data: Battle_Data) {
-        logger.debug(`Battle Status - Running action effect ${this.status.name} with intensity ${this.intensity} on amount ${amount}.  ${this.duration - 1} turns left of status.`)
-        this.duration -= 1
+        if(this.status.type == STATUS.ACTION) {
+            logger.debug(`Battle Status - Running action effect ${this.status.name} with intensity ${this.intensity} on amount ${amount}.  ${this.duration - 1} turns left of status.`)
+            this.duration -= 1
+        }
         return this.status.action_effect(amount, this.intensity, turn_data)
     }
 }
