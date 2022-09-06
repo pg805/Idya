@@ -68,7 +68,7 @@ if(2) {
     rat_special.add_effect(rat_special_group);
 
     // PC defend with damage reduction
-    const shield_block = new Damage_Reduction_Status(1, 30, 'shield');
+    const shield_block = new Damage_Reduction_Status(1, 30, 'shield', TARGET_REQ.SELF);
 
     const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
     pc_defend_group.add_effect(new Heal_Effect(30, 10, 2));

@@ -30,6 +30,10 @@ class Target_Data {
                 attack_type = 'damages';
                 resource = 'health';
                 break;
+            case EFFECT.STATUS:
+                attack_type = 'applies status to';
+                resource = 'intensity';
+                break;
             default:
                 logger.warn(`Unknown Target Data type: ${this.type}`);
                 resource = 'potatoes';
@@ -45,13 +49,13 @@ class Action_Data {
     targets: Array<Target_Data>;
 
     constructor(executor: Battle_Player) {
-        logger.debug(`Creating Action for ${executor.name}`);
+        logger.debug(`Action Data - Creating Action for ${executor.name}`);
         this.executor = executor;
         this.targets = [];
     }
 
     add_target(player: Battle_Player, amount: number, type: string, crit: boolean) {
-        logger.debug(`Adding Target to ${this.executor.name}'s action in action:\nTarget: ${player.name}\nAmount: ${amount}\nType:${type}`);
+        logger.debug(`Action Data - Adding Target to ${this.executor.name}'s action in action:\nTarget: ${player.name}\nAmount: ${amount}\nType:${type}`);
         this.targets.push(new Target_Data(player, amount, type, crit));
     }
 
@@ -69,10 +73,12 @@ class Death_Data {
     }
 
     death(player: Battle_Player) {
+        logger.debug(`Death Data - Adding ${player.name} to death array`);
         this.dead_people.push(player);
     }
 
     death_check() {
+        logger.debug(`Death Data - Checking Death Array`)
         return !!this.dead_people.length;
     }
 
@@ -94,10 +100,12 @@ class Win_Data {
     }
 
     check() {
+        logger.debug(`Winners - Checking Winners`)
         return !!this.winners.length;
     }
 
     set_winners(winners: Array<Battle_Player>) {
+        logger.debug(`Winners - Setting Winners ${winners.flatMap(p => p.name).join(', ')}`)
         this.winners = winners;
     }
 
@@ -121,37 +129,37 @@ export default class Battle_Data {
     }
 
     add_action(player: Battle_Player) {
-        logger.debug(`Adding Action Data for ${player.name}`);
+        logger.debug(`Battle Data - Adding Action Data for ${player.name}`);
         this.action_log.push(new Action_Data(player));
     }
 
     add_target(executor: Battle_Player, target: Battle_Player, amount: number, type: string, crit: boolean) {
-        logger.debug(`Adding Target to ${executor.name}'s action data:\nName: ${target.name}\nAmount: ${amount}\nType: ${type}`);
+        logger.debug(`Battle Data - Adding Target to ${executor.name}'s action data:\nName: ${target.name}\nAmount: ${amount}\nType: ${type}`);
         const target_action = this.action_log.find((action: Action_Data) => action.executor == executor);
-        logger.debug(`Found action for this target: ${!!target_action}`);
+        logger.debug(`Battle Data - Found action for this target: ${!!target_action}`);
         if(target_action) {
             target_action.add_target(target, amount, type, crit)
         }
     }
 
     add_death(dead_player: Battle_Player) {
-        logger.debug(`Adding Death: ${dead_player.name}`);
+        logger.debug(`Battle Data - Adding Death: ${dead_player.name}`);
         this.death_log.death(dead_player);
     }
 
     death_check() {
-        logger.debug(`Checking Death: ${this.death_log.death_check()}`);
+        logger.debug(`Battle Data - Checking Death: ${this.death_log.death_check()}`);
         return this.death_log.death_check();
     }
 
     
     set_winners(winners: Array<Battle_Player>) {
-        logger.debug(`Setting winners: ${winners.flatMap(p => p.name).join(', ')}`);
+        logger.debug(`Battle Data - Setting winners: ${winners.flatMap(p => p.name).join(', ')}`);
         this.win_log.set_winners(winners);
     }
 
     win_check() {
-        logger.debug(`Checking Win: ${this.win_log.check()}`);
+        logger.debug(`Battle Data - Checking Win: ${this.win_log.check()}`);
         return this.win_log.check()
     }
     

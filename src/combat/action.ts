@@ -19,7 +19,7 @@ export class Action {
     }
 
     add_effect(effect: Effect_Group) {
-        logger.debug(`Adding effect group with requirement ${effect.target_req}`);   
+        logger.debug(`Action - Adding effect group with requirement ${effect.target_req}`);   
         this.action_list.push(effect);
     }
 }
@@ -35,6 +35,7 @@ export class Effect_Group {
     }
 
     add_effect(effect: Effect) {
+        logger.debug(`Effect Group - Adding effect of type ${effect.type} to effect group`);
         this.effects.push(effect);
     }
 }
@@ -58,12 +59,19 @@ export class Effect {
 }
 
 export function check_crit(user_action: string, target_action: string) {
+    
     if ((target_action == STATE.DEFEND && user_action == STATE.SPECIAL) ||
     (target_action == STATE.ATTACK && user_action == STATE.DEFEND) ||
     (target_action == STATE.SPECIAL && user_action == STATE.ATTACK)
     ) {
+        logger.debug(`Check Crit - Checking Crit for action: True
+User type ${user_action}
+Target Type ${target_action}`)
         return true;
     }
+    logger.debug(`Check Crit - Checking Crit for action: False
+User type ${user_action}
+Target Type ${target_action}`)
     return false;
 }
 
@@ -74,16 +82,27 @@ export class Damage_Effect extends Effect {
     }
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) {
-        
+
         const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
 
         let damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
 
         user.statuses.forEach((stats: Battle_Status) => {
-            damage += stats.action_effect(damage, turn_data)
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect`)
+            if(stats.status.target == TARGET_REQ.SELF) {
+                damage += stats.action_effect(damage, turn_data)
+            }
         });
 
-        target.health = target.health - damage;
+        logger.debug(`Effect - Damage Effect
+User: ${user.name}
+Target: ${target.name}
+Crit: ${crit}
+damage: ${damage}
+Target Original Health: ${target.health}
+Target New Health: ${Math.max(target.health - damage, 0)}`);
+
+        target.health = Math.max(target.health - damage, 0);
 
         turn_data.add_target(user, target, damage, EFFECT.DAMAGE, check_crit(user.battle_status, target.battle_status));
 
@@ -103,10 +122,21 @@ export class Heal_Effect extends Effect {
         let health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);    
         
         user.statuses.forEach((stats: Battle_Status) => {
-            health += stats.action_effect(health, turn_data)
+            logger.debug(`Effect - Checking Status ${stats.status.name} for Damage Effect`)
+            if(stats.status.target == TARGET_REQ.SELF) {
+                health += stats.action_effect(health, turn_data)
+            }
         });
 
-        target.health = target.health + health;
+        logger.debug(`Effect - Heal Effect
+User: ${user.name}
+Target: ${target.name}
+Crit: ${crit}
+Health: ${health}
+Target Original Health: ${target.health}
+Target Mew Health: ${Math.min(target.health + health, target.max_health)}`);
+
+        target.health = Math.min(target.health + health, target.max_health);
 
         turn_data.add_target(user, target, health, EFFECT.HEAL, check_crit(user.battle_status, target.battle_status));
 
@@ -130,12 +160,23 @@ export class Status_Effect extends Effect {
 
         const old_status = target.statuses.find((stats: Battle_Status) => stats.status.name == this.status.name);
 
+        logger.debug(`Effect - Status Effect
+User: ${user.name}
+Target: ${target.name}
+Status: ${this.status.name}
+Already Applied: ${!!old_status}
+Crit: ${crit}
+Rolled Intensity: ${battle_intensity}
+Total Intensity: ${!!old_status ? old_status.intensity + battle_intensity : battle_intensity}
+Total Duration: ${!!old_status ? old_status.duration + this.status.duration : this.status.duration}`)
         if(!old_status) {
             target.add_status(new Battle_Status(this.status, battle_intensity));
         } else {
             old_status.duration += this.status.duration;
             old_status.intensity += battle_intensity;
         }
+
+        turn_data.add_target(user, target, battle_intensity, EFFECT.STATUS, !!crit);
 
         return target.health
     }

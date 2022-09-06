@@ -24,7 +24,7 @@ class Battle_Action {
     }
 
     run_action(turn_data: Battle_Data) {
-        logger.debug(`Battle Action Targets: ${this.target_effects.flatMap(effect => effect.targets)}`);
+        logger.debug(`Battle Action - Targets: ${this.target_effects.flatMap(effect => effect.targets)}`);
         turn_data.add_action(this.player);
         this.target_effects.forEach((tg: Target_Group) => {
             tg.affect_targets(this.player, turn_data);
@@ -60,6 +60,7 @@ export default class Battle {
                 team.forEach((player: Player) => {
                     this.players.push(new Battle_Player(player, team_index))
                 });
+                logger.debug(`Initialize Battle - Team Added ${team.flatMap((player: Player) => player.name).join(`,`)}`)
                 team_index++;
             });
             this.number_of_teams = team_index;
@@ -200,58 +201,67 @@ export default class Battle {
         // check if all players input actions
         if (!!no_action.length) {
             // log event
-            logger.warn(`${no_action.flatMap((p: Battle_Player) => p.name)} havn't input action`);
+            logger.warn(`Battle - ${no_action.flatMap((p: Battle_Player) => p.name)} havn't input action`);
             return `${no_action.flatMap((p: Battle_Player) => p.name)} havn't input action`;
         }
         
         const turn_data: Battle_Data = new Battle_Data(this.round_count);
-        logger.debug('Turn Data Created');
+        logger.debug('Battle - Turn Data Created');
 
         // resolve defend
         this.defend_actions.forEach((action: Battle_Action) => {
             // needs strings
-            logger.debug(`Running ${action.player.name}'s defend action`);
+            logger.debug(`Battle - Running ${action.player.name}'s defend action`);
             action.run_action(turn_data);
         });
         
         this.death_check(turn_data);
         if(turn_data.win_check()) {
-            logger.debug('Win Confirmed');
+            logger.debug('Battle - Win Confirmed');
             return turn_data.to_string().concat(this.health_check());
         }
         
         // resolve attack
         this.attack_actions.forEach((action: Battle_Action) => {
-            logger.debug(`Running ${action.player.name}'s attack action`);
+            logger.debug(`Battle - Running ${action.player.name}'s attack action`);
             action.run_action(turn_data);
         });
         
         this.death_check(turn_data);
         if(turn_data.win_check()) {
-            logger.debug('Win Confirmed');
+            logger.debug('Battle - Win Confirmed');
             return turn_data.to_string().concat(this.health_check());
         }
         
         // resolve special
         this.special_actions.forEach((action: Battle_Action) => {
-            logger.debug(`Running ${action.player.name}'s special action`);
+            logger.debug(`Battle - Running ${action.player.name}'s special action`);
             action.run_action(turn_data);
         });
         
         this.death_check(turn_data);
         if(turn_data.win_check()) {
-            logger.debug('Win Confirmed');
+            logger.debug('Battle - Win Confirmed');
             return turn_data.to_string().concat(this.health_check());
         }
         
         // Statuses
         this.players.forEach((player: Battle_Player) => {
+            logger.debug(`Battle - Running end of turn statuses for player ${player.name}`);
             player.statuses.forEach((stats: Battle_Status) => {
                 stats.end_of_turn_effect(player, turn_data)
             })
+            player.check_statuses();
         })
 
+        this.death_check(turn_data);
+        if(turn_data.win_check()) {
+            logger.debug('Battle - Win Confirmed');
+            return turn_data.to_string().concat(this.health_check());
+        }
+
         // Cleanup
+        logger.debug(`Battle - Cleanup`)
         this.players.forEach((player: Battle_Player) => {
             if (player.battle_status != STATE.DEAD) {
                 player.battle_status = STATE.NONE
