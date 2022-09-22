@@ -1,46 +1,43 @@
 import logger from "../util/logger";
 import { check_crit } from "./action";
-import Battle_Player from "./battle_player";
+import Battle_Player, { Battle_Status } from "./battle_player";
 import { STATE, EFFECT } from './constant';
+
+class Effect_Data {
+    target: Battle_Player;
+    intensity: number;
+    name: string;
+    type: string;
+
+    constructor(target: Battle_Player, intensity: number, name: string, type: string) {
+        this.target = target;
+        this.intensity = intensity;
+        this.name = name;
+        this.type = type;
+    }
+
+    to_string() {
+        return `\n${this.name} affects ${this.target.name} for ${this.intensity} health`
+    }
+}
 
 class Target_Data {
     target: Battle_Player;
     amount: number;
     type: string;
     crit: boolean;
+    string: string;
 
-    constructor(target: Battle_Player, amount: number, type: string, crit: boolean) {
+    constructor(target: Battle_Player, amount: number, type: string, crit: boolean, string: string) {
         this.target = target;
         this.amount = amount;
         this.type = type;
         this.crit = crit;
+        this.string = string;
     }
 
     to_string() {
-
-        let attack_type: string = '';
-        let resource: string = '';
-
-        switch(this.type) {
-            case EFFECT.HEAL:
-                attack_type = 'heals';
-                resource = 'health';
-                break;
-            case EFFECT.DAMAGE:
-                attack_type = 'damages';
-                resource = 'health';
-                break;
-            case EFFECT.STATUS:
-                attack_type = 'applies status to';
-                resource = 'intensity';
-                break;
-            default:
-                logger.warn(`Unknown Target Data type: ${this.type}`);
-                resource = 'potatoes';
-                attack_type = 'fries';
-        }
-
-        return `${this.crit ? 'critically ':''}${attack_type} ${this.target.name} for ${this.amount} ${resource}`
+        return this.string;
     }
 }
 
@@ -54,13 +51,13 @@ class Action_Data {
         this.targets = [];
     }
 
-    add_target(player: Battle_Player, amount: number, type: string, crit: boolean) {
+    add_target(player: Battle_Player, amount: number, type: string, crit: boolean, string: string) {
         logger.debug(`Action Data - Adding Target to ${this.executor.name}'s action in action:\nTarget: ${player.name}\nAmount: ${amount}\nType:${type}`);
-        this.targets.push(new Target_Data(player, amount, type, crit));
+        this.targets.push(new Target_Data(player, amount, type, crit, string));
     }
 
     to_string() {
-        return `\n${this.executor.name} ${this.targets.flatMap((target: Target_Data) => target.to_string()).join(`\nand `)}.`;
+        return `\n${this.targets.flatMap((target: Target_Data) => target.to_string()).join(`\nand `)}`;
     }
 }
 
@@ -117,12 +114,14 @@ class Win_Data {
 
 export default class Battle_Data {
     action_log: Array<Action_Data>;
+    effect_log: Array<Effect_Data>
     death_log: Death_Data;
     win_log: Win_Data;
     turn_count: number;
 
     constructor(turn_count: number) {
         this.action_log = [];
+        this.effect_log = [];
         this.death_log = new Death_Data;
         this.win_log = new Win_Data;
         this.turn_count = turn_count;
@@ -133,13 +132,18 @@ export default class Battle_Data {
         this.action_log.push(new Action_Data(player));
     }
 
-    add_target(executor: Battle_Player, target: Battle_Player, amount: number, type: string, crit: boolean) {
+    add_target(executor: Battle_Player, target: Battle_Player, amount: number, type: string, crit: boolean, string: string) {
         logger.debug(`Battle Data - Adding Target to ${executor.name}'s action data:\nName: ${target.name}\nAmount: ${amount}\nType: ${type}`);
         const target_action = this.action_log.find((action: Action_Data) => action.executor == executor);
         logger.debug(`Battle Data - Found action for this target: ${!!target_action}`);
         if(target_action) {
-            target_action.add_target(target, amount, type, crit)
+            target_action.add_target(target, amount, type, crit, string)
         }
+    }
+
+    add_effect(target: Battle_Player, status: Battle_Status) {
+        logger.debug(`Battle Data - Adding Effect Status for ${target.name}\nStatus: ${status.status.name}\nIntensity: ${status.intensity}`);
+        this.effect_log.push(new Effect_Data(target, status.intensity, status.status.name, status.status.type))
     }
 
     add_death(dead_player: Battle_Player) {
@@ -170,9 +174,18 @@ export default class Battle_Data {
 
         return_string += '\n===========================================';
 
+        return_string += `\n**Action Log**`
+
         this.action_log.forEach((action: Action_Data) =>{
             return_string += action.to_string();
         });
+
+        return_string += '\n===========================================';
+        return_string += `\n**End of Turn Effect Log**`
+
+        this.effect_log.forEach((effect_data: Effect_Data) =>
+            return_string += effect_data.to_string()
+        ); 
 
         return_string += '\n===========================================';
         

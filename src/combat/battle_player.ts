@@ -19,6 +19,7 @@ export class Battle_Status {
 
     end_of_turn_effect(player: Battle_Player, turn_data: Battle_Data) {
         if(this.status.type == STATUS.EOT) {
+            turn_data.add_effect(player, this)
             logger.debug(`Battle Status - Running end of turn effect ${this.status.name} on ${player.name} with intensity ${this.intensity}.  ${this.duration - 1} turns left of status.`)
             this.duration -= 1;
         }

@@ -9,6 +9,7 @@ export class Action {
     action_list: Array<Effect_Group>;
     type: string;
     
+
     constructor(type: string) {
         this.action_list = [];
         this.type = type;
@@ -40,6 +41,8 @@ export class Effect_Group {
     }
 }
 
+type template = (values: {user: string; target: string; amount: number; crit: boolean}) => string;
+
 // Effect needs to know user's attack type to determine crit
 export class Effect {
     roll: number;
@@ -47,15 +50,47 @@ export class Effect {
     constant: number;
     critical: number;
     type: string;
+    template: template;
 
-    constructor(roll: number, constant: number, critical: number, type: string) {
+    constructor(roll: number, constant: number, critical: number, type: string, template: template) {
         this.roll = roll;
         this.constant = constant;
         this.critical = critical;
         this.type = type;
+        this.template = template;
     }
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) { return 0 }
+
+    to_string(user: Battle_Player, target: Battle_Player, amount: number, crit: boolean):string {
+        return this.template({
+            user: user.name,
+            target: target.name,
+            amount: amount,
+            crit: crit
+        });
+    }
+
+    static create_template(strings: TemplateStringsArray, ...keys: string[]): template {
+        logger.debug(`Action - Creating Template\nString Array: ${strings}\nkeys: ${keys}`);
+        return (values: {user: string; target: string; amount: number; crit: boolean}) => {
+            logger.debug(`Action - Creating String`);
+            const result: string[] = [strings[0]];
+            keys.forEach((key, i) => {
+                logger.debug(`Action - Key: ${key} :: string ${i + 1}: ${strings[i + 1]} :: result: ${result} :: value: ${values[key as keyof Object]}`);
+                if(values[key as keyof Object] != undefined) {
+                    let value = String(values[key as keyof Object]);
+                    if(key == 'crit') {
+                            value = value == 'true' ? 'critically' : '';
+                    }
+                    result.push(value);
+                    result.push(strings[i + 1]);
+                }
+            });
+            logger.debug(`Action - result: ${result}\nresult joined: ${result.join('')}`);
+            return result.join("");
+          };
+    }
 }
 
 export function check_crit(user_action: string, target_action: string) {
@@ -77,13 +112,17 @@ Target Type ${target_action}`)
 
 export class Damage_Effect extends Effect {
 
-    constructor(roll: number, constant: number, critical: number) {
-        super(roll, constant, critical, EFFECT.DAMAGE);
+    constructor(roll: number, constant: number, critical: number, template: template) {
+        super(roll, constant, critical, EFFECT.DAMAGE, template);
     }
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) {
 
-        const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
+        const crit_check = check_crit(user.battle_status, target.battle_status);
+
+        logger.debug(`Damage Effect - Crit ${crit_check}`);
+
+        const crit = crit_check ? this.critical : 1;
 
         let damage = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);
 
@@ -113,7 +152,9 @@ Target New Health: ${Math.max(target.health - damage, 0)}`);
 
         target.health = Math.max(target.health - damage, 0);
 
-        turn_data.add_target(user, target, damage, EFFECT.DAMAGE, check_crit(user.battle_status, target.battle_status));
+        const add_string = this.to_string(user, target, damage, crit_check)
+
+        turn_data.add_target(user, target, damage, EFFECT.DAMAGE, crit_check, add_string);
 
         return damage
     }
@@ -121,12 +162,17 @@ Target New Health: ${Math.max(target.health - damage, 0)}`);
 
 export class Heal_Effect extends Effect {
 
-    constructor(roll: number, constant: number, critical: number) {
-        super(roll, constant, critical, EFFECT.DAMAGE);
+    constructor(roll: number, constant: number, critical: number, template: template) {
+        super(roll, constant, critical, EFFECT.DAMAGE, template);
     }
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) {
-        const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
+        
+        const crit_check = check_crit(user.battle_status, target.battle_status);
+        
+        logger.debug(`Healing Effect - Crit ${crit_check}`);
+
+        const crit = crit_check ? this.critical : 1;
         
         let health = Math.floor((Math.ceil(Math.random() * this.roll) + this.constant) * crit);    
         
@@ -156,7 +202,9 @@ Target Mew Health: ${Math.min(target.health + health, target.max_health)}`);
 
         target.health = Math.min(target.health + health, target.max_health);
 
-        turn_data.add_target(user, target, health, EFFECT.HEAL, check_crit(user.battle_status, target.battle_status));
+        const add_string = this.to_string(user, target, health, crit_check)
+
+        turn_data.add_target(user, target, health, EFFECT.HEAL, crit_check, add_string);
 
         return health
     }
@@ -165,13 +213,18 @@ Target Mew Health: ${Math.min(target.health + health, target.max_health)}`);
 export class Status_Effect extends Effect {
     status: Status
 
-    constructor(status: Status, critical: number) {
-        super(0, 0, critical, EFFECT.STATUS)
+    constructor(status: Status, critical: number, template: template) {
+        super(0, 0, critical, EFFECT.STATUS, template)
         this.status = status;
     }
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data): number {
-        const crit = check_crit(user.battle_status, target.battle_status) ? this.critical : 1;
+
+        const crit_check = check_crit(user.battle_status, target.battle_status);
+
+        logger.debug(`Status Effect - Crit ${crit_check}`);
+
+        const crit = crit_check ? this.critical : 1;
 
         const battle_intensity = Math.floor(Math.ceil(Math.random() * this.status.intensity) * crit);
 
@@ -194,7 +247,9 @@ Total Duration: ${!!old_status ? old_status.duration + this.status.duration : th
             old_status.intensity += battle_intensity;
         }
 
-        turn_data.add_target(user, target, battle_intensity, EFFECT.STATUS, check_crit(user.battle_status, target.battle_status));
+        const add_string = this.to_string(user, target, battle_intensity, crit_check)
+        
+        turn_data.add_target(user, target, battle_intensity, EFFECT.STATUS, crit_check, add_string);
 
         return target.health
     }
