@@ -21,7 +21,6 @@ export class Battle_Status {
         if(this.status.type == STATUS.EOT) {
             turn_data.add_effect(player, this)
             logger.debug(`Battle Status - Running end of turn effect ${this.status.name} on ${player.name} with intensity ${this.intensity}.  ${this.duration - 1} turns left of status.`)
-            this.duration -= 1;
         }
         this.status.end_of_turn_effect(player, this.intensity, turn_data)
     }
@@ -29,9 +28,14 @@ export class Battle_Status {
     action_effect(amount: number, turn_data: Battle_Data) {
         if(this.status.type == STATUS.ACTION) {
             logger.debug(`Battle Status - Running action effect ${this.status.name} with intensity ${this.intensity} on amount ${amount}.  ${this.duration - 1} turns left of status.`)
-            this.duration -= 1
         }
         return this.status.action_effect(amount, this.intensity, turn_data)
+    }
+
+    decrement() {
+        this.duration -= 1;
+
+        return this.duration
     }
 }
 

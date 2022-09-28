@@ -8,6 +8,7 @@ import { STATE, EFFECT, TARGET_REQ } from './constant';
 import { Group_Target, Numbered_Target, Self_Target, Target_Group } from './target_group';
 import { group } from 'console';
 import { Damage_Reduction_Status, Damage_Status } from './status';
+import { Status } from './status';
 
 const DEAD: string = "DEAD";
 const NONE: string = "NONE";
@@ -56,7 +57,8 @@ if(2) {
     smole_defend.add_effect(smole_defend_group);
     
     // smole attack with poison
-    const smole_poison = new Damage_Status(2, 10, 'poison');
+    const smole_poison_status_template = Status.create_template`The poison courses through ${'user'}'s veins for ${'amount'}`;
+    const smole_poison = new Damage_Status(2, 10, 'poison', smole_poison_status_template);
 
     const smole_attack_group: Effect_Group = new Effect_Group("1");
     const smole_attack_template = Effect.create_template`${'user'} ${'crit'} bites ${'target'} for ${'amount'}.`
@@ -72,7 +74,8 @@ if(2) {
     smole_special.add_effect(smole_special_group);
 
     // PC defend with damage reduction
-    const shield_block = new Damage_Reduction_Status(1, 30, 'shield', TARGET_REQ.SELF);
+    const shield_block_template = Status.create_template`${'user'} holds up their shield, protecting for ${'amount'}`;
+    const shield_block = new Damage_Reduction_Status(1, 30, 'shield', TARGET_REQ.SELF, shield_block_template);
 
     const pc_defend_group: Effect_Group = new Effect_Group(TARGET_REQ.SELF);
     const pc_defend_template = Effect.create_template`${'user'} begins chanting a soothing song and ${'crit'} heals ${'target'} for ${'amount'}`;

@@ -250,7 +250,8 @@ export default class Battle {
         this.players.forEach((player: Battle_Player) => {
             logger.debug(`Battle - Running end of turn statuses for player ${player.name}`);
             player.statuses.forEach((stats: Battle_Status) => {
-                stats.end_of_turn_effect(player, turn_data)
+                stats.end_of_turn_effect(player, turn_data);
+                stats.decrement();
             })
             player.check_statuses();
         })

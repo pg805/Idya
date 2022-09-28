@@ -118,6 +118,8 @@ export class Damage_Effect extends Effect {
 
     execute(user: Battle_Player, target: Battle_Player, turn_data: Battle_Data) {
 
+        let add_string: string = '';
+
         const crit_check = check_crit(user.battle_status, target.battle_status);
 
         logger.debug(`Damage Effect - Crit ${crit_check}`);
@@ -152,7 +154,7 @@ Target New Health: ${Math.max(target.health - damage, 0)}`);
 
         target.health = Math.max(target.health - damage, 0);
 
-        const add_string = this.to_string(user, target, damage, crit_check)
+        add_string += this.to_string(user, target, damage, crit_check)
 
         turn_data.add_target(user, target, damage, EFFECT.DAMAGE, crit_check, add_string);
 
