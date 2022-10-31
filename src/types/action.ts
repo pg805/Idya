@@ -7,7 +7,8 @@ export default class Action {
         public name: string = '',
         public actionType: ActionType = new ActionType(),
         public effect: Effect = new Effect(),
-        public targetId: string = ''
+        public targetId: string = '',
+        public originId: string = ''
     ) { }
 
 }
