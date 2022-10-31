@@ -22,3 +22,7 @@ const ACTION_TYPES = {
     ATTACK: "ATTACK",
     SPECIAL: "SPECIAL",
 }
+
+export const ActionTypes: string[] = [
+    "DEFEND", "ATTACK", "SPECIAL",
+] 
