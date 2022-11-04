@@ -9,22 +9,16 @@ const state = new State();
 export const defineNpcIntent = () => {
     state.nonPlayerCharacters.forEach((npc: NonPlayerCharacter) => {
         const actionType = new ActionType();
-        // not really percent right now
         if (Math.ceil(Math.random() * 100) <= npc.pattern.deviationPercent) {
             const actionIndex = Math.floor(Math.random() * npc.pattern.sequence.length)
             const actionValue = npc.pattern.sequence[actionIndex]
 
             actionType.type = ActionTypes[actionValue]
         }
-        const potentialActions: Action[] = [];
-        // change to map
-        npc.activeItems.forEach(item => {
-            item.actions.forEach(action => {
-                if (action.actionType.type === actionType.type) {
-                    potentialActions.push(action)
-                }
-            })
-        })
+
+        const potentialActions: Action[] = npc.activeItems.flatMap(
+            item => item.actions.filter(action => action.actionType.type === actionType.type)
+        )
         const selectedAction: Action = potentialActions[0]
 
         selectedAction.targetId = state.playerCharacters[0].id;
@@ -36,6 +30,9 @@ export const defineNpcIntent = () => {
 prompt players for intent selection 
     - keep in mind one action type can 
     have multiple actions to be selected
+    - give confirmation message that 
+    action has been selected and 
+    we are waiting on other players
 */
 
 
