@@ -20,7 +20,7 @@ function getSpecialers(state: State) {
     })
 }
 
-function checkDeaths(state: State) {
+function resolveDeaths(state: State) {
     state.playerCharacters.filter((pc: PlayerCharacter) => {
         if (pc.currentHp <= 0) {
             state.deadPlayers.push(pc);
@@ -40,7 +40,13 @@ function checkDeaths(state: State) {
     })
 }
 
+// TODO
 // NPCs vs PCs?
-function checkWin(state: State) {
+function resolveWinState(state: State) {
+
+}
+
+// TODO
+function resolve() {
 
 }
