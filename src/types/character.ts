@@ -1,5 +1,6 @@
 import Item from "./item";
-import {v4 as uuid} from 'uuid';
+import { v4 as uuid } from 'uuid';
+import Action from "./action";
 
 export default class Character {
 
@@ -19,5 +20,11 @@ export default class Character {
         });
 
         this.totalHp = totalHp;
+    }
+
+    getActiveActions() {
+        return this.activeItems.flatMap(
+            item => item.actions
+        )
     }
 }

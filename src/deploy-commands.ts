@@ -6,7 +6,7 @@ const { Routes } = require('discord-api-types/v9');
 // const { clientId, guildId, token } = require('./config.json');
 const TOKEN = JSON.parse(fs.readFileSync('./data/settings.json', 'utf-8')).DISCORDTOKEN;
 
-const check_path = './lib/commands';
+const check_path = './lib/discord/commands';
 
 const commands = [];
 const command_files = fs.readdirSync(check_path).filter((file: any) => file.endsWith('.js'));

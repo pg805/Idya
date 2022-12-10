@@ -1,10 +1,11 @@
 import NonPlayerCharacter from "../types/character/nonPlayerCharacter";
 import ActionType, { ActionTypes } from "../types/actionType";
-import State from "../_store/state";
+import { state } from "../_store/state";
 import Action from "../types/action";
+import PlayerCharacter from "../types/character/playerCharacter";
+import { promptUser } from "../discord/combat/promptIntent";
 
 
-const state = new State();
 // define npc intent
 export const defineNpcIntent = () => {
     state.nonPlayerCharacters.forEach((npc: NonPlayerCharacter) => {
@@ -16,9 +17,7 @@ export const defineNpcIntent = () => {
             actionType.type = ActionTypes[actionValue]
         }
 
-        const potentialActions: Action[] = npc.activeItems.flatMap(
-            item => item.actions.filter(action => action.actionType.type === actionType.type)
-        )
+        const potentialActions: Action[] = npc.getActiveActions().filter(action => action.actionType.type === actionType.type)
         const selectedAction: Action = potentialActions[0]
 
         selectedAction.targetId = state.playerCharacters[0].id;
@@ -35,7 +34,11 @@ prompt players for intent selection
     we are waiting on other players
 */
 
-
+export const definePCIntent = () => {
+    state.playerCharacters.forEach((pc: PlayerCharacter) => {
+        promptUser(pc);
+    })
+}
 
 // update intents
 const updateIntents = (action: Action): void => {
@@ -52,3 +55,4 @@ const updateIntents = (action: Action): void => {
     }
     // log new defined intents
 }
+

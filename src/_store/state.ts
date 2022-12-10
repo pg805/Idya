@@ -14,3 +14,11 @@ export default class State {
     ) { }
 
 }
+
+export let state: State;
+
+// gets called from init.ts
+export const initializeState = () => {
+    state = new State();
+    // sync up with backend
+}

@@ -5,8 +5,9 @@ import logger from './util/logger.js';
 import * as Discord from 'discord.js';
 import * as fs from 'fs';
 import { time } from 'console';
-import './combat/test_battle.js';
-import { battle_action, start_battle } from './combat/test_battle.js';
+import './combat_old/test_battle.js';
+import { battle_action, start_battle } from './combat_old/test_battle.js';
+import { initializeState } from './_store/state.js';
 
 // exit message
 process.on('exit', (code) => {
@@ -35,6 +36,8 @@ const client = new Discord.Client(
         ]
     }
 );
+
+initializeState();
 
 const check_path = './lib/commands';
 
