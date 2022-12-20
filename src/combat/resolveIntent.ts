@@ -2,6 +2,7 @@ import ActionType, { ActionTypes } from "../types/actionType";
 import Action from "../types/action";
 import State from "../_store/state";
 import PlayerCharacter from "../types/character/playerCharacter";
+import NonPlayerCharacter from "../types/character/nonPlayerCharacter";
 
 function getDefenders(state: State) {
     return state.definedIntents.filter((action: Action) => {
@@ -30,7 +31,7 @@ function resolveDeaths(state: State) {
         }
     })
 
-    state.nonPlayerCharacters.filter((npc: PlayerCharacter) => {
+    state.nonPlayerCharacters.filter((npc: NonPlayerCharacter) => {
         if (npc.currentHp <= 0) {
             state.deadPlayers.push(npc);
             return false
@@ -47,6 +48,6 @@ function resolveWinState(state: State) {
 }
 
 // TODO
-function resolve() {
-
+function resolve(state: State) {
+    
 }
