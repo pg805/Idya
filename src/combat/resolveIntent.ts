@@ -5,7 +5,6 @@ import State from "../_store/state";
 import PlayerCharacter from "../types/character/playerCharacter";
 import NonPlayerCharacter from "../types/character/nonPlayerCharacter";
 import Character from "../types/character";
-import Player from "../combat_old/player";
 
 function getDefendActions(state: State): Action[] {
     return state.definedIntents.filter((action: Action) => {
@@ -170,7 +169,7 @@ function resolveRound(state: State): WinnerResultType {
     if (winners) return winners;
 
     // Do Special Actions
-    const specialActions = getAttackActions(state);
+    const specialActions = getSpecialActions(state);
     resolveActions(specialActions, state);
     
     resolveDeaths(state);
