@@ -9,7 +9,7 @@ export default class State {
     constructor(
         public playerCharacters: PlayerCharacter[] = [],
         public nonPlayerCharacters: NonPlayerCharacter[] = [],
-        public deadPlayers: Character[] = [],
+        public deadCharacters: Character[] = [],
         public definedIntents: Action[] = [],
         public round: number = 0,
         public loot: Item[] = [],

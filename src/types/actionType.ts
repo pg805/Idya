@@ -17,12 +17,8 @@ export default class ActionType {
     }
 }
 
-const ACTION_TYPES = {
+export const ACTION_TYPES = {
     DEFEND: "DEFEND",
     ATTACK: "ATTACK",
     SPECIAL: "SPECIAL",
 }
-
-export const ActionTypes: string[] = [
-    "DEFEND", "ATTACK", "SPECIAL",
-] 

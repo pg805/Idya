@@ -1,5 +1,5 @@
 import NonPlayerCharacter from "../types/character/nonPlayerCharacter";
-import ActionType, { ActionTypes } from "../types/actionType";
+import ActionType, { ACTION_TYPES } from "../types/actionType";
 import { state } from "../_store/state";
 import Action from "../types/action";
 import PlayerCharacter from "../types/character/playerCharacter";
