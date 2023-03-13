@@ -1,5 +1,5 @@
 import { MessageActionRow, MessageButton, MessageEmbed } from "discord.js";
-import logger from "../../util/logger";
+// import logger from "../../util/logger";
 
 const { SlashCommandBuilder } = require('@discordjs/builders');
 
@@ -27,7 +27,7 @@ module.exports = {
 		.setName('startBattle')
 		.setDescription('Begins a test battle with a test fighter and a test monster.'),
 	execute: async function(interaction: any) {
-		logger.info("Running scuffle Command");
+		// logger.info("Running scuffle Command");
 		await interaction.reply(
             {
                 embeds: [battle_embed],
