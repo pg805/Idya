@@ -1,7 +1,7 @@
 import Effect, { EffectObject } from "./effect";
 import ActionType, { ACTION_TYPES } from "./actionType";
 
-interface ActionObject {
+export interface ActionObject {
     name: string,
     actionType: string,
     effect: EffectObject,
@@ -46,7 +46,7 @@ export default class Action {
         action.name = actionObject.name;
         action.originId = actionObject.originId;
         action.targetId = actionObject.targetId;
-        
+
         return action;
     }
 }
