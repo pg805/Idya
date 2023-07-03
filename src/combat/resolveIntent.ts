@@ -1,5 +1,5 @@
 import ActionType, { ACTION_TYPES } from "../types/actionType";
-import EffectType, { EFFECT_TYPES } from "../types/effectType";
+import { EffectType, EFFECT_TYPES } from "../types/effectType";
 import Action from "../types/action";
 import State from "../_store/state";
 import PlayerCharacter from "../types/character/playerCharacter";
@@ -148,32 +148,36 @@ function reset(state: State) {
     })
 }
 
+function resolveWinners(state: State): WinnerResultType {
+    resolveDeaths(state);
+    return getWinners(state);
+}
+
 // TODO
-function resolveRound(state: State): WinnerResultType {
+export function resolveRound(state: State): WinnerResultType {
     let winners: WinnerResultType = '';
     // Do Defend Actions
     const defendActions = getDefendActions(state);
     resolveActions(defendActions, state);
 
-    // TODO: Turn this into a single function
-    resolveDeaths(state);
-    winners = getWinners(state);
+    // Check for Winners
+    resolveWinners(state);
     if (winners) return winners;
-    // end single function
 
     // Do Attack Actions
     const attackActions = getAttackActions(state);
     resolveActions(attackActions, state);
-    resolveDeaths(state);
-    winners = getWinners(state);
+
+    // Check for Winners
+    resolveWinners(state);
     if (winners) return winners;
 
     // Do Special Actions
     const specialActions = getSpecialActions(state);
     resolveActions(specialActions, state);
     
-    resolveDeaths(state);
-    winners = getWinners(state);
+    // Check for Winners
+    resolveWinners(state);
     if (winners) return winners;
 
     // Reset round
