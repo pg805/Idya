@@ -8,6 +8,7 @@ import { time } from 'console';
 import './combat_old/test_battle.js';
 import { battle_action, start_battle } from './combat_old/test_battle.js';
 import { initializeState } from './_store/state.js';
+import { handleButtonPress } from './discord/handleButtonPress.js';
 
 // exit message
 process.on('exit', (code) => {
@@ -62,7 +63,9 @@ client.once('ready', () => {
     logger.info(`${client.user ? client.user.username : ''} - (${client.user ? client.user.id : ''})`);
 });
 
+// Handle Interactions
 client.on('interactionCreate', async interaction => {
+    // Handle Commands
 	if (interaction.isCommand()) {
         // @ts-ignore: accessing commands
         const command = client.commands.get(interaction.commandName);
@@ -76,24 +79,8 @@ client.on('interactionCreate', async interaction => {
             await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
         }
     } else if (interaction.isButton()) {
-        switch(interaction.customId) {
-            case "start":
-                start_battle(interaction);
-                break;
-            case "defend":
-                battle_action(interaction, "DEFEND");
-                break;
-            case "attack":
-                battle_action(interaction, "ATTACK");
-                break;
-            case "special":
-                battle_action(interaction, "SPECIAL");
-                break;
-            default:
-                logger.error("Unkown Button Pressed");
-                logger.error(`Channel - ${interaction.channelId}`);
-                logger.error(`User - ${interaction.user.id}`);
-        }
+        // Handle Button Press in ./discord/handleButtonPress.js
+        handleButtonPress(interaction);
     }
     return;
 });
