@@ -1,7 +1,7 @@
 import { EFFECT } from "../combat_old/constant";
 import { EffectType, EFFECT_TYPES } from "./effectType";
 
-interface EffectObject {
+export interface EffectObject {
     type: string,
     baseValue: number,
     randomValue: number,
