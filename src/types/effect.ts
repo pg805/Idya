@@ -1,4 +1,12 @@
-import { EffectType } from "./effectType";
+import { EFFECT } from "../combat_old/constant";
+import { EffectType, EFFECT_TYPES } from "./effectType";
+
+interface effectObject {
+    type: string,
+    baseValue: number,
+    randomValue: number,
+    critValue: number
+}
 
 export default class Effect {
     constructor(
@@ -11,5 +19,34 @@ export default class Effect {
     calculateValue(crit: Boolean) {
         const damage = this.baseValue + Math.floor(Math.random() * (this.randomValue + 1))
         return crit ? damage * this.critValue : damage;
+    }
+
+    toJSON(): effectObject {
+        return {
+            type: this.effectType.type,
+            baseValue: this.baseValue,
+            randomValue: this.randomValue,
+            critValue: this.critValue
+        }
+    }
+
+    static fromJSON(effectObject: effectObject) {
+        const effect: Effect = new Effect()
+
+        const effectType: EffectType = new EffectType()
+        if (effectObject.type == EFFECT_TYPES.BLOCK) {
+            effectType.setBlock()
+        } else if (effectObject.type == EFFECT_TYPES.DAMAGE) {
+            effectType.setDamage()
+        } else if (effectObject.type == EFFECT_TYPES.HEAL) {
+            effectType.setHeal()
+        }
+
+        effect.effectType = effectType;
+        effect.baseValue = effectObject.baseValue;
+        effect.randomValue = effectObject.randomValue;
+        effect.critValue = effectObject.critValue;
+
+        return effect
     }
 }
