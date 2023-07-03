@@ -9,12 +9,12 @@ const battle_embed: MessageEmbed = new MessageEmbed()
     .setDescription('A **Test Monster** has appeared! Get ready to defend yourself!');
 
 const start_button: MessageButton = new MessageButton()
-    .setCustomId('start')
+    .setCustomId('battle start')
     .setLabel('Start Battle')
     .setStyle('PRIMARY');
 
 const flee_button: MessageButton = new MessageButton()
-    .setCustomId('flee')
+    .setCustomId('battle flee')
     .setLabel('Flee Battle')
     .setStyle('PRIMARY')
     .setDisabled(true);
