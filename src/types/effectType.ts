@@ -1,4 +1,4 @@
-export default class EffectType {
+export class EffectType {
 
     constructor(
         public type: string = 'NONE'
@@ -17,7 +17,7 @@ export default class EffectType {
     }
 }
 
-const EFFECT_TYPES = {
+export const EFFECT_TYPES = {
     BLOCK: "BLOCK",
     DAMAGE: "DAMAGE",
     HEAL: "HEAL",
