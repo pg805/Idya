@@ -30,7 +30,7 @@ export default class Effect {
         }
     }
 
-    static fromJSON(effectObject: EffectObject) {
+    static fromJSON(effectObject: EffectObject): Effect {
         const effect: Effect = new Effect()
 
         const effectType: EffectType = new EffectType()
