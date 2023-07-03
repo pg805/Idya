@@ -1,7 +1,7 @@
 import { EFFECT } from "../combat_old/constant";
 import { EffectType, EFFECT_TYPES } from "./effectType";
 
-interface effectObject {
+interface EffectObject {
     type: string,
     baseValue: number,
     randomValue: number,
@@ -21,7 +21,7 @@ export default class Effect {
         return crit ? damage * this.critValue : damage;
     }
 
-    toJSON(): effectObject {
+    toJSON(): EffectObject {
         return {
             type: this.effectType.type,
             baseValue: this.baseValue,
@@ -30,7 +30,7 @@ export default class Effect {
         }
     }
 
-    static fromJSON(effectObject: effectObject) {
+    static fromJSON(effectObject: EffectObject) {
         const effect: Effect = new Effect()
 
         const effectType: EffectType = new EffectType()
