@@ -102,28 +102,32 @@ async function startBattle(interaction: ButtonInteraction) {
     });
 }
 
-async function handleAction(interaction: ButtonInteraction) {
+async function handleAction(interaction: ButtonInteraction, battleID: string) {
 
-    await fs.readFile(`./data/battles/${newBattle.id}.json`, (error, battleFile) => {
+    fs.readFile(`./data/battles/${battleID}.json`, 'utf-8', (error, battleFile) => {
         if (error) {
             // logging the error
             logger.error(error);
         
             throw error;
+        } else {
+            logger.info(`./data/battles/${battleID}.json successfully written`)
+
+            const battle: State = State.fromJSON(JSON.parse(battleFile))
+    
+            const battle_embed: MessageEmbed = createBattleEmbed(battle);
+            const battle_rows: MessageActionRow[] = createBattleRow(battle)
+    
+            interaction.reply({
+                embeds: [battle_embed],
+                components: battle_rows
+            });
         }
 
-        logger.info(`./data/battles/${newBattle.id}.json successfully written`)
+        
     })
 
-    const battle: State = State.fromJSON(JSON.parse(battleFile))
-
-    const battle_embed: MessageEmbed = createBattleEmbed(newBattle);
-    const battle_rows: MessageActionRow[] = createBattleRow(newBattle)
-
-    await interaction.reply({
-        embeds: [battle_embed],
-        components: battle_rows
-    });
+    
 }
 
 export function handleBattleButton(interaction: ButtonInteraction) {
@@ -132,7 +136,7 @@ export function handleBattleButton(interaction: ButtonInteraction) {
             startBattle(interaction);
             break;
         case interaction.customId.match(/^battle\saction/)?.input:
-            handleAction(interaction)
+            handleAction(interaction, interaction.customId.replace('battle action ', ''))
             break;
         default:
             logger.error("Unkown Button Pressed");
