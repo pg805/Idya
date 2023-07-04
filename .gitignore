@@ -9,6 +9,7 @@ data/commands.jsonc
 data/guilds.jsonc
 data/sketch.jsonc
 data/bot.jsonc
+data/battles
 
 # ignore all polls
 data/polls
