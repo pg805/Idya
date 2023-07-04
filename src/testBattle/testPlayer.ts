@@ -1,8 +1,12 @@
 import Action from "../types/action";
 import PlayerCharacter from "../types/character/playerCharacter";
 import Item from "../types/item";
+import { v4 as uuidv4 } from 'uuid';
 
 const player = new PlayerCharacter()
+
+player.id = uuidv4();
+player.userId = 'pg805'
 
 /* 
 Item - shield
@@ -13,7 +17,7 @@ shield.name = 'shield'
 shield.hp = 50
 
 const block = new Action()
-block.name = 'scratch'
+block.name = 'shield block'
 block.actionType.setDefend()
 block.effect.effectType.setBlock()
 block.effect.baseValue = 20
