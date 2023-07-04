@@ -71,8 +71,9 @@ export default class State {
 }
 
 // gets called from init.ts
-export const initializeState = () => {
+export function initializeState(): State {
     const state = new State();
     state.id = uuidv4();
     // sync up with backend
+    return state
 }
