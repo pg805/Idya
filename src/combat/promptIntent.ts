@@ -1,13 +1,13 @@
 import NonPlayerCharacter from "../types/character/nonPlayerCharacter";
 import ActionType, { ActionTypes } from "../types/actionType";
-import { state } from "../_store/state";
+import State from "../_store/state";
 import Action from "../types/action";
 import PlayerCharacter from "../types/character/playerCharacter";
 import { promptUser } from "../discord/combat/promptIntent";
 
 
 // define npc intent
-export const defineNpcIntent = () => {
+export const defineNpcIntent = (state: State) => {
     state.nonPlayerCharacters.forEach((npc: NonPlayerCharacter) => {
         const actionType = new ActionType();
         if (Math.ceil(Math.random() * 100) <= npc.pattern.deviationPercent) {
@@ -22,7 +22,7 @@ export const defineNpcIntent = () => {
 
         selectedAction.targetId = state.playerCharacters[0].id;
         selectedAction.originId = npc.id
-        updateIntents(selectedAction)
+        updateIntents(state, selectedAction)
     })
 }
 /* 
@@ -34,17 +34,17 @@ prompt players for intent selection
     we are waiting on other players
 */
 
-export const definePCIntent = () => {
+export const definePCIntent = (state: State) => {
     state.playerCharacters.forEach((pc: PlayerCharacter) => {
         promptUser(pc);
     })
 }
 
 // update intents
-const updateIntents = (action: Action): void => {
+const updateIntents = (state: State, action: Action): void => {
     const prevDefinedIntents = state.definedIntents
-    const duplicateDefinedIntents = prevDefinedIntents.find(definedIntents => {
-        definedIntents.originId === action.originId
+    const duplicateDefinedIntents = prevDefinedIntents.find((definedIntent: Action) => {
+        definedIntent.originId === action.originId
     })
     if (duplicateDefinedIntents) {
         // end and log
