@@ -16,6 +16,7 @@ export default class Character {
         public totalHp: number = 0,
         public currentHp: number = 0,
         public armor: number = 0,
+        public name: string = '',
         public id: string = uuid()
     ) { }
 
