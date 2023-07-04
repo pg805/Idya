@@ -7,7 +7,7 @@ export interface PlayerCharacterObject {
     totalHP: number,
     currentHP: number,
     armor: number,
-    inventory: ItemObject[]
+    inventory: ItemObject[],
     activeItems: ItemObject[]
 }
 
