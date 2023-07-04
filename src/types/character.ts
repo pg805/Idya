@@ -1,6 +1,12 @@
 import Item from "./item";
 import { v4 as uuid } from 'uuid';
 import Action from "./action";
+import PlayerCharacter from "./character/playerCharacter";
+import NonPlayerCharacter from "./character/nonPlayerCharacter";
+
+export interface CharacterObject {
+
+}
 
 export default class Character {
 
@@ -27,5 +33,21 @@ export default class Character {
         return this.activeItems.flatMap(
             item => item.actions
         )
+    }
+
+    toJSON(): CharacterObject {
+        return {}
+    }
+
+    static fromJSON(characterObject: CharacterObject): Character {
+        return new Character()
+    }
+
+    static isPC(character: Character): character is PlayerCharacter {
+        return 'userId' in character
+    }
+
+    static isNPC(character: Character): character is NonPlayerCharacter {
+        return 'loot' in self && 'pattern' in self
     }
 }
