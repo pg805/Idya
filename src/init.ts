@@ -67,6 +67,14 @@ client.once('ready', () => {
 client.on('interactionCreate', async interaction => {
     // Handle Commands
 	if (interaction.isCommand()) {
+        logger.debug(`
+Handling Command
+Command Name: ${interaction.commandName}
+Command ID: ${interaction.commandId}
+Guild ID: ${interaction.guildId}
+Channel ID: ${interaction.channelId}
+`)
+
         // @ts-ignore: accessing commands
         const command = client.commands.get(interaction.commandName);
 
