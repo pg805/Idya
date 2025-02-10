@@ -221,7 +221,7 @@ const rat_special: Result_Field = new Result_Field([3, 9, 15, 15])
 /* Characters */
 const human: Player_Character = new Player_Character(
     'Human',
-    100,
+    50,
     human_defend,
     human_attack,
     human_special
@@ -230,7 +230,7 @@ const human: Player_Character = new Player_Character(
 const rat_pattern: Pattern = new Pattern([1, 2, 3])
 const rat: Non_Player_Character = new Non_Player_Character(
     'Rat',
-    100,
+    30,
     rat_pattern,
     rat_defend,
     rat_attack,
