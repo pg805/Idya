@@ -1,6 +1,6 @@
 import * as readline from 'readline';
 import Result_Field from './infrastructure/result_field.js';
-import Weapon from './item/weapon.js';
+import Weapon from './weapon/weapon.js';
 import Player_Character from './character/player_character.js';
 import Non_Player_Character from './character/non_player_character.js';
 import Pattern from './infrastructure/pattern.js';

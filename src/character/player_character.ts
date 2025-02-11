@@ -1,4 +1,4 @@
-import Weapon from "../item/weapon.js"
+import Weapon from "../weapon/weapon.js"
 
 export default class Player_Character {
     name: string
