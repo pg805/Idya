@@ -10,7 +10,7 @@
   "module": "./lib/deploy_commands.js",
   "type": "module",
   "scripts": {
-    "start": "node ./lib/combat/test_battle.js",
+    "start": "node ./lib/test_battle.js",
     "refresh_commands": "node ./lib/deploy-commands.js",
     "build": "tsc --project tsconfig.json",
     "lint": "eslint ."
