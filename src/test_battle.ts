@@ -82,5 +82,4 @@ while(!test_battle.winner){
 
 console.log(`
 ******************************
-Winner: ${test_battle.winner}!
-`)
+Winner: ${test_battle.winner}!`)
