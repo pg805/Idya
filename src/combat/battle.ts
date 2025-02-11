@@ -38,6 +38,10 @@ class Player_Object {
             if(action.type == 2) {
                 const block = (<Block>action).value
                 this.block = block
+                console.log(
+`Resolving ${this.name} Block: ${action.name}
+Value: ${block}`
+                )
             }
 
             // Buff
@@ -47,12 +51,22 @@ class Player_Object {
 
                 const buff_rounds = (<Buff>action).rounds
                 this.buff_rounds = buff_rounds
+                console.log(
+`Resolving ${this.name} Buff: ${action.name}
+Value: ${buff_value}
+Rounds: ${buff_rounds}`
+                )
             }
 
             // Heal
             if(action.type == 6) {
                 const heal = (<Heal>action).value
                 this.health = Math.min(this.health + heal, this.max_health)
+                console.log(
+`Resolving ${this.name} Heal: ${action.name}
+Value: ${heal}
+Health: ${this.health}`
+                )
             }
 
             // Reflect
@@ -62,6 +76,12 @@ class Player_Object {
 
                 const reflect_rounds = (<Reflect>action).rounds
                 this.reflect_rounds = reflect_rounds
+
+                console.log(
+`Resolving ${this.name} Reflect: ${action.name}
+Value: ${reflect_value}
+Rounds: ${reflect_rounds}`
+                )
             }
             
             // Shield
@@ -71,6 +91,12 @@ class Player_Object {
 
                 const shield_rounds = (<Shield>action).rounds
                 this.shield_rounds = shield_rounds
+                
+                console.log(
+`Resolving ${this.name} Shield: ${action.name}
+Value: ${shield_value}
+Rounds: ${shield_rounds}`
+                )
             }
         })
     }
@@ -81,6 +107,11 @@ class Player_Object {
             if(action.type == 1) {
                 const damage = Math.max((<Strike>action).field.get_result() - this.block - this.shield_value, 0)
                 this.health =  Math.max(this.health - damage, 0)
+                console.log(
+`Resolving Strike on ${this.name}: ${action.name}
+Value: ${damage}
+Health: ${this.health}`
+                )
             }
 
             // DOT
@@ -90,6 +121,12 @@ class Player_Object {
 
                 const rounds = (<Damage_Over_Time>action).rounds
                 this.damage_over_time_rounds = rounds
+
+                console.log(
+`Resolving DOT on ${this.name}: ${action.name}
+Value: ${damage}
+Rounds: ${rounds}`
+                )
             }
 
             // Debuff
@@ -99,15 +136,33 @@ class Player_Object {
 
                 const rounds = (<Debuff>action).rounds
                 this.debuff_rounds = rounds
+
+                console.log(
+`Resolving DOT on ${this.name}: ${action.name}
+Value: ${debuff}
+Rounds: ${rounds}`
+                )
             }
         })
     }
 
     end_round() {
+        this.block = 0
+
         // Damage over Time
         if(this.damage_over_time_rounds > 0) {
             this.health = Math.max(this.health - this.damage_over_time_value, 0)
             this.damage_over_time_rounds -= 1
+            
+            console.log(
+`End of Turn DOT on ${this.name}
+Damage: ${this.damage_over_time_value}
+Rounds Left: ${this.damage_over_time_rounds}
+`
+            )
+            if(this.damage_over_time_rounds == 0) {
+                this.damage_over_time_value = 0 
+            }
         } else {
             this.damage_over_time_rounds = 0
             this.damage_over_time_value = 0
@@ -116,6 +171,10 @@ class Player_Object {
         // Reduce Buff Rounds
         if(this.buff_rounds > 0) {
             this.buff_rounds -= 1
+            console.log(`Buff Rounds for ${this.name}: ${this.buff_rounds}`)
+            if(this.buff_rounds == 0) {
+                this.buff_value = 0
+            }
         } else {
             this.buff_rounds = 0
             this.buff_value = 0
@@ -124,6 +183,10 @@ class Player_Object {
         // Reduce Debuff Rounds
         if(this.debuff_rounds > 0) {
             this.debuff_rounds -= 1
+            console.log(`Debuff Rounds for ${this.name}: ${this.debuff_rounds}`)
+            if(this.debuff_rounds == 0) {
+                this.debuff_value = 0
+            }
         } else {
             this.debuff_rounds = 0
             this.debuff_value = 0
@@ -132,6 +195,10 @@ class Player_Object {
         // Reduce Reflect Rounds
         if(this.reflect_rounds > 0) {
             this.reflect_rounds -= 1
+            console.log(`Reflect Rounds for ${this.name}: ${this.reflect_rounds}`)
+            if(this.reflect_rounds == 0) {
+                this.reflect_value = 0
+            }
         } else {
             this.reflect_rounds = 0
             this.reflect_value = 0
@@ -140,6 +207,10 @@ class Player_Object {
         // Reduce Shield Rounds
         if(this.shield_rounds > 0) {
             this.shield_rounds -= 1
+            console.log(`Shield Rounds for ${this.name}: ${this.shield_rounds}`)
+            if(this.shield_rounds == 0) {
+                this.shield_value = 0
+            }
         } else {
             this.shield_rounds = 0
             this.shield_value = 0
