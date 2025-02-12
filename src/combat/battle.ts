@@ -179,6 +179,7 @@ Old Buff Rounds: ${old_buff_rounds}`
 `End of Turn DOT on ${this.name}
 Damage: ${this.damage_over_time_value}
 Rounds Left: ${this.damage_over_time_rounds}
+Health: ${this.health}
 `
             )
             if(this.damage_over_time_rounds == 0) {

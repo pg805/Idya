@@ -8,6 +8,9 @@ import Battle from './combat/battle.js';
 import Block from './weapon/action/block.js';
 import Strike from './weapon/action/strike.js';
 import Debuff from './weapon/action/debuff.js';
+import Heal from './weapon/action/heal.js';
+import Damage_Over_Time from './weapon/action/damage_over_time.js';
+import Shield from './weapon/action/shield.js';
 
 /* Human Weapon - Shovel */
 const human_defend: number = 10
@@ -31,6 +34,22 @@ const card_suit: Strike = new Strike('Suit', card_special)
 const human_cards: Weapon = new Weapon('Deck of Cards', [card_block], [], [card_strike], [card_attack_crit_strike], [card_suit], [])
 
 /* Human Weapon - Paint */
+const paint_heal: number = 7
+const paint_refill: Heal = new Heal('Mix Paint', paint_heal)
+const paint_defend: number = 2
+const paint_block: Block = new Block('Paint Can', paint_defend)
+
+const paint_attack: Result_Field = new Result_Field([0, 7, 7, 7])
+const paint_coat: Strike = new Strike('Paint Coat', paint_attack)
+const paint_attack_crit: number = 7
+const paint_attack_crit_rounds: number = 2
+const paint_blind: Shield = new Shield('Blind', paint_attack_crit, paint_attack_crit_rounds)
+
+const paint_special: Result_Field = new Result_Field([2, 3, 5, 7])
+const paint_special_rounds: number = 3
+const paint_dry: Damage_Over_Time = new Damage_Over_Time('Paint Dry', paint_special, paint_special_rounds)
+
+const human_paint: Weapon = new Weapon('Paint Can', [paint_refill, paint_block], [], [paint_coat], [paint_blind], [paint_dry], [])
 
 /* Human Weapon - Awakened Mind */
 
@@ -84,6 +103,15 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
                 'Human',
                 50,
                 human_cards
+            )
+            break;
+        case '3':
+        case 'paint can':
+            console.log('Paint Can Chosen as weapon!')
+            human = new Player_Character(
+                'Human',
+                50,
+                human_paint
             )
             break;
         default:
