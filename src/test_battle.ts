@@ -11,6 +11,7 @@ import Debuff from './weapon/action/debuff.js';
 import Heal from './weapon/action/heal.js';
 import Damage_Over_Time from './weapon/action/damage_over_time.js';
 import Shield from './weapon/action/shield.js';
+import Buff from './weapon/action/buff.js';
 
 /* Human Weapon - Shovel */
 const human_defend: number = 10
@@ -52,6 +53,23 @@ const paint_dry: Damage_Over_Time = new Damage_Over_Time('Paint Dry', paint_spec
 const human_paint: Weapon = new Weapon('Paint Can', [paint_refill, paint_block], [], [paint_coat], [paint_blind], [paint_dry], [])
 
 /* Human Weapon - Awakened Mind */
+const brain_buff: number = 5
+const brain_buff_rounds: number = 3
+const brain_control_stone: Buff = new Buff('Control Stone', brain_buff, brain_buff_rounds)
+const brain_block: number = 5
+const brain_stone_block: Block = new Block('Stone Block', brain_block)
+
+const brain_attack: Result_Field = new Result_Field([1,1,1,2,3,4])
+const brain_hurl_rock: Strike = new Strike('Hurl Rock', brain_attack)
+const brain_attack_crit: Result_Field = new Result_Field([2, 4, 6, 8])
+const brain_attack_crit_rounds: number = 2
+const brain_depress: Damage_Over_Time = new Damage_Over_Time('Depress', brain_attack_crit, brain_attack_crit_rounds)
+
+const brain_debuff: number = 8
+const brain_debuff_rounds: number = 4 
+const brain_distract: Debuff = new Debuff('Distract', brain_debuff, brain_debuff_rounds)
+
+const human_awakened_mind: Weapon = new Weapon('Awakened Mind', [brain_control_stone, brain_stone_block], [], [brain_hurl_rock], [brain_depress], [brain_distract], [])
 
 /* Human Weapon - Vines and Thorns */
 
@@ -85,7 +103,7 @@ const rl = readline.createInterface({
 });
 
 let weapon = 0
-await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2] >', (answer: string) => {
+await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2, Paint Can=3, Awakened Mind=4] >', (answer: string) => {
     switch(answer.toLowerCase()) {
         case '1':
         case 'shovel':
@@ -112,6 +130,16 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
                 'Human',
                 50,
                 human_paint
+            )
+            break;
+        case '4':
+        case 'awakened mind':
+        case 'brain':
+            console.log('Awakened Mind Chosen as weapon!')
+            human = new Player_Character(
+                'Human',
+                50,
+                human_awakened_mind
             )
             break;
         default:
