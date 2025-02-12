@@ -9,22 +9,22 @@ import Block from './weapon/action/block.js';
 import Strike from './weapon/action/strike.js';
 
 /* Human Weapon - Shovel */
-const human_defend: number = 7
+const human_defend: number = 10
 const human_block: Block = new Block('Block', human_defend)
 const human_attack: Result_Field = new Result_Field([0, 3, 4, 5, 5, 5, 6, 8, 10])
 const human_strike: Strike = new Strike('Strike', human_attack)
 const human_special: Result_Field = new Result_Field([5, 10, 10, 20])
 const human_charge: Strike = new Strike('Charge', human_special)
-const human_shovel: Weapon = new Weapon('Shovel', [human_block], [human_strike], [human_charge])
+const human_shovel: Weapon = new Weapon('Shovel', [human_block], [], [human_strike], [human_block], [human_charge], [])
 
-/* Rat Actions */
+/* Rat Weapon - Claws */
 const rat_defend: number = 5
 const rat_block: Block = new Block('Block', rat_defend)
 const rat_attack: Result_Field = new Result_Field([0, 3, 5, 5, 7, 10])
 const rat_strike: Strike = new Strike('Strike', rat_attack)
 const rat_special: Result_Field = new Result_Field([3, 9, 15, 15])
 const rat_bite: Strike = new Strike('Bite', rat_special)
-const rat_claws: Weapon = new Weapon('Claws', [rat_block], [rat_strike], [rat_bite])
+const rat_claws: Weapon = new Weapon('Claws', [rat_block], [], [rat_strike], [rat_block], [rat_bite], [])
 
 /* Characters */
 const human: Player_Character = new Player_Character(

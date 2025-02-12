@@ -285,6 +285,10 @@ Non Player Character Action: ${npc_action}
         }
 
         if(player_action == 2) {
+            if(npc_action == 3) {
+                this.pc_object.target_self(this.player_character.weapon.attack_crit)
+                this.npc_object.hostile_target(this.player_character.weapon.attack_crit)
+            }
             this.pc_object.target_self(this.player_character.weapon.attack)
             this.npc_object.hostile_target(this.player_character.weapon.attack)
         }
