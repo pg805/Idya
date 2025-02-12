@@ -7,15 +7,34 @@ import Pattern from './infrastructure/pattern.js';
 import Battle from './combat/battle.js';
 import Block from './weapon/action/block.js';
 import Strike from './weapon/action/strike.js';
+import Debuff from './weapon/action/debuff.js';
 
 /* Human Weapon - Shovel */
 const human_defend: number = 10
 const human_block: Block = new Block('Block', human_defend)
-const human_attack: Result_Field = new Result_Field([0, 3, 4, 5, 5, 5, 6, 8, 10])
+const human_attack: Result_Field = new Result_Field([0, 3, 4, 5, 5, 5, 5, 6, 8, 10])
 const human_strike: Strike = new Strike('Strike', human_attack)
 const human_special: Result_Field = new Result_Field([5, 10, 10, 20])
 const human_charge: Strike = new Strike('Charge', human_special)
 const human_shovel: Weapon = new Weapon('Shovel', [human_block], [], [human_strike], [human_block], [human_charge], [])
+
+/* Human Weapon - Cards */
+const card_defend: number = 4
+const card_block: Block = new Block('Block', card_defend)
+const card_attack: Result_Field = new Result_Field([2,3,4,5,6,7,8,9,10,10,10,10,11])
+const card_attack_crit: number = 6
+const card_attack_crit_rounds: number = 2
+const card_strike: Strike = new Strike('Rank', card_attack)
+const card_attack_crit_strike: Debuff = new Debuff('Joker', card_attack_crit, card_attack_crit_rounds)
+const card_special: Result_Field = new Result_Field([1, 12, 17, 22])
+const card_suit: Strike = new Strike('Suit', card_special)
+const human_cards: Weapon = new Weapon('Deck of Cards', [card_block], [], [card_strike], [card_attack_crit_strike], [card_suit], [])
+
+/* Human Weapon - Paint */
+
+/* Human Weapon - Awakened Mind */
+
+/* Human Weapon - Vines and Thorns */
 
 /* Rat Weapon - Claws */
 const rat_defend: number = 5
@@ -27,7 +46,7 @@ const rat_bite: Strike = new Strike('Bite', rat_special)
 const rat_claws: Weapon = new Weapon('Claws', [rat_block], [], [rat_strike], [rat_block], [rat_bite], [])
 
 /* Characters */
-const human: Player_Character = new Player_Character(
+let human: Player_Character = new Player_Character(
     'Human',
     50,
     human_shovel
@@ -41,15 +60,43 @@ const rat: Non_Player_Character = new Non_Player_Character(
     rat_claws
 )
 
-const test_battle: Battle = new Battle(
-    human,
-    rat
-)
-
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
+
+let weapon = 0
+await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2] >', (answer: string) => {
+    switch(answer.toLowerCase()) {
+        case '1':
+        case 'shovel':
+            console.log('Shovel Chosen as weapon!')
+            human = new Player_Character(
+                'Human',
+                50,
+                human_shovel
+            )
+            break;
+        case '2':
+        case 'deck of cards':
+            console.log('Deck of Cards Chosen as weapon!')
+            human = new Player_Character(
+                'Human',
+                50,
+                human_cards
+            )
+            break;
+        default:
+            console.log('Please input a weapon or weapon number.')
+    }
+
+    resolve(true)
+}))
+
+const test_battle: Battle = new Battle(
+    human,
+    rat
+)
 
 while(!test_battle.winner){
     await new Promise((resolve, reject) => rl.question('Player Action? [Defend=1, Attack=2, Special=3] > ', (answer: string) => {
