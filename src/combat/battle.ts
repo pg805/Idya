@@ -17,9 +17,9 @@ class Player_Object {
     block: number = 0
     damage_over_time_value: number = 0
     damage_over_time_rounds: number = 0
-    buff_value: number = 0 // TODO, add to attacks
+    buff_value: number = 0 
     buff_rounds: number = 0
-    debuff_value: number = 0 // TODO, add to attack
+    debuff_value: number = 0 
     debuff_rounds: number = 0
     reflect_value: number = 0 // TODO, add to attack
     reflect_rounds: number = 0
@@ -51,10 +51,18 @@ Value: ${block}`
 
                 const buff_rounds = (<Buff>action).rounds
                 this.buff_rounds = buff_rounds
+
+                const old_debuff = this.debuff_value
+                const old_debuff_rounds = this.debuff_rounds
+                this.debuff_value = 0
+                this.debuff_rounds = 0
+
                 console.log(
 `Resolving ${this.name} Buff: ${action.name}
-Value: ${buff_value}
-Rounds: ${buff_rounds}`
+Buff Value: ${buff_value}
+Debuff Rounds: ${buff_rounds}
+Old Debuff Value: ${old_debuff}
+Old Debuff Rounds: ${old_debuff_rounds}`
                 )
             }
 
@@ -101,15 +109,21 @@ Rounds: ${shield_rounds}`
         })
     }
 
-    hostile_target(action_array: Array<Action>) {
+    hostile_target(action_array: Array<Action>, hostile_object: Player_Object) {
         action_array.forEach((action: Action) => {
             // Strike
             if(action.type == 1) {
-                const damage = Math.max((<Strike>action).field.get_result() - this.block - this.shield_value, 0)
+                const damage_roll = (<Strike>action).field.get_result()
+                const damage = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0)
                 this.health =  Math.max(this.health - damage, 0)
                 console.log(
 `Resolving Strike on ${this.name}: ${action.name}
-Value: ${damage}
+Damage Roll: ${damage_roll}
+Block: ${this.block}
+Shield: ${this.shield_value}
+Buff: ${hostile_object.buff_value}
+Debuff: ${hostile_object.debuff_value}
+Damage Value: ${damage}
 Health: ${this.health}`
                 )
             }
@@ -137,10 +151,17 @@ Rounds: ${rounds}`
                 const rounds = (<Debuff>action).rounds
                 this.debuff_rounds = rounds
 
+                const old_buff = this.buff_value
+                const old_buff_rounds = this.buff_rounds
+                this.buff_value = 0
+                this.buff_rounds = 0
+
                 console.log(
-`Resolving DOT on ${this.name}: ${action.name}
+`Resolving Debuff on ${this.name}: ${action.name}
 Value: ${debuff}
-Rounds: ${rounds}`
+Rounds: ${rounds}
+Old Buff Value: ${old_buff}
+Old Buff Rounds: ${old_buff_rounds}`
                 )
             }
         })
@@ -270,12 +291,12 @@ Non Player Character Action: ${npc_action}
 
         if(player_action == 1) {
             this.pc_object.target_self(this.player_character.weapon.defend)
-            this.npc_object.hostile_target(this.player_character.weapon.defend)
+            this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object)
         }
 
         if(npc_action == 1) {
             this.npc_object.target_self(this.non_player_character.weapon.defend)
-            this.pc_object.hostile_target(this.non_player_character.weapon.defend)
+            this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object)
         }
 
         // Check For Winners
@@ -287,15 +308,19 @@ Non Player Character Action: ${npc_action}
         if(player_action == 2) {
             if(npc_action == 3) {
                 this.pc_object.target_self(this.player_character.weapon.attack_crit)
-                this.npc_object.hostile_target(this.player_character.weapon.attack_crit)
+                this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object)
             }
             this.pc_object.target_self(this.player_character.weapon.attack)
-            this.npc_object.hostile_target(this.player_character.weapon.attack)
+            this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object)
         }
 
         if(npc_action == 2) {
+            if(player_action == 3) {
+                this.npc_object.target_self(this.non_player_character.weapon.attack_crit)
+                this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object)
+            }
             this.npc_object.target_self(this.non_player_character.weapon.attack)
-            this.pc_object.hostile_target(this.non_player_character.weapon.attack)
+            this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object)
         }
 
         // Check For Winners
@@ -306,12 +331,12 @@ Non Player Character Action: ${npc_action}
 
         if(player_action == 3) {
             this.pc_object.target_self(this.player_character.weapon.special)
-            this.npc_object.hostile_target(this.player_character.weapon.special)
+            this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object)
         }
 
         if(npc_action == 3) {
             this.npc_object.target_self(this.non_player_character.weapon.special)
-            this.pc_object.hostile_target(this.non_player_character.weapon.special)
+            this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object)
         }
 
         // Check For Winners
