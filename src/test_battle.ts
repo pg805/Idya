@@ -12,6 +12,7 @@ import Heal from './weapon/action/heal.js';
 import Damage_Over_Time from './weapon/action/damage_over_time.js';
 import Shield from './weapon/action/shield.js';
 import Buff from './weapon/action/buff.js';
+import Reflect from './weapon/action/reflect.js';
 
 /* Human Weapon - Shovel */
 const human_defend: number = 10
@@ -72,6 +73,25 @@ const brain_distract: Debuff = new Debuff('Distract', brain_debuff, brain_debuff
 const human_awakened_mind: Weapon = new Weapon('Awakened Mind', [brain_control_stone, brain_stone_block], [], [brain_hurl_rock], [brain_depress], [brain_distract], [])
 
 /* Human Weapon - Vines and Thorns */
+const vine_reflect: number = 5
+const vine_reflect_rounds: number = 3
+const vine_thorn: Reflect = new Reflect('Thorns', vine_reflect, vine_reflect_rounds)
+
+const vine_block: number = 5
+const vine_block_rounds: number = 3
+const vine_trunk: Shield = new Shield('Trunk', vine_block, vine_block_rounds)
+
+const vine_attack: Result_Field = new Result_Field([0, 2, 2, 3, 4, 5])
+const vine_branch: Strike = new Strike('Branch', vine_attack)
+
+const vine_attack_crit: number = 5
+const vine_grow: Heal = new Heal('Grow', vine_attack_crit)
+
+const vine_special: Result_Field = new Result_Field([1, 3])
+const vine_special_rounds: number = 3
+const vine_constrict: Damage_Over_Time = new Damage_Over_Time('Constrict', vine_special, vine_special_rounds)
+
+const human_vine_and_thorn: Weapon = new Weapon('Vines and Thorn', [vine_thorn, vine_trunk], [], [vine_branch], [vine_grow], [vine_constrict], [])
 
 /* Rat Weapon - Claws */
 const rat_defend: number = 5
@@ -103,7 +123,7 @@ const rl = readline.createInterface({
 });
 
 let weapon = 0
-await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2, Paint Can=3, Awakened Mind=4] >', (answer: string) => {
+await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2, Paint Can=3, Awakened Mind=4, Vines and Thorns=5] > ', (answer: string) => {
     switch(answer.toLowerCase()) {
         case '1':
         case 'shovel':
@@ -140,6 +160,17 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
                 'Human',
                 50,
                 human_awakened_mind
+            )
+            break;
+        case '5':
+        case 'vine':
+        case 'thorn':
+        case 'vines and thorns':
+            console.log('Vines and Thorns Chosen as weapon!')
+            human = new Player_Character(
+                'Human',
+                50,
+                human_vine_and_thorn
             )
             break;
         default:

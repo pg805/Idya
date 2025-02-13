@@ -110,9 +110,11 @@ Rounds: ${shield_rounds}`
     }
 
     hostile_target(action_array: Array<Action>, hostile_object: Player_Object) {
+        let reflect = false
         action_array.forEach((action: Action) => {
             // Strike
             if(action.type == 1) {
+                reflect = true
                 const damage_roll = (<Strike>action).field.get_result()
                 const damage = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0)
                 this.health =  Math.max(this.health - damage, 0)
@@ -165,6 +167,17 @@ Old Buff Rounds: ${old_buff_rounds}`
                 )
             }
         })
+
+        return reflect
+    }
+
+    handle_reflect(damage: number) {
+        this.health = Math.max(this.health - damage, 0)
+        console.log(
+`Reflecting Damage to ${this.name}
+Damage: ${damage}
+Health: ${this.health}
+`)
     }
 
     end_round() {
@@ -290,14 +303,21 @@ Non Player Character Action: ${npc_action}
 `
         )
 
+
         if(player_action == 1) {
             this.pc_object.target_self(this.player_character.weapon.defend)
-            this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object)
+            let npc_reflect = this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object)
+            if(npc_reflect) {
+                this.pc_object.handle_reflect(this.npc_object.reflect_value)
+            }
         }
 
         if(npc_action == 1) {
             this.npc_object.target_self(this.non_player_character.weapon.defend)
-            this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object)
+            let pc_reflect = this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object)
+            if(pc_reflect) {
+                this.npc_object.handle_reflect(this.pc_object.reflect_value)
+            }
         }
 
         // Check For Winners
@@ -309,19 +329,31 @@ Non Player Character Action: ${npc_action}
         if(player_action == 2) {
             if(npc_action == 3) {
                 this.pc_object.target_self(this.player_character.weapon.attack_crit)
-                this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object)
+                let npc_reflect = this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object)
+                if(npc_reflect) {
+                    this.pc_object.handle_reflect(this.npc_object.reflect_value)
+                }
             }
             this.pc_object.target_self(this.player_character.weapon.attack)
-            this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object)
+            let npc_reflect = this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object)
+            if(npc_reflect) {
+                this.pc_object.handle_reflect(this.npc_object.reflect_value)
+            }
         }
 
         if(npc_action == 2) {
             if(player_action == 3) {
                 this.npc_object.target_self(this.non_player_character.weapon.attack_crit)
-                this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object)
+                let pc_reflect = this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object)
+                if(pc_reflect) {
+                    this.npc_object.handle_reflect(this.pc_object.reflect_value)
+                }
             }
             this.npc_object.target_self(this.non_player_character.weapon.attack)
-            this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object)
+            let pc_reflect = this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object)
+            if(pc_reflect) {
+                this.npc_object.handle_reflect(this.pc_object.reflect_value)
+            }
         }
 
         // Check For Winners
@@ -332,12 +364,18 @@ Non Player Character Action: ${npc_action}
 
         if(player_action == 3) {
             this.pc_object.target_self(this.player_character.weapon.special)
-            this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object)
+            let npc_reflect = this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object)
+            if(npc_reflect) {
+                this.pc_object.handle_reflect(this.npc_object.reflect_value)
+            }
         }
 
         if(npc_action == 3) {
             this.npc_object.target_self(this.non_player_character.weapon.special)
-            this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object)
+            let pc_reflect = this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object)
+            if(pc_reflect) {
+                this.npc_object.handle_reflect(this.pc_object.reflect_value)
+            }
         }
 
         // Check For Winners
