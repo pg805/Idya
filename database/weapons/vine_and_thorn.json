@@ -1,0 +1,46 @@
+{
+    "Name": "Vines and Thorns",
+    "Defend": [
+        {
+            "Name": "Thorns",
+            "Type": 7,
+            "Type_Name": "Reflect",
+            "Value": 5,
+            "Rounds": 3
+        },
+        {
+            "Name": "Vines",
+            "Type": 8,
+            "Type_Name": "Shield",
+            "Value": 5,
+            "Rounds": 3
+        }
+    ],
+    "Defend Crit": [],
+    "Attack": [
+        {
+            "Name": "Branch",
+            "Type": 1,
+            "Type_Name": "Strike",
+            "Field": [0, 2, 2, 3, 4, 5]
+        }
+    ],
+    "Attack Crit": [
+        {
+            "Name": "Grow",
+            "Type": 6,
+            "Type_Name": "Heal",
+            "Value": 5
+        }
+    ],
+    "Special": [
+        {
+            "Name": "Constrict",
+            "Type": 4,
+            "Type_Name": "DOT",
+            "Field": [1, 3],
+            "Rounds": 3
+        }
+    ],
+    "Special Crit": []
+}

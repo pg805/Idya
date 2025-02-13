@@ -27,25 +27,7 @@ const human_paint = Weapon.from_json('./database/weapons/can_of_paint.json')
 const human_awakened_mind = Weapon.from_json('./database/weapons/awakened_mind.json')
 
 /* Human Weapon - Vines and Thorns */
-const vine_reflect: number = 5
-const vine_reflect_rounds: number = 3
-const vine_thorn: Reflect = new Reflect('Thorns', vine_reflect, vine_reflect_rounds)
-
-const vine_block: number = 5
-const vine_block_rounds: number = 3
-const vine_trunk: Shield = new Shield('Trunk', vine_block, vine_block_rounds)
-
-const vine_attack: Result_Field = new Result_Field([0, 2, 2, 3, 4, 5])
-const vine_branch: Strike = new Strike('Branch', vine_attack)
-
-const vine_attack_crit: number = 5
-const vine_grow: Heal = new Heal('Grow', vine_attack_crit)
-
-const vine_special: Result_Field = new Result_Field([1, 3])
-const vine_special_rounds: number = 3
-const vine_constrict: Damage_Over_Time = new Damage_Over_Time('Constrict', vine_special, vine_special_rounds)
-
-const human_vine_and_thorn: Weapon = new Weapon('Vines and Thorn', [vine_thorn, vine_trunk], [], [vine_branch], [vine_grow], [vine_constrict], [])
+const human_vine_and_thorn = Weapon.from_json('./database/weapons/vine_and_thorn.json')
 
 /* Rat Weapon - Claws */
 const rat_defend: number = 5
