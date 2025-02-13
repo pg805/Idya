@@ -1,0 +1,37 @@
+{
+    "Name": "Shovel",
+    "Defend": [
+        {
+            "Name": "Block",
+            "Type": 2,
+            "Type_Name": "Block",
+            "Value": 5
+        }
+    ],
+    "Defend Crit": [],
+    "Attack": [
+        {
+            "Name": "Whack",
+            "Type": 1,
+            "Type_Name": "Strike",
+            "Field": [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
+        }
+    ],
+    "Attack Crit": [
+        {
+            "Name": "Block",
+            "Type": 2,
+            "Type_Name": "Block",
+            "Value": 5
+        }
+    ],
+    "Special": [
+        {
+            "Name": "Charge",
+            "Type": 1,
+            "Type_Name": "Strike",
+            "Field": [5, 10, 10, 20]
+        }
+    ],
+    "Special Crit": []
+}

@@ -7,4 +7,5 @@ export default class Action {
     constructor(name: string) {
         this.name = name
     }
+
 }

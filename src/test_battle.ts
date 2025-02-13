@@ -15,13 +15,14 @@ import Buff from './weapon/action/buff.js';
 import Reflect from './weapon/action/reflect.js';
 
 /* Human Weapon - Shovel */
-const human_defend: number = 10
-const human_block: Block = new Block('Block', human_defend)
-const human_attack: Result_Field = new Result_Field([0, 3, 4, 5, 5, 5, 5, 6, 8, 10])
-const human_strike: Strike = new Strike('Strike', human_attack)
-const human_special: Result_Field = new Result_Field([5, 10, 10, 20])
-const human_charge: Strike = new Strike('Charge', human_special)
-const human_shovel: Weapon = new Weapon('Shovel', [human_block], [], [human_strike], [human_block], [human_charge], [])
+// const human_defend: number = 10
+// const human_block: Block = new Block('Block', human_defend)
+// const human_attack: Result_Field = new Result_Field([0, 3, 4, 5, 5, 5, 5, 6, 8, 10])
+// const human_strike: Strike = new Strike('Strike', human_attack)
+// const human_special: Result_Field = new Result_Field([5, 10, 10, 20])
+// const human_charge: Strike = new Strike('Charge', human_special)
+// const human_shovel: Weapon = new Weapon('Shovel', [human_block], [], [human_strike], [human_block], [human_charge], [])
+const human_shovel = Weapon.from_json('./database/weapons/shovel.json')
 
 /* Human Weapon - Cards */
 const card_defend: number = 4
@@ -213,6 +214,5 @@ while(!test_battle.winner){
     }))
 }
 
-console.log(`
-******************************
+console.log(`******************************
 Winner: ${test_battle.winner}!`)
