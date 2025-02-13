@@ -20,20 +20,28 @@ function from_json(action_object: {
 }) {
     switch(action_object['Type']) {
         case 1:
+            console.log(`Adding Strike to Weapon: ${action_object['Name']}`)
             return new Strike(action_object['Name'], new Result_Field(action_object['Field']))
         case 2:
+            console.log(`Adding Block to Weapon: ${action_object['Name']}`)
             return new Block(action_object['Name'], action_object['Value'])
         case 3:
+            console.log(`Adding Buff to Weapon: ${action_object['Name']}`)
             return new Buff(action_object['Name'], action_object['Value'], action_object['Rounds'])
         case 4:
+            console.log(`Adding Damage over Time to Weapon: ${action_object['Name']}`)
             return new Damage_Over_Time(action_object['Name'], new Result_Field(action_object['Field']), action_object['Rounds'])
         case 5:
+            console.log(`Adding Debuff to Weapon: ${action_object['Name']}`)
             return new Debuff(action_object['Name'], action_object['Value'], action_object['Rounds'])
         case 6:
+            console.log(`Adding Heal to Weapon: ${action_object['Name']}`)
             return new Heal(action_object['Name'], action_object['Value'])
         case 7:
+            console.log(`Adding Reflect to Weapon: ${action_object['Name']}`)
             return new Reflect(action_object['Name'], action_object['Value'], action_object['Rounds'])
         case 8:
+            console.log(`Adding Shield to Weapon: ${action_object['Name']}`)
             return new Shield(action_object['Name'], action_object['Value'], action_object['Rounds'])
         default:
             return new Action('Error')
