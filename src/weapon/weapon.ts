@@ -70,6 +70,8 @@ export default class Weapon {
             "Special Crit": []
         } = JSON.parse(fs.readFileSync(file, 'utf-8'))
 
+        console.log(`Loading Weapon: ${weapon_data['Name']}`)
+
         return new Weapon(
             weapon_data['Name'], 
             weapon_data['Defend'].flatMap((action_object: {
