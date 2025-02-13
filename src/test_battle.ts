@@ -122,7 +122,6 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-let weapon = 0
 await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=1, Deck of Cards=2, Paint Can=3, Awakened Mind=4, Vines and Thorns=5] > ', (answer: string) => {
     switch(answer.toLowerCase()) {
         case '1':
