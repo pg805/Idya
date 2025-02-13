@@ -1,0 +1,45 @@
+{
+    "Name": "Deck of Cards",
+    "Defend": [
+        {
+            "Name": "Mix Paint",
+            "Type": 6,
+            "Type_Name": "Heal",
+            "Value": 7
+        },
+        {
+            "Name": "Paint Can",
+            "Type": 2,
+            "Type_Name": "Block",
+            "Value": 2
+        }
+    ],
+    "Defend Crit": [],
+    "Attack": [
+        {
+            "Name": "Paint Coat",
+            "Type": 1,
+            "Type_Name": "Strike",
+            "Field": [0, 7, 7, 7]
+        }
+    ],
+    "Attack Crit": [
+        {
+            "Name": "Blind",
+            "Type": 8,
+            "Type_Name": "Shield",
+            "Value": 7,
+            "Rounds": 2
+        }
+    ],
+    "Special": [
+        {
+            "Name": "Paint Dry",
+            "Type": 4,
+            "Type_Name": "DOT",
+            "Field": [2, 3, 5, 7],
+            "Rounds": 3
+        }
+    ],
+    "Special Crit": []
+}

@@ -18,34 +18,10 @@ import Reflect from './weapon/action/reflect.js';
 const human_shovel = Weapon.from_json('./database/weapons/shovel.json')
 
 /* Human Weapon - Cards */
-const card_defend: number = 4
-const card_block: Block = new Block('Block', card_defend)
-const card_attack: Result_Field = new Result_Field([2,3,4,5,6,7,8,9,10,10,10,10,11])
-const card_attack_crit: number = 6
-const card_attack_crit_rounds: number = 2
-const card_strike: Strike = new Strike('Rank', card_attack)
-const card_attack_crit_strike: Debuff = new Debuff('Joker', card_attack_crit, card_attack_crit_rounds)
-const card_special: Result_Field = new Result_Field([1, 12, 17, 22])
-const card_suit: Strike = new Strike('Suit', card_special)
-const human_cards: Weapon = new Weapon('Deck of Cards', [card_block], [], [card_strike], [card_attack_crit_strike], [card_suit], [])
+const human_cards: Weapon = Weapon.from_json('./database/weapons/deck_of_cards.json')
 
 /* Human Weapon - Paint */
-const paint_heal: number = 7
-const paint_refill: Heal = new Heal('Mix Paint', paint_heal)
-const paint_defend: number = 2
-const paint_block: Block = new Block('Paint Can', paint_defend)
-
-const paint_attack: Result_Field = new Result_Field([0, 7, 7, 7])
-const paint_coat: Strike = new Strike('Paint Coat', paint_attack)
-const paint_attack_crit: number = 7
-const paint_attack_crit_rounds: number = 2
-const paint_blind: Shield = new Shield('Blind', paint_attack_crit, paint_attack_crit_rounds)
-
-const paint_special: Result_Field = new Result_Field([2, 3, 5, 7])
-const paint_special_rounds: number = 3
-const paint_dry: Damage_Over_Time = new Damage_Over_Time('Paint Dry', paint_special, paint_special_rounds)
-
-const human_paint: Weapon = new Weapon('Paint Can', [paint_refill, paint_block], [], [paint_coat], [paint_blind], [paint_dry], [])
+const human_paint = Weapon.from_json('./database/weapons/can_of_paint.json')
 
 /* Human Weapon - Awakened Mind */
 const brain_buff: number = 5
