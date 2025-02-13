@@ -24,23 +24,7 @@ const human_cards: Weapon = Weapon.from_json('./database/weapons/deck_of_cards.j
 const human_paint = Weapon.from_json('./database/weapons/can_of_paint.json')
 
 /* Human Weapon - Awakened Mind */
-const brain_buff: number = 5
-const brain_buff_rounds: number = 3
-const brain_control_stone: Buff = new Buff('Control Stone', brain_buff, brain_buff_rounds)
-const brain_block: number = 5
-const brain_stone_block: Block = new Block('Stone Block', brain_block)
-
-const brain_attack: Result_Field = new Result_Field([1,1,1,2,3,4])
-const brain_hurl_rock: Strike = new Strike('Hurl Rock', brain_attack)
-const brain_attack_crit: Result_Field = new Result_Field([2, 4, 6, 8])
-const brain_attack_crit_rounds: number = 2
-const brain_depress: Damage_Over_Time = new Damage_Over_Time('Depress', brain_attack_crit, brain_attack_crit_rounds)
-
-const brain_debuff: number = 8
-const brain_debuff_rounds: number = 4 
-const brain_distract: Debuff = new Debuff('Distract', brain_debuff, brain_debuff_rounds)
-
-const human_awakened_mind: Weapon = new Weapon('Awakened Mind', [brain_control_stone, brain_stone_block], [], [brain_hurl_rock], [brain_depress], [brain_distract], [])
+const human_awakened_mind = Weapon.from_json('./database/weapons/awakened_mind.json')
 
 /* Human Weapon - Vines and Thorns */
 const vine_reflect: number = 5

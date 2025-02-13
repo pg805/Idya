@@ -1,0 +1,45 @@
+{
+    "Name": "Awakened Mind",
+    "Defend": [
+        {
+            "Name": "Control Stone",
+            "Type": 3,
+            "Type_Name": "Buff",
+            "Value": 5
+        },
+        {
+            "Name": "Stone Block",
+            "Type": 2,
+            "Type_Name": "Block",
+            "Value": 5
+        }
+    ],
+    "Defend Crit": [],
+    "Attack": [
+        {
+            "Name": "Hurl Rock",
+            "Type": 1,
+            "Type_Name": "Strike",
+            "Field": [1,1,1,2,3,4]
+        }
+    ],
+    "Attack Crit": [
+        {
+            "Name": "Depress",
+            "Type": 4,
+            "Type_Name": "DOT",
+            "Field": [2, 4, 6, 8],
+            "Rounds": 3
+        }
+    ],
+    "Special": [
+        {
+            "Name": "Distract",
+            "Type": 5,
+            "Type_Name": "Debuff",
+            "Value": 8,
+            "Rounds": 4
+        }
+    ],
+    "Special Crit": []
+}
