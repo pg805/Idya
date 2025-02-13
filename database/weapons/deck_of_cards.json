@@ -1,36 +1,37 @@
 {
-    "Name": "Shovel",
+    "Name": "Deck of Cards",
     "Defend": [
         {
             "Name": "Block",
             "Type": 2,
             "Type_Name": "Block",
-            "Value": 7
+            "Value": 4
         }
     ],
     "Defend Crit": [],
     "Attack": [
         {
-            "Name": "Whack",
+            "Name": "Rank",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
+            "Field": [2,3,4,5,6,7,8,9,10,10,10,10,11]
         }
     ],
     "Attack Crit": [
         {
-            "Name": "Block",
+            "Name": "Joker",
             "Type": 5,
             "Type_Name": "Debuff",
-            "Value": 7
+            "Value": 6,
+            "Rounds": 2
         }
     ],
     "Special": [
         {
-            "Name": "Charge",
+            "Name": "Suit",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [5, 10, 10, 20]
+            "Field": [1, 12, 17, 22]
         }
     ],
     "Special Crit": []
