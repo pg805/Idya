@@ -7,12 +7,6 @@ import Pattern from './infrastructure/pattern.js';
 import Battle from './combat/battle.js';
 import Block from './weapon/action/block.js';
 import Strike from './weapon/action/strike.js';
-import Debuff from './weapon/action/debuff.js';
-import Heal from './weapon/action/heal.js';
-import Damage_Over_Time from './weapon/action/damage_over_time.js';
-import Shield from './weapon/action/shield.js';
-import Buff from './weapon/action/buff.js';
-import Reflect from './weapon/action/reflect.js';
 
 /* Human Weapon - Shovel */
 const human_shovel = Weapon.from_json('./database/weapons/shovel.json')
