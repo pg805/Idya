@@ -1,11 +1,11 @@
 import logger from '../utility/logger.js';
 
 // Require the necessary discord.js classes
-import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { Client, Collection, Events, GatewayIntentBits, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))
+const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))['TOKEN']
 
 // Create a new client instance
 const client: Client<boolean> = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -22,7 +22,8 @@ for (const folder of commandFolders) {
     const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
+        const command: {data: SlashCommandBuilder, execute:()=>{}} = await import(filePath);
+        // import command from filePath;
         // Set a new item in the Collection with the key as the command name and the value as the exported module
         if ('data' in command && 'execute' in command) {
             commands.set(command.data.name, command);

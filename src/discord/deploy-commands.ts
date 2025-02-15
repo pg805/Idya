@@ -1,12 +1,17 @@
 import logger from '../utility/logger.js';
-import { REST, Routes } from 'discord.js';
+import { REST, Routes, SlashCommandBuilder } from 'discord.js';
 // import { clientId, guildId, token } from './config.json';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const __dirname = path.dirname(__filename); // get the name of the directory
 
 const commands = [];
 // Grab all the command folders from the commands directory you created earlier
-const foldersPath = './lib/discord/commands';
+// const foldersPath = './lib/discord/commands';
+// const commandFolders = fs.readdirSync(foldersPath);
+const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
@@ -16,7 +21,9 @@ for (const folder of commandFolders) {
     // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
+		logger.info(filePath)
+        const command: {data: SlashCommandBuilder, execute:()=>{}} = await import(`file:///${filePath}`);
+		logger.info(Object.keys(command))
         if ('data' in command && 'execute' in command) {
             commands.push(command.data.toJSON());
         } else {
@@ -25,7 +32,7 @@ for (const folder of commandFolders) {
     }
 }
 
-const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))
+const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))['TOKEN']
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(token);
