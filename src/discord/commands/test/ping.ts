@@ -1,6 +1,6 @@
-import logger from "../util/logger";
+import logger from "../../../utility/logger.js";
 
-const { SlashCommandBuilder } = require('@discordjs/builders');
+import { SlashCommandBuilder } from '@discordjs/builders';
 
 module.exports = {
 	data: new SlashCommandBuilder()
