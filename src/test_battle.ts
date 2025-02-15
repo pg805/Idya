@@ -1,3 +1,5 @@
+import logger from './utility/logger.js';
+
 import * as readline from 'readline';
 import Result_Field from './infrastructure/result_field.js';
 import Weapon from './weapon/weapon.js';
@@ -41,7 +43,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
     switch(answer.toLowerCase()) {
         case '1':
         case 'shovel':
-            console.log('Shovel Chosen as weapon!')
+            logger.info('Shovel Chosen as weapon!')
             human = new Player_Character(
                 'Human',
                 50,
@@ -50,7 +52,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             break;
         case '2':
         case 'deck of cards':
-            console.log('Deck of Cards Chosen as weapon!')
+            logger.info('Deck of Cards Chosen as weapon!')
             human = new Player_Character(
                 'Human',
                 50,
@@ -59,7 +61,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             break;
         case '3':
         case 'paint can':
-            console.log('Paint Can Chosen as weapon!')
+            logger.info('Paint Can Chosen as weapon!')
             human = new Player_Character(
                 'Human',
                 50,
@@ -69,7 +71,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
         case '4':
         case 'awakened mind':
         case 'brain':
-            console.log('Awakened Mind Chosen as weapon!')
+            logger.info('Awakened Mind Chosen as weapon!')
             human = new Player_Character(
                 'Human',
                 50,
@@ -80,7 +82,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
         case 'vine':
         case 'thorn':
         case 'vines and thorns':
-            console.log('Vines and Thorns Chosen as weapon!')
+            logger.info('Vines and Thorns Chosen as weapon!')
             human = new Player_Character(
                 'Human',
                 50,
@@ -88,7 +90,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             )
             break;
         default:
-            console.log('Please input a weapon or weapon number.')
+            logger.info('Please input a weapon or weapon number.')
     }
 
     resolve(true)
@@ -105,21 +107,21 @@ while(!test_battle.winner){
         switch(answer.toLowerCase()) {
             case '1':
             case 'defend':
-                console.log('Player Defending')
+                logger.info('Player Defending')
                 winner = test_battle.resolve_round(1)
                 break;
             case '2':
             case 'attack':
-                console.log('Player Attacking')
+                logger.info('Player Attacking')
                 winner = test_battle.resolve_round(2)
                 break;
             case '3':
             case 'special':
-                console.log('Player Specialing')
+                logger.info('Player Specialing')
                 winner = test_battle.resolve_round(3)
                 break;
             default:
-                console.log('Please input 1, 2, or 3')
+                logger.info('Please input 1, 2, or 3')
         }
         if(winner) {
             rl.close()
@@ -128,5 +130,5 @@ while(!test_battle.winner){
     }))
 }
 
-console.log(`******************************
+logger.info(`******************************
 Winner: ${test_battle.winner}!`)

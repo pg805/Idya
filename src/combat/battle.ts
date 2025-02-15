@@ -1,3 +1,5 @@
+import logger from "../utility/logger.js";
+
 import Player_Character from "../character/player_character.js";
 import Non_Player_Character from "../character/non_player_character.js";
 import Action from "../weapon/action.js";
@@ -38,7 +40,7 @@ class Player_Object {
             if(action.type == 2) {
                 const block = (<Block>action).value
                 this.block = block
-                console.log(
+                logger.info(
 `Resolving ${this.name} Block: ${action.name}
 Value: ${block}`
                 )
@@ -57,7 +59,7 @@ Value: ${block}`
                 this.debuff_value = 0
                 this.debuff_rounds = 0
 
-                console.log(
+                logger.info(
 `Resolving ${this.name} Buff: ${action.name}
 Buff Value: ${buff_value}
 Debuff Rounds: ${buff_rounds}
@@ -70,7 +72,7 @@ Old Debuff Rounds: ${old_debuff_rounds}`
             if(action.type == 6) {
                 const heal = (<Heal>action).value
                 this.health = Math.min(this.health + heal, this.max_health)
-                console.log(
+                logger.info(
 `Resolving ${this.name} Heal: ${action.name}
 Value: ${heal}
 Health: ${this.health}`
@@ -85,7 +87,7 @@ Health: ${this.health}`
                 const reflect_rounds = (<Reflect>action).rounds
                 this.reflect_rounds = reflect_rounds
 
-                console.log(
+                logger.info(
 `Resolving ${this.name} Reflect: ${action.name}
 Value: ${reflect_value}
 Rounds: ${reflect_rounds}`
@@ -100,7 +102,7 @@ Rounds: ${reflect_rounds}`
                 const shield_rounds = (<Shield>action).rounds
                 this.shield_rounds = shield_rounds
                 
-                console.log(
+                logger.info(
 `Resolving ${this.name} Shield: ${action.name}
 Value: ${shield_value}
 Rounds: ${shield_rounds}`
@@ -118,7 +120,7 @@ Rounds: ${shield_rounds}`
                 const damage_roll = (<Strike>action).field.get_result()
                 const damage = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0)
                 this.health =  Math.max(this.health - damage, 0)
-                console.log(
+                logger.info(
 `Resolving Strike on ${this.name}: ${action.name}
 Damage Roll: ${damage_roll}
 Block: ${this.block}
@@ -138,7 +140,7 @@ Health: ${this.health}`
                 const rounds = (<Damage_Over_Time>action).rounds
                 this.damage_over_time_rounds = rounds
 
-                console.log(
+                logger.info(
 `Resolving DOT on ${this.name}: ${action.name}
 Value: ${damage}
 Rounds: ${rounds}`
@@ -158,7 +160,7 @@ Rounds: ${rounds}`
                 this.buff_value = 0
                 this.buff_rounds = 0
 
-                console.log(
+                logger.info(
 `Resolving Debuff on ${this.name}: ${action.name}
 Value: ${debuff}
 Rounds: ${rounds}
@@ -173,7 +175,7 @@ Old Buff Rounds: ${old_buff_rounds}`
 
     handle_reflect(damage: number) {
         this.health = Math.max(this.health - damage, 0)
-        console.log(
+        logger.info(
 `Reflecting Damage to ${this.name}
 Damage: ${damage}
 Health: ${this.health}
@@ -188,7 +190,7 @@ Health: ${this.health}
             this.health = Math.max(this.health - this.damage_over_time_value, 0)
             this.damage_over_time_rounds -= 1
             
-            console.log(
+            logger.info(
 `End of Turn DOT on ${this.name}
 Damage: ${this.damage_over_time_value}
 Rounds Left: ${this.damage_over_time_rounds}
@@ -206,7 +208,7 @@ Health: ${this.health}
         // Reduce Buff Rounds
         if(this.buff_rounds > 0) {
             this.buff_rounds -= 1
-            console.log(`Buff Rounds for ${this.name}: ${this.buff_rounds}`)
+            logger.info(`Buff Rounds for ${this.name}: ${this.buff_rounds}`)
             if(this.buff_rounds == 0) {
                 this.buff_value = 0
             }
@@ -218,7 +220,7 @@ Health: ${this.health}
         // Reduce Debuff Rounds
         if(this.debuff_rounds > 0) {
             this.debuff_rounds -= 1
-            console.log(`Debuff Rounds for ${this.name}: ${this.debuff_rounds}`)
+            logger.info(`Debuff Rounds for ${this.name}: ${this.debuff_rounds}`)
             if(this.debuff_rounds == 0) {
                 this.debuff_value = 0
             }
@@ -230,7 +232,7 @@ Health: ${this.health}
         // Reduce Reflect Rounds
         if(this.reflect_rounds > 0) {
             this.reflect_rounds -= 1
-            console.log(`Reflect Rounds for ${this.name}: ${this.reflect_rounds}`)
+            logger.info(`Reflect Rounds for ${this.name}: ${this.reflect_rounds}`)
             if(this.reflect_rounds == 0) {
                 this.reflect_value = 0
             }
@@ -242,7 +244,7 @@ Health: ${this.health}
         // Reduce Shield Rounds
         if(this.shield_rounds > 0) {
             this.shield_rounds -= 1
-            console.log(`Shield Rounds for ${this.name}: ${this.shield_rounds}`)
+            logger.info(`Shield Rounds for ${this.name}: ${this.shield_rounds}`)
             if(this.shield_rounds == 0) {
                 this.shield_value = 0
             }
@@ -292,7 +294,7 @@ export default class Battle {
 
     resolve_round(player_action: number) {
         const npc_action: number = this.non_player_character.pattern.field[this.npc_index]
-        console.log(
+        logger.info(
 `***************************
 Resolving Turn
 Current Round: ${this.current_round}
