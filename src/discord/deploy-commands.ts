@@ -9,8 +9,6 @@ const __dirname = path.dirname(__filename); // get the name of the directory
 
 const commands = [];
 // Grab all the command folders from the commands directory you created earlier
-// const foldersPath = './lib/discord/commands';
-// const commandFolders = fs.readdirSync(foldersPath);
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -22,8 +20,8 @@ for (const folder of commandFolders) {
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
 		logger.info(filePath)
-        const command: {data: SlashCommandBuilder, execute:()=>{}} = await import(`file:///${filePath}`);
-		logger.info(Object.keys(command))
+        const command: {data: SlashCommandBuilder, execute:()=>{}, default: string} = (await import(`file:///${filePath}`)).default;
+
         if ('data' in command && 'execute' in command) {
             commands.push(command.data.toJSON());
         } else {

@@ -4,6 +4,9 @@ import logger from '../utility/logger.js';
 import { Client, Collection, Events, GatewayIntentBits, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const __dirname = path.dirname(__filename); // get the name of the directory
 
 const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))['TOKEN']
 
@@ -14,7 +17,7 @@ const commands: Collection<string, {
     execute: Function
 }> = new Collection();
 
-const foldersPath = './lib/discord/commands';
+const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
@@ -22,7 +25,7 @@ for (const folder of commandFolders) {
     const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        const command: {data: SlashCommandBuilder, execute:()=>{}} = await import(filePath);
+        const command: {data: SlashCommandBuilder, execute:()=>{}, default: string} = (await import(`file:///${filePath}`)).default;
         // import command from filePath;
         // Set a new item in the Collection with the key as the command name and the value as the exported module
         if ('data' in command && 'execute' in command) {
