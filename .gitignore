@@ -1,6 +1,7 @@
 # B-Sharp git ignore file
 
 # ignore data
+database
 data/settings.json
 data/keys.json
 data/settings.jsonc
