@@ -1,9 +1,8 @@
-import Pattern from './pattern.js'
+import Pattern from './pattern.js';
 
 export default class Result_Field extends Pattern {
-
     constructor(field: Array<number>) {
-        super(field)
+        super(field);
     }
 
     get_result() {

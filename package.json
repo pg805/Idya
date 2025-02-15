@@ -8,13 +8,12 @@
   "author": "pg805",
   "main": "./src/discord/init.ts",
   "module": "./lib/discord/deploy_commands.js",
-  "type": "module",
   "scripts": {
     "start": "node ./lib/discord/init.js",
     "refresh-commands": "node ./lib/discord/deploy-commands.js",
     "cli-test": "node ./lib/test_battle.js",
     "build": "tsc --project tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint . --fix"
   },
   "dependencies": {
     "discord.js": "^14.18.0",
@@ -37,7 +36,7 @@
     "@types/node": "^16.6.0",
     "@typescript-eslint/eslint-plugin": "^4.14.1",
     "@typescript-eslint/parser": "^4.14.1",
-    "eslint": "^7.18.0",
+    "eslint": "^7.32.0",
     "eslint-config-google": "^0.14.0",
     "jest": "^29.7.0",
     "typescript": "^5.2.2"

@@ -1,4 +1,4 @@
-import Weapon from "../weapon/weapon.js"
+import Weapon from '../weapon/weapon.js';
 
 export default class Player_Character {
     name: string
@@ -6,8 +6,8 @@ export default class Player_Character {
     weapon: Weapon
 
     constructor(name: string, health: number, weapon: Weapon) {
-        this.name = name
-        this.health = health
-        this.weapon = weapon
+        this.name = name;
+        this.health = health;
+        this.weapon = weapon;
     }
 }

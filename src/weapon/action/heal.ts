@@ -1,12 +1,12 @@
-import Action from "../action.js"
+import Action from '../action.js';
 
 export default class Heal extends Action {
     value: number
-    type: number = 6
-    type_name: string = 'HEAL'
+    type = 6
+    type_name = 'HEAL'
 
     constructor(name: string, value: number) {
-        super(name)
-        this.value = value
+        super(name);
+        this.value = value;
     }
 }

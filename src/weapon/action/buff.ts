@@ -1,14 +1,14 @@
-import Action from "../action.js";
+import Action from '../action.js';
 
 export default class Buff extends Action {
     value: number
     rounds: number
-    type: number = 3
-    type_name: string = 'BUFF'
+    type = 3
+    type_name = 'BUFF'
 
-    constructor (name: string, value: number, rounds: number) {
-        super(name)
-        this.value = value
-        this.rounds = rounds
+    constructor(name: string, value: number, rounds: number) {
+        super(name);
+        this.value = value;
+        this.rounds = rounds;
     }
 }
