@@ -5,7 +5,7 @@ import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from 'dis
 import fs from 'node:fs';
 import path from 'node:path';
 
-const token = '';
+const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))
 
 // Create a new client instance
 const client: Client<boolean> = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -22,7 +22,7 @@ for (const folder of commandFolders) {
     const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        const command = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        const command = require(filePath);
         // Set a new item in the Collection with the key as the command name and the value as the exported module
         if ('data' in command && 'execute' in command) {
             commands.set(command.data.name, command);

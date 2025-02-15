@@ -1,5 +1,4 @@
 import logger from '../utility/logger.js';
-
 import { REST, Routes } from 'discord.js';
 // import { clientId, guildId, token } from './config.json';
 import fs from 'node:fs';
@@ -13,7 +12,7 @@ const commandFolders = fs.readdirSync(foldersPath);
 for (const folder of commandFolders) {
     // Grab all the command files from the commands directory you created earlier
     const commandsPath = path.join(foldersPath, folder);
-    const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
+    const commandFiles = fs.readdirSync(commandsPath).filter((file: string) => file.endsWith('.js'));
     // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
@@ -26,10 +25,10 @@ for (const folder of commandFolders) {
     }
 }
 
-const token=""
+const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))
 
 // Construct and prepare an instance of the REST module
-const rest: REST = new REST().setToken(token);
+const rest = new REST().setToken(token);
 
 // and deploy your commands!
 (async () => {

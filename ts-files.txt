@@ -1,4 +1,4 @@
-./src/init.ts 
-./src/deploy-commands.ts 
+./src/discord/init.ts 
+./src/discord/deploy-commands.ts 
 ./src/commands/*.ts 
 --outDir lib

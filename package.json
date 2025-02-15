@@ -3,6 +3,7 @@
   "//2": "https://docs.npmjs.com/files/package.json",
   "//3": "updating this file will download and update your packages",
   "name": "idya",
+  "type": "module",
   "version": "0.0.1",
   "description": "RPG Bot",
   "author": "pg805",
