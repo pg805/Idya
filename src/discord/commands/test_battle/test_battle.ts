@@ -5,7 +5,7 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } fr
 
 const test_battle_embed: EmbedBuilder = new EmbedBuilder()
 	.setColor(0x00FFFF)
-	.setTitle('A rat has approached!')
+	.setTitle('A rat approaches!')
 	.setDescription('As you wake up in a large, grassy field, several objects lie around you.  A hissing sound turns your attention to your left.  A rat, standing on its hind legs, looks poised to attack you.  You have the chance to grab one item to fight back!')
 	.addFields(
 		{name: 'Shovel (Recommended)', value: 'A rusty shovel sits before you.  Seems like it\'s still sturdy!', inline: true},
