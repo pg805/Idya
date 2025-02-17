@@ -140,7 +140,7 @@ Rounds: ${shield_rounds}`
                 const damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
                 this.health = Math.max(this.health - damage, 0);
 
-                const rolled_string = `  ${this.name} rolled ${damage_roll}.`
+                const rolled_string = `  ${hostile_object.name} rolled ${damage_roll}.`
 
                 const block_string: string = this.block + this.shield_value > 0 ? `  ${this.name} blocked ${this.block+this.shield_value} damage.` : ''
 
