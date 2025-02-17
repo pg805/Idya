@@ -143,5 +143,7 @@ while (!test_battle.winner) {
     }));
 }
 
+logger.debug(`Full Log:\n${test_battle.log.join('\n')}`)
+
 logger.info(`******************************
 Winner: ${test_battle.winner}!`);

@@ -140,10 +140,10 @@ Rounds: ${shield_rounds}`
                 const damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
                 this.health = Math.max(this.health - damage, 0);
 
-                const block_string: string = this.block + this.shield_value > 0 ? `${this.name} blocked ${this.block+this.shield_value} damage.` : ''
+                const block_string: string = this.block + this.shield_value > 0 ? `  ${this.name} blocked ${this.block+this.shield_value} damage.` : ''
 
-                const buff_string: string = this.buff_value ? `<Target> buffed their attack by ${this.buff_value}.` : ''
-                const debuff_string: string = this.debuff_value ? `<Target> attack was debuffed by ${this.buff_value}.` : ''
+                const buff_string: string = hostile_object.buff_value ? `  <Target> buffed their attack by ${hostile_object.buff_value}.` : ''
+                const debuff_string: string = hostile_object.debuff_value ? `  <Target>'s attack was debuffed by ${hostile_object.debuff_value}.` : ''
 
                 target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${block_string}${buff_string}${debuff_string}`;
 
@@ -207,7 +207,7 @@ Old Buff Rounds: ${old_buff_rounds}`
     handle_reflect(damage: number) {
         this.health = Math.max(this.health - damage, 0);
 
-        const action_string = `\n${damage} damage was reflected to <User>.`;
+        const action_string = damage > 0 ? `\n${damage} damage was reflected to <User>.` : '';
 
         logger.info(
             `Reflecting Damage to ${this.name}
@@ -229,7 +229,7 @@ Health: ${this.health}
             this.health = Math.max(this.health - this.damage_over_time_value, 0);
             this.damage_over_time_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} takes ${this.damage_over_time_value}.  This DOT has ${this.damage_over_time_rounds}`;
+            action_string = `${action_string}\n${this.name} takes ${this.damage_over_time_value} damage.  This DOT has ${this.damage_over_time_rounds} round(s) left`;
 
             logger.info(
                 `End of Turn DOT on ${this.name}
@@ -250,7 +250,7 @@ Health: ${this.health}
         if (this.buff_rounds > 0) {
             this.buff_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} left on their buff.`;
+            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} round(s) left on their buff.`;
 
             logger.info(`Buff Rounds for ${this.name}: ${this.buff_rounds}`);
             if (this.buff_rounds == 0) {
@@ -265,7 +265,7 @@ Health: ${this.health}
         if (this.debuff_rounds > 0) {
             this.debuff_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} left on their debuff.`;
+            action_string = `${action_string}\n${this.name} has ${this.debuff_rounds} round(s) left on their debuff.`;
 
             logger.info(`Debuff Rounds for ${this.name}: ${this.debuff_rounds}`);
             if (this.debuff_rounds == 0) {
@@ -280,7 +280,7 @@ Health: ${this.health}
         if (this.reflect_rounds > 0) {
             this.reflect_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} left on their reflect.`;
+            action_string = `${action_string}\n${this.name} has ${this.reflect_rounds} round(s) left on their reflect.`;
 
             logger.info(`Reflect Rounds for ${this.name}: ${this.reflect_rounds}`);
             if (this.reflect_rounds == 0) {
@@ -295,7 +295,7 @@ Health: ${this.health}
         if (this.shield_rounds > 0) {
             this.shield_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} left on their shield.`;
+            action_string = `${action_string}\n${this.name} has ${this.shield_rounds} round(s) left on their shield.`;
 
             logger.info(`Shield Rounds for ${this.name}: ${this.shield_rounds}`);
             if (this.shield_rounds == 0) {
@@ -319,6 +319,7 @@ export default class Battle {
     current_round = 1;
     complete = false;
     winner = '';
+    log: Array<string> = []
 
 
     constructor(player_character: Player_Character, non_player_character: Non_Player_Character) {
@@ -372,11 +373,11 @@ Non Player Character Action: ${npc_action}
             }
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.pc_object.name)
+                self_string.replace(/\<User\>/g, this.pc_object.name)
             }${
-                target_string.replace('<User>', this.pc_object.name).replace('<Target>', this.npc_object.name)
+                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
             }${
-                reflect_string.replace('<User>', this.pc_object.name)
+                reflect_string.replace(/\<User\>/g, this.pc_object.name)
             }`
         }
 
@@ -389,17 +390,18 @@ Non Player Character Action: ${npc_action}
             }
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.npc_object.name)
+                self_string.replace(/\<User\>/g, this.npc_object.name)
             }${
-                target_string.replace('<User>', this.npc_object.name).replace('<Target>', this.pc_object.name)
+                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
             }${
-                reflect_string.replace('<User>', this.npc_object.name)
+                reflect_string.replace(/\<User\>/g, this.npc_object.name)
             }`
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
+            this.log.push(action_string);
             const winner: string = this.winner
             return { action_string, winner };
         }
@@ -415,11 +417,11 @@ Non Player Character Action: ${npc_action}
                 }
 
                 action_string = `${action_string}${
-                    self_string.replace('<User>', this.pc_object.name)
+                    self_string.replace(/\<User\>/g, this.pc_object.name)
                 }${
-                    target_string.replace('<User>', this.pc_object.name).replace('<Target>', this.npc_object.name)
+                    target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
                 }${
-                    reflect_string.replace('<User>', this.pc_object.name)
+                    reflect_string.replace(/\<User\>/g, this.pc_object.name)
                 }`
             }
 
@@ -432,11 +434,11 @@ Non Player Character Action: ${npc_action}
             }
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.pc_object.name)
+                self_string.replace(/\<User\>/g, this.pc_object.name)
             }${
-                target_string.replace('<User>', this.pc_object.name).replace('<Target>', this.npc_object.name)
+                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
             }${
-                reflect_string.replace('<User>', this.pc_object.name)
+                reflect_string.replace(/\<User\>/g, this.pc_object.name)
             }`
         }
 
@@ -451,11 +453,11 @@ Non Player Character Action: ${npc_action}
                 }
 
                 action_string = `${action_string}${
-                    self_string.replace('<User>', this.npc_object.name)
+                    self_string.replace(/\<User\>/g, this.npc_object.name)
                 }${
-                    target_string.replace('<User>', this.npc_object.name).replace('<Target>', this.pc_object.name)
+                    target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
                 }${
-                    reflect_string.replace('<User>', this.npc_object.name)
+                    reflect_string.replace(/\<User\>/g, this.npc_object.name)
                 }`
             }
             const self_string = this.npc_object.target_self(this.non_player_character.weapon.attack);
@@ -467,17 +469,18 @@ Non Player Character Action: ${npc_action}
             }
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.npc_object.name)
+                self_string.replace(/\<User\>/g, this.npc_object.name)
             }${
-                target_string.replace('<User>', this.npc_object.name).replace('<Target>', this.pc_object.name)
+                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
             }${
-                reflect_string.replace('<User>', this.npc_object.name)
+                reflect_string.replace(/\<User\>/g, this.npc_object.name)
             }`
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
+            this.log.push(action_string);
             const winner: string = this.winner
             return { action_string, winner };
         }
@@ -492,11 +495,11 @@ Non Player Character Action: ${npc_action}
             }
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.pc_object.name)
+                self_string.replace(/\<User\>/g, this.pc_object.name)
             }${
-                target_string.replace('<User>', this.pc_object.name).replace('<Target>', this.npc_object.name)
+                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
             }${
-                reflect_string.replace('<User>', this.pc_object.name)
+                reflect_string.replace(/\<User\>/g, this.pc_object.name)
             }`
         }
 
@@ -511,17 +514,18 @@ Non Player Character Action: ${npc_action}
 
 
             action_string = `${action_string}${
-                self_string.replace('<User>', this.npc_object.name)
+                self_string.replace(/\<User\>/g, this.npc_object.name)
             }${
-                target_string.replace('<User>', this.npc_object.name).replace('<Target>', this.pc_object.name)
+                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
             }${
-                reflect_string.replace('<User>', this.npc_object.name)
+                reflect_string.replace(/\<User\>/g, this.npc_object.name)
             }`
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
+            this.log.push(action_string);
             const winner: string = this.winner
             return { action_string, winner };
         }
@@ -532,11 +536,12 @@ Non Player Character Action: ${npc_action}
         const pc_end_string: string = this.pc_object.end_round();
         const npc_end_string: string = this.npc_object.end_round();
 
-        action_string = `${pc_end_string.replace('<User>', this.pc_object.name)}`
-        action_string = `${npc_end_string.replace('<User>', this.npc_object.name)}`
+        action_string = `${action_string}${pc_end_string.replace(/\<User\>/g, this.pc_object.name)}`
+        action_string = `${action_string}${npc_end_string.replace(/\<User\>/g, this.npc_object.name)}`
 
         this.winner = this.check_winners();
 
+        this.log.push(action_string);
         const winner: string = this.winner
         return { action_string, winner };
     }
