@@ -140,12 +140,14 @@ Rounds: ${shield_rounds}`
                 const damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
                 this.health = Math.max(this.health - damage, 0);
 
+                const rolled_string = `  ${this.name} rolled ${damage_roll}.`
+
                 const block_string: string = this.block + this.shield_value > 0 ? `  ${this.name} blocked ${this.block+this.shield_value} damage.` : ''
 
                 const buff_string: string = hostile_object.buff_value ? `  <Target> buffed their attack by ${hostile_object.buff_value}.` : ''
                 const debuff_string: string = hostile_object.debuff_value ? `  <Target>'s attack was debuffed by ${hostile_object.debuff_value}.` : ''
 
-                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${block_string}${buff_string}${debuff_string}`;
+                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${rolled_string}${block_string}${buff_string}${debuff_string}`;
 
                 logger.info(
                     `Resolving Strike on ${this.name}: ${action.name}

@@ -236,7 +236,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 const old_embed = interaction.message.embeds[0]
                 const battle_embed = EmbedBuilder.from(old_embed)
                     .setTitle('Rat Battle')
-                    .setDescription(`${start_weapon_string}${round_object.action_string}\n${rat_attack_saying}\nChoose your action!`)
+                    .setDescription(`${start_weapon_string}${round_object.action_string}\n----------------------------\n${rat_attack_saying}\nChoose your action!`)
                     .setFields({
                         name: "Player Character",
                         value: `${battle.pc_object.health}`,
