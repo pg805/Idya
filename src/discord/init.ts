@@ -13,6 +13,7 @@ import Result_Field from '../infrastructure/result_field.js';
 import Strike from '../weapon/action/strike.js';
 import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
+import test_battle from './commands/test_battle/test_battle.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -104,7 +105,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         let start_battle = false;
         let start_weapon_string = '';
-        let winner = '';
+        let round_object:  {
+            action_string: string,
+            winner: string
+        } = {
+            action_string: '',
+            winner: ''
+        };
 
         switch(button) {
             case 'TestBattleShovelSelect':
@@ -179,21 +186,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 break;
             case 'TestBattleDefend':
                 if(battle) {
-                    winner = battle.resolve_round(1)
+                    round_object = battle.resolve_round(1)
                 } else {
                     logger.warn('Battle not started!')
                 }
                 break;
             case 'TestBattleAttack':
                 if(battle) {
-                    winner = battle.resolve_round(2)
+                    round_object = battle.resolve_round(2)
                 } else {
                     logger.warn('Battle not started!')
                 }
                 break;
             case 'TestBattleSpecial':
                 if(battle) {
-                    winner = battle.resolve_round(3)
+                    round_object = battle.resolve_round(3)
                 } else {
                     logger.warn('Battle not started!')
                 }
@@ -208,7 +215,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         if(battle) {
-            if(!winner) {
+            if(round_object.winner) {
                 const rat_action = battle.npc_index
 
                 let rat_attack_saying = ''
@@ -229,7 +236,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 const old_embed = interaction.message.embeds[0]
                 const battle_embed = EmbedBuilder.from(old_embed)
                     .setTitle('Rat Battle')
-                    .setDescription(`${start_weapon_string}\n${rat_attack_saying}\nChoose your action!`)
+                    .setDescription(`${start_weapon_string}${round_object.action_string}\n${rat_attack_saying}\nChoose your action!`)
                     .setFields({
                         name: "Player Character",
                         value: `${battle.pc_object.health}`,
@@ -266,7 +273,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 const old_embed = interaction.message.embeds[0]
                 const battle_embed = EmbedBuilder.from(old_embed)
                     .setTitle('Rat Battle')
-                    .setDescription(`${winner} has won!`)
+                    .setDescription(`${battle.winner} has won!`)
                     .setFields({
                         name: "Player Character",
                         value: `${battle.pc_object.health}`,
