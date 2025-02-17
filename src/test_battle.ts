@@ -12,11 +12,11 @@ import Strike from './weapon/action/strike.js';
 
 /* Rat Weapon - Claws */
 const rat_defend = 5;
-const rat_block: Block = new Block('Block', rat_defend);
+const rat_block: Block = new Block('Block', '<User> prepares to block for 5 damage.', rat_defend);
 const rat_attack: Result_Field = new Result_Field([0, 3, 5, 5, 7, 10]);
-const rat_strike: Strike = new Strike('Strike', rat_attack);
+const rat_strike: Strike = new Strike('Strike', '<User> scratches <Target> dealing <Damage> damage.', rat_attack);
 const rat_special: Result_Field = new Result_Field([3, 9, 15, 15]);
-const rat_bite: Strike = new Strike('Bite', rat_special);
+const rat_bite: Strike = new Strike('Bite', '<User> bites <Target> for <Damage> damage.', rat_special);
 const rat_claws: Weapon = new Weapon('Claws', [rat_block], [], [rat_strike], [rat_block], [rat_bite], []);
 
 /* Characters */
@@ -103,26 +103,39 @@ const test_battle: Battle = new Battle(
 
 while (!test_battle.winner) {
     await new Promise((resolve, reject) => rl.question('Player Action? [Defend=1, Attack=2, Special=3] > ', (answer: string) => {
-        let winner = '';
+        let round_object:  {
+            action_string: string,
+            winner: string
+        };
         switch (answer.toLowerCase()) {
             case '1':
             case 'defend':
                 logger.info('Player Defending');
-                winner = test_battle.resolve_round(1);
+                round_object = test_battle.resolve_round(1);
                 break;
             case '2':
             case 'attack':
                 logger.info('Player Attacking');
-                winner = test_battle.resolve_round(2);
+                round_object = test_battle.resolve_round(2);
                 break;
             case '3':
             case 'special':
                 logger.info('Player Specialing');
-                winner = test_battle.resolve_round(3);
+                round_object = test_battle.resolve_round(3);
                 break;
             default:
+                round_object = {
+                    action_string: 'Invalid Input',
+                    winner: ''
+                }
                 logger.info('Please input 1, 2, or 3');
         }
+
+        const winner: string = round_object.winner
+        const action_string: string = round_object.action_string
+
+        logger.info(action_string)
+
         if (winner) {
             rl.close();
         }
