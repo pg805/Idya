@@ -6,8 +6,8 @@ export default class Strike extends Action {
     type = 1
     type_name = 'STRIKE'
 
-    constructor(name: string, field: Result_Field) {
-        super(name);
+    constructor(name: string, action_string: string, field: Result_Field) {
+        super(name, action_string);
         this.field = field;
     }
 }

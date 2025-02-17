@@ -5,13 +5,15 @@
             "Name": "Mix Paint",
             "Type": 6,
             "Type_Name": "Heal",
-            "Value": 7
+            "Value": 7,
+            "Action_String": "<User> swirls several colors around, creating a new shade and healing for 7 damage."
         },
         {
             "Name": "Paint Can",
             "Type": 2,
             "Type_Name": "Block",
-            "Value": 2
+            "Value": 2,
+            "Action_String": "<User> holds up the lid of their paint can, blocking for 2 damage."
         }
     ],
     "Defend Crit": [],
@@ -20,7 +22,8 @@
             "Name": "Paint Coat",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [0, 7, 7, 7]
+            "Field": [0, 7, 7, 7],
+            "Action_String": "<User> swipes their brush at <Target>, dealing <Damage> damage."
         }
     ],
     "Attack Crit": [
@@ -29,7 +32,8 @@
             "Type": 8,
             "Type_Name": "Shield",
             "Value": 7,
-            "Rounds": 2
+            "Rounds": 2,
+            "Action_String": "<User> camoflages their face, shielding for 7 damage for 2 turns."
         }
     ],
     "Special": [
@@ -38,7 +42,8 @@
             "Type": 4,
             "Type_Name": "DOT",
             "Field": [2, 3, 5, 7],
-            "Rounds": 3
+            "Rounds": 3,
+            "Action_String": "<User> sets the paint on <Target> to dry. <Target> will take <Damage> damage for 3 rounds."
         }
     ],
     "Special Crit": []

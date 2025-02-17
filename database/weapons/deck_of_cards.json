@@ -2,10 +2,11 @@
     "Name": "Deck of Cards",
     "Defend": [
         {
-            "Name": "Block",
+            "Name": "Shuffle",
             "Type": 2,
             "Type_Name": "Block",
-            "Value": 4
+            "Value": 4,
+            "Action_String": "<User> shuffles their deck, preparing to block for 4 damage."
         }
     ],
     "Defend Crit": [],
@@ -14,7 +15,8 @@
             "Name": "Rank",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [2,3,4,5,6,7,8,9,10,10,10,10,11]
+            "Field": [2,3,4,5,6,7,8,9,10,10,10,10,11],
+            "Action_String": "<User> pulls a card and throws it at <Target>, dealing <Damage> damage."
         }
     ],
     "Attack Crit": [
@@ -23,7 +25,8 @@
             "Type": 5,
             "Type_Name": "Debuff",
             "Value": 6,
-            "Rounds": 2
+            "Rounds": 2,
+            "Action_String": "<User> pulls a joker and throws it at <Target>, debuffing <Target>'s attack by 6 for 2 rounds."
         }
     ],
     "Special": [
@@ -31,7 +34,8 @@
             "Name": "Suit",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [1, 12, 17, 22]
+            "Field": [1, 12, 17, 22],
+            "Action_String": "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
         }
     ],
     "Special Crit": []

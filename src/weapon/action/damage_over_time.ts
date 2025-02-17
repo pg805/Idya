@@ -7,8 +7,8 @@ export default class Damage_Over_Time extends Action {
     type = 4
     type_name = 'DOT'
 
-    constructor(name: string, field: Result_Field, rounds: number) {
-        super(name);
+    constructor(name: string, action_string: string, field: Result_Field, rounds: number) {
+        super(name, action_string);
         this.field = field;
         this.rounds = rounds;
     }

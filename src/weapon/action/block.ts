@@ -5,8 +5,8 @@ export default class Block extends Action {
     type = 2
     type_name = 'BLOCK'
 
-    constructor(name: string, value: number) {
-        super(name);
+    constructor(name: string, action_string: string, value: number) {
+        super(name, action_string);
         this.value = value;
     }
 }

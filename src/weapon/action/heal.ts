@@ -5,8 +5,8 @@ export default class Heal extends Action {
     type = 6
     type_name = 'HEAL'
 
-    constructor(name: string, value: number) {
-        super(name);
+    constructor(name: string, action_string: string, value: number) {
+        super(name, action_string);
         this.value = value;
     }
 }

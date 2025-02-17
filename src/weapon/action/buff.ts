@@ -6,8 +6,8 @@ export default class Buff extends Action {
     type = 3
     type_name = 'BUFF'
 
-    constructor(name: string, value: number, rounds: number) {
-        super(name);
+    constructor(name: string, action_string: string, value: number, rounds: number) {
+        super(name, action_string);
         this.value = value;
         this.rounds = rounds;
     }

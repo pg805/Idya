@@ -6,8 +6,8 @@ export default class Debuff extends Action {
     type = 5
     type_name = 'DEBUFF'
 
-    constructor(name: string, value: number, rounds: number) {
-        super(name);
+    constructor(name: string, action_string: string, value: number, rounds: number) {
+        super(name, action_string);
         this.value = value;
         this.rounds = rounds;
     }

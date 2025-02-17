@@ -5,13 +5,15 @@
             "Name": "Control Stone",
             "Type": 3,
             "Type_Name": "Buff",
-            "Value": 5
+            "Value": 5,
+            "Action_String": "<User> connects telepathically with a pebble, buffing their attack by 5 for 3 rounds."
         },
         {
             "Name": "Stone Block",
             "Type": 2,
             "Type_Name": "Block",
-            "Value": 5
+            "Value": 5,
+            "Action_String": "<User> sets the stone to orbit their head, preparing to block for 5 damage."
         }
     ],
     "Defend Crit": [],
@@ -20,7 +22,8 @@
             "Name": "Hurl Rock",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [1,1,1,2,3,4]
+            "Field": [1,1,1,2,3,4],
+            "Action_String": "<User> hurls their stone at <Target>, dealing <Damage> damage."
         }
     ],
     "Attack Crit": [
@@ -29,7 +32,8 @@
             "Type": 4,
             "Type_Name": "DOT",
             "Field": [2, 4, 6, 8],
-            "Rounds": 3
+            "Rounds": 3,
+            "Action_String": "<User> depresses the thoughts of <Target> in a moment of weakness.  <Target> will take <Damage> damage for 3 rounds."
         }
     ],
     "Special": [
@@ -38,7 +42,8 @@
             "Type": 5,
             "Type_Name": "Debuff",
             "Value": 8,
-            "Rounds": 4
+            "Rounds": 4,
+            "Action_String": "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 5 for 4 rounds."
         }
     ],
     "Special Crit": []

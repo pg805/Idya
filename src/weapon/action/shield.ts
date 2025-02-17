@@ -6,8 +6,8 @@ export default class Shield extends Action {
     type = 8
     type_name = 'SHIELD'
 
-    constructor(name: string, value: number, rounds: number) {
-        super(name);
+    constructor(name: string, action_string: string, value: number, rounds: number) {
+        super(name, action_string);
         this.value = value;
         this.rounds = rounds;
     }

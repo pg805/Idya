@@ -6,14 +6,16 @@
             "Type": 7,
             "Type_Name": "Reflect",
             "Value": 5,
-            "Rounds": 3
+            "Rounds": 3,
+            "Action_String": "Thorns grow around <User>, reflecting 5 damage for 3 rounds."
         },
         {
             "Name": "Vines",
             "Type": 8,
             "Type_Name": "Shield",
             "Value": 5,
-            "Rounds": 3
+            "Rounds": 3,
+            "Action_String": "Vines grow around <User>, shielding 5 damage for 3 rounds."
         }
     ],
     "Defend Crit": [],
@@ -22,7 +24,8 @@
             "Name": "Branch",
             "Type": 1,
             "Type_Name": "Strike",
-            "Field": [0, 2, 2, 3, 4, 5]
+            "Field": [0, 2, 2, 3, 4, 5],
+            "Action_String": "<User> hits <Target> with a branch, dealing <Damage> damage."
         }
     ],
     "Attack Crit": [
@@ -30,7 +33,8 @@
             "Name": "Grow",
             "Type": 6,
             "Type_Name": "Heal",
-            "Value": 5
+            "Value": 5,
+            "Action_String": "The power of nature restores <User>, healing 5 damage."
         }
     ],
     "Special": [
@@ -39,7 +43,8 @@
             "Type": 4,
             "Type_Name": "DOT",
             "Field": [1, 3],
-            "Rounds": 3
+            "Rounds": 3,
+            "Action_String": "<User> sets vines to constrict <Target>. <Target> will take <Damage> damage for 3 rounds."
         }
     ],
     "Special Crit": []
