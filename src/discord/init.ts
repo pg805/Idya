@@ -215,7 +215,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
 
         if(battle) {
-            if(round_object.winner) {
+            if(!round_object.winner) {
                 const rat_action = battle.npc_index
 
                 let rat_attack_saying = ''
@@ -228,7 +228,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                         rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
                         break;
                     case 2:
-                        rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action- Attack)'
+                        rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
                     break;
                 }
 

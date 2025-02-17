@@ -33,7 +33,7 @@
             "Type_Name": "Shield",
             "Value": 7,
             "Rounds": 2,
-            "Action_String": "<User> camoflages their face, shielding for 7 damage for 2 turns."
+            "Action_String": "<User> camouflages their face, shielding for 7 damage for 2 turns."
         }
     ],
     "Special": [
