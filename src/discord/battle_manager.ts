@@ -1,11 +1,9 @@
 import logger from '../utility/logger.js';
 
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, Interaction, Snowflake } from "discord.js";
-import Battle from "../combat/battle";
-import Player_Character from "../character/player_character";
-import Non_Player_Character from "../character/non_player_character";
-import { start } from 'repl';
-import Action from '../weapon/action.js';
+import Battle from "../combat/battle.js";
+import Player_Character from "../character/player_character.js";
+import Non_Player_Character from "../character/non_player_character.js";
 
 export default class BattleManager {
     running_battles: { [key: Snowflake]: Battle} = {}

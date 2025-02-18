@@ -13,7 +13,7 @@ import Result_Field from '../infrastructure/result_field.js';
 import Strike from '../weapon/action/strike.js';
 import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
-import test_battle from './commands/test_battle/test_battle.js';
+import BattleManager from './battle_manager.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -72,6 +72,8 @@ let human: Player_Character = new Player_Character(
     Weapon.from_json('./database/weapons/shovel.json')
 );
 
+const battle_manager = new BattleManager()
+
 /* Tidy Stop */
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -114,202 +116,176 @@ client.on(Events.InteractionCreate, async (interaction) => {
         };
 
         switch(button) {
-            case 'TestBattleShovelSelect':
-                if(!battle) {
-                    start_battle = true;
-                    logger.info('Shovel Chosen as weapon!');
-                    start_weapon_string = 'You pick up the shovel and feel the weight in your hands. Time to dig deep.';
-                    human = new Player_Character(
-                        'Human',
-                        50,
-                        Weapon.from_json('./database/weapons/shovel.json')
-                    );
-                } else {
-                    logger.warn('Battle already started!')
-                }
+            case 'DemoBattleShovelSelect':
+                start_battle = true;
+                logger.info('Shovel Chosen as weapon!');
+                start_weapon_string = 'You pick up the shovel and feel the weight in your hands. Time to dig deep.';
+                human = new Player_Character(
+                    'Human',
+                    50,
+                    Weapon.from_json('./database/weapons/shovel.json')
+                );
+
+                battle_manager.button_start_battle(interaction, human, rat)
                 break;
-            case 'TestBattleCardsSelect':
-                if(!battle) {
-                    start_battle = true;
-                    logger.info('Deck of Cards Chosen as weapon!');
-                    start_weapon_string = 'You pick up the deck of cards and shuffle.  Time to draw.';
-                    human = new Player_Character(
-                        'Human',
-                        50,
-                        Weapon.from_json('./database/weapons/deck_of_cards.json')
-                    );
-                } else {
-                    logger.warn('Battle already started!')
-                }
+            case 'DemoBattleCardsSelect':
+                start_battle = true;
+                logger.info('Deck of Cards Chosen as weapon!');
+                start_weapon_string = 'You pick up the deck of cards and shuffle.  Time to draw.';
+                human = new Player_Character(
+                    'Human',
+                    50,
+                    Weapon.from_json('./database/weapons/deck_of_cards.json')
+                );
+
+                battle_manager.button_start_battle(interaction, human, rat)
                 break;
-            case 'TestBattlePaintSelect':
-                if(!battle) {
-                    start_battle = true;
-                    logger.info('Paint Can Chosen as weapon!');
-                    start_weapon_string = 'You pick up the can of paint and watch the colors swirl.';
-                    human = new Player_Character(
-                        'Human',
-                        50,
-                        Weapon.from_json('./database/weapons/can_of_paint.json')
-                    );
-                } else {
-                    logger.warn('Battle already started!')
-                }
+            case 'DemoBattlePaintSelect':
+                start_battle = true;
+                logger.info('Paint Can Chosen as weapon!');
+                start_weapon_string = 'You pick up the can of paint and watch the colors swirl.';
+                human = new Player_Character(
+                    'Human',
+                    50,
+                    Weapon.from_json('./database/weapons/can_of_paint.json')
+                );
+
+                battle_manager.button_start_battle(interaction, human, rat)
                 break;
-            case 'TestBattleBrainSelect':
-                if(!battle) {
-                    start_battle = true;
-                    logger.info('Awakened Mind Chosen as weapon!');
-                    start_weapon_string = 'The pebble begins to levitate as you command it to.';
-                    human = new Player_Character(
-                        'Human',
-                        50,
-                        Weapon.from_json('./database/weapons/awakened_mind.json')
-                    );
-                } else {
-                    logger.warn('Battle already started!')
-                }
+            case 'DemoBattleBrainSelect':
+                start_battle = true;
+                logger.info('Awakened Mind Chosen as weapon!');
+                start_weapon_string = 'The pebble begins to levitate as you command it to.';
+                human = new Player_Character(
+                    'Human',
+                    50,
+                    Weapon.from_json('./database/weapons/awakened_mind.json')
+                );
+
+                battle_manager.button_start_battle(interaction, human, rat)
                 break;
-            case 'TestBattleVineSelect':
-                if(!battle) {
-                    start_battle = true;
-                    logger.info('Vines and Thorns Chosen as weapon!');
-                    start_weapon_string = 'The grass begins to sway with each of your breaths.';
-                    human = new Player_Character(
-                        'Human',
-                        50,
-                        Weapon.from_json('./database/weapons/vine_and_thorn.json')
-                    );
-                } else {
-                    logger.warn('Battle already started!')
-                }
+            case 'DemoBattleVineSelect':
+                start_battle = true;
+                logger.info('Vines and Thorns Chosen as weapon!');
+                start_weapon_string = 'The grass begins to sway with each of your breaths.';
+                human = new Player_Character(
+                    'Human',
+                    50,
+                    Weapon.from_json('./database/weapons/vine_and_thorn.json')
+                );
+
+                battle_manager.button_start_battle(interaction, human, rat)
                 break;
-            case 'TestBattleDefend':
-                if(battle) {
-                    round_object = battle.resolve_round(1)
-                } else {
-                    logger.warn('Battle not started!')
-                }
-                break;
-            case 'TestBattleAttack':
-                if(battle) {
-                    round_object = battle.resolve_round(2)
-                } else {
-                    logger.warn('Battle not started!')
-                }
-                break;
-            case 'TestBattleSpecial':
-                if(battle) {
-                    round_object = battle.resolve_round(3)
-                } else {
-                    logger.warn('Battle not started!')
-                }
+            case 'BattleDefend':
+            case 'BattleAttack':
+            case 'BattleSpecial':
+                battle_manager.button_update_battle(interaction)
                 break;
         }
-        
-        if(start_battle) {
-            battle = new Battle(
-                human,
-                rat
-            )
-        }
 
-        if(battle) {
-            if(!round_object.winner) {
-                const rat_action = battle.npc_index
+        // if(start_battle) {
+        //     battle = new Battle(
+        //         human,
+        //         rat
+        //     )
+        // }
 
-                let rat_attack_saying = ''
+        // if(battle) {
+        //     if(!round_object.winner) {
+        //         const rat_action = battle.npc_index
 
-                switch(rat_action) {
-                    case 0:
-                        rat_attack_saying = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
-                        break;
-                    case 1: 
-                        rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
-                        break;
-                    case 2:
-                        rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
-                    break;
-                }
+        //         let rat_attack_saying = ''
+
+        //         switch(rat_action) {
+        //             case 0:
+        //                 rat_attack_saying = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
+        //                 break;
+        //             case 1: 
+        //                 rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
+        //                 break;
+        //             case 2:
+        //                 rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
+        //             break;
+        //         }
 
 
-                const old_embed = interaction.message.embeds[0]
-                const battle_embed = EmbedBuilder.from(old_embed)
-                    .setTitle('Rat Battle')
-                    .setDescription(`${start_weapon_string}${round_object.action_string}\n----------------------------\n${rat_attack_saying}\nChoose your action!`)
-                    .setFields({
-                        name: "Player Character",
-                        value: `${battle.pc_object.health}`,
-                        inline: true
-                        },{
-                        name: "Rat",
-                        value: `${battle.npc_object.health}`,
-                        inline: true
-                        },
-                    )
+        //         const old_embed = interaction.message.embeds[0]
+        //         const battle_embed = EmbedBuilder.from(old_embed)
+        //             .setTitle('Rat Battle')
+        //             .setDescription(`${start_weapon_string}${round_object.action_string}\n----------------------------\n${rat_attack_saying}\nChoose your action!`)
+        //             .setFields({
+        //                 name: "Player Character",
+        //                 value: `${battle.pc_object.health}`,
+        //                 inline: true
+        //                 },{
+        //                 name: "Rat",
+        //                 value: `${battle.npc_object.health}`,
+        //                 inline: true
+        //                 },
+        //             )
 
-                const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
-                    .setComponents(
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleDefend')
-                            .setLabel('Defend')
-                            .setStyle(ButtonStyle.Primary),
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleAttack')
-                            .setLabel('Attack')
-                            .setStyle(ButtonStyle.Primary),
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleSpecial')
-                            .setLabel('Special')
-                            .setStyle(ButtonStyle.Primary)
-                    )
+        //         const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+        //             .setComponents(
+        //                 new ButtonBuilder()
+        //                     .setCustomId('TestBattleDefend')
+        //                     .setLabel('Defend')
+        //                     .setStyle(ButtonStyle.Primary),
+        //                 new ButtonBuilder()
+        //                     .setCustomId('TestBattleAttack')
+        //                     .setLabel('Attack')
+        //                     .setStyle(ButtonStyle.Primary),
+        //                 new ButtonBuilder()
+        //                     .setCustomId('TestBattleSpecial')
+        //                     .setLabel('Special')
+        //                     .setStyle(ButtonStyle.Primary)
+        //             )
                 
-                await interaction.update({
-                    embeds: [battle_embed],
-                    components: [battle_action_row]
-                })
-            } else {
+        //         await interaction.update({
+        //             embeds: [battle_embed],
+        //             components: [battle_action_row]
+        //         })
+        //     } else {
 
-                const old_embed = interaction.message.embeds[0]
-                const battle_embed = EmbedBuilder.from(old_embed)
-                    .setTitle('Rat Battle')
-                    .setDescription(`${battle.winner} has won!`)
-                    .setFields({
-                        name: "Player Character",
-                        value: `${battle.pc_object.health}`,
-                        inline: true
-                        },{
-                        name: "Rat",
-                        value: `${battle.npc_object.health}`,
-                        inline: true
-                        },
-                    )
+        //         const old_embed = interaction.message.embeds[0]
+        //         const battle_embed = EmbedBuilder.from(old_embed)
+        //             .setTitle('Rat Battle')
+        //             .setDescription(`${battle.winner} has won!`)
+        //             .setFields({
+        //                 name: "Player Character",
+        //                 value: `${battle.pc_object.health}`,
+        //                 inline: true
+        //                 },{
+        //                 name: "Rat",
+        //                 value: `${battle.npc_object.health}`,
+        //                 inline: true
+        //                 },
+        //             )
 
-                const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
-                .setComponents(
-                    new ButtonBuilder()
-                        .setCustomId('TestBattleDefend')
-                        .setLabel('Defend')
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(true),
-                    new ButtonBuilder()
-                        .setCustomId('TestBattleAttack')
-                        .setLabel('Attack')
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(true),
-                    new ButtonBuilder()
-                        .setCustomId('TestBattleSpecial')
-                        .setLabel('Special')
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(true)
-                )
+        //         const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+        //         .setComponents(
+        //             new ButtonBuilder()
+        //                 .setCustomId('TestBattleDefend')
+        //                 .setLabel('Defend')
+        //                 .setStyle(ButtonStyle.Primary)
+        //                 .setDisabled(true),
+        //             new ButtonBuilder()
+        //                 .setCustomId('TestBattleAttack')
+        //                 .setLabel('Attack')
+        //                 .setStyle(ButtonStyle.Primary)
+        //                 .setDisabled(true),
+        //             new ButtonBuilder()
+        //                 .setCustomId('TestBattleSpecial')
+        //                 .setLabel('Special')
+        //                 .setStyle(ButtonStyle.Primary)
+        //                 .setDisabled(true)
+        //         )
                 
-                await interaction.update({
-                    embeds: [battle_embed],
-                    components: [battle_action_row]
-                })
-            }
-        }
+        //         await interaction.update({
+        //             embeds: [battle_embed],
+        //             components: [battle_action_row]
+        //         })
+        //     }
+        // }
 
     }
 

@@ -3,7 +3,7 @@ import logger from "../../../utility/logger.js";
 
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } from '@discordjs/builders';
 
-const test_battle_embed: EmbedBuilder = new EmbedBuilder()
+const demo_battle_embed: EmbedBuilder = new EmbedBuilder()
 	.setColor(0x00FFFF)
 	.setTitle('A rat approaches!')
 	.setDescription('As you wake up in a large, grassy field, several objects lie around you.  A hissing sound turns your attention to your left.  A rat, standing on its hind legs, looks poised to attack you.  You have the chance to grab one item to fight back!')
@@ -15,40 +15,40 @@ const test_battle_embed: EmbedBuilder = new EmbedBuilder()
 		{name: 'Path of Vines and Thorns', value: 'The foilage in the area seems to be calling to you, asking you to help it get rid of this intruder.', inline: true}
 	)
 
-const test_battle_action_row = new ActionRowBuilder()
+const demo_battle_action_row = new ActionRowBuilder()
 	.addComponents(
 		new ButtonBuilder()
-			.setCustomId('TestBattleShovelSelect')
+			.setCustomId('DemoBattleShovelSelect')
 			.setLabel('Shovel')
 			.setStyle(ButtonStyle.Primary),
 		new ButtonBuilder()
-			.setCustomId('TestBattleCardsSelect')
+			.setCustomId('DemoBattleCardsSelect')
 			.setLabel('Deck Of Cards')
 			.setStyle(ButtonStyle.Primary),
 		new ButtonBuilder()
-			.setCustomId('TestBattlePaintSelect')
+			.setCustomId('DemoBattlePaintSelect')
 			.setLabel('Can of Paint')
 			.setStyle(ButtonStyle.Primary),
 		new ButtonBuilder()
-			.setCustomId('TestBattleBrainSelect')
+			.setCustomId('DemoBattleBrainSelect')
 			.setLabel('Awakened Mind')
 			.setStyle(ButtonStyle.Primary),
 		new ButtonBuilder()
-			.setCustomId('TestBattleVineSelect')
+			.setCustomId('DemoBattleVineSelect')
 			.setLabel('Path of Vines and Thorns')
 			.setStyle(ButtonStyle.Primary),
 	)
 
 export default {
 	data: new SlashCommandBuilder()
-		.setName('testbattle')
+		.setName('demoobattle')
 		.setDescription('Battle against a rat!'),
 	execute: async function(interaction: any) {
-		logger.info("Running Test Battle Command");
+		logger.info("Running Demo Battle Command");
 		await interaction.reply(
 			{
-				embeds: [test_battle_embed],
-				components: [test_battle_action_row]
+				embeds: [demo_battle_embed],
+				components: [demo_battle_action_row]
 			}
 		);
 	},
