@@ -64,8 +64,6 @@ const rat: Non_Player_Character = new Non_Player_Character(
     rat_claws
 );
 
-
-let battle: Battle | null = null;
 let human: Player_Character = new Player_Character(
     'Human',
     50,
