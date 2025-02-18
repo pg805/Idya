@@ -179,7 +179,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
             case 'BattleDefend':
             case 'BattleAttack':
             case 'BattleSpecial':
-                battle_manager.button_update_battle(interaction)
+                const rat_action: number = battle_manager.find_battle(interaction.message.id).npc_index
+                let rat_attack_saying = '';
+                switch(rat_action) {
+                    case 0:
+                        rat_attack_saying = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
+                        break;
+                    case 1: 
+                        rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
+                        break;
+                    case 2:
+                        rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
+                    break;
+                }
+
+                battle_manager.button_update_battle(interaction, rat_attack_saying)
                 break;
         }
 

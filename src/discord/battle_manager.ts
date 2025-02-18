@@ -106,7 +106,7 @@ export default class BattleManager {
         }
 
         if(round_object.winner) {
-            winner_string = `\n-------------------------\n${round_object.winner}`
+            winner_string = `\n-------------------------\n${round_object.winner} wins!`
 
             defend_button.setDisabled()
             attack_button.setDisabled()
