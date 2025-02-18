@@ -126,7 +126,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     Weapon.from_json('./database/weapons/shovel.json')
                 );
 
-                battle_manager.button_start_battle(interaction, human, rat)
+                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 break;
             case 'DemoBattleCardsSelect':
                 start_battle = true;
@@ -138,7 +138,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     Weapon.from_json('./database/weapons/deck_of_cards.json')
                 );
 
-                battle_manager.button_start_battle(interaction, human, rat)
+                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 break;
             case 'DemoBattlePaintSelect':
                 start_battle = true;
@@ -150,7 +150,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     Weapon.from_json('./database/weapons/can_of_paint.json')
                 );
 
-                battle_manager.button_start_battle(interaction, human, rat)
+                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 break;
             case 'DemoBattleBrainSelect':
                 start_battle = true;
@@ -162,7 +162,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     Weapon.from_json('./database/weapons/awakened_mind.json')
                 );
 
-                battle_manager.button_start_battle(interaction, human, rat)
+                battle_manager.button_start_battle(interaction, human, rat,'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 break;
             case 'DemoBattleVineSelect':
                 start_battle = true;
@@ -174,12 +174,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     Weapon.from_json('./database/weapons/vine_and_thorn.json')
                 );
 
-                battle_manager.button_start_battle(interaction, human, rat)
+                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 break;
             case 'BattleDefend':
             case 'BattleAttack':
             case 'BattleSpecial':
-                const rat_action: number = battle_manager.find_battle(interaction.message.id).npc_index
+                const rat_action: number = (battle_manager.find_battle(interaction.message.id).npc_index + 1) % 3
                 let rat_attack_saying = '';
                 switch(rat_action) {
                     case 0:
@@ -193,113 +193,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     break;
                 }
 
+                logger.debug(`Rat Action in Init: ${rat_action}\n${rat_attack_saying}`)
+
                 battle_manager.button_update_battle(interaction, rat_attack_saying)
                 break;
         }
-
-        // if(start_battle) {
-        //     battle = new Battle(
-        //         human,
-        //         rat
-        //     )
-        // }
-
-        // if(battle) {
-        //     if(!round_object.winner) {
-        //         const rat_action = battle.npc_index
-
-        //         let rat_attack_saying = ''
-
-        //         switch(rat_action) {
-        //             case 0:
-        //                 rat_attack_saying = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
-        //                 break;
-        //             case 1: 
-        //                 rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
-        //                 break;
-        //             case 2:
-        //                 rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
-        //             break;
-        //         }
-
-
-        //         const old_embed = interaction.message.embeds[0]
-        //         const battle_embed = EmbedBuilder.from(old_embed)
-        //             .setTitle('Rat Battle')
-        //             .setDescription(`${start_weapon_string}${round_object.action_string}\n----------------------------\n${rat_attack_saying}\nChoose your action!`)
-        //             .setFields({
-        //                 name: "Player Character",
-        //                 value: `${battle.pc_object.health}`,
-        //                 inline: true
-        //                 },{
-        //                 name: "Rat",
-        //                 value: `${battle.npc_object.health}`,
-        //                 inline: true
-        //                 },
-        //             )
-
-        //         const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
-        //             .setComponents(
-        //                 new ButtonBuilder()
-        //                     .setCustomId('TestBattleDefend')
-        //                     .setLabel('Defend')
-        //                     .setStyle(ButtonStyle.Primary),
-        //                 new ButtonBuilder()
-        //                     .setCustomId('TestBattleAttack')
-        //                     .setLabel('Attack')
-        //                     .setStyle(ButtonStyle.Primary),
-        //                 new ButtonBuilder()
-        //                     .setCustomId('TestBattleSpecial')
-        //                     .setLabel('Special')
-        //                     .setStyle(ButtonStyle.Primary)
-        //             )
-                
-        //         await interaction.update({
-        //             embeds: [battle_embed],
-        //             components: [battle_action_row]
-        //         })
-        //     } else {
-
-        //         const old_embed = interaction.message.embeds[0]
-        //         const battle_embed = EmbedBuilder.from(old_embed)
-        //             .setTitle('Rat Battle')
-        //             .setDescription(`${battle.winner} has won!`)
-        //             .setFields({
-        //                 name: "Player Character",
-        //                 value: `${battle.pc_object.health}`,
-        //                 inline: true
-        //                 },{
-        //                 name: "Rat",
-        //                 value: `${battle.npc_object.health}`,
-        //                 inline: true
-        //                 },
-        //             )
-
-        //         const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
-        //         .setComponents(
-        //             new ButtonBuilder()
-        //                 .setCustomId('TestBattleDefend')
-        //                 .setLabel('Defend')
-        //                 .setStyle(ButtonStyle.Primary)
-        //                 .setDisabled(true),
-        //             new ButtonBuilder()
-        //                 .setCustomId('TestBattleAttack')
-        //                 .setLabel('Attack')
-        //                 .setStyle(ButtonStyle.Primary)
-        //                 .setDisabled(true),
-        //             new ButtonBuilder()
-        //                 .setCustomId('TestBattleSpecial')
-        //                 .setLabel('Special')
-        //                 .setStyle(ButtonStyle.Primary)
-        //                 .setDisabled(true)
-        //         )
-                
-        //         await interaction.update({
-        //             embeds: [battle_embed],
-        //             components: [battle_action_row]
-        //         })
-        //     }
-        // }
 
     }
 

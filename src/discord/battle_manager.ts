@@ -26,10 +26,17 @@ export default class BattleManager {
             non_player_character
         )
 
+        let round_string = ''
+        
+        if(start_string) {
+            round_string = `\n-------------------------\n${start_string}`
+        }
+
+
         const battle_embed = new EmbedBuilder()
             .setColor(color)
             .setTitle(`Battle against ${non_player_character.name}`)
-            .setDescription(`Battle between ${player_character.name} and ${non_player_character.name} starting!\n${start_string}`)
+            .setDescription(`Battle between ${player_character.name} and ${non_player_character.name} starting!${round_string}`)
             .setFields({
                 name: "Player Character",
                 value: `${player_character.health}`,
@@ -65,6 +72,8 @@ export default class BattleManager {
 
     button_update_battle(interaction: ButtonInteraction, extra_string: string = '') {
         const battle: Battle = this.find_battle(interaction.message.id)
+        logger.info(`Updating battle between ${battle.player_character.name} and ${battle.non_player_character.name}.  ID: ${interaction.message.id}`)
+        logger.debug(`NPC Action: ${battle.npc_index}`)
 
         let round_object:  {
             action_string: string,
