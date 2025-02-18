@@ -1,5 +1,6 @@
 {
     "Name": "Deck of Cards",
+    "Description": "The cards in this deck are razor sharp and fly with precision.  An worthy weapon for any adventurer.",
     "Defend": [
         {
             "Name": "Shuffle",

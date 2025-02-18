@@ -1,5 +1,6 @@
 {
     "Name": "Vines and Thorns",
+    "Description": "Nature calls to you.  You ask for aid.  The aid is given.",
     "Defend": [
         {
             "Name": "Thorns",
