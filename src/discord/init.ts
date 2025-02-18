@@ -285,24 +285,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
                         },
                     )
 
-                    const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
-                    .setComponents(
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleDefend')
-                            .setLabel('Defend')
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(true),
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleAttack')
-                            .setLabel('Attack')
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(true),
-                        new ButtonBuilder()
-                            .setCustomId('TestBattleSpecial')
-                            .setLabel('Special')
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(true)
-                    )
+                const battle_action_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+                .setComponents(
+                    new ButtonBuilder()
+                        .setCustomId('TestBattleDefend')
+                        .setLabel('Defend')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('TestBattleAttack')
+                        .setLabel('Attack')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('TestBattleSpecial')
+                        .setLabel('Special')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true)
+                )
                 
                 await interaction.update({
                     embeds: [battle_embed],

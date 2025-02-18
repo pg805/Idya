@@ -70,6 +70,22 @@ export default class Weapon {
         this.special_crit = special_crit;
     }
 
+    defend_name() {
+        return this.defend.map((action: Action) => action.name).join('/')
+    }
+
+    attack_name() {
+        return this.attack.map((action: Action) => action.name).join('/')
+    }
+
+    attack_crit_name() {
+        return this.attack_crit.map((action: Action) => action.name).join('/')
+    }
+
+    special_name() {
+        return this.special.map((action: Action) => action.name).join('/')
+    }
+
     static from_json(file: string) {
         const weapon_data: {
             'Name': string,
