@@ -1,6 +1,6 @@
 import logger from '../utility/logger.js';
 
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, Interaction, Snowflake } from "discord.js";
+import { ActionRowBuilder, bold, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, Interaction, Snowflake } from "discord.js";
 import Battle from "../combat/battle.js";
 import Player_Character from "../character/player_character.js";
 import Non_Player_Character from "../character/non_player_character.js";
@@ -145,6 +145,7 @@ export default class BattleManager {
             )
 
         const description: string = `${round_object.action_string}${round_string}${winner_string}`
+            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
 
         const image_embed_test = new EmbedBuilder()
             .setColor(0x00FFFF)
