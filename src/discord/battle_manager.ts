@@ -74,7 +74,7 @@ export default class BattleManager {
             )
 
         await interaction.update({
-            embeds: [battle_embed, image_embed_test, image_embed_test_2],
+            embeds: [image_embed_test, image_embed_test_2, battle_embed],
             components: [battle_action_row]
         })
     }
@@ -155,7 +155,7 @@ export default class BattleManager {
             .setURL("https://example.org/")
             .setImage(battle.non_player_character.image)
 
-        const battle_embed = EmbedBuilder.from(interaction.message.embeds[0])
+        const battle_embed = EmbedBuilder.from(interaction.message.embeds[2])
             .setDescription(description)
             .setFields({
                 name: "Player Character",
@@ -169,7 +169,7 @@ export default class BattleManager {
             )
 
         interaction.update({
-            embeds: [battle_embed, image_embed_test, image_embed_test_2],
+            embeds: [image_embed_test, image_embed_test_2, battle_embed],
             components: [battle_action_row]
         })
     }
