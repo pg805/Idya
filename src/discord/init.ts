@@ -47,6 +47,9 @@ for (const folder of commandFolders) {
 
 /* Tidy Below */
 
+const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
+const rat_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&'
+
 /* Rat Weapon - Claws */
 const rat_defend = 5;
 const rat_block: Block = new Block('Block', '<User> prepares to block for 5 damage.', rat_defend);
@@ -61,13 +64,15 @@ const rat: Non_Player_Character = new Non_Player_Character(
     'Rat',
     30,
     rat_pattern,
-    rat_claws
+    rat_claws,
+    rat_image
 );
 
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_json('./database/weapons/shovel.json')
+    Weapon.from_json('./database/weapons/shovel.json'),
+    human_image
 );
 
 const battle_manager = new BattleManager()
@@ -121,7 +126,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/shovel.json')
+                    Weapon.from_json('./database/weapons/shovel.json'),
+                    human_image
                 );
 
                 battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
@@ -133,7 +139,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/deck_of_cards.json')
+                    Weapon.from_json('./database/weapons/deck_of_cards.json'),
+                    human_image
                 );
 
                 battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
@@ -145,7 +152,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/can_of_paint.json')
+                    Weapon.from_json('./database/weapons/can_of_paint.json'),
+                    human_image
                 );
 
                 battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
@@ -157,7 +165,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/awakened_mind.json')
+                    Weapon.from_json('./database/weapons/awakened_mind.json'),
+                    human_image
                 );
 
                 battle_manager.button_start_battle(interaction, human, rat,'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
@@ -169,7 +178,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/vine_and_thorn.json')
+                    Weapon.from_json('./database/weapons/vine_and_thorn.json'),
+                    human_image
                 );
 
                 battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')

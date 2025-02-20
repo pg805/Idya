@@ -19,11 +19,15 @@ const rat_special: Result_Field = new Result_Field([3, 9, 15, 15]);
 const rat_bite: Strike = new Strike('Bite', '<User> bites <Target> for <Damage> damage.', rat_special);
 const rat_claws: Weapon = new Weapon('Claws', [rat_block], [], [rat_strike], [rat_block], [rat_bite], []);
 
+const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
+const rat_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&'
+
 /* Characters */
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_json('./database/weapons/shovel.json')
+    Weapon.from_json('./database/weapons/shovel.json'),
+    human_image
 );
 
 const rat_pattern: Pattern = new Pattern([1, 2, 3]);
@@ -31,7 +35,8 @@ const rat: Non_Player_Character = new Non_Player_Character(
     'Rat',
     30,
     rat_pattern,
-    rat_claws
+    rat_claws,
+    rat_image
 );
 
 const rl = readline.createInterface({
@@ -47,7 +52,8 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/shovel.json')
+                Weapon.from_json('./database/weapons/shovel.json'),
+                human_image
             );
             break;
         case '2':
@@ -56,7 +62,8 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/deck_of_cards.json')
+                Weapon.from_json('./database/weapons/deck_of_cards.json'),
+                human_image
             );
             break;
         case '3':
@@ -65,7 +72,8 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/can_of_paint.json')
+                Weapon.from_json('./database/weapons/can_of_paint.json'),
+                human_image
             );
             break;
         case '4':
@@ -75,7 +83,8 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/awakened_mind.json')
+                Weapon.from_json('./database/weapons/awakened_mind.json'),
+                human_image
             );
             break;
         case '5':
@@ -86,7 +95,8 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/vine_and_thorn.json')
+                Weapon.from_json('./database/weapons/vine_and_thorn.json'),
+                human_image
             );
             break;
         default:

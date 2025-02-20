@@ -48,6 +48,15 @@ export default class BattleManager {
                 },
             )
 
+        const image_embed_test = new EmbedBuilder()
+            .setColor(0x00FFFF)
+            .setURL("https://example.org/")
+            .setImage(player_character.image)
+        const image_embed_test_2 = new EmbedBuilder()
+            .setColor(0x00FFFF)
+            .setURL("https://example.org/")
+            .setImage(non_player_character.image)
+
         const battle_action_row = new ActionRowBuilder<ButtonBuilder>()
             .setComponents(
                 new ButtonBuilder()
@@ -65,7 +74,7 @@ export default class BattleManager {
             )
 
         await interaction.update({
-            embeds: [battle_embed],
+            embeds: [battle_embed, image_embed_test, image_embed_test_2],
             components: [battle_action_row]
         })
     }
@@ -137,6 +146,15 @@ export default class BattleManager {
 
         const description: string = `${round_object.action_string}${round_string}${winner_string}`
 
+        const image_embed_test = new EmbedBuilder()
+            .setColor(0x00FFFF)
+            .setURL("https://example.org/")
+            .setImage(battle.player_character.image)
+        const image_embed_test_2 = new EmbedBuilder()
+            .setColor(0x00FFFF)
+            .setURL("https://example.org/")
+            .setImage(battle.non_player_character.image)
+
         const battle_embed = EmbedBuilder.from(interaction.message.embeds[0])
             .setDescription(description)
             .setFields({
@@ -151,7 +169,7 @@ export default class BattleManager {
             )
 
         interaction.update({
-            embeds: [battle_embed],
+            embeds: [battle_embed, image_embed_test, image_embed_test_2],
             components: [battle_action_row]
         })
     }
