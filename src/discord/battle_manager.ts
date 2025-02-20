@@ -32,11 +32,13 @@ export default class BattleManager {
             round_string = `\n-------------------------\n${start_string}`
         }
 
+        const description = `Battle between ${player_character.name} and ${non_player_character.name} starting!${round_string}`
+            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
 
         const battle_embed = new EmbedBuilder()
             .setColor(color)
             .setTitle(`Battle against ${non_player_character.name}`)
-            .setDescription(`Battle between ${player_character.name} and ${non_player_character.name} starting!${round_string}`)
+            .setDescription(description)
             .setFields({
                 name: "Player Character",
                 value: `${player_character.health}`,
