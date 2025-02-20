@@ -18,6 +18,11 @@ export default class BattleManager {
 
     }
 
+    bold_keywords(description:string) {
+        return description
+            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
+    }
+
     async button_start_battle(interaction: ButtonInteraction, player_character: Player_Character, non_player_character: Non_Player_Character, start_string: string = '', color: number = 0x00FFFF) {
         logger.info(`Starting battle between ${player_character.name} and ${non_player_character.name}.  ID: ${interaction.message.id}`)
 
@@ -32,8 +37,8 @@ export default class BattleManager {
             round_string = `\n-------------------------\n${start_string}`
         }
 
-        const description = `Battle between ${player_character.name} and ${non_player_character.name} starting!${round_string}`
-            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
+        const description = this.bold_keywords(`Battle between ${player_character.name} and ${non_player_character.name} starting!${round_string}`)
+            
 
         const battle_embed = new EmbedBuilder()
             .setColor(color)
@@ -146,9 +151,8 @@ export default class BattleManager {
                 special_button
             )
 
-        const description: string = `${round_object.action_string}${round_string}${winner_string}`
-            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
-
+        const description: string = this.bold_keywords(`${round_object.action_string}${round_string}${winner_string}`)
+        
         const image_embed_test = new EmbedBuilder()
             .setColor(0x00FFFF)
             .setURL("https://example.org/")
