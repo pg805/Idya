@@ -14,6 +14,7 @@ import Strike from '../weapon/action/strike.js';
 import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
 import BattleManager from './battle_manager.js';
+import demo_battle from './button_handlers/demo_handler.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -48,10 +49,9 @@ for (const folder of commandFolders) {
 /* Tidy Below */
 
 const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
-const rat_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&'
 
 /* Rat Weapon - Claws */
-const rat: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
+const enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
 
 let human: Player_Character = new Player_Character(
     'Human',
@@ -105,69 +105,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         switch(button) {
             case 'DemoBattleShovelSelect':
-                start_battle = true;
-                logger.info('Shovel Chosen as weapon!');
-                start_weapon_string = 'You pick up the shovel and feel the weight in your hands. Time to dig deep.';
-                human = new Player_Character(
-                    'Human',
-                    50,
-                    Weapon.from_file('./database/weapons/shovel.json'),
-                    human_image
-                );
-
-                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
-                break;
             case 'DemoBattleCardsSelect':
-                start_battle = true;
-                logger.info('Deck of Cards Chosen as weapon!');
-                start_weapon_string = 'You pick up the deck of cards and shuffle.  Time to draw.';
-                human = new Player_Character(
-                    'Human',
-                    50,
-                    Weapon.from_file('./database/weapons/deck_of_cards.json'),
-                    human_image
-                );
-
-                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
-                break;
             case 'DemoBattlePaintSelect':
-                start_battle = true;
-                logger.info('Paint Can Chosen as weapon!');
-                start_weapon_string = 'You pick up the can of paint and watch the colors swirl.';
-                human = new Player_Character(
-                    'Human',
-                    50,
-                    Weapon.from_file('./database/weapons/can_of_paint.json'),
-                    human_image
-                );
-
-                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
-                break;
             case 'DemoBattleBrainSelect':
-                start_battle = true;
-                logger.info('Awakened Mind Chosen as weapon!');
-                start_weapon_string = 'The pebble begins to levitate as you command it to.';
-                human = new Player_Character(
-                    'Human',
-                    50,
-                    Weapon.from_file('./database/weapons/awakened_mind.json'),
-                    human_image
-                );
-
-                battle_manager.button_start_battle(interaction, human, rat,'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
-                break;
             case 'DemoBattleVineSelect':
-                start_battle = true;
-                logger.info('Vines and Thorns Chosen as weapon!');
-                start_weapon_string = 'The grass begins to sway with each of your breaths.';
-                human = new Player_Character(
-                    'Human',
-                    50,
-                    Weapon.from_file('./database/weapons/vine_and_thorn.json'),
-                    human_image
-                );
+            case 'DemoDenyWeapon':
+            case 'DemoConfirmWeapon':
+                // start_battle = true;
+                // logger.info('Vines and Thorns Chosen as weapon!');
+                // start_weapon_string = 'The grass begins to sway with each of your breaths.';
+                // human = new Player_Character(
+                //     'Human',
+                //     50,
+                //     Weapon.from_file('./database/weapons/vine_and_thorn.json'),
+                //     human_image
+                // );
 
-                battle_manager.button_start_battle(interaction, human, rat, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
+                // battle_manager.button_start_battle(interaction, human, enemy, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
+                logger.info(`Sending Interaction to Demo Battle: ${button}`)
+                demo_battle(interaction, battle_manager)
                 break;
             case 'BattleDefend':
             case 'BattleAttack':

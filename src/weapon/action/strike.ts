@@ -12,6 +12,6 @@ export default class Strike extends Action {
     }
 
     get_description(): string {
-        return `STRIKE ${this.field}`
+        return `STRIKE [${this.field.field}]`
     }
 }
