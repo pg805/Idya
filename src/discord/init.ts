@@ -1,17 +1,12 @@
 import logger from '../utility/logger.js';
 
 // Require the necessary discord.js classes
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, Collection, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { Client, Collection, Events, GatewayIntentBits, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
-import Battle from '../combat/battle.js';
 import Player_Character from '../character/player_character.js';
 import Weapon from '../weapon/weapon.js';
-import Block from '../weapon/action/block.js';
-import Result_Field from '../infrastructure/result_field.js';
-import Strike from '../weapon/action/strike.js';
-import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
 import BattleManager, { DemoHandler } from './handlers/battle_manager.js';
 import demo_battle from './handlers/demo_handler.js';
