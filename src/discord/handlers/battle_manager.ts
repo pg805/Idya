@@ -178,7 +178,7 @@ export default class BattleManager {
                 value: `${battle.pc_object.health}`,
                 inline: true
                 },{
-                name: "Rat",
+                name: battle.npc_object.name,
                 value: `${battle.npc_object.health}`,
                 inline: true
                 },
