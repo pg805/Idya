@@ -2,7 +2,7 @@
     "Name": "Zombie",
     "Health": 50,
     "Pattern": [2, 1, 3],
-    "Image": "https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&",
+    "Image": "https://cdn.discordapp.com/attachments/1258456865881194586/1342546531097645099/Zombie-big.png?ex=67ba0764&is=67b8b5e4&hm=84799ab4bfd0a46d52ba5d6da2b3ea8b4ff397f8d8c0f7dcaaa73af84d304ae0&",
     "Weapon": {
         "Name": "Zombie Scratch",
         "Description": "He just wants some brains.",
