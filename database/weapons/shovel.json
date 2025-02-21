@@ -23,8 +23,8 @@
     "Attack Crit": [
         {
             "Name": "Block",
-            "Type": 5,
-            "Type_Name": "Debuff",
+            "Type": 2,
+            "Type_Name": "Block",
             "Value": 7,
             "Action_String": "<User> recovers to a defensive position, preparing to block 7 damage."
         }

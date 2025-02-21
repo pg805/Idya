@@ -51,22 +51,7 @@ const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/
 const rat_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&'
 
 /* Rat Weapon - Claws */
-const rat_defend = 5;
-const rat_block: Block = new Block('Block', '<User> prepares to block for 5 damage.', rat_defend);
-const rat_attack: Result_Field = new Result_Field([0, 3, 5, 5, 7, 10]);
-const rat_strike: Strike = new Strike('Strike', '<User> scratches <Target> dealing <Damage> damage.', rat_attack);
-const rat_special: Result_Field = new Result_Field([3, 9, 15, 15]);
-const rat_bite: Strike = new Strike('Bite', '<User> bites <Target> for <Damage> damage.', rat_special);
-const rat_claws: Weapon = new Weapon('Claws', [rat_block], [], [rat_strike], [rat_block], [rat_bite], []);
-
-const rat_pattern: Pattern = new Pattern([1, 2, 3]);
-const rat: Non_Player_Character = new Non_Player_Character(
-    'Rat',
-    30,
-    rat_pattern,
-    rat_claws,
-    rat_image
-);
+const rat: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
 
 let human: Player_Character = new Player_Character(
     'Human',
