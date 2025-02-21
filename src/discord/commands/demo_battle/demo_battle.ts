@@ -1,7 +1,6 @@
-import { ButtonStyle } from "discord.js";
 import logger from "../../../utility/logger.js";
 
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } from '@discordjs/builders';
+import { SlashCommandBuilder, EmbedBuilder} from '@discordjs/builders';
 
 import { weapon_select_embed, weapon_select_row } from "../../handlers/demo_handler.js";
 
