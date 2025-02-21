@@ -3,7 +3,7 @@ import logger from "../../../utility/logger.js";
 
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } from '@discordjs/builders';
 
-import { weapon_select_embed, weapon_select_row } from "../../button_handlers/demo_handler.js";
+import { weapon_select_embed, weapon_select_row } from "../../handlers/demo_handler.js";
 
 const demo_battle_embed: EmbedBuilder = weapon_select_embed
 
