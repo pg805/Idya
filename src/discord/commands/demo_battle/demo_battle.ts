@@ -11,7 +11,7 @@ const demo_battle_action_row = weapon_select_row
 
 export default {
 	data: new SlashCommandBuilder()
-		.setName('demoobattle')
+		.setName('demobattle')
 		.setDescription('Battle against a rat!'),
 	execute: async function(interaction: any) {
 		logger.info("Running Demo Battle Command");

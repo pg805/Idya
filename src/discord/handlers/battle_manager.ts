@@ -29,7 +29,7 @@ export default class BattleManager {
 
     bold_keywords(description:string) {
         return description
-            .replace(/(\d+)|(\brounds?)|(\bblock(ed)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
+            .replace(/(\d+)|(\brounds?)|(\bblock(ed|ing)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff(ing)?)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)/gi, (match: string) => bold(match))
     }
 
     async button_start_battle(interaction: ButtonInteraction, player_character: Player_Character, non_player_character: Non_Player_Character, start_string: string = '', color: number = 0x00FFFF) {

@@ -231,13 +231,13 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
                     weapon = Weapon.from_file('./database/weapons/deck_of_cards.json')
                     break;
                 case 'paint':
-                    weapon = Weapon.from_file('./database/can_of_paint.json')
+                    weapon = Weapon.from_file('./database/weapons/can_of_paint.json')
                     break;
                 case 'brain':
                     weapon = Weapon.from_file('./database/weapons/awakened_mind.json')
                     break;
                 case 'vine':
-                    weapon = Weapon.from_file('./database/weapons/vine_and_thorns.json')
+                    weapon = Weapon.from_file('./database/weapons/vine_and_thorn.json')
                     break;
             }
 
