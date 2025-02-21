@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from "discord.js";
-import BattleManager, { DemoHandler } from "../battle_manager.js";
+import BattleManager, { DemoHandler } from "./battle_manager.js";
 import logger from "../../utility/logger.js";
 import Weapon from "../../weapon/weapon.js";
 import Action from "../../weapon/action.js";

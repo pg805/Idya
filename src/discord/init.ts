@@ -13,7 +13,7 @@ import Result_Field from '../infrastructure/result_field.js';
 import Strike from '../weapon/action/strike.js';
 import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
-import BattleManager, { DemoHandler } from './battle_manager.js';
+import BattleManager, { DemoHandler } from './handlers/battle_manager.js';
 import demo_battle from './handlers/demo_handler.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
