@@ -1,14 +1,10 @@
 import logger from './utility/logger.js';
 
 import * as readline from 'readline';
-import Result_Field from './infrastructure/result_field.js';
 import Weapon from './weapon/weapon.js';
 import Player_Character from './character/player_character.js';
 import Non_Player_Character from './character/non_player_character.js';
-import Pattern from './infrastructure/pattern.js';
 import Battle from './combat/battle.js';
-import Block from './weapon/action/block.js';
-import Strike from './weapon/action/strike.js';
 
 const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
 
