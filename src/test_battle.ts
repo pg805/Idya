@@ -20,7 +20,7 @@ let human: Player_Character = new Player_Character(
     human_image
 );
 
-const rat: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
+let enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -89,9 +89,33 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
     resolve(true);
 }));
 
+await new Promise((resolve, reject) => rl.question('Choose your Enemy! [Rat=1, Zombie=2, Mushroom=3] > ', (answer: string) => {
+    switch (answer.toLowerCase()) {
+        case '1':
+        case 'rat':
+            logger.info('Rat Chosen as enemy!');
+            enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+            break;
+        case '2':
+        case 'zombie':
+            logger.info('Zombie Chosen as enemy!');
+            enemy = Non_Player_Character.from_file('./database/enemies/zombie.json')
+            break;
+        case '3':
+        case 'mushroom':
+            logger.info('Mushroom Chosen as enemy!');
+            enemy = Non_Player_Character.from_file('./database/enemies/mushroom.json')
+            break;
+        default:
+            logger.info('Please input an enemy or enemy number.');
+    }
+
+    resolve(true);
+}));
+
 const test_battle: Battle = new Battle(
     human,
-    rat
+    enemy
 );
 
 while (!test_battle.winner) {
