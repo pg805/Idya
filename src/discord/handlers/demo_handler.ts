@@ -199,7 +199,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
         case 'DemoEnemyZombieSelect':
             logger.info('Zombie selected as Enemy!')
             demo_handler.demos[interaction.message.id]['NPC'] = 'zombie'
-            enemy_confirm_embed.setTitle('A Rat Approaches!')
+            enemy_confirm_embed.setTitle('A Zombie Approaches!')
                 .setDescription('Are you sure you want to fight a zombie?')
             interaction.update({
                 embeds: [enemy_confirm_embed],
@@ -209,7 +209,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
         case 'DemoEnemyMushroomSelect':
             logger.info('Mushroom selected as Enemy!')
             demo_handler.demos[interaction.message.id]['NPC'] = 'mushroom'
-            enemy_confirm_embed.setTitle('A Rat Approaches!')
+            enemy_confirm_embed.setTitle('A Mushroom Approaches!')
                 .setDescription('Are you sure you want to fight a mushroom?')
             interaction.update({
                 embeds: [enemy_confirm_embed],
