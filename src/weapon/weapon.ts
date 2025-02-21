@@ -86,7 +86,7 @@ export default class Weapon {
         return this.special.map((action: Action) => action.name).join('/')
     }
 
-    static from_json(file: string) {
+    static from_file(file: string) {
         const weapon_data: {
             'Name': string,
             'Defend': [],
@@ -96,6 +96,19 @@ export default class Weapon {
             'Special': [],
             'Special Crit': []
         } = JSON.parse(fs.readFileSync(file, 'utf-8'));
+        
+        return Weapon.from_json(weapon_data)
+    }
+
+    static from_json(weapon_data: {
+            'Name': string,
+            'Defend': [],
+            'Defend Crit': [],
+            'Attack': [],
+            'Attack Crit': [],
+            'Special': [],
+            'Special Crit': []
+        }) {
 
         logger.info(`Loading Weapon: ${weapon_data['Name']}`);
 

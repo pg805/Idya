@@ -26,7 +26,7 @@ const rat_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/13
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_json('./database/weapons/shovel.json'),
+    Weapon.from_file('./database/weapons/shovel.json'),
     human_image
 );
 
@@ -52,7 +52,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/shovel.json'),
+                Weapon.from_file('./database/weapons/shovel.json'),
                 human_image
             );
             break;
@@ -62,7 +62,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/deck_of_cards.json'),
+                Weapon.from_file('./database/weapons/deck_of_cards.json'),
                 human_image
             );
             break;
@@ -72,7 +72,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/can_of_paint.json'),
+                Weapon.from_file('./database/weapons/can_of_paint.json'),
                 human_image
             );
             break;
@@ -83,7 +83,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/awakened_mind.json'),
+                Weapon.from_file('./database/weapons/awakened_mind.json'),
                 human_image
             );
             break;
@@ -95,7 +95,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_json('./database/weapons/vine_and_thorn.json'),
+                Weapon.from_file('./database/weapons/vine_and_thorn.json'),
                 human_image
             );
             break;

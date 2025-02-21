@@ -1,15 +1,8 @@
 # B-Sharp git ignore file
 
 # ignore data
-database
-data/settings.json
-data/keys.json
-data/settings.jsonc
-data/keys.jsonc
-data/commands.jsonc
-data/guilds.jsonc
-data/sketch.jsonc
-data/bot.jsonc
+database/config.json
+database/players
 
 # ignore all polls
 data/polls

@@ -71,7 +71,7 @@ const rat: Non_Player_Character = new Non_Player_Character(
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_json('./database/weapons/shovel.json'),
+    Weapon.from_file('./database/weapons/shovel.json'),
     human_image
 );
 
@@ -126,7 +126,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/shovel.json'),
+                    Weapon.from_file('./database/weapons/shovel.json'),
                     human_image
                 );
 
@@ -139,7 +139,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/deck_of_cards.json'),
+                    Weapon.from_file('./database/weapons/deck_of_cards.json'),
                     human_image
                 );
 
@@ -152,7 +152,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/can_of_paint.json'),
+                    Weapon.from_file('./database/weapons/can_of_paint.json'),
                     human_image
                 );
 
@@ -165,7 +165,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/awakened_mind.json'),
+                    Weapon.from_file('./database/weapons/awakened_mind.json'),
                     human_image
                 );
 
@@ -178,7 +178,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 human = new Player_Character(
                     'Human',
                     50,
-                    Weapon.from_json('./database/weapons/vine_and_thorn.json'),
+                    Weapon.from_file('./database/weapons/vine_and_thorn.json'),
                     human_image
                 );
 
