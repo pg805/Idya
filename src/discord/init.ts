@@ -121,23 +121,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 demo_battle(interaction, demo_handler, battle_manager)
                 break;
             case button.startsWith('Battle'):
-                const rat_action: number = (battle_manager.find_battle(interaction.message.id).npc_index + 1) % 3
-                let rat_attack_saying = '';
-                switch(rat_action) {
-                    case 0:
-                        rat_attack_saying = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
+                const enemy_index: number = (battle_manager.find_battle(interaction.message.id).npc_index + 1) % battle_manager.find_battle(interaction.message.id).non_player_character.pattern.length
+                const enemy_action: number = battle_manager.find_battle(interaction.message.id).non_player_character.pattern.field[enemy_index]
+                let enemy_attack_saying = '';
+                switch(enemy_action) {
+                    case 1:
+                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)`
                         break;
-                    case 1: 
-                        rat_attack_saying = 'The rat is getting ready for a quick scratch! (Recommended action - Defend)'
+                    case 2: 
+                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is getting ready for a quick scratch! (Recommended action - Defend)`
                         break;
-                    case 2:
-                        rat_attack_saying = 'The rat is winding up to attack, strike it first! (Recommended action - Attack)'
+                    case 3:
+                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is winding up to attack, strike it first! (Recommended action - Attack)`
                     break;
                 }
 
-                logger.debug(`Rat Action in Init: ${rat_action}\n${rat_attack_saying}`)
+                logger.debug(`Rat Action in Init: ${enemy_index}\n${enemy_attack_saying}`)
 
-                battle_manager.button_update_battle(interaction, rat_attack_saying)
+                battle_manager.button_update_battle(interaction, enemy_attack_saying)
                 break;
         }
 
