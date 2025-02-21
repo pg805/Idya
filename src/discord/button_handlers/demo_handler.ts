@@ -3,6 +3,8 @@ import BattleManager, { DemoHandler } from "../battle_manager.js";
 import logger from "../../utility/logger.js";
 import Weapon from "../../weapon/weapon.js";
 import Action from "../../weapon/action.js";
+import Player_Character from "../../character/player_character.js";
+import Non_Player_Character from "../../character/non_player_character.js";
 
 export const weapon_select_embed: EmbedBuilder = new EmbedBuilder()
     .setColor(0x00FFFF)
@@ -216,6 +218,57 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             break;
         case 'DemoEnemyConfirm':
             logger.info('Enemy Confirmed!')
+
+            let weapon = Weapon.from_file('./database/weapons/shovel.json')
+            let enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+            let start_string = ''
+
+            switch(demo_handler.demos[interaction.message.id]['Human']) {
+                case 'shovel':
+                    weapon = Weapon.from_file('./database/weapons/shovel.json')
+                    break;
+                case 'cards':
+                    weapon = Weapon.from_file('./database/weapons/deck_of_cards.json')
+                    break;
+                case 'paint':
+                    weapon = Weapon.from_file('./database/can_of_paint.json')
+                    break;
+                case 'brain':
+                    weapon = Weapon.from_file('./database/weapons/awakened_mind.json')
+                    break;
+                case 'vine':
+                    weapon = Weapon.from_file('./database/weapons/vine_and_thorns.json')
+                    break;
+            }
+
+            switch(demo_handler.demos[interaction.message.id]['NPC']) {
+                case 'rat':
+                    enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+                    start_string = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
+                    break;
+                case 'zombie':
+                    start_string = 'The zombie is attacking, defend yourself quickly! (Recommended action - Defend)'
+                    enemy = Non_Player_Character.from_file('./database/enemies/zombie.json')
+                    break;
+                case 'mushroom':
+                    start_string = 'The mushroom in preparing, hit it before it can release! (Recommended action - Attack)'
+                    enemy = Non_Player_Character.from_file('./database/enemies/mushroom.json')
+                    break;
+            }
+
+            const player = new Player_Character(
+                'human',
+                50,
+                weapon,
+                'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
+            )
+
+            battle_manager.button_start_battle(
+                interaction,
+                player,
+                enemy,
+                start_string
+            )
             break;
         case 'DemoEnemyDeny':
             logger.info('Enemy Denied!')
