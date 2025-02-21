@@ -28,9 +28,9 @@
                 "Name": "Spore Bath",
                 "Type": 4,
                 "Type_Name": "DOT",
-                "Field": [1, 3, 5],
-                "Rounds": 3,
-                "Action_String": "<User> bathes <Target> in spores, <Target> will take <Damage> damage for 3 rounds."
+                "Field": [1, 1, 1, 2, 3, 4],
+                "Rounds": 5,
+                "Action_String": "<User> bathes <Target> in spores, <Target> will take <Damage> damage for 5 rounds."
             }
         ],
         "Attack Crit": [
@@ -39,7 +39,7 @@
                 "Type": 5,
                 "Type_Name": "Debuff",
                 "Value": 6,
-                "Rounds": 2,
+                "Rounds": 4,
                 "Action_String": "<User> bathes <Target> with allergenic spores, debuffing <Target>'s attack by 6 for 2 rounds."
             }
         ],
@@ -49,7 +49,7 @@
                 "Type": 8,
                 "Type_Name": "Shield",
                 "Value": 3,
-                "Rounds": 3,
+                "Rounds": 6,
                 "Action_String": "<User> hides in a faery ring, shielding 3 damage for 3 rounds."
             }
         ],
