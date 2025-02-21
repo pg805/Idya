@@ -66,6 +66,21 @@ const enemy_select_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<B
             .setStyle(ButtonStyle.Primary),
     )
 
+const enemy_confirm_embed = new EmbedBuilder()
+    .setColor(0x00FFFF)
+
+const enemy_confirm_row:ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+    new ButtonBuilder()
+        .setCustomId('DemoEnemyConfirm')
+        .setLabel('Continue')
+        .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+        .setCustomId('DemoEnemyDeny')
+        .setLabel('Go Back')
+        .setStyle(ButtonStyle.Primary),
+)
+
 function build_weapon_confirm(weapon: Weapon) {
 
     const fields = []
@@ -117,6 +132,7 @@ function build_weapon_confirm(weapon: Weapon) {
 export default function demo_battle(interaction: ButtonInteraction, demo_handler: DemoHandler, battle_manager: BattleManager) {
     switch(interaction.customId) {
         case 'DemoBattleShovelSelect':
+            logger.info('Shovel selected as Weapon!')
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/shovel.json')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'shovel',
@@ -124,13 +140,15 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             }
             break;
         case 'DemoBattleCardsSelect':
+            logger.info('Cards selected as Weapon!')
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/deck_of_cards.json')))
             demo_handler.demos[interaction.message.id] = {
-                'Human': 'deck',
+                'Human': 'cards',
                 'NPC': ''
             }
             break;
         case 'DemoBattlePaintSelect':
+            logger.info('Paint selected as Weapon!')
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/can_of_paint.json')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'paint',
@@ -138,6 +156,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             }
             break;
         case 'DemoBattleBrainSelect':
+            logger.info('Brain selected as Weapon!')
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/awakened_mind.json')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'brain',
@@ -145,6 +164,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             }
             break;
         case 'DemoBattleVineSelect':
+            logger.info('Vine selected as Weapon!')
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/vine_and_thorn.json')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'vine',
@@ -152,6 +172,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             }
             break;
         case 'DemoConfirmWeapon':
+            logger.info('Weapon Confirmed!')
             interaction.update({
                 embeds: [enemy_select_embed],
                 components: [enemy_select_row]
@@ -164,17 +185,40 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             })
             break;
         case 'DemoEnemyRatSelect':
+            logger.info('Rat selected as Enemy!')
             demo_handler.demos[interaction.message.id]['NPC'] = 'rat'
+            enemy_confirm_embed.setTitle('A Rat Approaches!')
+                .setDescription('Are you sure you want to fight a rat?')
+            interaction.update({
+                embeds: [enemy_confirm_embed],
+                components: [enemy_confirm_row]
+            })
             break;
         case 'DemoEnemyZombieSelect':
+            logger.info('Zombie selected as Enemy!')
             demo_handler.demos[interaction.message.id]['NPC'] = 'zombie'
+            enemy_confirm_embed.setTitle('A Rat Approaches!')
+                .setDescription('Are you sure you want to fight a zombie?')
+            interaction.update({
+                embeds: [enemy_confirm_embed],
+                components: [enemy_confirm_row]
+            })
             break;
         case 'DemoEnemyMushroomSelect':
+            logger.info('Mushroom selected as Enemy!')
             demo_handler.demos[interaction.message.id]['NPC'] = 'mushroom'
+            enemy_confirm_embed.setTitle('A Rat Approaches!')
+                .setDescription('Are you sure you want to fight a mushroom?')
+            interaction.update({
+                embeds: [enemy_confirm_embed],
+                components: [enemy_confirm_row]
+            })
             break;
         case 'DemoEnemyConfirm':
+            logger.info('Enemy Confirmed!')
             break;
         case 'DemoEnemyDeny':
+            logger.info('Enemy Denied!')
             interaction.update({
                 embeds: [enemy_select_embed],
                 components: [enemy_select_row]

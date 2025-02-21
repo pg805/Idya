@@ -5,6 +5,15 @@ import Battle from "../combat/battle.js";
 import Player_Character from "../character/player_character.js";
 import Non_Player_Character from "../character/non_player_character.js";
 
+export class DemoHandler {
+    demos: { [key: Snowflake]: {
+        'Human': string,
+        'NPC': string
+    }} = {}
+
+    constructor() {}
+}
+
 export default class BattleManager {
     running_battles: { [key: Snowflake]: Battle} = {}
 
@@ -152,7 +161,7 @@ export default class BattleManager {
             )
 
         const description: string = this.bold_keywords(`${round_object.action_string}${round_string}${winner_string}`)
-        
+
         const image_embed_test = new EmbedBuilder()
             .setColor(0x00FFFF)
             .setURL("https://example.org/")
