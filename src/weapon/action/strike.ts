@@ -10,4 +10,8 @@ export default class Strike extends Action {
         super(name, action_string);
         this.field = field;
     }
+
+    get_description(): string {
+        return `STRIKE ${this.field}`
+    }
 }

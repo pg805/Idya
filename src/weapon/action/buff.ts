@@ -11,4 +11,8 @@ export default class Buff extends Action {
         this.value = value;
         this.rounds = rounds;
     }
+
+    get_description(): string {
+        return `BUFF ${this.value} ROUNDS ${this.rounds}`
+    }
 }

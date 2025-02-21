@@ -11,4 +11,8 @@ export default class Reflect extends Action {
         this.value = value;
         this.rounds = rounds;
     }
+
+    get_description(): string {
+        return `REFLECT ${this.value} ROUNDS ${this.rounds}`
+    }
 }

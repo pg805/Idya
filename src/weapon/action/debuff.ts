@@ -11,4 +11,8 @@ export default class Debuff extends Action {
         this.value = value;
         this.rounds = rounds;
     }
+
+    get_description(): string {
+        return `DEBUFF ${this.value} ROUNDS ${this.rounds}`
+    }
 }

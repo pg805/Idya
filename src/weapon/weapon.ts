@@ -53,6 +53,7 @@ function from_json(action_object: {
 
 export default class Weapon {
     name: string
+    description: string
     defend: Array<Action>
     defend_crit: Array<Action>
     attack: Array<Action>
@@ -60,8 +61,9 @@ export default class Weapon {
     special: Array<Action>
     special_crit: Array<Action>
 
-    constructor(name: string, defend: Array<Action>, defend_crit: Array<Action>, attack: Array<Action>, attack_crit: Array<Action>, special: Array<Action>, special_crit: Array<Action>) {
+    constructor(name: string, description: string, defend: Array<Action>, defend_crit: Array<Action>, attack: Array<Action>, attack_crit: Array<Action>, special: Array<Action>, special_crit: Array<Action>) {
         this.name = name;
+        this.description = description;
         this.defend = defend;
         this.defend_crit = defend_crit;
         this.attack = attack;
@@ -89,6 +91,7 @@ export default class Weapon {
     static from_file(file: string) {
         const weapon_data: {
             'Name': string,
+            'Description': string,
             'Defend': [],
             'Defend Crit': [],
             'Attack': [],
@@ -102,6 +105,7 @@ export default class Weapon {
 
     static from_json(weapon_data: {
             'Name': string,
+            'Description': string,
             'Defend': [],
             'Defend Crit': [],
             'Attack': [],
@@ -114,6 +118,7 @@ export default class Weapon {
 
         return new Weapon(
             weapon_data['Name'],
+            weapon_data['Description'],
             weapon_data['Defend'].flatMap((action_object: {
                 'Name': string,
                 'Action_String': string,

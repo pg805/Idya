@@ -12,4 +12,8 @@ export default class Damage_Over_Time extends Action {
         this.field = field;
         this.rounds = rounds;
     }
+
+    get_description(): string {
+        return `DOT ${this.field} ROUNDS ${this.rounds}`
+    }
 }

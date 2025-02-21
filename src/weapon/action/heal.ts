@@ -9,4 +9,8 @@ export default class Heal extends Action {
         super(name, action_string);
         this.value = value;
     }
+
+    get_description(): string {
+        return `HEAL ${this.value}`
+    }
 }

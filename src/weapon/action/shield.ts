@@ -11,4 +11,8 @@ export default class Shield extends Action {
         this.value = value;
         this.rounds = rounds;
     }
+
+    get_description(): string {
+        return `SHIELD ${this.value} ROUNDS ${this.rounds}`
+    }
 }

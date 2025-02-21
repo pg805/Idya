@@ -8,4 +8,8 @@ export default class Action {
         this.name = name;
         this.action_string = action_string;
     }
+
+    get_description() {
+        return ''
+    }
 }
