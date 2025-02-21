@@ -13,7 +13,7 @@ import Result_Field from '../infrastructure/result_field.js';
 import Strike from '../weapon/action/strike.js';
 import Pattern from '../infrastructure/pattern.js';
 import Non_Player_Character from '../character/non_player_character.js';
-import BattleManager from './battle_manager.js';
+import BattleManager, { DemoHandler } from './battle_manager.js';
 import demo_battle from './button_handlers/demo_handler.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
@@ -61,6 +61,7 @@ let human: Player_Character = new Player_Character(
 );
 
 const battle_manager = new BattleManager()
+const demo_handler = new DemoHandler()
 
 /* Tidy Stop */
 
@@ -111,6 +112,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
             case 'DemoBattleVineSelect':
             case 'DemoDenyWeapon':
             case 'DemoConfirmWeapon':
+            case 'DemoEnemyConfirm':
+            case 'DemoEnemyDeny':
+            case 'DemoEnemyMushroomSelect':
+            case 'DemoEnemyRatSelect':
+            case 'DemoEnemyZombieSelect':
                 // start_battle = true;
                 // logger.info('Vines and Thorns Chosen as weapon!');
                 // start_weapon_string = 'The grass begins to sway with each of your breaths.';
@@ -123,7 +129,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
                 // battle_manager.button_start_battle(interaction, human, enemy, 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)')
                 logger.info(`Sending Interaction to Demo Battle: ${button}`)
-                demo_battle(interaction, battle_manager)
+                demo_battle(interaction, demo_handler, battle_manager)
                 break;
             case 'BattleDefend':
             case 'BattleAttack':

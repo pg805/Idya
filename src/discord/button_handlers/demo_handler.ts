@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from "discord.js";
-import BattleManager from "../battle_manager.js";
+import BattleManager, { DemoHandler } from "../battle_manager.js";
 import logger from "../../utility/logger.js";
 import Weapon from "../../weapon/weapon.js";
 import Action from "../../weapon/action.js";
@@ -37,6 +37,32 @@ export const weapon_select_row: ActionRowBuilder<ButtonBuilder> = new ActionRowB
         new ButtonBuilder()
             .setCustomId('DemoBattleVineSelect')
             .setLabel('Path of Vines and Thorns')
+            .setStyle(ButtonStyle.Primary),
+    )
+
+const enemy_select_embed: EmbedBuilder = new EmbedBuilder()
+    .setColor(0x00FFFF)
+    .setTitle('An enemy approaches!')
+    .setDescription('You get a good glimpse of the creature!')
+    .addFields(
+        {name: 'Rat (Easiest)', value: 'A rat sits poised on it\'s hind legs, ready to attack!', inline: true},
+        {name: 'Zombie', value: 'A zombie ambles into the field, hungry for brains!', inline: true},
+        {name: 'Mushroom', value: 'A walking mushroom bumps into your legs, which gets a bit itchy...', inline: true}
+    )
+
+const enemy_select_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+        new ButtonBuilder()
+            .setCustomId('DemoEnemyRatSelect')
+            .setLabel('Rat')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId('DemoEnemyZombieSelect')
+            .setLabel('Zombie')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId('DemoEnemyMushroomSelect')
+            .setLabel('Mushroom')
             .setStyle(ButtonStyle.Primary),
     )
 
@@ -88,24 +114,48 @@ function build_weapon_confirm(weapon: Weapon) {
     }
 }
 
-export default function demo_battle(interaction: ButtonInteraction, battle_manager: BattleManager) {
+export default function demo_battle(interaction: ButtonInteraction, demo_handler: DemoHandler, battle_manager: BattleManager) {
     switch(interaction.customId) {
         case 'DemoBattleShovelSelect':
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/shovel.json')))
+            demo_handler.demos[interaction.message.id] = {
+                'Human': 'shovel',
+                'NPC': ''
+            }
             break;
         case 'DemoBattleCardsSelect':
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/deck_of_cards.json')))
+            demo_handler.demos[interaction.message.id] = {
+                'Human': 'deck',
+                'NPC': ''
+            }
             break;
         case 'DemoBattlePaintSelect':
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/can_of_paint.json')))
+            demo_handler.demos[interaction.message.id] = {
+                'Human': 'paint',
+                'NPC': ''
+            }
             break;
         case 'DemoBattleBrainSelect':
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/awakened_mind.json')))
+            demo_handler.demos[interaction.message.id] = {
+                'Human': 'brain',
+                'NPC': ''
+            }
             break;
         case 'DemoBattleVineSelect':
             interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/vine_and_thorn.json')))
+            demo_handler.demos[interaction.message.id] = {
+                'Human': 'vine',
+                'NPC': ''
+            }
             break;
         case 'DemoConfirmWeapon':
+            interaction.update({
+                embeds: [enemy_select_embed],
+                components: [enemy_select_row]
+            })
             break;
         case 'DemoDenyWeapon':
             interaction.update({
@@ -114,14 +164,21 @@ export default function demo_battle(interaction: ButtonInteraction, battle_manag
             })
             break;
         case 'DemoEnemyRatSelect':
+            demo_handler.demos[interaction.message.id]['NPC'] = 'rat'
             break;
         case 'DemoEnemyZombieSelect':
+            demo_handler.demos[interaction.message.id]['NPC'] = 'zombie'
             break;
         case 'DemoEnemyMushroomSelect':
+            demo_handler.demos[interaction.message.id]['NPC'] = 'mushroom'
             break;
         case 'DemoEnemyConfirm':
             break;
         case 'DemoEnemyDeny':
+            interaction.update({
+                embeds: [enemy_select_embed],
+                components: [enemy_select_row]
+            })
             break;
         default:
             logger.warn(`Unrecognized Demo Button: ${interaction.customId}`)
