@@ -104,19 +104,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
             winner: ''
         };
 
-        switch(button) {
-            case 'DemoBattleShovelSelect':
-            case 'DemoBattleCardsSelect':
-            case 'DemoBattlePaintSelect':
-            case 'DemoBattleBrainSelect':
-            case 'DemoBattleVineSelect':
-            case 'DemoDenyWeapon':
-            case 'DemoConfirmWeapon':
-            case 'DemoEnemyConfirm':
-            case 'DemoEnemyDeny':
-            case 'DemoEnemyMushroomSelect':
-            case 'DemoEnemyRatSelect':
-            case 'DemoEnemyZombieSelect':
+        switch(true) {
+            case button.startsWith('Demo'):
                 // start_battle = true;
                 // logger.info('Vines and Thorns Chosen as weapon!');
                 // start_weapon_string = 'The grass begins to sway with each of your breaths.';
@@ -131,9 +120,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 logger.info(`Sending Interaction to Demo Battle: ${button}`)
                 demo_battle(interaction, demo_handler, battle_manager)
                 break;
-            case 'BattleDefend':
-            case 'BattleAttack':
-            case 'BattleSpecial':
+            case button.startsWith('Battle'):
                 const rat_action: number = (battle_manager.find_battle(interaction.message.id).npc_index + 1) % 3
                 let rat_attack_saying = '';
                 switch(rat_action) {
