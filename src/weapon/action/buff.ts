@@ -13,6 +13,6 @@ export default class Buff extends Action {
     }
 
     get_description(): string {
-        return `BUFF ${this.value} ROUNDS ${this.rounds}`
+        return `BUFF ${this.value} - ${this.rounds}R`
     }
 }

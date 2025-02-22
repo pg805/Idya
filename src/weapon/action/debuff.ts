@@ -13,6 +13,6 @@ export default class Debuff extends Action {
     }
 
     get_description(): string {
-        return `DEBUFF ${this.value} ROUNDS ${this.rounds}`
+        return `DEBUFF ${this.value} - ${this.rounds}R`
     }
 }

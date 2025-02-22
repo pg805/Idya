@@ -74,13 +74,14 @@ const enemy_confirm_embed = new EmbedBuilder()
 const enemy_confirm_row:ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
     new ButtonBuilder()
-        .setCustomId('DemoEnemyConfirm')
-        .setLabel('Continue')
-        .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
         .setCustomId('DemoEnemyDeny')
         .setLabel('Go Back')
         .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+        .setCustomId('DemoEnemyConfirm')
+        .setLabel('Continue')
+        .setStyle(ButtonStyle.Primary),
+
 )
 
 function build_weapon_confirm(weapon: Weapon) {
@@ -116,12 +117,12 @@ function build_weapon_confirm(weapon: Weapon) {
     const weapon_confirm_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
             new ButtonBuilder()
-                .setCustomId('DemoConfirmWeapon')
-                .setLabel('Continue')
-                .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
                 .setCustomId('DemoDenyWeapon')
                 .setLabel('Go Back')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('DemoConfirmWeapon')
+                .setLabel('Continue')
                 .setStyle(ButtonStyle.Primary),
         )
 

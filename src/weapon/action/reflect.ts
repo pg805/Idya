@@ -13,6 +13,6 @@ export default class Reflect extends Action {
     }
 
     get_description(): string {
-        return `REFLECT ${this.value} ROUNDS ${this.rounds}`
+        return `REFLECT ${this.value} - ${this.rounds}R`
     }
 }

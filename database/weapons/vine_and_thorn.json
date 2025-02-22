@@ -26,7 +26,7 @@
             "Type": 1,
             "Type_Name": "Strike",
             "Field": [0, 2, 2, 3, 4, 5],
-            "Action_String": "<User> hits <Target> with a branch, dealing <Damage> damage."
+            "Action_String": "<User> pokes <Target> with a branch, dealing <Damage> damage."
         }
     ],
     "Attack Crit": [

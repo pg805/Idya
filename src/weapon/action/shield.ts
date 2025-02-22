@@ -13,6 +13,6 @@ export default class Shield extends Action {
     }
 
     get_description(): string {
-        return `SHIELD ${this.value} ROUNDS ${this.rounds}`
+        return `SHIELD ${this.value} - ${this.rounds}R`
     }
 }

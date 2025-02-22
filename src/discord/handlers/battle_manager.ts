@@ -77,15 +77,15 @@ export default class BattleManager {
             .setComponents(
                 new ButtonBuilder()
                     .setCustomId('BattleDefend')
-                    .setLabel(player_character.weapon.defend_name())
+                    .setLabel(`(D) - ${player_character.weapon.defend_name()}`)
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                     .setCustomId('BattleAttack')
-                    .setLabel(player_character.weapon.attack_name())
+                    .setLabel(`(A) - ${player_character.weapon.attack_name()}`)
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                     .setCustomId('BattleSpecial')
-                    .setLabel(player_character.weapon.special_name())
+                    .setLabel(`(S) - ${player_character.weapon.special_name()}`)
                     .setStyle(ButtonStyle.Primary)
             )
 
@@ -124,15 +124,15 @@ export default class BattleManager {
         let round_string = ''
         const defend_button: ButtonBuilder = new ButtonBuilder()
             .setCustomId('BattleDefend')
-            .setLabel(battle.player_character.weapon.defend_name())
+            .setLabel(`(D) - ${battle.player_character.weapon.defend_name()}`)
             .setStyle(ButtonStyle.Primary)
         const attack_button: ButtonBuilder = new ButtonBuilder()
             .setCustomId('BattleAttack')
-            .setLabel(battle.player_character.weapon.attack_name())
+            .setLabel(`(A) - ${battle.player_character.weapon.attack_name()}`)
             .setStyle(ButtonStyle.Primary)
         const special_button: ButtonBuilder = new ButtonBuilder()
             .setCustomId('BattleSpecial')
-            .setLabel(battle.player_character.weapon.special_name())
+            .setLabel(`(S) - ${battle.player_character.weapon.special_name()}`)
             .setStyle(ButtonStyle.Primary)
 
         if(extra_string) {
