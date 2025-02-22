@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from "discord.js";
+import { ActionRowBuilder, bold, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from "discord.js";
 import BattleManager, { DemoHandler } from "./battle_manager.js";
 import logger from "../../utility/logger.js";
 import Weapon from "../../weapon/weapon.js";
@@ -111,7 +111,15 @@ function build_weapon_confirm(weapon: Weapon) {
     const weapon_confirm_embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0x00FFFF)
         .setTitle(`You pick up ${weapon.name}!`)
-        .setDescription(`You pick up ${weapon.name}\n${weapon.description}`)
+        .setDescription(`You pick up ${weapon.name}\n${weapon.description}
+${bold('STRIKE')}: Directly does damage to target, damage is increased by BUFF and decreased by DEBUFF, BLOCK, and SHIELD
+${bold('BLOCK')}: Reduces incoming damage from STRIKE.  Removed at end of round.
+${bold('BUFF')}: Increases user STRIKE damage.  Lasts for specified number of ROUNDS.
+${bold('DOT')}: Does X damage for specified number of ROUNDS.
+${bold('DEBUFF')}: Reduces user STRIKE damage.  Lasts for specified number of ROUNDS.
+${bold('HEAL')}: Restores health to the user.
+${bold('REFLECT')}: If the user is targeted by STRIKE, specified damage is returned to the attacker.  Lasts for specified number of ROUNDS.
+${bold('SHIELD')}: Reduces incoming damage from STRIKE.  Lasts for specified number of ROUNDS.`)
         .setFields(fields)
 
     const weapon_confirm_row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
