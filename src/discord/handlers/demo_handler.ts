@@ -145,7 +145,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
     switch(interaction.customId) {
         case 'DemoBattleShovelSelect':
             logger.info('Shovel selected as Weapon!')
-            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/shovel.json')))
+            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/shovel.yaml')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'shovel',
                 'NPC': ''
@@ -153,7 +153,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             break;
         case 'DemoBattleCardsSelect':
             logger.info('Cards selected as Weapon!')
-            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/deck_of_cards.json')))
+            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/deck_of_cards.yaml')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'cards',
                 'NPC': ''
@@ -161,7 +161,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             break;
         case 'DemoBattlePaintSelect':
             logger.info('Paint selected as Weapon!')
-            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/can_of_paint.json')))
+            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/can_of_paint.yaml')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'paint',
                 'NPC': ''
@@ -169,7 +169,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             break;
         case 'DemoBattleBrainSelect':
             logger.info('Brain selected as Weapon!')
-            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/awakened_mind.json')))
+            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/awakened_mind.yaml')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'brain',
                 'NPC': ''
@@ -177,7 +177,7 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
             break;
         case 'DemoBattleVineSelect':
             logger.info('Vine selected as Weapon!')
-            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/vine_and_thorn.json')))
+            interaction.update(build_weapon_confirm(Weapon.from_file('./database/weapons/vine_and_thorn.yaml')))
             demo_handler.demos[interaction.message.id] = {
                 'Human': 'vine',
                 'NPC': ''
@@ -229,40 +229,40 @@ export default function demo_battle(interaction: ButtonInteraction, demo_handler
         case 'DemoEnemyConfirm':
             logger.info('Enemy Confirmed!')
 
-            let weapon = Weapon.from_file('./database/weapons/shovel.json')
-            let enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+            let weapon = Weapon.from_file('./database/weapons/shovel.yaml')
+            let enemy = Non_Player_Character.from_file('./database/enemies/rat.yaml')
             let start_string = ''
 
             switch(demo_handler.demos[interaction.message.id]['Human']) {
                 case 'shovel':
-                    weapon = Weapon.from_file('./database/weapons/shovel.json')
+                    weapon = Weapon.from_file('./database/weapons/shovel.yaml')
                     break;
                 case 'cards':
-                    weapon = Weapon.from_file('./database/weapons/deck_of_cards.json')
+                    weapon = Weapon.from_file('./database/weapons/deck_of_cards.yaml')
                     break;
                 case 'paint':
-                    weapon = Weapon.from_file('./database/weapons/can_of_paint.json')
+                    weapon = Weapon.from_file('./database/weapons/can_of_paint.yaml')
                     break;
                 case 'brain':
-                    weapon = Weapon.from_file('./database/weapons/awakened_mind.json')
+                    weapon = Weapon.from_file('./database/weapons/awakened_mind.yaml')
                     break;
                 case 'vine':
-                    weapon = Weapon.from_file('./database/weapons/vine_and_thorn.json')
+                    weapon = Weapon.from_file('./database/weapons/vine_and_thorn.yaml')
                     break;
             }
 
             switch(demo_handler.demos[interaction.message.id]['NPC']) {
                 case 'rat':
-                    enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+                    enemy = Non_Player_Character.from_file('./database/enemies/rat.yaml')
                     start_string = 'The rat is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)'
                     break;
                 case 'zombie':
                     start_string = 'The zombie is attacking, defend yourself quickly! (Recommended action - Defend)'
-                    enemy = Non_Player_Character.from_file('./database/enemies/zombie.json')
+                    enemy = Non_Player_Character.from_file('./database/enemies/zombie.yaml')
                     break;
                 case 'mushroom':
                     start_string = 'The mushroom in preparing, hit it before it can release! (Recommended action - Attack)'
-                    enemy = Non_Player_Character.from_file('./database/enemies/mushroom.json')
+                    enemy = Non_Player_Character.from_file('./database/enemies/mushroom.yaml')
                     break;
             }
 

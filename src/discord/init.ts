@@ -46,12 +46,12 @@ for (const folder of commandFolders) {
 const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&'
 
 /* Rat Weapon - Claws */
-const enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
+const enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.yaml')
 
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_file('./database/weapons/shovel.json'),
+    Weapon.from_file('./database/weapons/shovel.yaml'),
     human_image
 );
 
@@ -107,7 +107,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 // human = new Player_Character(
                 //     'Human',
                 //     50,
-                //     Weapon.from_file('./database/weapons/vine_and_thorn.json'),
+                //     Weapon.from_file('./database/weapons/vine_and_thorn.yaml'),
                 //     human_image
                 // );
 

@@ -1,4 +1,5 @@
 import logger from '../utility/logger.js';
+import yaml from 'js-yaml';
 
 import Result_Field from '../infrastructure/result_field.js';
 import Action from './action.js';
@@ -93,7 +94,7 @@ export default class Weapon {
     }
 
     static from_file(file: string) {
-        const weapon_data: {
+        const weapon_data = yaml.load(fs.readFileSync(file, 'utf-8')) as {
             'Name': string,
             'Description': string,
             'Resource': { 'Name': string, 'Max': number },
@@ -103,7 +104,7 @@ export default class Weapon {
             'Attack Crit': [],
             'Special': [],
             'Special Crit': []
-        } = JSON.parse(fs.readFileSync(file, 'utf-8'));
+        };
 
         return Weapon.from_json(weapon_data)
     }

@@ -12,11 +12,11 @@ const human_image = 'https://cdn.discordapp.com/attachments/1258456865881194586/
 let human: Player_Character = new Player_Character(
     'Human',
     50,
-    Weapon.from_file('./database/weapons/shovel.json'),
+    Weapon.from_file('./database/weapons/shovel.yaml'),
     human_image
 );
 
-let enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.json')
+let enemy: Non_Player_Character = Non_Player_Character.from_file('./database/enemies/rat.yaml')
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -31,7 +31,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/shovel.json'),
+                Weapon.from_file('./database/weapons/shovel.yaml'),
                 human_image
             );
             break;
@@ -41,7 +41,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/deck_of_cards.json'),
+                Weapon.from_file('./database/weapons/deck_of_cards.yaml'),
                 human_image
             );
             break;
@@ -51,7 +51,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/can_of_paint.json'),
+                Weapon.from_file('./database/weapons/can_of_paint.yaml'),
                 human_image
             );
             break;
@@ -62,7 +62,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/awakened_mind.json'),
+                Weapon.from_file('./database/weapons/awakened_mind.yaml'),
                 human_image
             );
             break;
@@ -74,7 +74,7 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/vine_and_thorn.json'),
+                Weapon.from_file('./database/weapons/vine_and_thorn.yaml'),
                 human_image
             );
             break;
@@ -90,17 +90,17 @@ await new Promise((resolve, reject) => rl.question('Choose your Enemy! [Rat=1, Z
         case '1':
         case 'rat':
             logger.info('Rat Chosen as enemy!');
-            enemy = Non_Player_Character.from_file('./database/enemies/rat.json')
+            enemy = Non_Player_Character.from_file('./database/enemies/rat.yaml')
             break;
         case '2':
         case 'zombie':
             logger.info('Zombie Chosen as enemy!');
-            enemy = Non_Player_Character.from_file('./database/enemies/zombie.json')
+            enemy = Non_Player_Character.from_file('./database/enemies/zombie.yaml')
             break;
         case '3':
         case 'mushroom':
             logger.info('Mushroom Chosen as enemy!');
-            enemy = Non_Player_Character.from_file('./database/enemies/mushroom.json')
+            enemy = Non_Player_Character.from_file('./database/enemies/mushroom.yaml')
             break;
         default:
             logger.info('Please input an enemy or enemy number.');

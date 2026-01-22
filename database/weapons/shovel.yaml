@@ -1,0 +1,38 @@
+Name: Shovel
+Description: A rusty shovel with a few knicks in the cutting edge. It has obviously served another fighter well.
+
+Resource:
+  Name: Stamina
+  Max: 10
+
+Defend:
+  - Name: Block
+    Type: 2
+    Type_Name: Block
+    Value: 7
+    Action_String: "<User> enters a defensive pose, preparing to block 7 damage."
+
+Defend Crit: []
+
+Attack:
+  - Name: Whack
+    Type: 1
+    Type_Name: Strike
+    Field: [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
+    Action_String: "<User> quickly strikes <Target> with their shovel, dealing <Damage> damage."
+
+Attack Crit:
+  - Name: Block
+    Type: 2
+    Type_Name: Block
+    Value: 7
+    Action_String: "<User> recovers to a defensive position, preparing to block 7 damage."
+
+Special:
+  - Name: Charge
+    Type: 1
+    Type_Name: Strike
+    Field: [5, 10, 10, 20]
+    Action_String: "<User> waits for an opening and strikes <Target>, dealing <Damage> damage."
+
+Special Crit: []

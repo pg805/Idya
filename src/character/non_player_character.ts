@@ -2,6 +2,7 @@ import Pattern from '../infrastructure/pattern.js';
 import Weapon from '../weapon/weapon.js';
 import Player_Character from './player_character.js';
 import fs from 'fs';
+import yaml from 'js-yaml';
 
 export default class Non_Player_Character extends Player_Character {
     pattern: Pattern
@@ -12,7 +13,7 @@ export default class Non_Player_Character extends Player_Character {
     }
 
     static from_file(file: string) {
-        const npc_data: {
+        const npc_data = yaml.load(fs.readFileSync(file, 'utf-8')) as {
             'Name': string,
             'Health': number,
             'Pattern': Array<number>,
@@ -28,7 +29,7 @@ export default class Non_Player_Character extends Player_Character {
                 'Special': [],
                 'Special Crit': []
             }
-        } = JSON.parse(fs.readFileSync(file, 'utf-8'));
+        };
 
         return Non_Player_Character.from_json(npc_data)
     }
