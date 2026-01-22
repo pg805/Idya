@@ -3,13 +3,14 @@ Description: A rusty shovel with a few knicks in the cutting edge. It has obviou
 
 Resource:
   Name: Stamina
-  Max: 10
+  Max: 6
 
 Defend:
   - Name: Block
     Type: 2
     Type_Name: Block
     Value: 7
+    Cost: -2  # restores 2 stamina
     Action_String: "<User> enters a defensive pose, preparing to block 7 damage."
 
 Defend Crit: []
@@ -19,7 +20,14 @@ Attack:
     Type: 1
     Type_Name: Strike
     Field: [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
+    Cost: -2  # restores 2 stamina
     Action_String: "<User> quickly strikes <Target> with their shovel, dealing <Damage> damage."
+  - Name: Proc
+    Type: 1
+    Type_Name: Strike
+    Field: [15]
+    Cost: 3  # costs 3 stamina
+    Action_String: "<User> winds up and slams <Target> with their shovel, dealing <Damage> damage."
 
 Attack Crit:
   - Name: Block
@@ -33,6 +41,7 @@ Special:
     Type: 1
     Type_Name: Strike
     Field: [5, 10, 10, 20]
+    Cost: 0
     Action_String: "<User> waits for an opening and strikes <Target>, dealing <Damage> damage."
 
 Special Crit: []

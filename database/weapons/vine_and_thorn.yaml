@@ -3,7 +3,7 @@ Description: Nature calls to you. You ask for aid. The aid is given.
 
 Resource:
   Name: Connection
-  Max: 10
+  Max: 5
 
 Defend:
   - Name: Thorns
@@ -11,12 +11,14 @@ Defend:
     Type_Name: Reflect
     Value: 5
     Rounds: 3
+    Cost: -1  # restores 1 connection
     Action_String: "Thorns grow around <User>, reflecting 5 damage for 3 rounds."
   - Name: Vines
     Type: 8
     Type_Name: Shield
     Value: 5
     Rounds: 3
+    Cost: -2  # restores 2 connection
     Action_String: "Vines grow around <User>, shielding 5 damage for 3 rounds."
 
 Defend Crit: []
@@ -26,6 +28,7 @@ Attack:
     Type: 1
     Type_Name: Strike
     Field: [0, 2, 2, 3, 4, 5]
+    Cost: 0
     Action_String: "<User> pokes <Target> with a branch, dealing <Damage> damage."
 
 Attack Crit:
@@ -41,6 +44,7 @@ Special:
     Type_Name: DOT
     Field: [1, 3]
     Rounds: 3
+    Cost: 3  # costs 3 connection
     Action_String: "<User> sets vines to constrict <Target>. <Target> will take <Damage> damage for 3 rounds."
 
 Special Crit: []

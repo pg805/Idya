@@ -3,13 +3,14 @@ Description: The cards in this deck are razor sharp and fly with precision. An w
 
 Resource:
   Name: Luck
-  Max: 10
+  Max: 20
 
 Defend:
   - Name: Shuffle
     Type: 2
     Type_Name: Block
     Value: 4
+    Cost: -15  # restores 15 luck
     Action_String: "<User> shuffles their deck, preparing to block for 4 damage."
 
 Defend Crit: []
@@ -19,7 +20,14 @@ Attack:
     Type: 1
     Type_Name: Strike
     Field: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
+    Cost: 2  # costs 2 luck
     Action_String: "<User> pulls a card and throws it at <Target>, dealing <Damage> damage."
+  - Name: Ace
+    Type: 1
+    Type_Name: Strike
+    Field: [11]
+    Cost: 10  # costs 10 luck
+    Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
 
 Attack Crit:
   - Name: Joker
@@ -34,6 +42,13 @@ Special:
     Type: 1
     Type_Name: Strike
     Field: [1, 12, 17, 22]
-    Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
+    Cost: 4  # costs 4 luck
+    Action_String: "<User> pulls a suit card and throws it at <Target>, dealing <Damage> damage."
+  - Name: Spades
+    Type: 1
+    Type_Name: Strike
+    Field: [22]
+    Cost: 20  # costs 20 luck
+    Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."
 
 Special Crit: []
