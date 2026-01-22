@@ -1,6 +1,10 @@
 {
     "Name": "Awakened Mind",
     "Description": "Telepathically connect with objects for both offense and defense.  Mentally distract your enemies.",
+    "Resource": {
+        "Name": "ESP",
+        "Max": 10
+    },
     "Defend": [
         {
             "Name": "Control Stone",

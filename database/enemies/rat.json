@@ -6,6 +6,10 @@
     "Weapon": {
         "Name": "Claws",
         "Description": "Nasty little rat Claws.",
+        "Resource": {
+            "Name": "Ferocity",
+            "Max": 10
+        },
         "Defend": [
             {
                 "Name": "Curl Up",

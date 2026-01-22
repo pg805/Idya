@@ -6,6 +6,10 @@
     "Weapon": {
         "Name": "Advanced Sporefare",
         "Description": "She's ready to break the glass mycelium.",
+        "Resource": {
+            "Name": "Spores",
+            "Max": 10
+        },
         "Defend": [
             {
                 "Name": "Retreat",

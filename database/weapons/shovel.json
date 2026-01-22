@@ -1,6 +1,10 @@
 {
     "Name": "Shovel",
     "Description": "A rusty shovel with a few knicks in the cutting edge.  It has obviously served another fighter well.",
+    "Resource": {
+        "Name": "Stamina",
+        "Max": 10
+    },
     "Defend": [
         {
             "Name": "Block",

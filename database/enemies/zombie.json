@@ -6,6 +6,10 @@
     "Weapon": {
         "Name": "Zombie Scratch",
         "Description": "He just wants some brains.",
+        "Resource": {
+            "Name": "Hunger",
+            "Max": 10
+        },
         "Defend": [
             {
                 "Name": "Dead Skin",

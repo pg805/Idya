@@ -1,6 +1,10 @@
 {
     "Name": "Can of Paint",
     "Description": "Defeat your enemies while creating beautiful paintings.",
+    "Resource": {
+        "Name": "Paint",
+        "Max": 10
+    },
     "Defend": [
         {
             "Name": "Mix Paint",

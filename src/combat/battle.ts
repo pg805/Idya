@@ -16,6 +16,9 @@ class Player_Object {
     name: string
     health: number
     max_health: number // TODO, add to constructor
+    resource_name: string
+    resource_max: number
+    resource_current: number
     block = 0
     damage_over_time_value = 0
     damage_over_time_rounds = 0
@@ -28,10 +31,13 @@ class Player_Object {
     shield_value = 0
     shield_rounds = 0
 
-    constructor(name: string, health: number) {
+    constructor(name: string, health: number, resource_name: string, resource_max: number) {
         this.name = name;
         this.health = health;
         this.max_health = health;
+        this.resource_name = resource_name;
+        this.resource_max = resource_max;
+        this.resource_current = resource_max;
     }
 
     target_self(action_array: Array<Action>) {
@@ -327,8 +333,18 @@ export default class Battle {
     constructor(player_character: Player_Character, non_player_character: Non_Player_Character) {
         this.player_character = player_character;
         this.non_player_character = non_player_character;
-        this.pc_object = new Player_Object(player_character.name, player_character.health);
-        this.npc_object = new Player_Object(non_player_character.name, non_player_character.health);
+        this.pc_object = new Player_Object(
+            player_character.name,
+            player_character.health,
+            player_character.weapon.resource_name,
+            player_character.weapon.resource_max
+        );
+        this.npc_object = new Player_Object(
+            non_player_character.name,
+            non_player_character.health,
+            non_player_character.weapon.resource_name,
+            non_player_character.weapon.resource_max
+        );
     }
 
     check_winners() {

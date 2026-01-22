@@ -1,6 +1,10 @@
 {
     "Name": "Vines and Thorns",
     "Description": "Nature calls to you.  You ask for aid.  The aid is given.",
+    "Resource": {
+        "Name": "Connection",
+        "Max": 10
+    },
     "Defend": [
         {
             "Name": "Thorns",

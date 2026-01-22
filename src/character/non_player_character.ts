@@ -20,6 +20,7 @@ export default class Non_Player_Character extends Player_Character {
             'Weapon': {
                 'Name': string,
                 'Description': string,
+                'Resource': { 'Name': string, 'Max': number },
                 'Defend': [],
                 'Defend Crit': [],
                 'Attack': [],
@@ -40,6 +41,7 @@ export default class Non_Player_Character extends Player_Character {
         'Weapon': {
             'Name': string,
             'Description': string,
+            'Resource': { 'Name': string, 'Max': number },
             'Defend': [],
             'Defend Crit': [],
             'Attack': [],
