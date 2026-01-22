@@ -112,6 +112,7 @@ function build_weapon_confirm(weapon: Weapon) {
         .setColor(0x00FFFF)
         .setTitle(`You pick up ${weapon.name}!`)
         .setDescription(`You pick up ${weapon.name}\n${weapon.description}
+-------------------------------------------------------------------------------------
 ${bold('STRIKE')}: Directly does damage to target, damage is increased by BUFF and decreased by DEBUFF, BLOCK, and SHIELD
 ${bold('BLOCK')}: Reduces incoming damage from STRIKE.  Removed at end of round.
 ${bold('BUFF')}: Increases user STRIKE damage.  Lasts for specified number of ROUNDS.
