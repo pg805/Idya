@@ -7,14 +7,15 @@ Weapon:
   Name: Claws
   Description: Nasty little rat Claws.
   Resource:
-    Name: Ferocity
-    Max: 10
+    Name: Cheese
+    Max: 6
 
   Defend:
     - Name: Curl Up
       Type: 2
       Type_Name: Block
       Value: 5
+      Cost: -1
       Action_String: "<User> curls up, preparing to block for 5 damage."
 
   Defend Crit: []
@@ -24,6 +25,7 @@ Weapon:
       Type: 1
       Type_Name: Strike
       Field: [0, 3, 5, 5, 7, 10]
+      Cost: 1
       Action_String: "<User> scratches <Target> dealing <Damage> damage."
 
   Attack Crit:
@@ -38,6 +40,7 @@ Weapon:
       Type: 1
       Type_Name: Strike
       Field: [3, 9, 15, 15]
+      Cost: 2
       Action_String: "<User> bites <Target> for <Damage> damage."
 
   Special Crit: []

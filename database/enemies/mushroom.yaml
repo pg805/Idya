@@ -15,11 +15,13 @@ Weapon:
       Type: 2
       Type_Name: Block
       Value: 5
+      Cost: 1
       Action_String: "<User> retreats into the ground, blocking for 5 damage."
     - Name: Regenerate
       Type: 6
       Type_Name: Heal
       Value: 2
+      Cost: -3
       Action_String: "<User> regenerates itself, healing 2 damage."
 
   Defend Crit: []
@@ -30,6 +32,7 @@ Weapon:
       Type_Name: DOT
       Field: [1, 1, 1, 2, 3, 4]
       Rounds: 5
+      Cost: 2
       Action_String: "<User> bathes <Target> in spores, <Target> will take <Damage> damage for 5 rounds."
 
   Attack Crit:
@@ -46,6 +49,7 @@ Weapon:
       Type_Name: Shield
       Value: 3
       Rounds: 6
+      Cost: -2
       Action_String: "<User> hides in a faery ring, shielding 3 damage for 3 rounds."
 
   Special Crit: []
