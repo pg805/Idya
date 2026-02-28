@@ -53,93 +53,77 @@ class Player_Object {
         return modifier;
     }
 
+    apply_cost(action: Action): string {
+        if (action.cost === 0) return '';
+        const before = this.resource_current;
+        this.resource_current = Math.max(0, Math.min(this.resource_max, this.resource_current - action.cost));
+        return `  [${this.resource_name}: ${before} → ${this.resource_current}]`;
+    }
+
     target_self(action_array: Array<Action>) {
         let action_string = '';
 
         action_array.forEach((action: Action) => {
+            const resource_string = this.apply_cost(action);
+            const header = `\n<User> — ${action.name}${resource_string}`;
+
             // Block
             if (action.type == 2) {
                 const block = (<Block>action).value;
                 this.block = block;
 
-                action_string = `${action_string}\n${action.action_string}`;
-                
-                logger.info(
-                    `Resolving ${this.name} Block: ${action.name}
-Value: ${block}`
-                );
+                action_string = `${action_string}${header}\n  ${action.action_string}`;
+
+                logger.info(`Resolving ${this.name} Block: ${action.name}\nValue: ${block}`);
             }
 
             // Buff
             if (action.type == 3) {
                 const buff_value = (<Buff>action).value;
                 this.buff_value = buff_value;
-
                 const buff_rounds = (<Buff>action).rounds;
                 this.buff_rounds = buff_rounds;
-
-                const old_debuff = this.debuff_value;
-                const old_debuff_rounds = this.debuff_rounds;
                 this.debuff_value = 0;
                 this.debuff_rounds = 0;
 
-                action_string = `${action_string}\n${action.action_string}`;
+                action_string = `${action_string}${header}\n  ${action.action_string}`;
 
-                logger.info(
-                    `Resolving ${this.name} Buff: ${action.name}
-Buff Value: ${buff_value}
-Debuff Rounds: ${buff_rounds}
-Old Debuff Value: ${old_debuff}
-Old Debuff Rounds: ${old_debuff_rounds}`
-                );
+                logger.info(`Resolving ${this.name} Buff: ${action.name}\nValue: ${buff_value}  Rounds: ${buff_rounds}`);
             }
 
             // Heal
             if (action.type == 6) {
                 const heal = (<Heal>action).value;
+                const hp_before = this.health;
                 this.health = Math.min(this.health + heal, this.max_health);
 
-                action_string = `${action_string}\n${action.action_string}`;
+                action_string = `${action_string}${header}\n  ${action.action_string}  [HP: ${hp_before} → ${this.health}]`;
 
-                logger.info(
-                    `Resolving ${this.name} Heal: ${action.name}
-Value: ${heal}
-Health: ${this.health}`
-                );
+                logger.info(`Resolving ${this.name} Heal: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${this.health}`);
             }
 
             // Reflect
             if (action.type == 7) {
                 const reflect_value = (<Reflect>action).value;
                 this.reflect_value = reflect_value;
-
                 const reflect_rounds = (<Reflect>action).rounds;
                 this.reflect_rounds = reflect_rounds;
 
-                action_string = `${action_string}\n${action.action_string}`;
+                action_string = `${action_string}${header}\n  ${action.action_string}`;
 
-                logger.info(
-                    `Resolving ${this.name} Reflect: ${action.name}
-Value: ${reflect_value}
-Rounds: ${reflect_rounds}`
-                );
+                logger.info(`Resolving ${this.name} Reflect: ${action.name}\nValue: ${reflect_value}  Rounds: ${reflect_rounds}`);
             }
 
             // Shield
             if (action.type == 8) {
                 const shield_value = (<Shield>action).value;
                 this.shield_value = shield_value;
-
                 const shield_rounds = (<Shield>action).rounds;
                 this.shield_rounds = shield_rounds;
 
-                action_string = `${action_string}\n${action.action_string}`;
+                action_string = `${action_string}${header}\n  ${action.action_string}`;
 
-                logger.info(
-                    `Resolving ${this.name} Shield: ${action.name}
-Value: ${shield_value}
-Rounds: ${shield_rounds}`
-                );
+                logger.info(`Resolving ${this.name} Shield: ${action.name}\nValue: ${shield_value}  Rounds: ${shield_rounds}`);
             }
         });
 
@@ -148,10 +132,13 @@ Rounds: ${shield_rounds}`
 
     hostile_target(action_array: Array<Action>, hostile_object: Player_Object, roll_mode: RollMode = RollMode.One) {
         let target_string = '';
-
         let reflect = false;
 
         action_array.forEach((action: Action) => {
+            const resource_string = hostile_object.apply_cost(action);
+            const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+            const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+
             // Strike
             if (action.type == 1) {
                 reflect = true;
@@ -159,29 +146,18 @@ Rounds: ${shield_rounds}`
                 const raw_damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
                 const resistance_modifier: number = this.get_resistance_modifier(action);
                 const damage: number = Math.floor(raw_damage * resistance_modifier);
+                const hp_before = this.health;
                 this.health = Math.max(this.health - damage, 0);
 
-                const rolled_string = `  ${hostile_object.name} rolled ${damage_roll}.`
+                const block_detail  = this.block + this.shield_value > 0 ? `  blocked ${this.block + this.shield_value}` : '';
+                const buff_detail   = hostile_object.buff_value  ? `  +${hostile_object.buff_value} buff` : '';
+                const debuff_detail = hostile_object.debuff_value ? `  −${hostile_object.debuff_value} debuff` : '';
+                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
+                const detail = `\n  Roll: ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}  →  ${damage} damage  |  ${this.name} HP: ${hp_before} → ${this.health}`;
 
-                const block_string: string = this.block + this.shield_value > 0 ? `  ${this.name} blocked ${this.block+this.shield_value} damage.` : ''
+                target_string = `${target_string}${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
 
-                const buff_string: string = hostile_object.buff_value ? `  <Target> buffed their attack by ${hostile_object.buff_value}.` : ''
-                const debuff_string: string = hostile_object.debuff_value ? `  <Target>'s attack was debuffed by ${hostile_object.debuff_value}.` : ''
-                const resist_string: string = resistance_modifier !== 1.0 ? `  ${resistance_modifier > 1 ? 'Weakness' : 'Resist'} (${resistance_modifier}×).` : ''
-
-                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${rolled_string}${block_string}${buff_string}${debuff_string}${resist_string}`;
-
-                logger.info(
-                    `Resolving Strike on ${this.name}: ${action.name}
-Damage Roll: ${damage_roll}
-Block: ${this.block}
-Shield: ${this.shield_value}
-Buff: ${hostile_object.buff_value}
-Debuff: ${hostile_object.debuff_value}
-Resistance Modifier: ${resistance_modifier}
-Damage Value: ${damage}
-Health: ${this.health}`
-                );
+                logger.info(`Resolving Strike on ${this.name}: ${action.name}\nRoll: ${damage_roll}  Block: ${this.block}  Shield: ${this.shield_value}  Buff: ${hostile_object.buff_value}  Debuff: ${hostile_object.debuff_value}  Modifier: ${resistance_modifier}  Damage: ${damage}  HP: ${this.health}`);
             }
 
             // DOT
@@ -189,45 +165,30 @@ Health: ${this.health}`
                 const raw_damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
                 const resistance_modifier: number = this.get_resistance_modifier(action);
                 const damage: number = Math.floor(raw_damage * resistance_modifier);
-                this.damage_over_time_value = damage;
-
                 const rounds: number = (<Damage_Over_Time>action).rounds;
+                this.damage_over_time_value = damage;
                 this.damage_over_time_rounds = rounds;
 
-                const resist_string: string = resistance_modifier !== 1.0 ? `  ${resistance_modifier > 1 ? 'Weakness' : 'Resist'} (${resistance_modifier}×).` : ''
+                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
+                const detail = `\n  DOT: ${damage} damage × ${rounds} rounds${resist_detail}`;
 
-                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${resist_string}`;
+                target_string = `${target_string}${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
 
-                logger.info(
-                    `Resolving DOT on ${this.name}: ${action.name}
-Value: ${damage}
-Resistance Modifier: ${resistance_modifier}
-Rounds: ${rounds}`
-                );
+                logger.info(`Resolving DOT on ${this.name}: ${action.name}\nDamage: ${damage}  Modifier: ${resistance_modifier}  Rounds: ${rounds}`);
             }
 
             // Debuff
             if (action.type == 5) {
                 const debuff = (<Debuff>action).value;
-                this.debuff_value = debuff;
-
                 const rounds = (<Debuff>action).rounds;
+                this.debuff_value = debuff;
                 this.debuff_rounds = rounds;
-
-                const old_buff = this.buff_value;
-                const old_buff_rounds = this.buff_rounds;
                 this.buff_value = 0;
                 this.buff_rounds = 0;
 
-                target_string = `${target_string}\n${action.action_string}`;
+                target_string = `${target_string}${header}\n  ${action.action_string}`;
 
-                logger.info(
-                    `Resolving Debuff on ${this.name}: ${action.name}
-Value: ${debuff}
-Rounds: ${rounds}
-Old Buff Value: ${old_buff}
-Old Buff Rounds: ${old_buff_rounds}`
-                );
+                logger.info(`Resolving Debuff on ${this.name}: ${action.name}\nValue: ${debuff}  Rounds: ${rounds}`);
             }
         });
 
@@ -235,9 +196,10 @@ Old Buff Rounds: ${old_buff_rounds}`
     }
 
     handle_reflect(damage: number) {
+        const hp_before = this.health;
         this.health = Math.max(this.health - damage, 0);
 
-        const action_string = damage > 0 ? `\n${damage} damage was reflected to <User>.` : '';
+        const action_string = damage > 0 ? `\n${damage} damage reflected to <User>  |  <User> HP: ${hp_before} → ${this.health}` : '';
 
         logger.info(
             `Reflecting Damage to ${this.name}
@@ -256,10 +218,11 @@ Health: ${this.health}
 
         // Damage over Time
         if (this.damage_over_time_rounds > 0) {
+            const hp_before = this.health;
             this.health = Math.max(this.health - this.damage_over_time_value, 0);
             this.damage_over_time_rounds -= 1;
 
-            action_string = `${action_string}\n${this.name} takes ${this.damage_over_time_value} damage.  This DOT has ${this.damage_over_time_rounds} round(s) left`;
+            action_string = `${action_string}\n${this.name} takes ${this.damage_over_time_value} DOT damage  (${this.damage_over_time_rounds} round(s) remaining)  |  HP: ${hp_before} → ${this.health}`;
 
             logger.info(
                 `End of Turn DOT on ${this.name}
@@ -399,7 +362,7 @@ export default class Battle {
         const pc_roll_mode:  RollMode = resolve_roll_mode(player_stance, npc_stance);
         const npc_roll_mode: RollMode = resolve_roll_mode(npc_stance, player_stance);
 
-        let action_string: string = `Round ${this.current_round} — ${stance_label[player_stance]} vs ${stance_label[npc_stance]}`
+        let action_string: string = `Round ${this.current_round} — ${this.pc_object.name}: ${stance_label[player_stance]}  |  ${this.npc_object.name}: ${stance_label[npc_stance]}`
         const npc_pattern_entry = this.non_player_character.pattern.field[this.npc_index];
         const npc_action: number = npc_pattern_entry.type;
         const npc_action_index: number = npc_pattern_entry.index;

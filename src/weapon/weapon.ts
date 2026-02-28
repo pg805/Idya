@@ -22,7 +22,8 @@ type ActionData = {
     'Value': number,
     'Rounds': number,
     'Damage_Type'?: string,
-    'Damage_Subtype'?: string
+    'Damage_Subtype'?: string,
+    'Cost'?: number
 }
 
 function from_json(action_object: ActionData): Action {
@@ -65,6 +66,7 @@ function from_json(action_object: ActionData): Action {
     }
     action.damage_type    = action_object['Damage_Type']    ?? '';
     action.damage_subtype = action_object['Damage_Subtype'] ?? '';
+    action.cost           = action_object['Cost']           ?? 0;
     return action;
 }
 

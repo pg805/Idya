@@ -5,6 +5,7 @@ export default class Action {
     type_name: string = ''
     damage_type: string = ''
     damage_subtype: string = ''
+    cost: number = 0
 
     constructor(name: string, action_string: string) {
         this.name = name;

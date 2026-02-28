@@ -100,8 +100,8 @@ export default class BattleManager {
             .setTitle(`Battle against ${non_player_character.name}`)
             .setDescription(description)
             .setFields(
-                { name: "Player Character", value: `${player_character.health}`, inline: true },
-                { name: non_player_character.name, value: `${non_player_character.health}`, inline: true },
+                { name: battle.pc_object.name, value: `HP: ${battle.pc_object.health}/${battle.pc_object.max_health}\n${battle.pc_object.resource_name}: ${battle.pc_object.resource_current}/${battle.pc_object.resource_max}`, inline: true },
+                { name: battle.npc_object.name, value: `HP: ${battle.npc_object.health}/${battle.npc_object.max_health}\n${battle.npc_object.resource_name}: ${battle.npc_object.resource_current}/${battle.npc_object.resource_max}`, inline: true },
             )
 
         const image_embed_1 = new EmbedBuilder()
@@ -192,8 +192,8 @@ export default class BattleManager {
         const battle_embed = EmbedBuilder.from(interaction.message.embeds[2])
             .setDescription(description)
             .setFields(
-                { name: "Player Character", value: `${battle.pc_object.health}`, inline: true },
-                { name: battle.npc_object.name, value: `${battle.npc_object.health}`, inline: true },
+                { name: battle.pc_object.name, value: `HP: ${battle.pc_object.health}/${battle.pc_object.max_health}\n${battle.pc_object.resource_name}: ${battle.pc_object.resource_current}/${battle.pc_object.resource_max}`, inline: true },
+                { name: battle.npc_object.name, value: `HP: ${battle.npc_object.health}/${battle.npc_object.max_health}\n${battle.npc_object.resource_name}: ${battle.npc_object.resource_current}/${battle.npc_object.resource_max}`, inline: true },
             )
 
         const components = [
