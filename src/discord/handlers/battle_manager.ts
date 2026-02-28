@@ -53,30 +53,36 @@ export default class BattleManager {
 
     private make_action_row(battle: Battle, disabled: boolean) {
         const buttons: ButtonBuilder[] = [];
-        const weapon = battle.player_character.weapon;
+        const weapon   = battle.player_character.weapon;
+        const resource = battle.pc_object.resource_current;
+
+        const cost_label = (action: Action) => {
+            if (action.cost === 0) return '';
+            return action.cost < 0 ? ` +${-action.cost}` : ` -${action.cost}`;
+        };
 
         weapon.defend.forEach((action: Action, index: number) => {
             buttons.push(new ButtonBuilder()
                 .setCustomId(`BattleD${index}`)
-                .setLabel(`(D) ${action.name}`)
+                .setLabel(`(D) ${action.name}${cost_label(action)}`)
                 .setStyle(ButtonStyle.Primary)
-                .setDisabled(disabled));
+                .setDisabled(disabled || action.cost > resource));
         });
 
         weapon.attack.forEach((action: Action, index: number) => {
             buttons.push(new ButtonBuilder()
                 .setCustomId(`BattleA${index}`)
-                .setLabel(`(A) ${action.name}`)
+                .setLabel(`(A) ${action.name}${cost_label(action)}`)
                 .setStyle(ButtonStyle.Danger)
-                .setDisabled(disabled));
+                .setDisabled(disabled || action.cost > resource));
         });
 
         weapon.special.forEach((action: Action, index: number) => {
             buttons.push(new ButtonBuilder()
                 .setCustomId(`BattleS${index}`)
-                .setLabel(`(S) ${action.name}`)
+                .setLabel(`(S) ${action.name}${cost_label(action)}`)
                 .setStyle(ButtonStyle.Success)
-                .setDisabled(disabled));
+                .setDisabled(disabled || action.cost > resource));
         });
 
         return new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
@@ -146,28 +152,46 @@ export default class BattleManager {
         })
     }
 
-    button_update_battle(interaction: ButtonInteraction, extra_string: string = '') {
+    button_update_battle(interaction: ButtonInteraction) {
         const battle: Battle = this.find_battle(interaction.message.id)
         logger.info(`Updating battle between ${battle.player_character.name} and ${battle.non_player_character.name}.  ID: ${interaction.message.id}`)
 
         const player_stance: Stance = this.pending_stances[interaction.message.id] ?? Stance.Balanced
         delete this.pending_stances[interaction.message.id]
 
-        let round_object: { action_string: string, winner: string } = { action_string: '', winner: '' }
-
         const type_char = interaction.customId[6]; // 'D', 'A', or 'S'
         const action_index = parseInt(interaction.customId.slice(7));
         const player_action = type_char === 'D' ? 1 : type_char === 'A' ? 2 : 3;
-        round_object = battle.resolve_round(player_action, action_index, player_stance);
+        const round_object = battle.resolve_round(player_action, action_index, player_stance);
 
         let winner_string = ''
         let round_string  = ''
 
-        if(extra_string) {
-            round_string = `\n-------------------------\n${extra_string}`
+        const battle_over = !!round_object.winner
+
+        if (!battle_over) {
+            const next_entry  = battle.non_player_character.pattern.field[battle.npc_index];
+            const next_stance = battle.non_player_character.stance_pattern[battle.npc_stance_index];
+            const name = battle.non_player_character.name;
+
+            let action_hint = '';
+            switch (next_entry.type) {
+                case 1: action_hint = `${name} is defending — gives you time to plan. (Recommend: Special)`; break;
+                case 2: action_hint = `${name} is winding up to attack! (Recommend: Defend)`; break;
+                case 3: action_hint = `${name} is preparing something special. (Recommend: Attack)`; break;
+            }
+
+            // TODO: replace with flavored stance lines per enemy
+            let stance_hint = '';
+            switch (next_stance) {
+                case Stance.Defensive:  stance_hint = `${name} takes a Defensive stance.`; break;
+                case Stance.Balanced:   stance_hint = `${name} takes a Balanced stance.`; break;
+                case Stance.Aggressive: stance_hint = `${name} takes an Aggressive stance.`; break;
+            }
+
+            round_string = `\n-------------------------\n${action_hint}\n\n${stance_hint}`;
         }
 
-        const battle_over = !!round_object.winner
         if(battle_over) {
             winner_string = `\n-------------------------\n${round_object.winner} wins!`
 

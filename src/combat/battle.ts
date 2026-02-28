@@ -353,8 +353,34 @@ export default class Battle {
         return '';
     }
 
+    private find_affordable_npc_entry(): { pattern_index: number, stance_index: number, steps_skipped: number } {
+        const weapon      = this.non_player_character.weapon;
+        const pattern_len = this.non_player_character.pattern.length;
+        const stance_len  = this.non_player_character.stance_pattern.length;
+
+        for (let i = 0; i < pattern_len; i++) {
+            const pidx  = (this.npc_index + i) % pattern_len;
+            const entry = this.non_player_character.pattern.field[pidx];
+
+            let action: Action | null = null;
+            if      (entry.type === 1) action = weapon.defend[entry.index]  ?? null;
+            else if (entry.type === 2) action = weapon.attack[entry.index]  ?? null;
+            else if (entry.type === 3) action = weapon.special[entry.index] ?? null;
+
+            if (action !== null && action.cost <= this.npc_object.resource_current) {
+                return { pattern_index: pidx, stance_index: (this.npc_stance_index + i) % stance_len, steps_skipped: i };
+            }
+        }
+
+        return { pattern_index: this.npc_index, stance_index: this.npc_stance_index, steps_skipped: 0 };
+    }
+
     resolve_round(player_action: number, player_action_index: number = 0, player_stance: Stance = Stance.Balanced) {
-        const npc_stance: Stance = this.non_player_character.stance_pattern[this.npc_stance_index];
+        const { pattern_index: npc_pattern_index, stance_index: npc_stance_index_eff, steps_skipped } = this.find_affordable_npc_entry();
+        const npc_pattern_entry = this.non_player_character.pattern.field[npc_pattern_index];
+        const npc_action: number = npc_pattern_entry.type;
+        const npc_action_index: number = npc_pattern_entry.index;
+        const npc_stance: Stance = this.non_player_character.stance_pattern[npc_stance_index_eff];
 
         this.pc_object.stance  = player_stance;
         this.npc_object.stance = npc_stance;
@@ -363,9 +389,10 @@ export default class Battle {
         const npc_roll_mode: RollMode = resolve_roll_mode(npc_stance, player_stance);
 
         let action_string: string = `Round ${this.current_round} — ${this.pc_object.name}: ${stance_label[player_stance]}  |  ${this.npc_object.name}: ${stance_label[npc_stance]}`
-        const npc_pattern_entry = this.non_player_character.pattern.field[this.npc_index];
-        const npc_action: number = npc_pattern_entry.type;
-        const npc_action_index: number = npc_pattern_entry.index;
+        if (steps_skipped > 0) {
+            const type_name = npc_action === 1 ? 'defend' : npc_action === 2 ? 'attack' : 'special';
+            action_string = `${action_string}\n${this.npc_object.name} can't afford their planned move (${this.npc_object.resource_name} depleted) — falls back to ${type_name}.`;
+        }
         logger.info(
             `***************************
 Resolving Turn
@@ -555,8 +582,8 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
 
         // Round End Updating
         this.current_round += 1;
-        this.npc_index = (this.npc_index + 1) % this.non_player_character.pattern.length;
-        this.npc_stance_index = (this.npc_stance_index + 1) % this.non_player_character.stance_pattern.length;
+        this.npc_index = (npc_pattern_index + 1) % this.non_player_character.pattern.length;
+        this.npc_stance_index = (npc_stance_index_eff + 1) % this.non_player_character.stance_pattern.length;
         const pc_end_string: string = this.pc_object.end_round();
         const npc_end_string: string = this.npc_object.end_round();
 
