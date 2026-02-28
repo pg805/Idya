@@ -10,6 +10,8 @@ import Weapon from '../weapon/weapon.js';
 import Non_Player_Character from '../character/non_player_character.js';
 import BattleManager, { DemoHandler } from './handlers/battle_manager.js';
 import demo_battle from './handlers/demo_handler.js';
+import CharacterHandler from './handlers/character_handler.js';
+import CharacterRepository from '../character/character_repository.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -57,6 +59,8 @@ let human: Player_Character = new Player_Character(
 
 const battle_manager = new BattleManager()
 const demo_handler = new DemoHandler()
+const character_handler = new CharacterHandler()
+const character_repo = new CharacterRepository()
 
 /* Tidy Stop */
 
@@ -86,6 +90,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     /* Tidy Start */
 
+    if(interaction.isModalSubmit()) {
+        if(interaction.customId === 'CreateCharModal') {
+            character_handler.handle_modal(interaction, character_repo);
+        }
+    }
+
+    if(interaction.isStringSelectMenu()) {
+        if(interaction.customId === 'CreateCharWeaponSelect') {
+            character_handler.handle_weapon_select(interaction);
+        }
+    }
+
     if(interaction.isButton()) {
         const button = interaction.customId
 
@@ -100,6 +116,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         };
 
         switch(true) {
+            case button === 'CreateCharConfirm':
+                character_handler.handle_confirm(interaction, character_repo);
+                break;
+            case button === 'CreateCharBack':
+                character_handler.handle_back(interaction);
+                break;
             case button.startsWith('Demo'):
                 // start_battle = true;
                 // logger.info('Vines and Thorns Chosen as weapon!');
@@ -115,23 +137,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 logger.info(`Sending Interaction to Demo Battle: ${button}`)
                 demo_battle(interaction, demo_handler, battle_manager)
                 break;
+            case button.startsWith('Stance'):
+                battle_manager.button_select_stance(interaction)
+                break;
             case button.startsWith('Battle'):
-                const enemy_index: number = (battle_manager.find_battle(interaction.message.id).npc_index + 1) % battle_manager.find_battle(interaction.message.id).non_player_character.pattern.length
-                const enemy_action: number = battle_manager.find_battle(interaction.message.id).non_player_character.pattern.field[enemy_index]
+                const battle      = battle_manager.find_battle(interaction.message.id)
+                const enemy_index: number = (battle.npc_index + 1) % battle.non_player_character.pattern.length
+                const enemy_action: number = battle.non_player_character.pattern.field[enemy_index]
                 let enemy_attack_saying = '';
                 switch(enemy_action) {
                     case 1:
-                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)`
+                        enemy_attack_saying = `The ${battle.non_player_character.name} is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
                         break;
-                    case 2: 
-                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is getting ready for a quick scratch! (Recommended action - Defend)`
+                    case 2:
+                        enemy_attack_saying = `The ${battle.non_player_character.name} is getting ready for a quick scratch! (Recommended action - Defend)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
                         break;
                     case 3:
-                        enemy_attack_saying = `The ${battle_manager.find_battle(interaction.message.id).non_player_character.name} is winding up to attack, strike it first! (Recommended action - Attack)`
-                    break;
+                        enemy_attack_saying = `The ${battle.non_player_character.name} is winding up to attack, strike it first! (Recommended action - Attack)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
+                        break;
                 }
 
-                logger.debug(`Rat Action in Init: ${enemy_index}\n${enemy_attack_saying}`)
+                logger.debug(`Enemy Action in Init: ${enemy_index}\n${enemy_attack_saying}`)
 
                 battle_manager.button_update_battle(interaction, enemy_attack_saying)
                 break;

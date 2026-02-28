@@ -11,6 +11,7 @@ import Buff from '../weapon/action/buff.js';
 import Heal from '../weapon/action/heal.js';
 import Shield from '../weapon/action/shield.js';
 import Reflect from '../weapon/action/reflect.js';
+import { Stance, RollMode, resolve_roll_mode, stance_label } from '../infrastructure/stance.js';
 
 class Player_Object {
     name: string
@@ -19,6 +20,7 @@ class Player_Object {
     resource_name: string
     resource_max: number
     resource_current: number
+    stance: Stance = Stance.Balanced
     block = 0
     damage_over_time_value = 0
     damage_over_time_rounds = 0
@@ -133,7 +135,7 @@ Rounds: ${shield_rounds}`
         return action_string
     }
 
-    hostile_target(action_array: Array<Action>, hostile_object: Player_Object) {
+    hostile_target(action_array: Array<Action>, hostile_object: Player_Object, roll_mode: RollMode = RollMode.One) {
         let target_string = '';
 
         let reflect = false;
@@ -142,7 +144,7 @@ Rounds: ${shield_rounds}`
             // Strike
             if (action.type == 1) {
                 reflect = true;
-                const damage_roll: number = (<Strike>action).field.get_result();
+                const damage_roll: number = (<Strike>action).field.get_result_with_mode(roll_mode);
                 const damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
                 this.health = Math.max(this.health - damage, 0);
 
@@ -169,7 +171,7 @@ Health: ${this.health}`
 
             // DOT
             if (action.type == 4) {
-                const damage: number = (<Damage_Over_Time>action).field.get_result();
+                const damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
                 this.damage_over_time_value = damage;
 
                 const rounds: number = (<Damage_Over_Time>action).rounds;
@@ -366,8 +368,16 @@ export default class Battle {
         return '';
     }
 
-    resolve_round(player_action: number) {
-        let action_string: string = `Round ${this.current_round}`
+    resolve_round(player_action: number, player_stance: Stance = Stance.Balanced) {
+        const npc_stance: Stance = Stance.Balanced; // TODO: read from NPC stance pattern
+
+        this.pc_object.stance  = player_stance;
+        this.npc_object.stance = npc_stance;
+
+        const pc_roll_mode:  RollMode = resolve_roll_mode(player_stance, npc_stance);
+        const npc_roll_mode: RollMode = resolve_roll_mode(npc_stance, player_stance);
+
+        let action_string: string = `Round ${this.current_round} — ${stance_label[player_stance]} vs ${stance_label[npc_stance]}`
         const npc_action: number = this.non_player_character.pattern.field[this.npc_index];
         logger.info(
             `***************************
@@ -376,16 +386,18 @@ Current Round: ${this.current_round}
 Player Health: ${this.pc_object.health}
 Non Player Health: ${this.npc_object.health}
 Player Action: ${player_action}
+Player Stance: ${player_stance} (roll mode: ${pc_roll_mode})
 Non Player Character Action: ${npc_action}
+NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
 `
         );
 
 
         if (player_action == 1) {
             const self_string = this.pc_object.target_self(this.player_character.weapon.defend);
-            const { target_string, reflect } = this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object);
+            const { target_string, reflect } = this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object, pc_roll_mode);
             let reflect_string: string = ''
-            
+
             if (reflect) {
                 reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
             }
@@ -401,7 +413,7 @@ Non Player Character Action: ${npc_action}
 
         if (npc_action == 1) {
             const self_string = this.npc_object.target_self(this.non_player_character.weapon.defend);
-            const { target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object);
+            const { target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object, npc_roll_mode);
             let reflect_string: string = ''
             if (reflect) {
                 reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
@@ -427,7 +439,7 @@ Non Player Character Action: ${npc_action}
         if (player_action == 2) {
             if (npc_action == 3) {
                 const self_string = this.pc_object.target_self(this.player_character.weapon.attack_crit);
-                const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object);
+                const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object, pc_roll_mode);
                 let reflect_string = '';
 
                 if (reflect) {
@@ -444,7 +456,7 @@ Non Player Character Action: ${npc_action}
             }
 
             const self_string = this.pc_object.target_self(this.player_character.weapon.attack);
-            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object);
+            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object, pc_roll_mode);
             let reflect_string = ''
 
             if (reflect) {
@@ -463,7 +475,7 @@ Non Player Character Action: ${npc_action}
         if (npc_action == 2) {
             if (player_action == 3) {
                 const self_string = this.npc_object.target_self(this.non_player_character.weapon.attack_crit);
-                const {target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object);
+                const {target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object, npc_roll_mode);
                 let reflect_string = '';
 
                 if (reflect) {
@@ -479,9 +491,9 @@ Non Player Character Action: ${npc_action}
                 }`
             }
             const self_string = this.npc_object.target_self(this.non_player_character.weapon.attack);
-            const {target_string, reflect} = this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object);
+            const {target_string, reflect} = this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object, npc_roll_mode);
             let reflect_string = '';
-            
+
             if (reflect) {
                 reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
             }
@@ -505,9 +517,9 @@ Non Player Character Action: ${npc_action}
 
         if (player_action == 3) {
             const self_string = this.pc_object.target_self(this.player_character.weapon.special);
-            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object);
+            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object, pc_roll_mode);
             let reflect_string = '';
-            
+
             if (reflect) {
                 reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
             }
@@ -523,7 +535,7 @@ Non Player Character Action: ${npc_action}
 
         if (npc_action == 3) {
             const self_string = this.npc_object.target_self(this.non_player_character.weapon.special);
-            const {target_string, reflect }= this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object);
+            const {target_string, reflect }= this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object, npc_roll_mode);
             let reflect_string = '';
 
             if (reflect) {

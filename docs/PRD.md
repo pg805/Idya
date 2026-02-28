@@ -55,12 +55,14 @@ Battle Result → Bot → Discord Channel
 
 ### 2. Battling System
 
-- **Location**: Web app
-- **Flow**: `/battle` command in Discord → link to web battle → results post to Discord
-- **Mechanics**: Turn-based, weapon/action system (existing foundation)
+- **Location**: Discord (current Alpha); Web app (planned for full release)
+- **Flow**: `/battle` command → Discord button UI → results persist in channel
+- **Mechanics**: Turn-based with stances, weapon/action system, resource management, NPC telegraphing
 - **Enemies**: PvE with loot tables
-- **Rewards**: Currency + crafting components (random drops)
-- **Skill expression**: TBD - exploring telegraphing, resource management, or other approaches
+- **Rewards**: Currency + crafting components (TBD implementation)
+- **Skill expression**: Stance reads, pattern recognition, resource management
+
+**Full design spec**: See [`docs/battle-system.md`](./battle-system.md)
 
 **MVP Enemies**: 3-5 enemy types with varying difficulty and loot tables
 
@@ -209,7 +211,7 @@ Smithing            Enchanting
 
 | Area | Question |
 |------|----------|
-| Combat | How to make it skill-based rather than random? (telegraphing, resource mgmt, etc.) |
+| Combat | Telegraphing depth per enemy tier — how much to reveal? |
 | Currency | Name? |
 | Marketplace | Auction house vs. listing board vs. neither? |
 | Web Frontend | React, Vue, Svelte, or vanilla? |
