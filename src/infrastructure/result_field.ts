@@ -1,9 +1,12 @@
-import Pattern from './pattern.js';
 import { RollMode } from './stance.js';
 
-export default class Result_Field extends Pattern {
+export default class Result_Field {
+    field: Array<number>
+    length: number
+
     constructor(field: Array<number>) {
-        super(field);
+        this.field = field;
+        this.length = field.length;
     }
 
     get_result() {

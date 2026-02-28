@@ -1,6 +1,18 @@
 Name: Mushroom
 Health: 100
-Pattern: [3, 2, 1, 1, 1, 1]
+Level: 5
+Resistances:
+  Physical: 0.75
+  Poison: 0.75
+  Fire: 1.25
+  Air: 1.25
+Pattern:
+  - [3, 0]   # Special: Faery Ring
+  - [2, 0]   # Attack: Spore Bath
+  - [1, 0]   # Defend: Retreat
+  - [1, 1]   # Defend: Regenerate
+  - [1, 0]   # Defend: Retreat
+  - [1, 1]   # Defend: Regenerate
 Image: "https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&"
 
 Weapon:
@@ -14,12 +26,16 @@ Weapon:
     - Name: Retreat
       Type: 2
       Type_Name: Block
+      Damage_Type: Elemental
+      Damage_Subtype: Blunt
       Value: 5
       Cost: 1
       Action_String: "<User> retreats into the ground, blocking for 5 damage."
     - Name: Regenerate
       Type: 6
       Type_Name: Heal
+      Damage_Type: Elemental
+      Damage_Subtype: Plant
       Value: 2
       Cost: -3
       Action_String: "<User> regenerates itself, healing 2 damage."
@@ -30,6 +46,8 @@ Weapon:
     - Name: Spore Bath
       Type: 4
       Type_Name: DOT
+      Damage_Type: Elemental
+      Damage_Subtype: Poison
       Field: [1, 1, 1, 2, 3, 4]
       Rounds: 5
       Cost: 2
@@ -39,6 +57,8 @@ Weapon:
     - Name: Allergic Reaction
       Type: 5
       Type_Name: Debuff
+      Damage_Type: Arcane
+      Damage_Subtype: Poison
       Value: 6
       Rounds: 4
       Action_String: "<User> bathes <Target> with allergenic spores, debuffing <Target>'s attack by 6 for 2 rounds."
@@ -47,6 +67,8 @@ Weapon:
     - Name: Faery Ring
       Type: 8
       Type_Name: Shield
+      Damage_Type: Elemental
+      Damage_Subtype: Blunt
       Value: 3
       Rounds: 6
       Cost: -2

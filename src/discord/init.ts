@@ -143,7 +143,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             case button.startsWith('Battle'):
                 const battle      = battle_manager.find_battle(interaction.message.id)
                 const enemy_index: number = (battle.npc_index + 1) % battle.non_player_character.pattern.length
-                const enemy_action: number = battle.non_player_character.pattern.field[enemy_index]
+                const enemy_action: number = battle.non_player_character.pattern.field[enemy_index].type
                 let enemy_attack_saying = '';
                 switch(enemy_action) {
                     case 1:

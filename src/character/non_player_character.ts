@@ -4,54 +4,41 @@ import Player_Character from './player_character.js';
 import fs from 'fs';
 import yaml from 'js-yaml';
 
+type NpcData = {
+    'Name': string,
+    'Health': number,
+    'Pattern': Array<[number, number]>,
+    'Image': string,
+    'Resistances'?: Record<string, number>,
+    'Weapon': {
+        'Name': string,
+        'Description': string,
+        'Resource': { 'Name': string, 'Max': number },
+        'Defend': [],
+        'Defend Crit': [],
+        'Attack': [],
+        'Attack Crit': [],
+        'Special': [],
+        'Special Crit': []
+    }
+}
+
 export default class Non_Player_Character extends Player_Character {
     pattern: Pattern
+    resistances: Record<string, number>
 
-    constructor(name: string, health: number, pattern: Pattern, weapon: Weapon, image: string) {
+    constructor(name: string, health: number, pattern: Pattern, weapon: Weapon, image: string, resistances: Record<string, number> = {}) {
         super(name = name, health = health, weapon = weapon, image = image);
         this.pattern = pattern;
+        this.resistances = resistances;
     }
 
     static from_file(file: string) {
-        const npc_data = yaml.load(fs.readFileSync(file, 'utf-8')) as {
-            'Name': string,
-            'Health': number,
-            'Pattern': Array<number>,
-            'Image': string,
-            'Weapon': {
-                'Name': string,
-                'Description': string,
-                'Resource': { 'Name': string, 'Max': number },
-                'Defend': [],
-                'Defend Crit': [],
-                'Attack': [],
-                'Attack Crit': [],
-                'Special': [],
-                'Special Crit': []
-            }
-        };
-
+        const npc_data = yaml.load(fs.readFileSync(file, 'utf-8')) as NpcData;
         return Non_Player_Character.from_json(npc_data)
     }
 
-    static from_json(npc_data: {
-        'Name': string,
-        'Health': number,
-        'Pattern': Array<number>,
-        'Image': string,
-        'Weapon': {
-            'Name': string,
-            'Description': string,
-            'Resource': { 'Name': string, 'Max': number },
-            'Defend': [],
-            'Defend Crit': [],
-            'Attack': [],
-            'Attack Crit': [],
-            'Special': [],
-            'Special Crit': []
-        }
-    }) {
-        
+    static from_json(npc_data: NpcData) {
         const weapon = Weapon.from_json(npc_data['Weapon'])
 
         return new Non_Player_Character(
@@ -59,7 +46,8 @@ export default class Non_Player_Character extends Player_Character {
             npc_data['Health'],
             new Pattern(npc_data['Pattern']),
             weapon,
-            npc_data['Image']
+            npc_data['Image'],
+            npc_data['Resistances'] ?? {}
         )
     }
 }

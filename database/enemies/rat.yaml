@@ -1,6 +1,10 @@
 Name: Rat
 Health: 30
-Pattern: [1, 2, 3]
+Level: 1
+Pattern:
+  - [1, 0]   # Defend: Curl Up
+  - [2, 0]   # Attack: Scratch
+  - [3, 0]   # Special: Bite
 Image: "https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&"
 
 Weapon:
@@ -14,6 +18,8 @@ Weapon:
     - Name: Curl Up
       Type: 2
       Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
       Value: 5
       Cost: -1
       Action_String: "<User> curls up, preparing to block for 5 damage."
@@ -24,6 +30,8 @@ Weapon:
     - Name: Scratch
       Type: 1
       Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
       Field: [0, 3, 5, 5, 7, 10]
       Cost: 1
       Action_String: "<User> scratches <Target> dealing <Damage> damage."
@@ -32,6 +40,8 @@ Weapon:
     - Name: Curl Up
       Type: 2
       Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
       Value: 5
       Action_String: "<User> curls up, preparing to block for 5 damage."
 
@@ -39,6 +49,8 @@ Weapon:
     - Name: Bite
       Type: 1
       Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
       Field: [3, 9, 15, 15]
       Cost: 2
       Action_String: "<User> bites <Target> for <Damage> damage."

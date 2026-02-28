@@ -1,5 +1,6 @@
 Name: Awakened Mind
 Description: Telepathically connect with objects for both offense and defense. Mentally distract your enemies.
+Level: 5
 
 Resource:
   Name: Tranquility
@@ -9,6 +10,8 @@ Defend:
   - Name: Stone Telekinesis
     Type: 3
     Type_Name: Buff
+    Damage_Type: Arcane
+    Damage_Subtype: Earth
     Value: 7
     Rounds: 3
     Cost: 5
@@ -16,6 +19,8 @@ Defend:
   - Name: Forewarn
     Type: 2
     Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
     Value: 5
     Cost: 2
     Action_String: "<User> sets the stone to orbit their head, preparing to block for 5 damage."
@@ -26,6 +31,8 @@ Attack:
   - Name: Hurl Rock
     Type: 1
     Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Earth
     Field: [1, 1, 1, 2, 3, 4]
     Cost: 0
     Action_String: "<User> hurls their stone at <Target>, dealing <Damage> damage."
@@ -34,6 +41,8 @@ Attack Crit:
   - Name: Mental Pressure
     Type: 4
     Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
     Field: [2, 4, 6, 8]
     Rounds: 3
     Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness. <Target> will take <Damage> damage for 3 rounds."
@@ -42,6 +51,8 @@ Special:
   - Name: Eye Fixation
     Type: 5
     Type_Name: Debuff
+    Damage_Type: Physical
+    Damage_Subtype: Mental
     Value: 8
     Rounds: 4
     Cost: 3

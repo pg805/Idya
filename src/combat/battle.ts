@@ -20,6 +20,7 @@ class Player_Object {
     resource_name: string
     resource_max: number
     resource_current: number
+    resistances: Record<string, number>
     stance: Stance = Stance.Balanced
     block = 0
     damage_over_time_value = 0
@@ -33,13 +34,23 @@ class Player_Object {
     shield_value = 0
     shield_rounds = 0
 
-    constructor(name: string, health: number, resource_name: string, resource_max: number) {
+    constructor(name: string, health: number, resource_name: string, resource_max: number, resistances: Record<string, number> = {}) {
         this.name = name;
         this.health = health;
         this.max_health = health;
         this.resource_name = resource_name;
         this.resource_max = resource_max;
         this.resource_current = resource_max;
+        this.resistances = resistances;
+    }
+
+    get_resistance_modifier(action: Action): number {
+        let modifier = 1.0;
+        const main = this.resistances[action.damage_type];
+        if (main !== undefined) modifier *= main;
+        const sub = this.resistances[action.damage_subtype];
+        if (sub !== undefined) modifier *= sub;
+        return modifier;
     }
 
     target_self(action_array: Array<Action>) {
@@ -145,7 +156,9 @@ Rounds: ${shield_rounds}`
             if (action.type == 1) {
                 reflect = true;
                 const damage_roll: number = (<Strike>action).field.get_result_with_mode(roll_mode);
-                const damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
+                const raw_damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
+                const resistance_modifier: number = this.get_resistance_modifier(action);
+                const damage: number = Math.floor(raw_damage * resistance_modifier);
                 this.health = Math.max(this.health - damage, 0);
 
                 const rolled_string = `  ${hostile_object.name} rolled ${damage_roll}.`
@@ -154,8 +167,9 @@ Rounds: ${shield_rounds}`
 
                 const buff_string: string = hostile_object.buff_value ? `  <Target> buffed their attack by ${hostile_object.buff_value}.` : ''
                 const debuff_string: string = hostile_object.debuff_value ? `  <Target>'s attack was debuffed by ${hostile_object.debuff_value}.` : ''
+                const resist_string: string = resistance_modifier !== 1.0 ? `  ${resistance_modifier > 1 ? 'Weakness' : 'Resist'} (${resistance_modifier}×).` : ''
 
-                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${rolled_string}${block_string}${buff_string}${debuff_string}`;
+                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${rolled_string}${block_string}${buff_string}${debuff_string}${resist_string}`;
 
                 logger.info(
                     `Resolving Strike on ${this.name}: ${action.name}
@@ -164,6 +178,7 @@ Block: ${this.block}
 Shield: ${this.shield_value}
 Buff: ${hostile_object.buff_value}
 Debuff: ${hostile_object.debuff_value}
+Resistance Modifier: ${resistance_modifier}
 Damage Value: ${damage}
 Health: ${this.health}`
                 );
@@ -171,17 +186,22 @@ Health: ${this.health}`
 
             // DOT
             if (action.type == 4) {
-                const damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
+                const raw_damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
+                const resistance_modifier: number = this.get_resistance_modifier(action);
+                const damage: number = Math.floor(raw_damage * resistance_modifier);
                 this.damage_over_time_value = damage;
 
                 const rounds: number = (<Damage_Over_Time>action).rounds;
                 this.damage_over_time_rounds = rounds;
 
-                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}`;
+                const resist_string: string = resistance_modifier !== 1.0 ? `  ${resistance_modifier > 1 ? 'Weakness' : 'Resist'} (${resistance_modifier}×).` : ''
+
+                target_string = `${target_string}\n${action.action_string.replace('<Damage>', `${damage}`)}${resist_string}`;
 
                 logger.info(
                     `Resolving DOT on ${this.name}: ${action.name}
 Value: ${damage}
+Resistance Modifier: ${resistance_modifier}
 Rounds: ${rounds}`
                 );
             }
@@ -345,7 +365,8 @@ export default class Battle {
             non_player_character.name,
             non_player_character.health,
             non_player_character.weapon.resource_name,
-            non_player_character.weapon.resource_max
+            non_player_character.weapon.resource_max,
+            non_player_character.resistances
         );
     }
 
@@ -368,7 +389,7 @@ export default class Battle {
         return '';
     }
 
-    resolve_round(player_action: number, player_stance: Stance = Stance.Balanced) {
+    resolve_round(player_action: number, player_action_index: number = 0, player_stance: Stance = Stance.Balanced) {
         const npc_stance: Stance = Stance.Balanced; // TODO: read from NPC stance pattern
 
         this.pc_object.stance  = player_stance;
@@ -378,7 +399,9 @@ export default class Battle {
         const npc_roll_mode: RollMode = resolve_roll_mode(npc_stance, player_stance);
 
         let action_string: string = `Round ${this.current_round} — ${stance_label[player_stance]} vs ${stance_label[npc_stance]}`
-        const npc_action: number = this.non_player_character.pattern.field[this.npc_index];
+        const npc_pattern_entry = this.non_player_character.pattern.field[this.npc_index];
+        const npc_action: number = npc_pattern_entry.type;
+        const npc_action_index: number = npc_pattern_entry.index;
         logger.info(
             `***************************
 Resolving Turn
@@ -394,8 +417,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
 
 
         if (player_action == 1) {
-            const self_string = this.pc_object.target_self(this.player_character.weapon.defend);
-            const { target_string, reflect } = this.npc_object.hostile_target(this.player_character.weapon.defend, this.pc_object, pc_roll_mode);
+            const player_defend = [this.player_character.weapon.defend[player_action_index]];
+            const self_string = this.pc_object.target_self(player_defend);
+            const { target_string, reflect } = this.npc_object.hostile_target(player_defend, this.pc_object, pc_roll_mode);
             let reflect_string: string = ''
 
             if (reflect) {
@@ -412,8 +436,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
         }
 
         if (npc_action == 1) {
-            const self_string = this.npc_object.target_self(this.non_player_character.weapon.defend);
-            const { target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.defend, this.npc_object, npc_roll_mode);
+            const npc_defend = [this.non_player_character.weapon.defend[npc_action_index]];
+            const self_string = this.npc_object.target_self(npc_defend);
+            const { target_string, reflect } = this.pc_object.hostile_target(npc_defend, this.npc_object, npc_roll_mode);
             let reflect_string: string = ''
             if (reflect) {
                 reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
@@ -455,8 +480,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
                 }`
             }
 
-            const self_string = this.pc_object.target_self(this.player_character.weapon.attack);
-            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack, this.pc_object, pc_roll_mode);
+            const player_attack = [this.player_character.weapon.attack[player_action_index]];
+            const self_string = this.pc_object.target_self(player_attack);
+            const {target_string, reflect} = this.npc_object.hostile_target(player_attack, this.pc_object, pc_roll_mode);
             let reflect_string = ''
 
             if (reflect) {
@@ -490,8 +516,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
                     reflect_string.replace(/\<User\>/g, this.npc_object.name)
                 }`
             }
-            const self_string = this.npc_object.target_self(this.non_player_character.weapon.attack);
-            const {target_string, reflect} = this.pc_object.hostile_target(this.non_player_character.weapon.attack, this.npc_object, npc_roll_mode);
+            const npc_attack = [this.non_player_character.weapon.attack[npc_action_index]];
+            const self_string = this.npc_object.target_self(npc_attack);
+            const {target_string, reflect} = this.pc_object.hostile_target(npc_attack, this.npc_object, npc_roll_mode);
             let reflect_string = '';
 
             if (reflect) {
@@ -516,8 +543,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
         }
 
         if (player_action == 3) {
-            const self_string = this.pc_object.target_self(this.player_character.weapon.special);
-            const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.special, this.pc_object, pc_roll_mode);
+            const player_special = [this.player_character.weapon.special[player_action_index]];
+            const self_string = this.pc_object.target_self(player_special);
+            const {target_string, reflect} = this.npc_object.hostile_target(player_special, this.pc_object, pc_roll_mode);
             let reflect_string = '';
 
             if (reflect) {
@@ -534,8 +562,9 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
         }
 
         if (npc_action == 3) {
-            const self_string = this.npc_object.target_self(this.non_player_character.weapon.special);
-            const {target_string, reflect }= this.pc_object.hostile_target(this.non_player_character.weapon.special, this.npc_object, npc_roll_mode);
+            const npc_special = [this.non_player_character.weapon.special[npc_action_index]];
+            const self_string = this.npc_object.target_self(npc_special);
+            const {target_string, reflect }= this.pc_object.hostile_target(npc_special, this.npc_object, npc_roll_mode);
             let reflect_string = '';
 
             if (reflect) {

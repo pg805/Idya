@@ -5,6 +5,7 @@ import Battle from "../../combat/battle.js";
 import Player_Character from "../../character/player_character.js";
 import Non_Player_Character from "../../character/non_player_character.js";
 import { Stance } from '../../infrastructure/stance.js';
+import Action from '../../weapon/action.js';
 
 export class DemoHandler {
     demos: { [key: Snowflake]: {
@@ -51,23 +52,34 @@ export default class BattleManager {
     }
 
     private make_action_row(battle: Battle, disabled: boolean) {
-        return new ActionRowBuilder<ButtonBuilder>().setComponents(
-            new ButtonBuilder()
-                .setCustomId('BattleDefend')
-                .setLabel(`(D) ${battle.player_character.weapon.defend_name()}`)
+        const buttons: ButtonBuilder[] = [];
+        const weapon = battle.player_character.weapon;
+
+        weapon.defend.forEach((action: Action, index: number) => {
+            buttons.push(new ButtonBuilder()
+                .setCustomId(`BattleD${index}`)
+                .setLabel(`(D) ${action.name}`)
                 .setStyle(ButtonStyle.Primary)
-                .setDisabled(disabled),
-            new ButtonBuilder()
-                .setCustomId('BattleAttack')
-                .setLabel(`(A) ${battle.player_character.weapon.attack_name()}`)
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(disabled),
-            new ButtonBuilder()
-                .setCustomId('BattleSpecial')
-                .setLabel(`(S) ${battle.player_character.weapon.special_name()}`)
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(disabled),
-        )
+                .setDisabled(disabled));
+        });
+
+        weapon.attack.forEach((action: Action, index: number) => {
+            buttons.push(new ButtonBuilder()
+                .setCustomId(`BattleA${index}`)
+                .setLabel(`(A) ${action.name}`)
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(disabled));
+        });
+
+        weapon.special.forEach((action: Action, index: number) => {
+            buttons.push(new ButtonBuilder()
+                .setCustomId(`BattleS${index}`)
+                .setLabel(`(S) ${action.name}`)
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(disabled));
+        });
+
+        return new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
     }
 
     async button_start_battle(interaction: ButtonInteraction, player_character: Player_Character, non_player_character: Non_Player_Character, start_string: string = '', color: number = 0x00FFFF) {
@@ -143,11 +155,10 @@ export default class BattleManager {
 
         let round_object: { action_string: string, winner: string } = { action_string: '', winner: '' }
 
-        switch(interaction.customId) {
-            case 'BattleDefend':  round_object = battle.resolve_round(1, player_stance); break;
-            case 'BattleAttack':  round_object = battle.resolve_round(2, player_stance); break;
-            case 'BattleSpecial': round_object = battle.resolve_round(3, player_stance); break;
-        }
+        const type_char = interaction.customId[6]; // 'D', 'A', or 'S'
+        const action_index = parseInt(interaction.customId.slice(7));
+        const player_action = type_char === 'D' ? 1 : type_char === 'A' ? 2 : 3;
+        round_object = battle.resolve_round(player_action, action_index, player_stance);
 
         let winner_string = ''
         let round_string  = ''

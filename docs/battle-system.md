@@ -238,26 +238,156 @@ Future intent: Telegraphing should feel like reading your opponent rather than a
 
 ---
 
-## Future: Damage Types
+## Weapon & Enemy Levels
 
-Not yet implemented. Planned as a property on each Strike and DOT action. Damage types interact with enemy resistances/vulnerabilities.
+Each weapon and enemy has a `Level` field. Higher = more powerful. Demo weapons span 2–5; player-crafted weapons can exceed this with no upper bound.
 
-### Proposed Types
+### Weapon Level Formula
+
+```
+Score = Attack_floor_mean × 1.0    // cheapest/free attack action
+      + Best_burst_mean   × 0.4    // best non-floor attack or damaging special
+      + Best_defend_value × 0.4    // single-round value of best defend action
+      + Utility_total     × 0.2    // (buff×rounds) + (debuff×rounds) + heal values summed
+
+Level = floor(Score / 4)
+```
+
+Auto-classification from action type IDs (no manual tagging needed):
+- **Types 1, 4** (Strike, DOT) → attack/burst
+- **Types 2, 8** (Block, Shield) → defense
+- **Types 3, 5** (Buff, Debuff) → utility — always, by design
+- **Type 6** (Heal) → utility
+- **Type 7** (Reflect) → defense
+
+### Enemy Level Formula
+
+```
+eHP   = HP × (1 + avg_mitigation_per_round / 5)
+Score = avg_enemy_DPS × 0.5 + eHP × 0.1
+
+Level = floor(Score / 4)
+```
+
+Where `avg_mitigation_per_round` = total block/shield/heal value per pattern cycle ÷ cycle length.
+
+### Current Levels
+
+| Entity | Score | Level |
+|--------|-------|-------|
+| Awakened Mind | 21.2 | 5 |
+| Deck of Cards | 20.1 | 5 |
+| Can of Paint | 16.0 | 4 |
+| Shovel | 13.9 | 3 |
+| Vines and Thorns | 8.1 | 2 |
+| Mushroom (enemy) | 23.7 | 5 |
+| Zombie (enemy) | 8.2 | 2 |
+| Rat (enemy) | 6.6 | 1 |
+
+---
+
+## Damage Types
+
+Each action defines two YAML fields: `Damage_Type` (main type) and `Damage_Subtype`. Drives future resistance/weakness logic. Currently stored in YAML but not enforced in combat.
+
+### Main Types
 
 | Type | Description |
 |------|-------------|
-| Physical | Default melee. No modifier vs most enemies. |
-| Elemental | Magic-adjacent (fire, ice, etc.) — subtypes TBD |
-| Psychic | Mind-based attacks (e.g. Awakened Mind) |
-| Nature | Plant/bio attacks (e.g. Vines and Thorns) |
-| Poison | DOT-specific type; interacts with DOT resistance |
+| Physical | Brute force, direct impact. |
+| Arcane | Psychic and magical. Mind-based or enchanted. |
+| Elemental | Natural forces. Environmental, organic, or alchemical. |
 
-### Implementation Notes
+### Subtypes
 
-- Damage type would be a field on the YAML action definition
-- Enemy YAML would define resistances (multipliers) per type
-- Resistance: `0.5×`, Neutral: `1×`, Weakness: `1.5×` (exact values TBD)
-- Reflects the existing weapon flavors: Awakened Mind = Psychic, Vines = Nature/Poison, Shovel = Physical, Can of Paint = ? (visual/elemental), Deck of Cards = ? (luck/physical)
+All subtypes can combine with any main type as flavor and balance permit.
+
+| Subtype | Description |
+|---------|-------------|
+| Blunt | Impact, force, concussive |
+| Sharp | Cutting, piercing, slicing |
+| Mental | Mind-affecting |
+| Earth | Stone, gravity, telekinetic mass |
+| Aqua | Liquid, paint, alchemical fluid |
+| Plant | Growth, nature, organic |
+| Poison | Disease, toxin, corruption |
+| Fire | Heat, combustion, burning |
+| Air | Wind, breath, pressure |
+
+### Current Assignments
+
+| Weapon / Enemy | Action | Type | Subtype |
+|----------------|--------|------|---------|
+| Shovel | Block | Physical | Blunt |
+| Shovel | Whack | Physical | Blunt |
+| Shovel | Proc | Physical | Sharp |
+| Shovel | Charge | Physical | Blunt |
+| Awakened Mind | Stone Telekinesis | Arcane | Earth |
+| Awakened Mind | Forewarn | Arcane | Mental |
+| Awakened Mind | Hurl Rock | Arcane | Earth |
+| Awakened Mind | Mental Pressure | Arcane | Mental |
+| Awakened Mind | Eye Fixation | Physical | Mental |
+| Can of Paint | Mix Paint | Elemental | Aqua |
+| Can of Paint | Paint Can | Physical | Blunt |
+| Can of Paint | Paint Coat | Elemental | Aqua |
+| Can of Paint | Blind | Elemental | Aqua |
+| Can of Paint | Paint Dry | Elemental | Aqua |
+| Deck of Cards | Shuffle | Arcane | Blunt |
+| Deck of Cards | Rank | Physical | Sharp |
+| Deck of Cards | Ace | Arcane | Sharp |
+| Deck of Cards | Joker | Arcane | Mental |
+| Deck of Cards | Suit | Physical | Sharp |
+| Deck of Cards | Spades | Arcane | Sharp |
+| Vines and Thorns | Thorns | Elemental | Sharp |
+| Vines and Thorns | Vines | Elemental | Blunt |
+| Vines and Thorns | Branch | Physical | Blunt |
+| Vines and Thorns | Grow | Elemental | Plant |
+| Vines and Thorns | Constrict | Elemental | Blunt |
+| Rat | Curl Up | Physical | Blunt |
+| Rat | Scratch | Physical | Sharp |
+| Rat | Bite | Physical | Sharp |
+| Zombie | Dead Skin | Arcane | Blunt |
+| Zombie | Scratch | Physical | Sharp |
+| Zombie | Infect | Elemental | Poison |
+| Zombie | Bite | Physical | Sharp |
+| Mushroom | Retreat | Elemental | Blunt |
+| Mushroom | Regenerate | Elemental | Plant |
+| Mushroom | Spore Bath | Elemental | Poison |
+| Mushroom | Allergic Reaction | Arcane | Poison |
+| Mushroom | Faery Ring | Elemental | Blunt |
+
+### Resistance System (Planned)
+
+Resistances apply to incoming Strike and DOT damage only (not Block/Heal/Buff/Debuff).
+
+**Multipliers:** `0.75×` resist, `1.0×` neutral, `1.25×` weakness. Damage is rounded down after applying modifiers.
+
+**Stacking:** Main type and subtype modifiers multiply together.
+- Example: Physical Sharp vs. Zombie — Physical `1.0×` × Sharp `1.25×` = `1.25×` (weak)
+- Example: Arcane Mental vs. Zombie — Arcane `1.0×` × Mental `0.75×` = `0.75×` (resist)
+- Example: Elemental Poison vs. Mushroom — Elemental `1.0×` × Poison `0.75×` = `0.75×` (resist)
+
+**YAML format** (flat key lookup — main types and subtypes share no names):
+
+```yaml
+Resistances:
+  Mental: 0.75    # subtype resist
+  Sharp: 1.25     # subtype weakness
+```
+
+**Current enemy resistances:**
+
+| Enemy | Key | Modifier | Reasoning |
+|-------|-----|----------|-----------|
+| Rat | — | all 1.0× | Completely neutral |
+| Zombie | Mental | 0.75× | No mind to affect |
+| Zombie | Sharp | 1.25× | Decayed flesh is easy to cut |
+| Mushroom | Physical | 0.75× | Tough fibrous body resists brute force |
+| Mushroom | Poison | 0.75× | It generates poison — resistant to it |
+| Mushroom | Fire | 1.25× | Fungal caps are highly flammable |
+| Mushroom | Air | 1.25× | Spores scatter; air disrupts its structure |
+
+Note: Fire and Air subtypes are not used by any current weapon — they are forward-looking design space opened by these weaknesses.
 
 ---
 
@@ -340,7 +470,7 @@ Planned post-MVP. Key differences from PvE:
 
 | Area | Question |
 |------|----------|
-| Damage types | How many types? Subtypes within Elemental? |
+| Resistances — immune | Decided: `0.0×` is valid (immune). No current uses, reserved for future design. |
 | Stance multi-round | Exact bonus for 2-round vs 3-round commitment |
 | NPC stances | Pattern-synced vs independent cycling |
 | Telegraphing depth | How much to reveal for each enemy tier? |

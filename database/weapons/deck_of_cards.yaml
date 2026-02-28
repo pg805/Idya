@@ -1,5 +1,6 @@
 Name: Deck of Cards
 Description: The cards in this deck are razor sharp and fly with precision. An worthy weapon for any adventurer.
+Level: 5
 
 Resource:
   Name: Luck
@@ -9,6 +10,8 @@ Defend:
   - Name: Shuffle
     Type: 2
     Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
     Value: 4
     Cost: -15  # restores 15 luck
     Action_String: "<User> shuffles their deck, preparing to block for 4 damage."
@@ -19,12 +22,16 @@ Attack:
   - Name: Rank
     Type: 1
     Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
     Field: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
     Cost: 2  # costs 2 luck
     Action_String: "<User> pulls a card and throws it at <Target>, dealing <Damage> damage."
   - Name: Ace
     Type: 1
     Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
     Field: [11]
     Cost: 10  # costs 10 luck
     Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
@@ -33,6 +40,8 @@ Attack Crit:
   - Name: Joker
     Type: 5
     Type_Name: Debuff
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
     Value: 6
     Rounds: 2
     Action_String: "<User> pulls a joker and throws it at <Target>, debuffing <Target>'s attack by 6 for 2 rounds."
@@ -41,12 +50,16 @@ Special:
   - Name: Suit
     Type: 1
     Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
     Field: [1, 12, 17, 22]
     Cost: 4  # costs 4 luck
     Action_String: "<User> pulls a suit card and throws it at <Target>, dealing <Damage> damage."
   - Name: Spades
     Type: 1
     Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
     Field: [22]
     Cost: 20  # costs 20 luck
     Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."

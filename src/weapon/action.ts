@@ -3,6 +3,8 @@ export default class Action {
     action_string: string
     type: number = 0
     type_name: string = ''
+    damage_type: string = ''
+    damage_subtype: string = ''
 
     constructor(name: string, action_string: string) {
         this.name = name;

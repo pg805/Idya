@@ -1,5 +1,6 @@
 Name: Can of Paint
 Description: Defeat your enemies while creating beautiful paintings.
+Level: 4
 
 Resource:
   Name: Paint
@@ -9,12 +10,16 @@ Defend:
   - Name: Mix Paint
     Type: 6
     Type_Name: Heal
+    Damage_Type: Elemental
+    Damage_Subtype: Aqua
     Value: 7
     Cost: 1  # costs 1 paint
     Action_String: "<User> swirls several colors around, creating a new shade and healing for 7 damage."
   - Name: Paint Can
     Type: 2
     Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
     Value: 2
     Cost: -2  # restores 2 paint
     Action_String: "<User> holds up the lid of their paint can, blocking for 2 damage."
@@ -25,6 +30,8 @@ Attack:
   - Name: Paint Coat
     Type: 1
     Type_Name: Strike
+    Damage_Type: Elemental
+    Damage_Subtype: Aqua
     Field: [0, 7, 7, 7]
     Cost: 1  # costs 1 paint
     Action_String: "<User> swipes their brush at <Target>, dealing <Damage> damage."
@@ -33,6 +40,8 @@ Attack Crit:
   - Name: Blind
     Type: 8
     Type_Name: Shield
+    Damage_Type: Elemental
+    Damage_Subtype: Aqua
     Value: 7
     Rounds: 2
     Action_String: "<User> camouflages their face, shielding for 7 damage for 2 turns."
@@ -41,6 +50,8 @@ Special:
   - Name: Paint Dry
     Type: 4
     Type_Name: DOT
+    Damage_Type: Elemental
+    Damage_Subtype: Aqua
     Field: [2, 3, 5, 7]
     Rounds: 3
     Cost: 3  # costs 3 paint
