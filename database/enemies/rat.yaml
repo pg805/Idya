@@ -5,6 +5,7 @@ Pattern:
   - [1, 0]   # Defend: Curl Up
   - [2, 0]   # Attack: Scratch
   - [3, 0]   # Special: Bite
+Stance_Pattern: [D, B, A]   # Curl Up → Defensive, Scratch → Balanced, Bite → Aggressive
 Image: "https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&"
 
 Weapon:

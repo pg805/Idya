@@ -13,6 +13,7 @@ Pattern:
   - [1, 1]   # Defend: Regenerate
   - [1, 0]   # Defend: Retreat
   - [1, 1]   # Defend: Regenerate
+Stance_Pattern: [D, A, D, D, D, D]   # Faery Ring → Defensive, Spore Bath → Aggressive, rest → Defensive
 Image: "https://cdn.discordapp.com/attachments/1258456865881194586/1341944796737966090/Rat-background.png?ex=67b7d6fb&is=67b6857b&hm=dd42d7ed5ca66d213cd25505e5ea1062488f178ae6c9d0de02a094bc9aceb82d&"
 
 Weapon:

@@ -346,6 +346,7 @@ export default class Battle {
     pc_object: Player_Object
     npc_object: Player_Object
     npc_index = 0;
+    npc_stance_index = 0;
     current_round = 1;
     complete = false;
     winner = '';
@@ -390,7 +391,7 @@ export default class Battle {
     }
 
     resolve_round(player_action: number, player_action_index: number = 0, player_stance: Stance = Stance.Balanced) {
-        const npc_stance: Stance = Stance.Balanced; // TODO: read from NPC stance pattern
+        const npc_stance: Stance = this.non_player_character.stance_pattern[this.npc_stance_index];
 
         this.pc_object.stance  = player_stance;
         this.npc_object.stance = npc_stance;
@@ -592,6 +593,7 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
         // Round End Updating
         this.current_round += 1;
         this.npc_index = (this.npc_index + 1) % this.non_player_character.pattern.length;
+        this.npc_stance_index = (this.npc_stance_index + 1) % this.non_player_character.stance_pattern.length;
         const pc_end_string: string = this.pc_object.end_round();
         const npc_end_string: string = this.npc_object.end_round();
 

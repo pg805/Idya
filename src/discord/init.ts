@@ -141,21 +141,40 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 battle_manager.button_select_stance(interaction)
                 break;
             case button.startsWith('Battle'):
-                const battle      = battle_manager.find_battle(interaction.message.id)
-                const enemy_index: number = (battle.npc_index + 1) % battle.non_player_character.pattern.length
+                const battle            = battle_manager.find_battle(interaction.message.id)
+                const enemy_index       = (battle.npc_index + 1) % battle.non_player_character.pattern.length
+                const enemy_stance_index = (battle.npc_stance_index + 1) % battle.non_player_character.stance_pattern.length
                 const enemy_action: number = battle.non_player_character.pattern.field[enemy_index].type
-                let enemy_attack_saying = '';
+                const enemy_stance         = battle.non_player_character.stance_pattern[enemy_stance_index]
+
+                let enemy_action_saying = '';
                 switch(enemy_action) {
                     case 1:
-                        enemy_attack_saying = `The ${battle.non_player_character.name} is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
+                        enemy_action_saying = `The ${battle.non_player_character.name} is defending itself, giving you time to plan your next move carefully! (Recommended action - Special)`
                         break;
                     case 2:
-                        enemy_attack_saying = `The ${battle.non_player_character.name} is getting ready for a quick scratch! (Recommended action - Defend)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
+                        enemy_action_saying = `The ${battle.non_player_character.name} is getting ready for a quick scratch! (Recommended action - Defend)`
                         break;
                     case 3:
-                        enemy_attack_saying = `The ${battle.non_player_character.name} is winding up to attack, strike it first! (Recommended action - Attack)\nThe ${battle.non_player_character.name} takes a Balanced stance.`
+                        enemy_action_saying = `The ${battle.non_player_character.name} is winding up to attack, strike it first! (Recommended action - Attack)`
                         break;
                 }
+
+                let enemy_stance_saying = '';
+                // TODO: replace with flavored stance telegraphing lines per enemy
+                switch(enemy_stance) {
+                    case 'D':
+                        enemy_stance_saying = `The ${battle.non_player_character.name} takes a Defensive stance.`
+                        break;
+                    case 'B':
+                        enemy_stance_saying = `The ${battle.non_player_character.name} takes a Balanced stance.`
+                        break;
+                    case 'A':
+                        enemy_stance_saying = `The ${battle.non_player_character.name} takes an Aggressive stance.`
+                        break;
+                }
+
+                const enemy_attack_saying = `${enemy_action_saying}\n\n${enemy_stance_saying}`
 
                 logger.debug(`Enemy Action in Init: ${enemy_index}\n${enemy_attack_saying}`)
 

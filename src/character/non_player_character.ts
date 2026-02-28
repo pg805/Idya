@@ -1,6 +1,7 @@
 import Pattern from '../infrastructure/pattern.js';
 import Weapon from '../weapon/weapon.js';
 import Player_Character from './player_character.js';
+import { Stance } from '../infrastructure/stance.js';
 import fs from 'fs';
 import yaml from 'js-yaml';
 
@@ -8,6 +9,7 @@ type NpcData = {
     'Name': string,
     'Health': number,
     'Pattern': Array<[number, number]>,
+    'Stance_Pattern'?: Array<Stance>,
     'Image': string,
     'Resistances'?: Record<string, number>,
     'Weapon': {
@@ -25,11 +27,13 @@ type NpcData = {
 
 export default class Non_Player_Character extends Player_Character {
     pattern: Pattern
+    stance_pattern: Array<Stance>
     resistances: Record<string, number>
 
-    constructor(name: string, health: number, pattern: Pattern, weapon: Weapon, image: string, resistances: Record<string, number> = {}) {
+    constructor(name: string, health: number, pattern: Pattern, stance_pattern: Array<Stance>, weapon: Weapon, image: string, resistances: Record<string, number> = {}) {
         super(name = name, health = health, weapon = weapon, image = image);
         this.pattern = pattern;
+        this.stance_pattern = stance_pattern;
         this.resistances = resistances;
     }
 
@@ -45,6 +49,7 @@ export default class Non_Player_Character extends Player_Character {
             npc_data['Name'],
             npc_data['Health'],
             new Pattern(npc_data['Pattern']),
+            npc_data['Stance_Pattern'] ?? [Stance.Balanced],
             weapon,
             npc_data['Image'],
             npc_data['Resistances'] ?? {}

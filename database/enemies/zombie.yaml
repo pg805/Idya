@@ -8,6 +8,7 @@ Pattern:
   - [2, 0]   # Attack: Scratch
   - [1, 0]   # Defend: Dead Skin
   - [3, 0]   # Special: Bite
+Stance_Pattern: [A, B]   # cycles independently: Aggressive, Balanced, Aggressive, Balanced...
 Image: "https://cdn.discordapp.com/attachments/1258456865881194586/1342546531097645099/Zombie-big.png?ex=67ba0764&is=67b8b5e4&hm=84799ab4bfd0a46d52ba5d6da2b3ea8b4ff397f8d8c0f7dcaaa73af84d304ae0&"
 
 Weapon:
