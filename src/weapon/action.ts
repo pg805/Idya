@@ -1,7 +1,19 @@
+export enum ActionType {
+    None           = 0,
+    Strike         = 1,
+    Block          = 2,
+    Buff           = 3,
+    DamageOverTime = 4,
+    Debuff         = 5,
+    Heal           = 6,
+    Reflect        = 7,
+    Shield         = 8
+}
+
 export default class Action {
     name: string
     action_string: string
-    type: number = 0
+    type: number = ActionType.None
     type_name: string = ''
     damage_type: string = ''
     damage_subtype: string = ''

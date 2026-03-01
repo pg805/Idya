@@ -1,5 +1,14 @@
-import { ActionRowBuilder, bold, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder } from "discord.js";
-import BattleManager, { DemoHandler } from "./battle_manager.js";
+import { ActionRowBuilder, bold, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, Snowflake } from "discord.js";
+import BattleManager from "./battle_manager.js";
+
+export class DemoHandler {
+    demos: { [key: Snowflake]: {
+        'Human': string,
+        'NPC': string
+    }} = {}
+
+    constructor() {}
+}
 import logger from "../../utility/logger.js";
 import Weapon from "../../weapon/weapon.js";
 import Action from "../../weapon/action.js";

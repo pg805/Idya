@@ -2,7 +2,7 @@ import logger from '../utility/logger.js';
 
 import Player_Character from '../character/player_character.js';
 import Non_Player_Character from '../character/non_player_character.js';
-import Action from '../weapon/action.js';
+import Action, { ActionType } from '../weapon/action.js';
 import Strike from '../weapon/action/strike.js';
 import Damage_Over_Time from '../weapon/action/damage_over_time.js';
 import Debuff from '../weapon/action/debuff.js';
@@ -12,27 +12,28 @@ import Heal from '../weapon/action/heal.js';
 import Shield from '../weapon/action/shield.js';
 import Reflect from '../weapon/action/reflect.js';
 import { Stance, RollMode, resolve_roll_mode, stance_label } from '../infrastructure/stance.js';
+import { PatternActionType } from '../infrastructure/pattern.js';
+
+interface StatusEffect {
+    value: number;
+    rounds: number;
+}
 
 class Player_Object {
     name: string
     health: number
-    max_health: number // TODO, add to constructor
+    max_health: number
     resource_name: string
     resource_max: number
     resource_current: number
     resistances: Record<string, number>
     stance: Stance = Stance.Balanced
     block = 0
-    damage_over_time_value = 0
-    damage_over_time_rounds = 0
-    buff_value = 0
-    buff_rounds = 0
-    debuff_value = 0
-    debuff_rounds = 0
-    reflect_value = 0 // TODO, add to attack
-    reflect_rounds = 0
-    shield_value = 0
-    shield_rounds = 0
+    dot:     StatusEffect = { value: 0, rounds: 0 }
+    buff:    StatusEffect = { value: 0, rounds: 0 }
+    debuff:  StatusEffect = { value: 0, rounds: 0 }
+    reflect: StatusEffect = { value: 0, rounds: 0 }
+    shield:  StatusEffect = { value: 0, rounds: 0 }
 
     constructor(name: string, health: number, resource_name: string, resource_max: number, resistances: Record<string, number> = {}) {
         this.name = name;
@@ -64,70 +65,56 @@ class Player_Object {
         let action_string = '';
 
         action_array.forEach((action: Action) => {
-            const resource_string = this.apply_cost(action);
-            const header = `\n<User> — ${action.name}${resource_string}`;
-
-            // Block
-            if (action.type == 2) {
+            if (action.type === ActionType.Block) {
+                const resource_string = this.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
                 const block = (<Block>action).value;
                 this.block = block;
-
-                action_string = `${action_string}${header}\n  ${action.action_string}`;
-
+                action_string += `${header}\n  ${action.action_string}`;
                 logger.info(`Resolving ${this.name} Block: ${action.name}\nValue: ${block}`);
             }
 
-            // Buff
-            if (action.type == 3) {
-                const buff_value = (<Buff>action).value;
-                this.buff_value = buff_value;
-                const buff_rounds = (<Buff>action).rounds;
-                this.buff_rounds = buff_rounds;
-                this.debuff_value = 0;
-                this.debuff_rounds = 0;
-
-                action_string = `${action_string}${header}\n  ${action.action_string}`;
-
-                logger.info(`Resolving ${this.name} Buff: ${action.name}\nValue: ${buff_value}  Rounds: ${buff_rounds}`);
+            if (action.type === ActionType.Buff) {
+                const resource_string = this.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                this.buff.value  = (<Buff>action).value;
+                this.buff.rounds = (<Buff>action).rounds;
+                this.debuff.value  = 0;
+                this.debuff.rounds = 0;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${this.name} Buff: ${action.name}\nValue: ${this.buff.value}  Rounds: ${this.buff.rounds}`);
             }
 
-            // Heal
-            if (action.type == 6) {
+            if (action.type === ActionType.Heal) {
+                const resource_string = this.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
                 const heal = (<Heal>action).value;
                 const hp_before = this.health;
                 this.health = Math.min(this.health + heal, this.max_health);
-
-                action_string = `${action_string}${header}\n  ${action.action_string}  [HP: ${hp_before} → ${this.health}]`;
-
+                action_string += `${header}\n  ${action.action_string}  [HP: ${hp_before} → ${this.health}]`;
                 logger.info(`Resolving ${this.name} Heal: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${this.health}`);
             }
 
-            // Reflect
-            if (action.type == 7) {
-                const reflect_value = (<Reflect>action).value;
-                this.reflect_value = reflect_value;
-                const reflect_rounds = (<Reflect>action).rounds;
-                this.reflect_rounds = reflect_rounds;
-
-                action_string = `${action_string}${header}\n  ${action.action_string}`;
-
-                logger.info(`Resolving ${this.name} Reflect: ${action.name}\nValue: ${reflect_value}  Rounds: ${reflect_rounds}`);
+            if (action.type === ActionType.Reflect) {
+                const resource_string = this.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                this.reflect.value  = (<Reflect>action).value;
+                this.reflect.rounds = (<Reflect>action).rounds;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${this.name} Reflect: ${action.name}\nValue: ${this.reflect.value}  Rounds: ${this.reflect.rounds}`);
             }
 
-            // Shield
-            if (action.type == 8) {
-                const shield_value = (<Shield>action).value;
-                this.shield_value = shield_value;
-                const shield_rounds = (<Shield>action).rounds;
-                this.shield_rounds = shield_rounds;
-
-                action_string = `${action_string}${header}\n  ${action.action_string}`;
-
-                logger.info(`Resolving ${this.name} Shield: ${action.name}\nValue: ${shield_value}  Rounds: ${shield_rounds}`);
+            if (action.type === ActionType.Shield) {
+                const resource_string = this.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                this.shield.value  = (<Shield>action).value;
+                this.shield.rounds = (<Shield>action).rounds;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${this.name} Shield: ${action.name}\nValue: ${this.shield.value}  Rounds: ${this.shield.rounds}`);
             }
         });
 
-        return action_string
+        return action_string;
     }
 
     hostile_target(action_array: Array<Action>, hostile_object: Player_Object, roll_mode: RollMode = RollMode.One) {
@@ -135,64 +122,62 @@ class Player_Object {
         let reflect = false;
 
         action_array.forEach((action: Action) => {
-            const resource_string = hostile_object.apply_cost(action);
-            const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-            const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
-
-            // Strike
-            if (action.type == 1) {
+            if (action.type === ActionType.Strike) {
+                const resource_string = hostile_object.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
                 reflect = true;
                 const damage_roll: number = (<Strike>action).field.get_result_with_mode(roll_mode);
-                const raw_damage: number = Math.max(damage_roll - this.block - this.shield_value + hostile_object.buff_value - hostile_object.debuff_value, 0);
+                const raw_damage: number = Math.max(damage_roll - this.block - this.shield.value + hostile_object.buff.value - hostile_object.debuff.value, 0);
                 const resistance_modifier: number = this.get_resistance_modifier(action);
                 const damage: number = Math.floor(raw_damage * resistance_modifier);
                 const hp_before = this.health;
                 this.health = Math.max(this.health - damage, 0);
 
-                const block_detail  = this.block + this.shield_value > 0 ? `  blocked ${this.block + this.shield_value}` : '';
-                const buff_detail   = hostile_object.buff_value  ? `  +${hostile_object.buff_value} buff` : '';
-                const debuff_detail = hostile_object.debuff_value ? `  −${hostile_object.debuff_value} debuff` : '';
+                const block_detail  = this.block + this.shield.value > 0 ? `  blocked ${this.block + this.shield.value}` : '';
+                const buff_detail   = hostile_object.buff.value   ? `  +${hostile_object.buff.value} buff`   : '';
+                const debuff_detail = hostile_object.debuff.value ? `  −${hostile_object.debuff.value} debuff` : '';
                 const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
                 const detail = `\n  Roll: ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}  →  ${damage} damage  |  ${this.name} HP: ${hp_before} → ${this.health}`;
 
-                target_string = `${target_string}${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
 
-                logger.info(`Resolving Strike on ${this.name}: ${action.name}\nRoll: ${damage_roll}  Block: ${this.block}  Shield: ${this.shield_value}  Buff: ${hostile_object.buff_value}  Debuff: ${hostile_object.debuff_value}  Modifier: ${resistance_modifier}  Damage: ${damage}  HP: ${this.health}`);
+                logger.info(`Resolving Strike on ${this.name}: ${action.name}\nRoll: ${damage_roll}  Block: ${this.block}  Shield: ${this.shield.value}  Buff: ${hostile_object.buff.value}  Debuff: ${hostile_object.debuff.value}  Modifier: ${resistance_modifier}  Damage: ${damage}  HP: ${this.health}`);
             }
 
-            // DOT
-            if (action.type == 4) {
+            if (action.type === ActionType.DamageOverTime) {
+                const resource_string = hostile_object.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
                 const raw_damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
                 const resistance_modifier: number = this.get_resistance_modifier(action);
                 const damage: number = Math.floor(raw_damage * resistance_modifier);
                 const rounds: number = (<Damage_Over_Time>action).rounds;
-                this.damage_over_time_value = damage;
-                this.damage_over_time_rounds = rounds;
+                this.dot.value  = damage;
+                this.dot.rounds = rounds;
 
                 const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
                 const detail = `\n  DOT: ${damage} damage × ${rounds} rounds${resist_detail}`;
 
-                target_string = `${target_string}${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
 
                 logger.info(`Resolving DOT on ${this.name}: ${action.name}\nDamage: ${damage}  Modifier: ${resistance_modifier}  Rounds: ${rounds}`);
             }
 
-            // Debuff
-            if (action.type == 5) {
-                const debuff = (<Debuff>action).value;
-                const rounds = (<Debuff>action).rounds;
-                this.debuff_value = debuff;
-                this.debuff_rounds = rounds;
-                this.buff_value = 0;
-                this.buff_rounds = 0;
-
-                target_string = `${target_string}${header}\n  ${action.action_string}`;
-
-                logger.info(`Resolving Debuff on ${this.name}: ${action.name}\nValue: ${debuff}  Rounds: ${rounds}`);
+            if (action.type === ActionType.Debuff) {
+                const resource_string = hostile_object.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                this.debuff.value  = (<Debuff>action).value;
+                this.debuff.rounds = (<Debuff>action).rounds;
+                this.buff.value  = 0;
+                this.buff.rounds = 0;
+                target_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving Debuff on ${this.name}: ${action.name}\nValue: ${this.debuff.value}  Rounds: ${this.debuff.rounds}`);
             }
         });
 
-        return {target_string, reflect};
+        return { target_string, reflect };
     }
 
     handle_reflect(damage: number) {
@@ -207,99 +192,43 @@ Damage: ${damage}
 Health: ${this.health}
 `);
 
-        return action_string
+        return action_string;
+    }
+
+    private tick_effect(effect: StatusEffect, label: string): string {
+        if (effect.rounds <= 0) return '';
+        effect.rounds -= 1;
+        if (effect.rounds === 0) effect.value = 0;
+        logger.info(`${label} rounds for ${this.name}: ${effect.rounds}`);
+        return `\n${this.name} has ${effect.rounds} round(s) left on their ${label}.`;
     }
 
     end_round() {
-
-        let action_string: string = '';
+        let action_string = '';
 
         this.block = 0;
 
-        // Damage over Time
-        if (this.damage_over_time_rounds > 0) {
+        if (this.dot.rounds > 0) {
             const hp_before = this.health;
-            this.health = Math.max(this.health - this.damage_over_time_value, 0);
-            this.damage_over_time_rounds -= 1;
-
-            action_string = `${action_string}\n${this.name} takes ${this.damage_over_time_value} DOT damage  (${this.damage_over_time_rounds} round(s) remaining)  |  HP: ${hp_before} → ${this.health}`;
-
+            this.health = Math.max(this.health - this.dot.value, 0);
+            this.dot.rounds -= 1;
+            action_string += `\n${this.name} takes ${this.dot.value} DOT damage  (${this.dot.rounds} round(s) remaining)  |  HP: ${hp_before} → ${this.health}`;
             logger.info(
                 `End of Turn DOT on ${this.name}
-Damage: ${this.damage_over_time_value}
-Rounds Left: ${this.damage_over_time_rounds}
+Damage: ${this.dot.value}
+Rounds Left: ${this.dot.rounds}
 Health: ${this.health}
 `
             );
-            if (this.damage_over_time_rounds == 0) {
-                this.damage_over_time_value = 0;
-            }
-        } else {
-            this.damage_over_time_rounds = 0;
-            this.damage_over_time_value = 0;
+            if (this.dot.rounds === 0) this.dot.value = 0;
         }
 
-        // Reduce Buff Rounds
-        if (this.buff_rounds > 0) {
-            this.buff_rounds -= 1;
+        action_string += this.tick_effect(this.buff,    'buff');
+        action_string += this.tick_effect(this.debuff,  'debuff');
+        action_string += this.tick_effect(this.reflect, 'reflect');
+        action_string += this.tick_effect(this.shield,  'shield');
 
-            action_string = `${action_string}\n${this.name} has ${this.buff_rounds} round(s) left on their buff.`;
-
-            logger.info(`Buff Rounds for ${this.name}: ${this.buff_rounds}`);
-            if (this.buff_rounds == 0) {
-                this.buff_value = 0;
-            }
-        } else {
-            this.buff_rounds = 0;
-            this.buff_value = 0;
-        }
-
-        // Reduce Debuff Rounds
-        if (this.debuff_rounds > 0) {
-            this.debuff_rounds -= 1;
-
-            action_string = `${action_string}\n${this.name} has ${this.debuff_rounds} round(s) left on their debuff.`;
-
-            logger.info(`Debuff Rounds for ${this.name}: ${this.debuff_rounds}`);
-            if (this.debuff_rounds == 0) {
-                this.debuff_value = 0;
-            }
-        } else {
-            this.debuff_rounds = 0;
-            this.debuff_value = 0;
-        }
-
-        // Reduce Reflect Rounds
-        if (this.reflect_rounds > 0) {
-            this.reflect_rounds -= 1;
-
-            action_string = `${action_string}\n${this.name} has ${this.reflect_rounds} round(s) left on their reflect.`;
-
-            logger.info(`Reflect Rounds for ${this.name}: ${this.reflect_rounds}`);
-            if (this.reflect_rounds == 0) {
-                this.reflect_value = 0;
-            }
-        } else {
-            this.reflect_rounds = 0;
-            this.reflect_value = 0;
-        }
-
-        // Reduce Shield Rounds
-        if (this.shield_rounds > 0) {
-            this.shield_rounds -= 1;
-
-            action_string = `${action_string}\n${this.name} has ${this.shield_rounds} round(s) left on their shield.`;
-
-            logger.info(`Shield Rounds for ${this.name}: ${this.shield_rounds}`);
-            if (this.shield_rounds == 0) {
-                this.shield_value = 0;
-            }
-        } else {
-            this.shield_rounds = 0;
-            this.shield_value = 0;
-        }
-
-        return action_string
+        return action_string;
     }
 }
 
@@ -335,22 +264,28 @@ export default class Battle {
     }
 
     check_winners() {
-        // Specify Tie
-        if (this.pc_object.health == 0 && this.npc_object.health == 0) {
+        if (this.pc_object.health === 0 && this.npc_object.health === 0) {
             return this.non_player_character.name;
         }
-
-        // NPC Win
-        if (this.pc_object.health == 0) {
+        if (this.pc_object.health === 0) {
             return this.non_player_character.name;
         }
-
-        // PC Win
-        if (this.npc_object.health == 0) {
+        if (this.npc_object.health === 0) {
             return this.player_character.name;
         }
-
         return '';
+    }
+
+    /** Returns the next NPC action info accounting for resource affordability, for telegraphing. */
+    get_next_npc_entry(): { type: PatternActionType | null, stance: Stance } {
+        const result = this.find_affordable_npc_entry();
+        if (result === null) {
+            return { type: null, stance: this.non_player_character.stance_pattern[this.npc_stance_index] };
+        }
+        return {
+            type:   this.non_player_character.pattern.field[result.pattern_index].type,
+            stance: this.non_player_character.stance_pattern[result.stance_index]
+        };
     }
 
     private find_affordable_npc_entry(): { pattern_index: number, stance_index: number, steps_skipped: number } | null {
@@ -363,9 +298,9 @@ export default class Battle {
             const entry = this.non_player_character.pattern.field[pidx];
 
             let action: Action | null = null;
-            if      (entry.type === 1) action = weapon.defend[entry.index]  ?? null;
-            else if (entry.type === 2) action = weapon.attack[entry.index]  ?? null;
-            else if (entry.type === 3) action = weapon.special[entry.index] ?? null;
+            if      (entry.type === PatternActionType.Defend)  action = weapon.defend[entry.index]  ?? null;
+            else if (entry.type === PatternActionType.Attack)  action = weapon.attack[entry.index]  ?? null;
+            else if (entry.type === PatternActionType.Special) action = weapon.special[entry.index] ?? null;
 
             if (action !== null && action.cost <= this.npc_object.resource_current) {
                 return { pattern_index: pidx, stance_index: (this.npc_stance_index + i) % stance_len, steps_skipped: i };
@@ -375,14 +310,23 @@ export default class Battle {
         return null;
     }
 
-    resolve_round(player_action: number, player_action_index: number = 0, player_stance: Stance = Stance.Balanced) {
+    private resolve_action(actor: Player_Object, opponent: Player_Object, actions: Action[], roll_mode: RollMode): string {
+        const self_str = actor.target_self(actions);
+        const { target_string, reflect } = opponent.hostile_target(actions, actor, roll_mode);
+        const reflect_str = reflect ? actor.handle_reflect(opponent.reflect.value) : '';
+        return `${self_str}${target_string}${reflect_str}`
+            .replace(/<User>/g, actor.name)
+            .replace(/<Target>/g, opponent.name);
+    }
+
+    resolve_round(player_action: PatternActionType, player_action_index: number = 0, player_stance: Stance = Stance.Balanced) {
         const npc_result = this.find_affordable_npc_entry();
-        const npc_passes        = npc_result === null;
-        const npc_pattern_index = npc_result?.pattern_index ?? this.npc_index;
-        const npc_stance_index_eff = npc_result?.stance_index ?? this.npc_stance_index;
-        const steps_skipped     = npc_result?.steps_skipped ?? 0;
-        const npc_action: number      = npc_passes ? 0 : this.non_player_character.pattern.field[npc_pattern_index].type;
-        const npc_action_index: number = npc_passes ? 0 : this.non_player_character.pattern.field[npc_pattern_index].index;
+        const npc_passes           = npc_result === null;
+        const npc_pattern_index    = npc_result?.pattern_index    ?? this.npc_index;
+        const npc_stance_index_eff = npc_result?.stance_index     ?? this.npc_stance_index;
+        const steps_skipped        = npc_result?.steps_skipped    ?? 0;
+        const npc_action: PatternActionType = npc_passes ? PatternActionType.None : this.non_player_character.pattern.field[npc_pattern_index].type;
+        const npc_action_index: number      = npc_passes ? 0 : this.non_player_character.pattern.field[npc_pattern_index].index;
         const npc_stance: Stance = this.non_player_character.stance_pattern[npc_stance_index_eff];
 
         this.pc_object.stance  = player_stance;
@@ -391,13 +335,14 @@ export default class Battle {
         const pc_roll_mode:  RollMode = resolve_roll_mode(player_stance, npc_stance);
         const npc_roll_mode: RollMode = resolve_roll_mode(npc_stance, player_stance);
 
-        let action_string: string = `Round ${this.current_round} — ${this.pc_object.name}: ${stance_label[player_stance]}  |  ${this.npc_object.name}: ${stance_label[npc_stance]}`
+        let action_string: string = `Round ${this.current_round} — ${this.pc_object.name}: ${stance_label[player_stance]}  |  ${this.npc_object.name}: ${stance_label[npc_stance]}`;
         if (npc_passes) {
-            action_string = `${action_string}\n${this.npc_object.name} is exhausted and passes their turn.`;
+            action_string += `\n${this.npc_object.name} is exhausted and passes their turn.`;
         } else if (steps_skipped > 0) {
-            const type_name = npc_action === 1 ? 'defend' : npc_action === 2 ? 'attack' : 'special';
-            action_string = `${action_string}\n${this.npc_object.name} can't afford their planned move (${this.npc_object.resource_name} depleted) — falls back to ${type_name}.`;
+            const type_name = npc_action === PatternActionType.Defend ? 'defend' : npc_action === PatternActionType.Attack ? 'attack' : 'special';
+            action_string += `\n${this.npc_object.name} can't afford their planned move (${this.npc_object.resource_name} depleted) — falls back to ${type_name}.`;
         }
+
         logger.info(
             `***************************
 Resolving Turn
@@ -411,194 +356,102 @@ NPC Stance: ${npc_stance} (roll mode: ${npc_roll_mode})
 `
         );
 
-
-        if (player_action == 1) {
-            const player_defend = [this.player_character.weapon.defend[player_action_index]];
-            const self_string = this.pc_object.target_self(player_defend);
-            const { target_string, reflect } = this.npc_object.hostile_target(player_defend, this.pc_object, pc_roll_mode);
-            let reflect_string: string = ''
-
-            if (reflect) {
-                reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
-            }
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.pc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.pc_object.name)
-            }`
+        if (player_action === PatternActionType.Defend) {
+            action_string += this.resolve_action(
+                this.pc_object, this.npc_object,
+                [this.player_character.weapon.defend[player_action_index]],
+                pc_roll_mode
+            );
         }
 
-        if (npc_action == 1) {
-            const npc_defend = [this.non_player_character.weapon.defend[npc_action_index]];
-            const self_string = this.npc_object.target_self(npc_defend);
-            const { target_string, reflect } = this.pc_object.hostile_target(npc_defend, this.npc_object, npc_roll_mode);
-            let reflect_string: string = ''
-            if (reflect) {
-                reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
-            }
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.npc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.npc_object.name)
-            }`
+        if (npc_action === PatternActionType.Defend) {
+            action_string += this.resolve_action(
+                this.npc_object, this.pc_object,
+                [this.non_player_character.weapon.defend[npc_action_index]],
+                npc_roll_mode
+            );
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
             this.log.push(action_string);
-            const winner: string = this.winner
-            return { action_string, winner };
+            return { action_string, winner: this.winner };
         }
 
-        if (player_action == 2) {
-            if (npc_action == 3) {
-                const self_string = this.pc_object.target_self(this.player_character.weapon.attack_crit);
-                const {target_string, reflect} = this.npc_object.hostile_target(this.player_character.weapon.attack_crit, this.pc_object, pc_roll_mode);
-                let reflect_string = '';
-
-                if (reflect) {
-                    reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
-                }
-
-                action_string = `${action_string}${
-                    self_string.replace(/\<User\>/g, this.pc_object.name)
-                }${
-                    target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
-                }${
-                    reflect_string.replace(/\<User\>/g, this.pc_object.name)
-                }`
+        if (player_action === PatternActionType.Attack) {
+            if (npc_action === PatternActionType.Special) {
+                action_string += this.resolve_action(
+                    this.pc_object, this.npc_object,
+                    this.player_character.weapon.attack_crit,
+                    pc_roll_mode
+                );
             }
-
-            const player_attack = [this.player_character.weapon.attack[player_action_index]];
-            const self_string = this.pc_object.target_self(player_attack);
-            const {target_string, reflect} = this.npc_object.hostile_target(player_attack, this.pc_object, pc_roll_mode);
-            let reflect_string = ''
-
-            if (reflect) {
-                reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
-            }
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.pc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.pc_object.name)
-            }`
+            action_string += this.resolve_action(
+                this.pc_object, this.npc_object,
+                [this.player_character.weapon.attack[player_action_index]],
+                pc_roll_mode
+            );
         }
 
-        if (npc_action == 2) {
-            if (player_action == 3) {
-                const self_string = this.npc_object.target_self(this.non_player_character.weapon.attack_crit);
-                const {target_string, reflect } = this.pc_object.hostile_target(this.non_player_character.weapon.attack_crit, this.npc_object, npc_roll_mode);
-                let reflect_string = '';
-
-                if (reflect) {
-                    reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
-                }
-
-                action_string = `${action_string}${
-                    self_string.replace(/\<User\>/g, this.npc_object.name)
-                }${
-                    target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
-                }${
-                    reflect_string.replace(/\<User\>/g, this.npc_object.name)
-                }`
+        if (npc_action === PatternActionType.Attack) {
+            if (player_action === PatternActionType.Special) {
+                action_string += this.resolve_action(
+                    this.npc_object, this.pc_object,
+                    this.non_player_character.weapon.attack_crit,
+                    npc_roll_mode
+                );
             }
-            const npc_attack = [this.non_player_character.weapon.attack[npc_action_index]];
-            const self_string = this.npc_object.target_self(npc_attack);
-            const {target_string, reflect} = this.pc_object.hostile_target(npc_attack, this.npc_object, npc_roll_mode);
-            let reflect_string = '';
-
-            if (reflect) {
-                reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
-            }
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.npc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.npc_object.name)
-            }`
+            action_string += this.resolve_action(
+                this.npc_object, this.pc_object,
+                [this.non_player_character.weapon.attack[npc_action_index]],
+                npc_roll_mode
+            );
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
             this.log.push(action_string);
-            const winner: string = this.winner
-            return { action_string, winner };
+            return { action_string, winner: this.winner };
         }
 
-        if (player_action == 3) {
-            const player_special = [this.player_character.weapon.special[player_action_index]];
-            const self_string = this.pc_object.target_self(player_special);
-            const {target_string, reflect} = this.npc_object.hostile_target(player_special, this.pc_object, pc_roll_mode);
-            let reflect_string = '';
-
-            if (reflect) {
-                reflect_string = this.pc_object.handle_reflect(this.npc_object.reflect_value);
-            }
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.pc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.pc_object.name).replace(/\<Target\>/g, this.npc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.pc_object.name)
-            }`
+        if (player_action === PatternActionType.Special) {
+            action_string += this.resolve_action(
+                this.pc_object, this.npc_object,
+                [this.player_character.weapon.special[player_action_index]],
+                pc_roll_mode
+            );
         }
 
-        if (npc_action == 3) {
-            const npc_special = [this.non_player_character.weapon.special[npc_action_index]];
-            const self_string = this.npc_object.target_self(npc_special);
-            const {target_string, reflect }= this.pc_object.hostile_target(npc_special, this.npc_object, npc_roll_mode);
-            let reflect_string = '';
-
-            if (reflect) {
-                reflect_string = this.npc_object.handle_reflect(this.pc_object.reflect_value);
-            }
-
-
-            action_string = `${action_string}${
-                self_string.replace(/\<User\>/g, this.npc_object.name)
-            }${
-                target_string.replace(/\<User\>/g, this.npc_object.name).replace(/\<Target\>/g, this.pc_object.name)
-            }${
-                reflect_string.replace(/\<User\>/g, this.npc_object.name)
-            }`
+        if (npc_action === PatternActionType.Special) {
+            action_string += this.resolve_action(
+                this.npc_object, this.pc_object,
+                [this.non_player_character.weapon.special[npc_action_index]],
+                npc_roll_mode
+            );
         }
 
         // Check For Winners
         this.winner = this.check_winners();
         if (this.winner) {
             this.log.push(action_string);
-            const winner: string = this.winner
-            return { action_string, winner };
+            return { action_string, winner: this.winner };
         }
 
         // Round End Updating
         this.current_round += 1;
         this.npc_index = (npc_pattern_index + 1) % this.non_player_character.pattern.length;
         this.npc_stance_index = (npc_stance_index_eff + 1) % this.non_player_character.stance_pattern.length;
-        const pc_end_string: string = this.pc_object.end_round();
+        const pc_end_string: string  = this.pc_object.end_round();
         const npc_end_string: string = this.npc_object.end_round();
 
-        action_string = `${action_string}${pc_end_string.replace(/\<User\>/g, this.pc_object.name)}`
-        action_string = `${action_string}${npc_end_string.replace(/\<User\>/g, this.npc_object.name)}`
+        action_string += pc_end_string.replace(/<User>/g, this.pc_object.name);
+        action_string += npc_end_string.replace(/<User>/g, this.npc_object.name);
 
         this.winner = this.check_winners();
 
         this.log.push(action_string);
-        const winner: string = this.winner
-        return { action_string, winner };
+        return { action_string, winner: this.winner };
     }
 }

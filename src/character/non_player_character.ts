@@ -31,7 +31,7 @@ export default class Non_Player_Character extends Player_Character {
     resistances: Record<string, number>
 
     constructor(name: string, health: number, pattern: Pattern, stance_pattern: Array<Stance>, weapon: Weapon, image: string, resistances: Record<string, number> = {}) {
-        super(name = name, health = health, weapon = weapon, image = image);
+        super(name, health, weapon, image);
         this.pattern = pattern;
         this.stance_pattern = stance_pattern;
         this.resistances = resistances;

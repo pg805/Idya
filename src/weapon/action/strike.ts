@@ -1,9 +1,9 @@
 import Result_Field from '../../infrastructure/result_field.js';
-import Action from '../action.js';
+import Action, { ActionType } from '../action.js';
 
 export default class Strike extends Action {
     field: Result_Field
-    type = 1
+    type = ActionType.Strike
     type_name = 'STRIKE'
 
     constructor(name: string, action_string: string, field: Result_Field) {

@@ -1,9 +1,9 @@
-import Action from '../action.js';
+import Action, { ActionType } from '../action.js';
 
 export default class Reflect extends Action {
     value: number
     rounds: number
-    type = 7
+    type = ActionType.Reflect
     type_name = 'REFLECT'
 
     constructor(name: string, action_string: string, value: number, rounds: number) {

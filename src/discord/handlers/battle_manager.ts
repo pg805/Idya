@@ -5,16 +5,8 @@ import Battle from "../../combat/battle.js";
 import Player_Character from "../../character/player_character.js";
 import Non_Player_Character from "../../character/non_player_character.js";
 import { Stance } from '../../infrastructure/stance.js';
+import { PatternActionType } from '../../infrastructure/pattern.js';
 import Action from '../../weapon/action.js';
-
-export class DemoHandler {
-    demos: { [key: Snowflake]: {
-        'Human': string,
-        'NPC': string
-    }} = {}
-
-    constructor() {}
-}
 
 export default class BattleManager {
     running_battles:  { [key: Snowflake]: Battle }  = {}
@@ -29,6 +21,10 @@ export default class BattleManager {
     bold_keywords(description: string) {
         return description
             .replace(/(\d+)|(\brounds?)|(\bblock(ed|ing)?)|(\bDOT)|(\bdamage)|(\bstrike)|(\b(de)?buff(ing)?)|(\bheal(ing)?)|(\breflect(ed|ing)?)|(\bshield(ing)?)|(\bDefensive\b)|(\bBalanced\b)|(\bAggressive\b)/gi, (match: string) => bold(match))
+    }
+
+    private stat_field(obj: { name: string, health: number, max_health: number, resource_name: string, resource_current: number, resource_max: number }) {
+        return `HP: ${obj.health}/${obj.max_health}\n${obj.resource_name}: ${obj.resource_current}/${obj.resource_max}`;
     }
 
     private make_stance_row(selected?: Stance, disabled = false) {
@@ -106,8 +102,8 @@ export default class BattleManager {
             .setTitle(`Battle against ${non_player_character.name}`)
             .setDescription(description)
             .setFields(
-                { name: battle.pc_object.name, value: `HP: ${battle.pc_object.health}/${battle.pc_object.max_health}\n${battle.pc_object.resource_name}: ${battle.pc_object.resource_current}/${battle.pc_object.resource_max}`, inline: true },
-                { name: battle.npc_object.name, value: `HP: ${battle.npc_object.health}/${battle.npc_object.max_health}\n${battle.npc_object.resource_name}: ${battle.npc_object.resource_current}/${battle.npc_object.resource_max}`, inline: true },
+                { name: battle.pc_object.name,  value: this.stat_field(battle.pc_object),  inline: true },
+                { name: battle.npc_object.name, value: this.stat_field(battle.npc_object), inline: true },
             )
 
         const image_embed_1 = new EmbedBuilder()
@@ -128,7 +124,7 @@ export default class BattleManager {
         })
     }
 
-    button_select_stance(interaction: ButtonInteraction) {
+    async button_select_stance(interaction: ButtonInteraction) {
         const stance: Stance =
             interaction.customId === 'StanceD' ? Stance.Defensive  :
             interaction.customId === 'StanceA' ? Stance.Aggressive :
@@ -143,7 +139,7 @@ export default class BattleManager {
         const image_embed_2 = EmbedBuilder.from(interaction.message.embeds[1])
         const battle_embed  = EmbedBuilder.from(interaction.message.embeds[2])
 
-        interaction.update({
+        await interaction.update({
             embeds: [image_embed_1, image_embed_2, battle_embed],
             components: [
                 this.make_stance_row(stance),
@@ -152,7 +148,7 @@ export default class BattleManager {
         })
     }
 
-    button_update_battle(interaction: ButtonInteraction) {
+    async button_update_battle(interaction: ButtonInteraction) {
         const battle: Battle = this.find_battle(interaction.message.id)
         logger.info(`Updating battle between ${battle.player_character.name} and ${battle.non_player_character.name}.  ID: ${interaction.message.id}`)
 
@@ -161,7 +157,7 @@ export default class BattleManager {
 
         const type_char = interaction.customId[6]; // 'D', 'A', or 'S'
         const action_index = parseInt(interaction.customId.slice(7));
-        const player_action = type_char === 'D' ? 1 : type_char === 'A' ? 2 : 3;
+        const player_action = type_char === 'D' ? PatternActionType.Defend : type_char === 'A' ? PatternActionType.Attack : PatternActionType.Special;
         const round_object = battle.resolve_round(player_action, action_index, player_stance);
 
         let winner_string = ''
@@ -170,20 +166,23 @@ export default class BattleManager {
         const battle_over = !!round_object.winner
 
         if (!battle_over) {
-            const next_entry  = battle.non_player_character.pattern.field[battle.npc_index];
-            const next_stance = battle.non_player_character.stance_pattern[battle.npc_stance_index];
+            const next = battle.get_next_npc_entry();
             const name = battle.non_player_character.name;
 
             let action_hint = '';
-            switch (next_entry.type) {
-                case 1: action_hint = `${name} is defending — gives you time to plan. (Recommend: Special)`; break;
-                case 2: action_hint = `${name} is winding up to attack! (Recommend: Defend)`; break;
-                case 3: action_hint = `${name} is preparing something special. (Recommend: Attack)`; break;
+            if (next.type === null) {
+                action_hint = `${name} is too exhausted to act this round.`;
+            } else {
+                switch (next.type) {
+                    case PatternActionType.Defend:  action_hint = `${name} is defending — gives you time to plan. (Recommend: Special)`; break;
+                    case PatternActionType.Attack:  action_hint = `${name} is winding up to attack! (Recommend: Defend)`; break;
+                    case PatternActionType.Special: action_hint = `${name} is preparing something special. (Recommend: Attack)`; break;
+                }
             }
 
             // TODO: replace with flavored stance lines per enemy
             let stance_hint = '';
-            switch (next_stance) {
+            switch (next.stance) {
                 case Stance.Defensive:  stance_hint = `${name} takes a Defensive stance.`; break;
                 case Stance.Balanced:   stance_hint = `${name} takes a Balanced stance.`; break;
                 case Stance.Aggressive: stance_hint = `${name} takes an Aggressive stance.`; break;
@@ -192,12 +191,10 @@ export default class BattleManager {
             round_string = `\n-------------------------\n${action_hint}\n\n${stance_hint}`;
         }
 
-        if(battle_over) {
+        if (battle_over) {
             winner_string = `\n-------------------------\n${round_object.winner} wins!`
 
-            this.running_battles = Object.fromEntries(
-                Object.entries(this.running_battles).filter(([key]) => key !== interaction.message.id)
-            )
+            delete this.running_battles[interaction.message.id]
 
             logger.info(`Battle ${interaction.message.id} Finished.  Log:\n${battle.log.join('\n')}`)
         }
@@ -216,16 +213,16 @@ export default class BattleManager {
         const battle_embed = EmbedBuilder.from(interaction.message.embeds[2])
             .setDescription(description)
             .setFields(
-                { name: battle.pc_object.name, value: `HP: ${battle.pc_object.health}/${battle.pc_object.max_health}\n${battle.pc_object.resource_name}: ${battle.pc_object.resource_current}/${battle.pc_object.resource_max}`, inline: true },
-                { name: battle.npc_object.name, value: `HP: ${battle.npc_object.health}/${battle.npc_object.max_health}\n${battle.npc_object.resource_name}: ${battle.npc_object.resource_current}/${battle.npc_object.resource_max}`, inline: true },
+                { name: battle.pc_object.name,  value: this.stat_field(battle.pc_object),  inline: true },
+                { name: battle.npc_object.name, value: this.stat_field(battle.npc_object), inline: true },
             )
 
         const components = [
-            this.make_stance_row(undefined, battle_over),  // disabled when battle over
-            this.make_action_row(battle, true)             // always disabled until next stance pick
+            this.make_stance_row(undefined, battle_over),
+            this.make_action_row(battle, true)
         ]
 
-        interaction.update({
+        await interaction.update({
             embeds: [image_embed_1, image_embed_2, battle_embed],
             components
         })

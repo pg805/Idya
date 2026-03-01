@@ -1,8 +1,8 @@
-import Action from '../action.js';
+import Action, { ActionType } from '../action.js';
 
 export default class Heal extends Action {
     value: number
-    type = 6
+    type = ActionType.Heal
     type_name = 'HEAL'
 
     constructor(name: string, action_string: string, value: number) {

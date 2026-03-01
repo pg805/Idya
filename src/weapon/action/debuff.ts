@@ -1,9 +1,9 @@
-import Action from '../action.js';
+import Action, { ActionType } from '../action.js';
 
 export default class Debuff extends Action {
     value: number
     rounds: number
-    type = 5
+    type = ActionType.Debuff
     type_name = 'DEBUFF'
 
     constructor(name: string, action_string: string, value: number, rounds: number) {

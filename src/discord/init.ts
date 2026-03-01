@@ -8,8 +8,8 @@ import { fileURLToPath } from 'url';
 import Player_Character from '../character/player_character.js';
 import Weapon from '../weapon/weapon.js';
 import Non_Player_Character from '../character/non_player_character.js';
-import BattleManager, { DemoHandler } from './handlers/battle_manager.js';
-import demo_battle from './handlers/demo_handler.js';
+import BattleManager from './handlers/battle_manager.js';
+import demo_battle, { DemoHandler } from './handlers/demo_handler.js';
 import CharacterHandler from './handlers/character_handler.js';
 import CharacterRepository from '../character/character_repository.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file

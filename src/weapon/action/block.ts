@@ -1,8 +1,8 @@
-import Action from '../action.js';
+import Action, { ActionType } from '../action.js';
 
 export default class Block extends Action {
     value: number
-    type = 2
+    type = ActionType.Block
     type_name = 'BLOCK'
 
     constructor(name: string, action_string: string, value: number) {
