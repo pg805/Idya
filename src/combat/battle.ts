@@ -19,7 +19,7 @@ interface StatusEffect {
     rounds: number;
 }
 
-class Player_Object {
+class CombatantState {
     name: string
     health: number
     max_health: number
@@ -59,140 +59,6 @@ class Player_Object {
         const before = this.resource_current;
         this.resource_current = Math.max(0, Math.min(this.resource_max, this.resource_current - action.cost));
         return `  [${this.resource_name}: ${before} → ${this.resource_current}]`;
-    }
-
-    target_self(action_array: Array<Action>) {
-        let action_string = '';
-
-        action_array.forEach((action: Action) => {
-            if (action.type === ActionType.Block) {
-                const resource_string = this.apply_cost(action);
-                const header = `\n<User> — ${action.name}${resource_string}`;
-                const block = (<Block>action).value;
-                this.block = block;
-                action_string += `${header}\n  ${action.action_string}`;
-                logger.info(`Resolving ${this.name} Block: ${action.name}\nValue: ${block}`);
-            }
-
-            if (action.type === ActionType.Buff) {
-                const resource_string = this.apply_cost(action);
-                const header = `\n<User> — ${action.name}${resource_string}`;
-                this.buff.value  = (<Buff>action).value;
-                this.buff.rounds = (<Buff>action).rounds;
-                this.debuff.value  = 0;
-                this.debuff.rounds = 0;
-                action_string += `${header}\n  ${action.action_string}`;
-                logger.info(`Resolving ${this.name} Buff: ${action.name}\nValue: ${this.buff.value}  Rounds: ${this.buff.rounds}`);
-            }
-
-            if (action.type === ActionType.Heal) {
-                const resource_string = this.apply_cost(action);
-                const header = `\n<User> — ${action.name}${resource_string}`;
-                const heal = (<Heal>action).value;
-                const hp_before = this.health;
-                this.health = Math.min(this.health + heal, this.max_health);
-                action_string += `${header}\n  ${action.action_string}  [HP: ${hp_before} → ${this.health}]`;
-                logger.info(`Resolving ${this.name} Heal: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${this.health}`);
-            }
-
-            if (action.type === ActionType.Reflect) {
-                const resource_string = this.apply_cost(action);
-                const header = `\n<User> — ${action.name}${resource_string}`;
-                this.reflect.value  = (<Reflect>action).value;
-                this.reflect.rounds = (<Reflect>action).rounds;
-                action_string += `${header}\n  ${action.action_string}`;
-                logger.info(`Resolving ${this.name} Reflect: ${action.name}\nValue: ${this.reflect.value}  Rounds: ${this.reflect.rounds}`);
-            }
-
-            if (action.type === ActionType.Shield) {
-                const resource_string = this.apply_cost(action);
-                const header = `\n<User> — ${action.name}${resource_string}`;
-                this.shield.value  = (<Shield>action).value;
-                this.shield.rounds = (<Shield>action).rounds;
-                action_string += `${header}\n  ${action.action_string}`;
-                logger.info(`Resolving ${this.name} Shield: ${action.name}\nValue: ${this.shield.value}  Rounds: ${this.shield.rounds}`);
-            }
-        });
-
-        return action_string;
-    }
-
-    hostile_target(action_array: Array<Action>, hostile_object: Player_Object, roll_mode: RollMode = RollMode.One) {
-        let target_string = '';
-        let reflect = false;
-
-        action_array.forEach((action: Action) => {
-            if (action.type === ActionType.Strike) {
-                const resource_string = hostile_object.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
-                reflect = true;
-                const damage_roll: number = (<Strike>action).field.get_result_with_mode(roll_mode);
-                const raw_damage: number = Math.max(damage_roll - this.block - this.shield.value + hostile_object.buff.value - hostile_object.debuff.value, 0);
-                const resistance_modifier: number = this.get_resistance_modifier(action);
-                const damage: number = Math.floor(raw_damage * resistance_modifier);
-                const hp_before = this.health;
-                this.health = Math.max(this.health - damage, 0);
-
-                const block_detail  = this.block + this.shield.value > 0 ? `  blocked ${this.block + this.shield.value}` : '';
-                const buff_detail   = hostile_object.buff.value   ? `  +${hostile_object.buff.value} buff`   : '';
-                const debuff_detail = hostile_object.debuff.value ? `  −${hostile_object.debuff.value} debuff` : '';
-                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
-                const detail = `\n  Roll: ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}  →  ${damage} damage  |  ${this.name} HP: ${hp_before} → ${this.health}`;
-
-                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
-
-                logger.info(`Resolving Strike on ${this.name}: ${action.name}\nRoll: ${damage_roll}  Block: ${this.block}  Shield: ${this.shield.value}  Buff: ${hostile_object.buff.value}  Debuff: ${hostile_object.debuff.value}  Modifier: ${resistance_modifier}  Damage: ${damage}  HP: ${this.health}`);
-            }
-
-            if (action.type === ActionType.DamageOverTime) {
-                const resource_string = hostile_object.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
-                const raw_damage: number = (<Damage_Over_Time>action).field.get_result_with_mode(roll_mode);
-                const resistance_modifier: number = this.get_resistance_modifier(action);
-                const damage: number = Math.floor(raw_damage * resistance_modifier);
-                const rounds: number = (<Damage_Over_Time>action).rounds;
-                this.dot.value  = damage;
-                this.dot.rounds = rounds;
-
-                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
-                const detail = `\n  DOT: ${damage} damage × ${rounds} rounds${resist_detail}`;
-
-                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
-
-                logger.info(`Resolving DOT on ${this.name}: ${action.name}\nDamage: ${damage}  Modifier: ${resistance_modifier}  Rounds: ${rounds}`);
-            }
-
-            if (action.type === ActionType.Debuff) {
-                const resource_string = hostile_object.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
-                this.debuff.value  = (<Debuff>action).value;
-                this.debuff.rounds = (<Debuff>action).rounds;
-                this.buff.value  = 0;
-                this.buff.rounds = 0;
-                target_string += `${header}\n  ${action.action_string}`;
-                logger.info(`Resolving Debuff on ${this.name}: ${action.name}\nValue: ${this.debuff.value}  Rounds: ${this.debuff.rounds}`);
-            }
-        });
-
-        return { target_string, reflect };
-    }
-
-    handle_reflect(damage: number) {
-        const hp_before = this.health;
-        this.health = Math.max(this.health - damage, 0);
-
-        const action_string = damage > 0 ? `\n${damage} damage reflected to <User>  |  <User> HP: ${hp_before} → ${this.health}` : '';
-
-        logger.info(
-            `Reflecting Damage to ${this.name}
-Damage: ${damage}
-Health: ${this.health}
-`);
-
-        return action_string;
     }
 
     private tick_effect(effect: StatusEffect, label: string): string {
@@ -235,8 +101,8 @@ Health: ${this.health}
 export default class Battle {
     player_character: Player_Character
     non_player_character: Non_Player_Character
-    pc_object: Player_Object
-    npc_object: Player_Object
+    pc_object: CombatantState
+    npc_object: CombatantState
     npc_index = 0;
     npc_stance_index = 0;
     current_round = 1;
@@ -244,17 +110,16 @@ export default class Battle {
     winner = '';
     log: Array<string> = []
 
-
     constructor(player_character: Player_Character, non_player_character: Non_Player_Character) {
         this.player_character = player_character;
         this.non_player_character = non_player_character;
-        this.pc_object = new Player_Object(
+        this.pc_object = new CombatantState(
             player_character.name,
             player_character.health,
             player_character.weapon.resource_name,
             player_character.weapon.resource_max
         );
-        this.npc_object = new Player_Object(
+        this.npc_object = new CombatantState(
             non_player_character.name,
             non_player_character.health,
             non_player_character.weapon.resource_name,
@@ -310,10 +175,144 @@ export default class Battle {
         return null;
     }
 
-    private resolve_action(actor: Player_Object, opponent: Player_Object, actions: Action[], roll_mode: RollMode): string {
-        const self_str = actor.target_self(actions);
-        const { target_string, reflect } = opponent.hostile_target(actions, actor, roll_mode);
-        const reflect_str = reflect ? actor.handle_reflect(opponent.reflect.value) : '';
+    private apply_self_actions(actor: CombatantState, actions: Action[]): string {
+        let action_string = '';
+
+        for (const action of actions) {
+            if (action.type === ActionType.Block) {
+                const resource_string = actor.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                const block = (action as Block).value;
+                actor.block = block;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${block}`);
+            }
+
+            if (action.type === ActionType.Buff) {
+                const resource_string = actor.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                actor.buff.value  = (action as Buff).value;
+                actor.buff.rounds = (action as Buff).rounds;
+                actor.debuff.value  = 0;
+                actor.debuff.rounds = 0;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${actor.name} Buff: ${action.name}\nValue: ${actor.buff.value}  Rounds: ${actor.buff.rounds}`);
+            }
+
+            if (action.type === ActionType.Heal) {
+                const resource_string = actor.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                const heal = (action as Heal).value;
+                const hp_before = actor.health;
+                actor.health = Math.min(actor.health + heal, actor.max_health);
+                action_string += `${header}\n  ${action.action_string}  [HP: ${hp_before} → ${actor.health}]`;
+                logger.info(`Resolving ${actor.name} Heal: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${actor.health}`);
+            }
+
+            if (action.type === ActionType.Reflect) {
+                const resource_string = actor.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                actor.reflect.value  = (action as Reflect).value;
+                actor.reflect.rounds = (action as Reflect).rounds;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${actor.name} Reflect: ${action.name}\nValue: ${actor.reflect.value}  Rounds: ${actor.reflect.rounds}`);
+            }
+
+            if (action.type === ActionType.Shield) {
+                const resource_string = actor.apply_cost(action);
+                const header = `\n<User> — ${action.name}${resource_string}`;
+                actor.shield.value  = (action as Shield).value;
+                actor.shield.rounds = (action as Shield).rounds;
+                action_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving ${actor.name} Shield: ${action.name}\nValue: ${actor.shield.value}  Rounds: ${actor.shield.rounds}`);
+            }
+        }
+
+        return action_string;
+    }
+
+    private apply_hostile_actions(target: CombatantState, attacker: CombatantState, actions: Action[], roll_mode: RollMode): { target_string: string, reflect: boolean } {
+        let target_string = '';
+        let reflect = false;
+
+        for (const action of actions) {
+            if (action.type === ActionType.Strike) {
+                const resource_string = attacker.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                reflect = true;
+                const damage_roll: number = (action as Strike).field.get_result_with_mode(roll_mode);
+                const raw_damage: number = Math.max(damage_roll - target.block - target.shield.value + attacker.buff.value - attacker.debuff.value, 0);
+                const resistance_modifier: number = target.get_resistance_modifier(action);
+                const damage: number = Math.floor(raw_damage * resistance_modifier);
+                const hp_before = target.health;
+                target.health = Math.max(target.health - damage, 0);
+
+                const block_detail  = target.block + target.shield.value > 0 ? `  blocked ${target.block + target.shield.value}` : '';
+                const buff_detail   = attacker.buff.value   ? `  +${attacker.buff.value} buff`   : '';
+                const debuff_detail = attacker.debuff.value ? `  −${attacker.debuff.value} debuff` : '';
+                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
+                const detail = `\n  Roll: ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}  →  ${damage} damage  |  ${target.name} HP: ${hp_before} → ${target.health}`;
+
+                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+
+                logger.info(`Resolving Strike on ${target.name}: ${action.name}\nRoll: ${damage_roll}  Block: ${target.block}  Shield: ${target.shield.value}  Buff: ${attacker.buff.value}  Debuff: ${attacker.debuff.value}  Modifier: ${resistance_modifier}  Damage: ${damage}  HP: ${target.health}`);
+            }
+
+            if (action.type === ActionType.DamageOverTime) {
+                const resource_string = attacker.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                const raw_damage: number = (action as Damage_Over_Time).field.get_result_with_mode(roll_mode);
+                const resistance_modifier: number = target.get_resistance_modifier(action);
+                const damage: number = Math.floor(raw_damage * resistance_modifier);
+                const rounds: number = (action as Damage_Over_Time).rounds;
+                target.dot.value  = damage;
+                target.dot.rounds = rounds;
+
+                const resist_detail = resistance_modifier !== 1.0 ? `  ×${resistance_modifier} ${resistance_modifier > 1 ? 'weakness' : 'resist'}` : '';
+                const detail = `\n  DOT: ${damage} damage × ${rounds} rounds${resist_detail}`;
+
+                target_string += `${header}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+
+                logger.info(`Resolving DOT on ${target.name}: ${action.name}\nDamage: ${damage}  Modifier: ${resistance_modifier}  Rounds: ${rounds}`);
+            }
+
+            if (action.type === ActionType.Debuff) {
+                const resource_string = attacker.apply_cost(action);
+                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
+                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                target.debuff.value  = (action as Debuff).value;
+                target.debuff.rounds = (action as Debuff).rounds;
+                target.buff.value  = 0;
+                target.buff.rounds = 0;
+                target_string += `${header}\n  ${action.action_string}`;
+                logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
+            }
+        }
+
+        return { target_string, reflect };
+    }
+
+    private apply_reflect(actor: CombatantState, damage: number): string {
+        const hp_before = actor.health;
+        actor.health = Math.max(actor.health - damage, 0);
+
+        const action_string = damage > 0 ? `\n${damage} damage reflected to <User>  |  <User> HP: ${hp_before} → ${actor.health}` : '';
+
+        logger.info(
+            `Reflecting Damage to ${actor.name}
+Damage: ${damage}
+Health: ${actor.health}
+`);
+
+        return action_string;
+    }
+
+    private resolve_action(actor: CombatantState, opponent: CombatantState, actions: Action[], roll_mode: RollMode): string {
+        const self_str = this.apply_self_actions(actor, actions);
+        const { target_string, reflect } = this.apply_hostile_actions(opponent, actor, actions, roll_mode);
+        const reflect_str = reflect ? this.apply_reflect(actor, opponent.reflect.value) : '';
         return `${self_str}${target_string}${reflect_str}`
             .replace(/<User>/g, actor.name)
             .replace(/<Target>/g, opponent.name);
