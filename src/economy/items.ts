@@ -1,8 +1,11 @@
-export const ITEMS: Record<string, { name: string; description: string }> = {
-    copper_ore:         { name: 'Copper Ore',         description: 'A chunk of raw copper ore, good for basic smithing.' },
-    wood:               { name: 'Wood',               description: 'A rough plank of wood, useful in many professions.' },
-    scrap_metal:        { name: 'Scrap Metal',        description: 'Bent and rusted scrap metal salvaged from remains.' },
-    iron_ore:           { name: 'Iron Ore',           description: 'A heavy chunk of iron ore, needed for stronger weapons.' },
-    enchanting_crystal: { name: 'Enchanting Crystal', description: 'A faintly glowing crystal, prized by enchanters.' },
-    spore_dust:         { name: 'Spore Dust',         description: 'Fine powder from a mushroom, used in alchemy.' },
+export type ItemType = 'material' | 'valuable';
+
+export type ItemDef = { name: string; description: string; type: ItemType };
+
+export const ITEMS: Record<string, ItemDef> = {
+    rat_tail:           { name: 'Rat Tail',           description: 'A severed rat tail.',                               type: 'valuable'  },
+    copper_scraps:      { name: 'Copper Scraps',      description: 'Bent copper scraps salvaged from the undead.',      type: 'material'  },
+    enchanting_crystal: { name: 'Enchanting Crystal', description: 'A faintly glowing crystal with arcane energy.',     type: 'material'  },
+    spores:             { name: 'Spores',             description: 'Fine spores shaken loose from a mushroom.',         type: 'material'  },
+    wood_plank:         { name: 'Wood Plank',         description: 'A rough plank of wood, broken off from a mushroom stalk.', type: 'material' },
 };

@@ -14,8 +14,8 @@ type NpcData = {
     'Image': string,
     'Resistances'?: Record<string, number>,
     'Loot'?: {
-        'Currency': [number, number],
-        'Items': Array<{ id: string, chance: number, min: number, max: number }>
+        'Currency'?: { 'Field': number[] },
+        'Items': Array<{ id: string, type: string, Field: number[] }>
     },
     'Weapon': {
         'Name': string,
@@ -53,8 +53,8 @@ export default class Non_Player_Character extends Player_Character {
         const weapon = Weapon.from_json(npc_data['Weapon'])
 
         const loot_table: LootTable | undefined = npc_data['Loot'] ? {
-            currency: npc_data['Loot']['Currency'],
-            items: npc_data['Loot']['Items']
+            currency: npc_data['Loot']['Currency']?.['Field'],
+            items: npc_data['Loot']['Items'].map(i => ({ id: i.id, type: i.type, field: i['Field'] }))
         } : undefined;
 
         return new Non_Player_Character(
