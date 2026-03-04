@@ -1,6 +1,21 @@
 Name: Zombie
 Health: 50
 Level: 2
+Loot:
+  Currency: [8, 18]
+  Items:
+    - id: scrap_metal
+      chance: 0.60
+      min: 1
+      max: 2
+    - id: iron_ore
+      chance: 0.35
+      min: 1
+      max: 1
+    - id: enchanting_crystal
+      chance: 0.15
+      min: 1
+      max: 1
 Resistances:
   Mental: 0.75
   Sharp: 1.25

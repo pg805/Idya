@@ -7,10 +7,16 @@ import Non_Player_Character from "../../character/non_player_character.js";
 import { Stance } from '../../infrastructure/stance.js';
 import { PatternActionType } from '../../infrastructure/pattern.js';
 import Action from '../../weapon/action.js';
+import RewardService, { type LootTable } from '../../economy/reward_service.js';
+
+type RewardContext = { discord_id: string; character_id: string; loot_table: LootTable };
 
 export default class BattleManager {
-    running_battles:  { [key: Snowflake]: Battle }  = {}
-    pending_stances:  { [key: Snowflake]: Stance }  = {}
+    running_battles:  { [key: Snowflake]: Battle }         = {}
+    pending_stances:  { [key: Snowflake]: Stance }         = {}
+    reward_contexts:  { [key: Snowflake]: RewardContext }  = {}
+
+    private reward_service = new RewardService();
 
     constructor() {}
 
@@ -84,11 +90,14 @@ export default class BattleManager {
         return new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
     }
 
-    async button_start_battle(interaction: ButtonInteraction, player_character: Player_Character, non_player_character: Non_Player_Character, start_string: string = '', color: number = 0x00FFFF) {
+    async button_start_battle(interaction: ButtonInteraction, player_character: Player_Character, non_player_character: Non_Player_Character, start_string: string = '', color: number = 0x00FFFF, reward_context?: RewardContext) {
         logger.info(`Starting battle between ${player_character.name} and ${non_player_character.name}.  ID: ${interaction.message.id}`)
 
         const battle = new Battle(player_character, non_player_character)
         this.running_battles[interaction.message.id] = battle
+        if (reward_context) {
+            this.reward_contexts[interaction.message.id] = reward_context;
+        }
 
         let round_string = ''
         if(start_string) {
@@ -195,6 +204,19 @@ export default class BattleManager {
             winner_string = `\n-------------------------\n${round_object.winner} wins!`
 
             delete this.running_battles[interaction.message.id]
+
+            const ctx = this.reward_contexts[interaction.message.id];
+            if (ctx) {
+                delete this.reward_contexts[interaction.message.id];
+                if (round_object.winner === battle.player_character.name) {
+                    try {
+                        const reward = await this.reward_service.grant(ctx.discord_id, ctx.character_id, ctx.loot_table);
+                        winner_string += `\n\nRewards:\n${reward.summary}`;
+                    } catch (err) {
+                        logger.error(`Failed to grant rewards: ${err}`);
+                    }
+                }
+            }
 
             logger.info(`Battle ${interaction.message.id} Finished.  Log:\n${battle.log.join('\n')}`)
         }

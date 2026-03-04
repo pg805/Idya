@@ -13,6 +13,7 @@ import BattleManager from './handlers/battle_manager.js';
 import demo_battle, { DemoHandler } from './handlers/demo_handler.js';
 import CharacterHandler from './handlers/character_handler.js';
 import CharacterRepository from '../character/character_repository.js';
+import battle_handler from './handlers/battle_handler.js';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -122,6 +123,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
                 break;
             case button === 'CreateCharBack':
                 await character_handler.handle_back(interaction);
+                break;
+            case button === 'RwBattleStart':
+                battle_handler.handle_start(interaction, battle_manager)
                 break;
             case button.startsWith('Demo'):
                 // start_battle = true;

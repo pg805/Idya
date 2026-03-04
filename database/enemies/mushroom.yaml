@@ -1,6 +1,21 @@
 Name: Mushroom
 Health: 100
 Level: 5
+Loot:
+  Currency: [20, 40]
+  Items:
+    - id: iron_ore
+      chance: 0.55
+      min: 1
+      max: 2
+    - id: enchanting_crystal
+      chance: 0.45
+      min: 1
+      max: 2
+    - id: spore_dust
+      chance: 0.80
+      min: 2
+      max: 4
 Resistances:
   Physical: 0.75
   Poison: 0.75

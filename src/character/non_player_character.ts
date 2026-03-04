@@ -4,6 +4,7 @@ import Player_Character from './player_character.js';
 import { Stance } from '../infrastructure/stance.js';
 import fs from 'fs';
 import yaml from 'js-yaml';
+import type { LootTable } from '../economy/reward_service.js';
 
 type NpcData = {
     'Name': string,
@@ -12,6 +13,10 @@ type NpcData = {
     'Stance_Pattern'?: Array<Stance>,
     'Image': string,
     'Resistances'?: Record<string, number>,
+    'Loot'?: {
+        'Currency': [number, number],
+        'Items': Array<{ id: string, chance: number, min: number, max: number }>
+    },
     'Weapon': {
         'Name': string,
         'Description': string,
@@ -29,12 +34,14 @@ export default class Non_Player_Character extends Player_Character {
     pattern: Pattern
     stance_pattern: Array<Stance>
     resistances: Record<string, number>
+    loot_table?: LootTable
 
-    constructor(name: string, health: number, pattern: Pattern, stance_pattern: Array<Stance>, weapon: Weapon, image: string, resistances: Record<string, number> = {}) {
+    constructor(name: string, health: number, pattern: Pattern, stance_pattern: Array<Stance>, weapon: Weapon, image: string, resistances: Record<string, number> = {}, loot_table?: LootTable) {
         super(name, health, weapon, image);
         this.pattern = pattern;
         this.stance_pattern = stance_pattern;
         this.resistances = resistances;
+        this.loot_table = loot_table;
     }
 
     static from_file(file: string) {
@@ -45,6 +52,11 @@ export default class Non_Player_Character extends Player_Character {
     static from_json(npc_data: NpcData) {
         const weapon = Weapon.from_json(npc_data['Weapon'])
 
+        const loot_table: LootTable | undefined = npc_data['Loot'] ? {
+            currency: npc_data['Loot']['Currency'],
+            items: npc_data['Loot']['Items']
+        } : undefined;
+
         return new Non_Player_Character(
             npc_data['Name'],
             npc_data['Health'],
@@ -52,7 +64,8 @@ export default class Non_Player_Character extends Player_Character {
             npc_data['Stance_Pattern'] ?? [Stance.Balanced],
             weapon,
             npc_data['Image'],
-            npc_data['Resistances'] ?? {}
+            npc_data['Resistances'] ?? {},
+            loot_table
         )
     }
 }
