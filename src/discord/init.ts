@@ -10,7 +10,7 @@ import Player_Character from '../character/player_character.js';
 import Weapon from '../weapon/weapon.js';
 import Non_Player_Character from '../character/non_player_character.js';
 import BattleManager from './handlers/battle_manager.js';
-import demo_battle, { DemoHandler } from './handlers/demo_handler.js';
+import demo_battle, { demo_handler } from './handlers/demo_handler.js';
 import CharacterHandler from './handlers/character_handler.js';
 import CharacterRepository from '../character/character_repository.js';
 import battle_handler from './handlers/battle_handler.js';
@@ -60,7 +60,6 @@ let human: Player_Character = new Player_Character(
 );
 
 const battle_manager = new BattleManager()
-const demo_handler = new DemoHandler()
 const character_handler = new CharacterHandler()
 const character_repo = new CharacterRepository()
 
