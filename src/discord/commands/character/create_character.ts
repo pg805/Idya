@@ -11,7 +11,7 @@ export default {
     execute: async function(interaction: any) {
         logger.info(`Create Character command from ${interaction.user.id}`);
 
-        if (repo.list(interaction.user.id).length >= 1) {
+        if ((await repo.list(interaction.user.id)).length >= 1) {
             await interaction.reply({
                 content: 'You already have a character! Use `/profile` to view them.',
                 flags: MessageFlags.Ephemeral

@@ -92,7 +92,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if(interaction.isModalSubmit()) {
         if(interaction.customId === 'CreateCharModal') {
-            character_handler.handle_modal(interaction, character_repo);
+            await character_handler.handle_modal(interaction, character_repo);
         }
     }
 
@@ -117,10 +117,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         switch(true) {
             case button === 'CreateCharConfirm':
-                character_handler.handle_confirm(interaction, character_repo);
+                await character_handler.handle_confirm(interaction, character_repo);
                 break;
             case button === 'CreateCharBack':
-                character_handler.handle_back(interaction);
+                await character_handler.handle_back(interaction);
                 break;
             case button.startsWith('Demo'):
                 // start_battle = true;
