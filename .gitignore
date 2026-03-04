@@ -16,6 +16,12 @@ data/logs
 # ignore node modules
 node_modules
 
+# prisma generated client (Prisma 7 artifact)
+src/generated/
+
+# claude code internal files
+.claude/
+
 # ingnore package-lock
 package-lock.json
 
