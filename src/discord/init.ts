@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import logger from '../utility/logger.js';
 
 // Require the necessary discord.js classes
