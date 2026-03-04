@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  discord_id  String      @id
+  currency    Int         @default(0)
+  created_at  DateTime    @default(now())
+  characters  Character[]
+}
+
+model Character {
+  id          String  @id @default(uuid())
+  discord_id  String
+  name        String
+  health      Int
+  max_health  Int
+  image       String
+  weapon_key  String
+
+  user        User    @relation(fields: [discord_id], references: [discord_id])
+}

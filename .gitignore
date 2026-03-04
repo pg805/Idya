@@ -1,5 +1,8 @@
 # B-Sharp git ignore file
 
+# environment variables
+.env
+
 # ignore data
 database/config.json
 database/players
@@ -27,3 +30,4 @@ old.js
 old
 
 *.js
+/src/generated/prisma
