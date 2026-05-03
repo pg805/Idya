@@ -88,7 +88,7 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey): CombatSession {
+function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): CombatSession {
   const shovel     = Weapon.from_file(join(__dirname, '../../database/weapons/shovel.yaml'));
   const shovelInfo = buildWeaponInfo(shovel);
   const playerHp   = 50;
@@ -130,6 +130,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey): CombatSession {
           isAI: false,
           teamId: 'team-a',
           weaponInfo: shovelInfo,
+          sprite: playerSprite,
         }],
       },
       {
@@ -307,10 +308,11 @@ if (discordToken) {
         return;
       }
 
+      const playerSprite = chars[0]?.sprite_token ? `${HOST}/sprites/${chars[0].sprite_token}.png` : undefined;
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        sessions.set(sessionId, createSession(sessionId, 'rat'));
+        sessions.set(sessionId, createSession(sessionId, 'rat', playerSprite));
         sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true });
         await interaction.reply({
           embeds: [
@@ -340,8 +342,10 @@ if (discordToken) {
       const enemyKey = interaction.customId.replace('SpatialBattle_', '') as EnemyKey;
       if (!VALID_ENEMIES.includes(enemyKey)) return;
 
+      const chars = await charRepo.list(interaction.user.id);
+      const playerSprite = chars[0]?.sprite_token ? `${HOST}/sprites/${chars[0].sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      sessions.set(sessionId, createSession(sessionId, enemyKey));
+      sessions.set(sessionId, createSession(sessionId, enemyKey, playerSprite));
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false });
 
       await interaction.update({

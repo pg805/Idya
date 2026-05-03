@@ -34,6 +34,7 @@ export interface Combatant {
   isAI: boolean;
   teamId: string;
   weaponInfo: WeaponInfo;
+  sprite?: string;
 }
 
 export interface CombatantMeta {

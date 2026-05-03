@@ -198,8 +198,16 @@ function renderBoard() {
         const isOwn = combatant.teamId === playerTeamId;
         const el = document.createElement('div');
         el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
-        const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
+        if (combatant.sprite) {
+          el.style.backgroundImage = `url('${combatant.sprite}')`;
+          el.style.backgroundSize = 'contain';
+          el.style.backgroundRepeat = 'no-repeat';
+          el.style.backgroundPosition = 'center';
+          el.innerHTML = `<span class="combatant-name">${combatant.name}</span>`;
+        } else {
+          const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+          el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
+        }
         cell.appendChild(el);
       }
 
