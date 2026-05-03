@@ -4,4 +4,4 @@ git pull origin dev
 npm install --include=dev
 npx prisma generate
 npm run build
-pm2 restart idya-dev
+pm2 startOrRestart ecosystem.config.cjs
