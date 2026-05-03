@@ -55,6 +55,7 @@ export interface SessionState {
   id: string;
   board: ReturnType<Board['toJSON']>;
   combatants: Combatant[];
+  teams: { id: string; name: string }[];
   turn: number;
   phase: SessionPhase;
   telegraphs: Record<string, string>; // combatantId → flavor text of next intent
@@ -97,6 +98,7 @@ export class CombatSession {
       id: this.id,
       board: this.board.toJSON(),
       combatants: this.combatants,
+      teams: this.teams.map(t => ({ id: t.id, name: t.name })),
       turn: this.turn,
       phase: this.phase,
       telegraphs: this.telegraphs,
