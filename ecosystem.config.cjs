@@ -10,6 +10,12 @@ module.exports = {
                 HOST_URL: 'http://10.0.0.52:3001'
             },
             watch: false
+        },
+        {
+            name: 'webhook',
+            script: './webhook/index.js',
+            cwd: '/home/mac-admin/Idya',
+            watch: false
         }
     ]
 }

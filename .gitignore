@@ -37,3 +37,4 @@ old
 
 *.js
 !public/*.js
+!webhook/*.js
