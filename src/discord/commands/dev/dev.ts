@@ -2,11 +2,11 @@ import { SlashCommandBuilder } from 'discord.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('admin')
-        .setDescription('Admin-only commands')
+        .setName('dev')
+        .setDescription('Dev-only commands')
         .addSubcommand(sub =>
-            sub.setName('joinsim')
-                .setDescription('Simulate the server join flow for a user')
+            sub.setName('resetcharacter')
+                .setDescription('Delete a user\'s character and reset tutorial')
                 .addUserOption(opt =>
                     opt.setName('user')
                         .setDescription('Target user')

@@ -236,8 +236,8 @@ function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
     : (member.roles as string[]).includes(worldConfig.admin_role);
 }
 
-function isSuperuser(userId: string): boolean {
-  return worldConfig.superusers.includes(userId);
+function isDev(userId: string): boolean {
+  return worldConfig.dev.includes(userId);
 }
 
 async function sendWelcomeDM(user: User): Promise<void> {
@@ -453,11 +453,18 @@ if (discordToken) {
       await sendWelcomeDM(target);
       await interaction.reply({ content: `Join flow sent to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
+  });
+
+  // ---- Dev commands ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'dev') return;
+    if (!isDev(interaction.user.id)) {
+      await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const sub = interaction.options.getSubcommand();
     if (sub === 'resetcharacter') {
-      if (!isSuperuser(interaction.user.id)) {
-        await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
-        return;
-      }
       const target = interaction.options.getUser('user', true);
       await prisma.character.deleteMany({ where: { discord_id: target.id } });
       await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false } }).catch(() => {});

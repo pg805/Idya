@@ -13,7 +13,7 @@ interface NpcDef {
 export interface WorldConfig {
   guild_id:   string;
   admin_role: string;
-  superusers: string[];
+  dev: string[];
   channels: {
     town_square:    string;
     blacksmith:     string;
