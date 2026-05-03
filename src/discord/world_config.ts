@@ -12,6 +12,7 @@ interface NpcDef {
 
 export interface WorldConfig {
   guild_id:   string;
+  sprite_cdn: string;
   admin_role: string;
   dev: string[];
   channels: {

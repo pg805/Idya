@@ -273,7 +273,7 @@ function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBui
       new EmbedBuilder()
         .setColor(0x1a1a2e)
         .setTitle(s.name)
-        .setImage(`${HOST}/sprites/${s.key}.png`)
+        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png`)
     ),
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
