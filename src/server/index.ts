@@ -12,6 +12,7 @@ import {
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
+import prisma from '../database/prisma.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
@@ -31,6 +32,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean }>();
 const charRepo = new CharacterRepository();
 const pendingCharNames = new Map<string, string>(); // discord_id → name
 
@@ -168,7 +170,7 @@ io.on('connection', (socket: Socket) => {
     socket.emit('session_state', session.toState());
   });
 
-  socket.on('submit_intent', ({ sessionId, intent }: { sessionId: string; intent: CombatIntent }) => {
+  socket.on('submit_intent', async ({ sessionId, intent }: { sessionId: string; intent: CombatIntent }) => {
     const session = sessions.get(sessionId);
     if (!session || session.phase !== 'intent') return;
 
@@ -191,12 +193,20 @@ io.on('connection', (socket: Socket) => {
 
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
+      const meta = sessionMeta.get(sessionId);
+      if (meta?.isTutorial && result.winner === 'team-a') {
+        await prisma.user.update({
+          where: { discord_id: meta.discordUserId },
+          data: { tutorial_complete: true },
+        }).catch(() => {});
+      }
     }
   });
 
   socket.on('reset_session', (sessionId: string) => {
     const session = sessions.get(sessionId);
     if (!session) return;
+    sessionMeta.delete(sessionId);
     const enemyKey = (VALID_ENEMIES.find(k =>
       session.combatants.some(c => c.isAI && c.name.toLowerCase().includes(k))
     ) ?? 'rat') as EnemyKey;
@@ -248,6 +258,36 @@ if (discordToken) {
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand() && interaction.commandName === 'battle') {
+      const chars = await charRepo.list(interaction.user.id);
+      if (chars.length === 0) {
+        await interaction.reply({
+          content: "You don't have a character yet! Use `/createcharacter` to begin your adventure in Sulku'it.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+      if (!dbUser?.tutorial_complete) {
+        const sessionId = Math.random().toString(36).slice(2, 10);
+        sessions.set(sessionId, createSession(sessionId, 'rat'));
+        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true });
+        await interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x1a1a2e)
+              .setTitle('Tutorial Battle')
+              .setDescription(
+                "Welcome to Sulku'it! Your first battle awaits.\n\n" +
+                'Defeat the rat to complete your tutorial and unlock full battle selection.'
+              ),
+          ],
+          content: `${HOST}/battle/${sessionId}`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       await interaction.reply({
         embeds: [enemySelectEmbed],
         components: [enemySelectRow],
@@ -262,6 +302,7 @@ if (discordToken) {
 
       const sessionId = Math.random().toString(36).slice(2, 10);
       sessions.set(sessionId, createSession(sessionId, enemyKey));
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false });
 
       await interaction.update({
         content: `**Battle ready!**\n${HOST}/battle/${sessionId}`,
