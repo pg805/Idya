@@ -8,11 +8,10 @@ import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
-  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
-import { SPRITES } from '../character/sprites.js';
+import { SPRITES, type SpriteInfo } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
 import worldConfig from '../discord/world_config.js';
 import Weapon from '../weapon/weapon.js';
@@ -36,7 +35,7 @@ const io = new Server(httpServer);
 const sessions = new Map<string, CombatSession>();
 const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean }>();
 const charRepo = new CharacterRepository();
-const pendingCharNames = new Map<string, string>(); // discord_id → name
+const pendingCharCreation = new Map<string, { name: string; spriteOptions: SpriteInfo[] }>();
 
 // ---- Telegraph ----
 
@@ -241,17 +240,70 @@ function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
 }
 
-function buildWelcomeEmbed(mention: string): EmbedBuilder {
+function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
   const mayor = worldConfig.npcs.mayor;
-  return new EmbedBuilder()
-    .setColor(0x1a1a2e)
-    .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
-    .setDescription(
-      `${mention} — "Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
-      `The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
-      `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x1a1a2e)
+        .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
+        .setDescription(
+          `${mention} — "Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
+          `The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
+          `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
+        ),
+    ],
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('CreateChar_Begin')
+          .setLabel('Register in the Ledger')
+          .setStyle(ButtonStyle.Primary)
+      ),
+    ],
+  };
+}
+
+function pickRandomSprites(n: number): SpriteInfo[] {
+  return [...SPRITES].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+function buildSpritePicker(options: SpriteInfo[]): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+  return {
+    embeds: options.map(s =>
+      new EmbedBuilder()
+        .setColor(0x1a1a2e)
+        .setTitle(s.name)
+        .setImage(`${HOST}/sprites/${s.key}.png`)
+    ),
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        options.map(s =>
+          new ButtonBuilder().setCustomId(`PickSprite_${s.key}`).setLabel(s.name).setStyle(ButtonStyle.Primary)
+        )
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('SpriteReroll').setLabel('Show different options').setStyle(ButtonStyle.Secondary)
+      ),
+    ],
+  };
+}
+
+function buildCharModal(): ModalBuilder {
+  const modal = new ModalBuilder().setCustomId('CreateCharModal').setTitle('Create Your Character');
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId('CreateCharNameInput')
+        .setLabel('Character Name')
+        .setStyle(TextInputStyle.Short)
+        .setMinLength(1)
+        .setMaxLength(32)
+        .setPlaceholder("Enter your character's name...")
+        .setRequired(true)
     )
-    .setFooter({ text: 'Use /createcharacter to register your name in the ledger of Sulku\'it.' });
+  );
+  return modal;
 }
 
 const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
@@ -350,68 +402,59 @@ if (discordToken) {
     if (interaction.isChatInputCommand() && interaction.commandName === 'createcharacter') {
       const existing = await charRepo.list(interaction.user.id);
       if (existing.length > 0) {
-        await interaction.reply({
-          content: 'You already have a character! Use `/profile` to view it.',
-          flags: MessageFlags.Ephemeral,
-        });
+        await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
+      await interaction.showModal(buildCharModal());
+      return;
+    }
 
-      const modal = new ModalBuilder()
-        .setCustomId('CreateCharModal')
-        .setTitle('Create Your Character');
-
-      const nameInput = new TextInputBuilder()
-        .setCustomId('CreateCharNameInput')
-        .setLabel('Character Name')
-        .setStyle(TextInputStyle.Short)
-        .setMinLength(1)
-        .setMaxLength(32)
-        .setPlaceholder("Enter your character's name...")
-        .setRequired(true);
-
-      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput));
-      await interaction.showModal(modal);
+    if (interaction.isButton() && interaction.customId === 'CreateChar_Begin') {
+      const existing = await charRepo.list(interaction.user.id);
+      if (existing.length > 0) {
+        await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.showModal(buildCharModal());
       return;
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
       const name = interaction.fields.getTextInputValue('CreateCharNameInput');
-      pendingCharNames.set(interaction.user.id, name);
-
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId('CreateCharSpriteSelect')
-        .setPlaceholder('Choose your character sprite...')
-        .addOptions(SPRITES.map(s =>
-          new StringSelectMenuOptionBuilder().setLabel(s.name).setValue(s.key)
-        ));
-
+      const options = pickRandomSprites(4);
+      pendingCharCreation.set(interaction.user.id, { name, spriteOptions: options });
       await interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x1a1a2e)
-            .setTitle(`Welcome to Sulku'it, ${name}!`)
-            .setDescription('Choose a sprite to represent your character in battle.'),
-        ],
-        components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+        ...buildSpritePicker(options),
+        content: `Welcome to Sulku'it, **${name}**! Choose a sprite to represent you in battle.`,
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === 'CreateCharSpriteSelect') {
-      const spriteKey = interaction.values[0];
-      const name = pendingCharNames.get(interaction.user.id);
-      if (!name) {
+    if (interaction.isButton() && interaction.customId === 'SpriteReroll') {
+      const pending = pendingCharCreation.get(interaction.user.id);
+      if (!pending) {
         await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
         return;
       }
-      pendingCharNames.delete(interaction.user.id);
+      const options = pickRandomSprites(4);
+      pending.spriteOptions = options;
+      await interaction.update({ ...buildSpritePicker(options), content: `Welcome to Sulku'it, **${pending.name}**! Choose a sprite to represent you in battle.` });
+      return;
+    }
 
+    if (interaction.isButton() && interaction.customId.startsWith('PickSprite_')) {
+      const spriteKey = interaction.customId.replace('PickSprite_', '');
+      const pending = pendingCharCreation.get(interaction.user.id);
+      if (!pending) {
+        await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
+        return;
+      }
+      pendingCharCreation.delete(interaction.user.id);
       const sprite = SPRITES.find(s => s.key === spriteKey);
-      const character = await charRepo.create(interaction.user.id, name, 'fists', spriteKey);
-
+      const character = await charRepo.create(interaction.user.id, pending.name, 'fists', spriteKey);
       await interaction.update({
+        content: '',
         embeds: [
           new EmbedBuilder()
             .setColor(0x00cc66)
@@ -444,7 +487,7 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'joinsim') {
       const target = interaction.options.getUser('user', true);
-      await interaction.reply({ embeds: [buildWelcomeEmbed(`<@${target.id}>`)], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ ...buildWelcomeEmbed(`<@${target.id}>`), flags: MessageFlags.Ephemeral });
     }
   });
 
@@ -505,7 +548,7 @@ if (discordToken) {
     if (member.guild.id !== worldConfig.guild_id) return;
     const channel = member.guild.channels.cache.get(worldConfig.channels.town_square);
     if (!channel?.isTextBased()) return;
-    await channel.send({ embeds: [buildWelcomeEmbed(`<@${member.id}>`)] });
+    await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
   });
 
   discord.once(Events.ClientReady, (c) => {
