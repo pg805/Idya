@@ -36,3 +36,4 @@ old.js
 old
 
 *.js
+!public/*.js

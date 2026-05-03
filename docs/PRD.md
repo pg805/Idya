@@ -147,7 +147,7 @@ Battle Result → Bot → Discord Channel
 - **Skill expression**: Stance reads, pattern recognition, resource management
 - **Weapons**: Player's equipped weapon comes from their inventory (crafted item)
 
-**Full design spec**: See [`docs/battle-system.md`](./battle-system.md)
+**Full design spec**: See [`docs/battle-ideas.md`](./battle-ideas.md)
 
 **MVP Enemies**: 3-5 enemy types with varying difficulty and loot tables
 

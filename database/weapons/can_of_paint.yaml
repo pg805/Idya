@@ -34,6 +34,8 @@ Attack:
     Damage_Subtype: Aqua
     Field: [0, 7, 7, 7]
     Cost: 1  # costs 1 paint
+    Aimed: false
+    Range: 1
     Action_String: "<User> swipes their brush at <Target>, dealing <Damage> damage."
 
 Attack Crit:
@@ -55,6 +57,8 @@ Special:
     Field: [2, 3, 5, 7]
     Rounds: 3
     Cost: 3  # costs 3 paint
+    Aimed: false
+    Range: 1
     Action_String: "<User> sets the paint on <Target> to dry. <Target> will take <Damage> damage for 3 rounds."
 
 Special Crit: []

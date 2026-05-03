@@ -238,8 +238,7 @@ export default class Battle {
         for (const action of actions) {
             if (action.type === ActionType.Strike) {
                 const resource_string = attacker.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                const header = `\n<User> — ${action.name}${resource_string}`;
                 reflect = true;
                 const damage_roll: number = (action as Strike).field.get_result_with_mode(roll_mode);
                 const raw_damage: number = Math.max(damage_roll - target.block - target.shield.value + attacker.buff.value - attacker.debuff.value, 0);
@@ -261,8 +260,7 @@ export default class Battle {
 
             if (action.type === ActionType.DamageOverTime) {
                 const resource_string = attacker.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                const header = `\n<User> — ${action.name}${resource_string}`;
                 const raw_damage: number = (action as Damage_Over_Time).field.get_result_with_mode(roll_mode);
                 const resistance_modifier: number = target.get_resistance_modifier(action);
                 const damage: number = Math.floor(raw_damage * resistance_modifier);
@@ -280,8 +278,7 @@ export default class Battle {
 
             if (action.type === ActionType.Debuff) {
                 const resource_string = attacker.apply_cost(action);
-                const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
-                const header = `\n<User> — ${action.name}${resource_string}${type_string}`;
+                const header = `\n<User> — ${action.name}${resource_string}`;
                 target.debuff.value  = (action as Debuff).value;
                 target.debuff.rounds = (action as Debuff).rounds;
                 target.buff.value  = 0;

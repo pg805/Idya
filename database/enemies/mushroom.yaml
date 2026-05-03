@@ -60,6 +60,8 @@ Weapon:
       Field: [1, 1, 1, 2, 3, 4]
       Rounds: 5
       Cost: 2
+      Aimed: true
+      Range: 3
       Action_String: "<User> bathes <Target> in spores, <Target> will take <Damage> damage for 5 rounds."
 
   Attack Crit:

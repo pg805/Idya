@@ -40,6 +40,8 @@ Weapon:
       Damage_Subtype: Sharp
       Field: [0, 3, 5, 5, 7, 10]
       Cost: 1
+      Aimed: false
+      Range: 1
       Action_String: "<User> scratches <Target> dealing <Damage> damage."
 
   Attack Crit:
@@ -59,6 +61,8 @@ Weapon:
       Damage_Subtype: Sharp
       Field: [3, 9, 15, 15]
       Cost: 2
+      Aimed: false
+      Range: 1
       Action_String: "<User> bites <Target> for <Damage> damage."
 
   Special Crit: []

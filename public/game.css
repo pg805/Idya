@@ -1,0 +1,229 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  gap: 16px;
+}
+
+h1 { color: #c0a060; letter-spacing: 0.12em; font-size: 1.3rem; }
+
+#status-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #888;
+}
+.sep { color: #444; }
+#turn-label { color: #c0a060; font-weight: bold; }
+#phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: #aaa; }
+
+#main-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+#left-col { display: flex; flex-direction: column; gap: 12px; }
+
+/* ---- Board ---- */
+#board {
+  display: grid;
+  gap: 3px;
+  background: #0d0d1a;
+  padding: 8px;
+  border: 2px solid #2a2a4a;
+  border-radius: 6px;
+}
+
+.cell {
+  width: 72px;
+  height: 72px;
+  background: #16213e;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: default;
+  transition: background 0.1s, outline 0.1s;
+  outline: 2px solid transparent;
+}
+
+.cell[data-coord]::after {
+  content: attr(data-coord);
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.5rem;
+  color: #2a3050;
+  pointer-events: none;
+}
+
+/* Obstacle */
+.cell.obstacle {
+  background: #2a1e10;
+  cursor: not-allowed;
+}
+.cell.obstacle::before {
+  content: '▪';
+  font-size: 2rem;
+  color: #7a5a3a;
+}
+.cell.obstacle[data-state="damaged"]::before { color: #c08040; content: '▵'; }
+.cell.obstacle[data-state="destroyed"] { background: #1a1510; }
+.cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #333; }
+
+/* Reachable highlight */
+.cell.reachable {
+  background: #0e2a4a;
+  cursor: pointer;
+  outline-color: #2060a0;
+}
+.cell.reachable:hover { background: #0e3a6a; outline-color: #4090d0; }
+
+/* Selected move target */
+.cell.move-target {
+  background: #0a3a1a;
+  outline-color: #30c060;
+}
+
+/* Targetable tiles */
+.cell.target-valid { cursor: crosshair; outline: 2px solid #904020; background: #1e1008; }
+.cell.target-valid:hover { background: #2e1810; outline-color: #e06030; }
+.cell.target-selected { cursor: crosshair; outline: 3px solid #ff4020; background: #2a0e08;
+  box-shadow: inset 0 0 14px #ff402055; }
+
+/* Combatant tokens */
+.combatant {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.85rem;
+  border: 2px solid transparent;
+  transition: transform 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  user-select: none;
+}
+.combatant.team-a { background: #1a4a7a; border-color: #4a90d9; color: #d0e8ff; }
+.combatant.team-b { background: #7a1a1a; border-color: #d94a4a; color: #ffd0d0; }
+.combatant.selected {
+  box-shadow: 0 0 0 3px #ffe060, 0 0 12px #ffe06088;
+  transform: scale(1.08);
+}
+.combatant-name { font-size: 0.55rem; font-weight: normal; opacity: 0.8; }
+
+/* ---- Action panel ---- */
+#action-panel {
+  background: #12192e;
+  border: 1px solid #2a3a5a;
+  border-radius: 6px;
+  padding: 12px 16px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.action-title {
+  font-size: 0.8rem;
+  color: #8898aa;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.action-btn {
+  background: #1e2e4a;
+  border: 1px solid #3a5a8a;
+  border-radius: 4px;
+  color: #c0d8f0;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.action-btn:hover { background: #2a3e6a; border-color: #60a0e0; }
+.action-btn.selected { background: #1a4a2a; border-color: #40c060; color: #a0ffc0; }
+.submit-btn {
+  background: #3a2000;
+  border: 1px solid #c08020;
+  border-radius: 4px;
+  color: #ffd060;
+  padding: 7px 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.1s;
+}
+.submit-btn:hover { background: #5a3000; }
+
+/* ---- Combatant cards ---- */
+#combatant-list { display: flex; gap: 12px; }
+.combatant-card {
+  background: #16213e;
+  border: 1px solid #2a3a5a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 130px;
+}
+.combatant-card.team-a { border-color: #4a90d9; }
+.combatant-card.team-b { border-color: #d94a4a; }
+.combatant-card h3 { font-size: 0.9rem; margin-bottom: 6px; }
+.hp-bar-bg { background: #0d0d1a; border-radius: 3px; height: 6px; overflow: hidden; }
+.hp-bar { height: 100%; border-radius: 3px; transition: width 0.3s, background 0.3s; }
+.hp-text { font-size: 0.75rem; color: #888; margin-top: 3px; }
+.res-bar-bg { background: #0d0d1a; border-radius: 3px; height: 4px; overflow: hidden; margin-top: 6px; }
+.res-bar { height: 100%; border-radius: 3px; background: #4a7a9b; transition: width 0.3s; }
+.telegraph { font-size: 0.7rem; color: #c0a060; margin-top: 7px; font-style: italic; letter-spacing: 0.04em; }
+
+/* ---- Combat log ---- */
+#right-col {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+#log-header {
+  background: #12192e;
+  border: 1px solid #2a3a5a;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #667;
+}
+#combat-log {
+  background: #0e141f;
+  border: 1px solid #2a3a5a;
+  border-radius: 0 0 6px 6px;
+  padding: 10px 12px;
+  height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+#combat-log p { color: #99aabb; border-bottom: 1px solid #1a2230; padding-bottom: 3px; }
+#combat-log p.turn-divider { color: #c0a060; font-weight: bold; border-bottom-color: #3a2a00; }
+#combat-log p.crit { color: #ffd060; font-weight: bold; }
+
+/* ---- Status ---- */
+#connection-status { font-size: 0.75rem; }
+#connection-status.connected { color: #4caf50; }
+#connection-status.disconnected { color: #d94a4a; }

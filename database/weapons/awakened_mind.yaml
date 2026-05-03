@@ -35,6 +35,8 @@ Attack:
     Damage_Subtype: Earth
     Field: [1, 1, 1, 2, 3, 4]
     Cost: 0
+    Aimed: false
+    Range: 3
     Action_String: "<User> hurls their stone at <Target>, dealing <Damage> damage."
 
 Attack Crit:
@@ -56,6 +58,8 @@ Special:
     Value: 8
     Rounds: 4
     Cost: 3
+    Aimed: true
+    Range: 3
     Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 8 for 4 rounds."
 
 Special Crit: []

@@ -26,6 +26,8 @@ Attack:
     Damage_Subtype: Sharp
     Field: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
     Cost: 2  # costs 2 luck
+    Aimed: false
+    Range: 3
     Action_String: "<User> pulls a card and throws it at <Target>, dealing <Damage> damage."
   - Name: Ace
     Type: 1
@@ -34,6 +36,8 @@ Attack:
     Damage_Subtype: Sharp
     Field: [11]
     Cost: 10  # costs 10 luck
+    Aimed: true
+    Range: 3
     Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
 
 Attack Crit:
@@ -54,6 +58,8 @@ Special:
     Damage_Subtype: Sharp
     Field: [1, 12, 17, 22]
     Cost: 4  # costs 4 luck
+    Aimed: false
+    Range: 3
     Action_String: "<User> pulls a suit card and throws it at <Target>, dealing <Damage> damage."
   - Name: Spades
     Type: 1
@@ -62,6 +68,8 @@ Special:
     Damage_Subtype: Sharp
     Field: [22]
     Cost: 20  # costs 20 luck
+    Aimed: true
+    Range: 3
     Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."
 
 Special Crit: []

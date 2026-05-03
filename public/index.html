@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idya Combat</title>
+  <link rel="stylesheet" href="/game.css">
+</head>
+<body>
+  <h1>IDYA COMBAT</h1>
+
+  <div id="status-bar">
+    <span id="turn-label">Turn 1</span>
+    <span class="sep">·</span>
+    <span id="phase-label">waiting</span>
+    <span class="sep">·</span>
+    <span id="connection-status" class="disconnected">Connecting...</span>
+  </div>
+
+  <div id="main-layout">
+    <div id="left-col">
+      <div id="board"></div>
+      <div id="action-panel"></div>
+      <div id="combatant-list"></div>
+    </div>
+    <div id="right-col">
+      <div id="log-header">Combat Log</div>
+      <div id="combat-log"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/game.js"></script>
+</body>
+</html>

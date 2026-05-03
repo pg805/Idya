@@ -10,6 +10,14 @@ export enum ActionType {
     Shield         = 8
 }
 
+export const SELF_TARGET_TYPES = new Set<number>([
+    ActionType.Block,
+    ActionType.Buff,
+    ActionType.Heal,
+    ActionType.Reflect,
+    ActionType.Shield,
+]);
+
 export default class Action {
     name: string
     action_string: string
@@ -18,6 +26,8 @@ export default class Action {
     damage_type: string = ''
     damage_subtype: string = ''
     cost: number = 0
+    range: number = 1
+    aimed: boolean = false
 
     constructor(name: string, action_string: string) {
         this.name = name;

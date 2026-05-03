@@ -1,0 +1,275 @@
+import fs from 'fs';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import {
+  Client, GatewayIntentBits, Events,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
+} from 'discord.js';
+import Weapon from '../weapon/weapon.js';
+import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
+import { CombatantState } from '../combat/combatant_state.js';
+import { CombatIntent } from '../combat/intent.js';
+import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
+import { generateAIIntent } from '../combat/ai.js';
+import { resolveIntents } from '../combat/resolution.js';
+import { PatternActionType } from '../infrastructure/pattern.js';
+import { SELF_TARGET_TYPES } from '../weapon/action.js';
+import { chebyshevDist } from '../combat/board.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer);
+
+const sessions = new Map<string, CombatSession>();
+
+// ---- Telegraph ----
+
+const TELEGRAPH: Record<string, Record<string, string>> = {
+  defend:  { closing: 'Pulling back',       holding: 'Bracing',             retreating: 'Retreating' },
+  attack:  { closing: 'Closing in',         holding: 'Poised to strike',    retreating: 'Breaking away' },
+  special: { closing: 'Moving with intent', holding: 'Preparing something', retreating: 'Buying time' },
+};
+
+function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[]): string {
+  if (meta.pattern.length === 0 || enemies.length === 0) return '';
+
+  const entry = meta.pattern[meta.patternIndex];
+  const { weapon } = meta;
+
+  const category =
+    entry.type === PatternActionType.Defend  ? 'defend'  :
+    entry.type === PatternActionType.Attack  ? 'attack'  : 'special';
+
+  let action = null;
+  if (entry.type === PatternActionType.Defend)  action = weapon.defend[entry.index]  ?? null;
+  if (entry.type === PatternActionType.Attack)  action = weapon.attack[entry.index]  ?? null;
+  if (entry.type === PatternActionType.Special) action = weapon.special[entry.index] ?? null;
+
+  if (!action || SELF_TARGET_TYPES.has(action.type)) {
+    return TELEGRAPH[category].holding;
+  }
+
+  const nearest = enemies.reduce((a, b) =>
+    chebyshevDist(ai.pos, a.pos) <= chebyshevDist(ai.pos, b.pos) ? a : b
+  );
+  const dist = chebyshevDist(ai.pos, nearest.pos);
+  const movement = dist <= action.range ? 'holding' : 'closing';
+  return TELEGRAPH[category][movement];
+}
+
+function refreshTelegraphs(session: CombatSession): void {
+  session.telegraphs = {};
+  for (const c of session.aiCombatants()) {
+    const meta = session.meta.get(c.id);
+    if (!meta) continue;
+    const enemies = session.combatants.filter(e => e.teamId !== c.teamId);
+    session.telegraphs[c.id] = computeTelegraph(meta, c, enemies);
+  }
+}
+
+// ---- Session creation ----
+
+const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
+type EnemyKey = typeof VALID_ENEMIES[number];
+
+function createSession(sessionId: string, enemyKey: EnemyKey): CombatSession {
+  const shovel     = Weapon.from_file(join(__dirname, '../../database/weapons/shovel.yaml'));
+  const shovelInfo = buildWeaponInfo(shovel);
+  const playerHp   = 50;
+  const playerState = new CombatantState('Hero', playerHp, shovel.resource_name, shovel.resource_max);
+
+  const { combatant: enemy, meta: enemyMeta } = loadEnemy(
+    join(__dirname, `../../database/enemies/${enemyKey}.yaml`),
+    { id: 'enemy-1', teamId: 'team-b', pos: { x: 6, y: 2 }, movementRange: 2 },
+  );
+
+  const session = new CombatSession(
+    sessionId,
+    {
+      width: 7,
+      height: 5,
+      obstacles: [
+        { pos: { x: 2, y: 1 }, state: 'intact' },
+        { pos: { x: 2, y: 2 }, state: 'intact' },
+        { pos: { x: 2, y: 3 }, state: 'intact' },
+        { pos: { x: 4, y: 1 }, state: 'intact' },
+        { pos: { x: 4, y: 2 }, state: 'intact' },
+        { pos: { x: 4, y: 3 }, state: 'intact' },
+      ],
+    },
+    [
+      {
+        id: 'team-a',
+        name: 'Player',
+        combatants: [{
+          id: 'player-1',
+          name: 'Hero',
+          hp: playerHp,
+          maxHp: playerHp,
+          resource: shovel.resource_max,
+          maxResource: shovel.resource_max,
+          resourceName: shovel.resource_name,
+          pos: { x: 0, y: 2 },
+          movementRange: 2,
+          isAI: false,
+          teamId: 'team-a',
+          weaponInfo: shovelInfo,
+        }],
+      },
+      {
+        id: 'team-b',
+        name: 'Enemy',
+        combatants: [enemy],
+      },
+    ],
+  );
+
+  session.meta.set('player-1', { weapon: shovel, state: playerState, pattern: [], patternIndex: 0 });
+  session.meta.set('enemy-1', enemyMeta);
+  session.phase = 'intent';
+  refreshTelegraphs(session);
+  return session;
+}
+
+// ---- Web server ----
+
+app.use(express.static(join(__dirname, '../../public')));
+app.get('/battle/:sessionId', (_req, res) => {
+  res.sendFile(join(__dirname, '../../public/index.html'));
+});
+
+sessions.set('test', createSession('test', 'rat'));
+
+// ---- Socket.io ----
+
+io.on('connection', (socket) => {
+  console.log('client connected:', socket.id);
+
+  socket.on('join_session', (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      socket.emit('error', { message: `Session ${sessionId} not found` });
+      return;
+    }
+    socket.join(sessionId);
+    socket.emit('session_joined', { playerTeamId: 'team-a' });
+    socket.emit('session_state', session.toState());
+  });
+
+  socket.on('submit_intent', ({ sessionId, intent }: { sessionId: string; intent: CombatIntent }) => {
+    const session = sessions.get(sessionId);
+    if (!session || session.phase !== 'intent') return;
+
+    const combatant = session.combatants.find(c => c.id === intent.combatantId);
+    if (!combatant || combatant.isAI) return;
+
+    session.pendingIntents.set(intent.combatantId, intent);
+    if (!session.allHumansSubmitted()) return;
+
+    for (const ai of session.aiCombatants()) {
+      session.pendingIntents.set(ai.id, generateAIIntent(ai, session));
+    }
+
+    session.phase = 'resolving';
+    const result = resolveIntents(session, session.pendingIntents);
+    refreshTelegraphs(session);
+
+    io.to(sessionId).emit('session_state', session.toState());
+    io.to(sessionId).emit('turn_result', { log: result.log });
+
+    if (result.winner) {
+      io.to(sessionId).emit('game_over', { winner: result.winner });
+    }
+  });
+
+  socket.on('reset_session', (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    if (!session) return;
+    const enemyKey = (VALID_ENEMIES.find(k =>
+      session.combatants.some(c => c.isAI && c.name.toLowerCase().includes(k))
+    ) ?? 'rat') as EnemyKey;
+    const fresh = createSession(sessionId, enemyKey);
+    sessions.set(sessionId, fresh);
+    io.to(sessionId).emit('session_state', fresh.toState());
+  });
+
+  socket.on('disconnect', () => {
+    console.log('client disconnected:', socket.id);
+  });
+});
+
+const PORT = process.env.PORT ?? 3000;
+httpServer.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Test session: http://localhost:${PORT}/battle/test`);
+});
+
+// ---- Discord bot ----
+
+const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
+
+let discordToken: string | null = null;
+try {
+  discordToken = JSON.parse(
+    fs.readFileSync(join(__dirname, '../../database/config.json'), 'utf-8')
+  )['TOKEN'] ?? null;
+} catch (_) {}
+
+if (discordToken) {
+  const discord = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+  const enemySelectEmbed = new EmbedBuilder()
+    .setColor(0x1a1a2e)
+    .setTitle('Choose Your Enemy')
+    .setDescription('Select a monster to fight.')
+    .addFields(
+      { name: 'Rat',      value: 'Quick and aggressive. Good starting fight.',         inline: true },
+      { name: 'Zombie',   value: 'Slow but hard-hitting. Weak to Sharp damage.',       inline: true },
+      { name: 'Mushroom', value: 'Resilient. Resists Physical and Poison.',            inline: true },
+    );
+
+  const enemySelectRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('SpatialBattle_rat').setLabel('Rat').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('SpatialBattle_zombie').setLabel('Zombie').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('SpatialBattle_mushroom').setLabel('Mushroom').setStyle(ButtonStyle.Primary),
+  );
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isChatInputCommand() && interaction.commandName === 'battle') {
+      await interaction.reply({
+        embeds: [enemySelectEmbed],
+        components: [enemySelectRow],
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('SpatialBattle_')) {
+      const enemyKey = interaction.customId.replace('SpatialBattle_', '') as EnemyKey;
+      if (!VALID_ENEMIES.includes(enemyKey)) return;
+
+      const sessionId = Math.random().toString(36).slice(2, 10);
+      sessions.set(sessionId, createSession(sessionId, enemyKey));
+
+      await interaction.update({
+        content: `**Battle ready!**\n${HOST}/battle/${sessionId}`,
+        embeds: [],
+        components: [],
+      });
+    }
+  });
+
+  discord.once(Events.ClientReady, (c) => {
+    console.log(`Discord bot ready: ${c.user.tag}`);
+  });
+
+  discord.login(discordToken);
+} else {
+  console.log('No Discord token found — running web server only.');
+}
