@@ -11,7 +11,7 @@ import {
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
-import { SPRITES, type SpriteInfo } from '../character/sprites.js';
+import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
 import worldConfig from '../discord/world_config.js';
 import Weapon from '../weapon/weapon.js';
@@ -35,7 +35,7 @@ const io = new Server(httpServer);
 const sessions = new Map<string, CombatSession>();
 const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean }>();
 const charRepo = new CharacterRepository();
-const pendingCharCreation = new Map<string, { name: string; spriteOptions: SpriteInfo[] }>();
+const pendingCharCreation = new Map<string, { name: string }>();
 
 // ---- Telegraph ----
 
@@ -264,11 +264,10 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
   };
 }
 
-function pickRandomSprites(n: number): SpriteInfo[] {
-  return [...SPRITES].sort(() => Math.random() - 0.5).slice(0, n);
-}
+const DEFAULT_SPRITE_KEYS = ['asterius', 'penni', 'dazzle', 'thokk'];
 
-function buildSpritePicker(options: SpriteInfo[]): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+  const options = SPRITES.filter(s => DEFAULT_SPRITE_KEYS.includes(s.key));
   return {
     embeds: options.map(s =>
       new EmbedBuilder()
@@ -281,9 +280,6 @@ function buildSpritePicker(options: SpriteInfo[]): { embeds: EmbedBuilder[]; com
         options.map(s =>
           new ButtonBuilder().setCustomId(`PickSprite_${s.key}`).setLabel(s.name).setStyle(ButtonStyle.Primary)
         )
-      ),
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('SpriteReroll').setLabel('Show different options').setStyle(ButtonStyle.Secondary)
       ),
     ],
   };
@@ -421,25 +417,12 @@ if (discordToken) {
 
     if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
       const name = interaction.fields.getTextInputValue('CreateCharNameInput');
-      const options = pickRandomSprites(4);
-      pendingCharCreation.set(interaction.user.id, { name, spriteOptions: options });
+      pendingCharCreation.set(interaction.user.id, { name });
       await interaction.reply({
-        ...buildSpritePicker(options),
+        ...buildSpritePicker(),
         content: `Welcome to Sulku'it, **${name}**! Choose a sprite to represent you in battle.`,
         flags: MessageFlags.Ephemeral,
       });
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId === 'SpriteReroll') {
-      const pending = pendingCharCreation.get(interaction.user.id);
-      if (!pending) {
-        await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
-        return;
-      }
-      const options = pickRandomSprites(4);
-      pending.spriteOptions = options;
-      await interaction.update({ ...buildSpritePicker(options), content: `Welcome to Sulku'it, **${pending.name}**! Choose a sprite to represent you in battle.` });
       return;
     }
 
@@ -453,24 +436,32 @@ if (discordToken) {
       pendingCharCreation.delete(interaction.user.id);
       const sprite = SPRITES.find(s => s.key === spriteKey);
       const character = await charRepo.create(interaction.user.id, pending.name, 'fists', spriteKey);
+      const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
+      const sessionId = Math.random().toString(36).slice(2, 10);
+      sessions.set(sessionId, createSession(sessionId, 'rat', playerSprite));
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true });
       await interaction.update({
         content: '',
         embeds: [
           new EmbedBuilder()
             .setColor(0x00cc66)
             .setTitle('Character Created!')
-            .setDescription(
-              `**${character.name}** has arrived in Sulku'it!\n\n` +
-              `A tutorial battle awaits — use \`/battle\` to begin your adventure.`
-            )
-            .setThumbnail(`${HOST}/sprites/${spriteKey}.png`)
+            .setDescription(`**${character.name}** has arrived in Sulku'it!\n\nYour first battle awaits in the forest.`)
+            .setThumbnail(playerSprite)
             .addFields(
               { name: 'HP',     value: `${character.max_health}`, inline: true },
               { name: 'Weapon', value: 'Fists',                   inline: true },
               { name: 'Sprite', value: sprite?.name ?? spriteKey, inline: true },
             ),
         ],
-        components: [],
+        components: [
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setLabel('Enter the Forest')
+              .setURL(`${HOST}/battle/${sessionId}`)
+              .setStyle(ButtonStyle.Link)
+          ),
+        ],
       });
       return;
     }
