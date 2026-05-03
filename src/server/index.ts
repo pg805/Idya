@@ -1,7 +1,7 @@
 import fs from 'fs';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
@@ -140,7 +140,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey): CombatSession {
 // ---- Web server ----
 
 app.use(express.static(join(__dirname, '../../public')));
-app.get('/battle/:sessionId', (_req, res) => {
+app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
@@ -148,7 +148,7 @@ sessions.set('test', createSession('test', 'rat'));
 
 // ---- Socket.io ----
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
   console.log('client connected:', socket.id);
 
   socket.on('join_session', (sessionId: string) => {
