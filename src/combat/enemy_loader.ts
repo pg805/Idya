@@ -5,6 +5,12 @@ import Pattern from '../infrastructure/pattern.js';
 import { CombatantState } from './combatant_state.js';
 import { Combatant, CombatantMeta, WeaponInfo, ActionInfo } from './combat_session.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
+import type { LootTable } from '../economy/reward_service.js';
+
+type EnemyLootData = {
+  Currency?: { Field: number[] };
+  Items?: Array<{ id: string; type: string; Field: number[] }>;
+};
 
 type EnemyData = {
   Name: string;
@@ -12,6 +18,7 @@ type EnemyData = {
   Pattern: [number, number][];
   Weapon: Record<string, unknown>;
   Resistances?: Record<string, number>;
+  Loot?: EnemyLootData;
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
@@ -41,7 +48,7 @@ export function loadEnemy(file: string, options: {
   teamId: string;
   pos: { x: number; y: number };
   movementRange?: number;
-}): { combatant: Combatant; meta: CombatantMeta } {
+}): { combatant: Combatant; meta: CombatantMeta; lootTable: LootTable } {
   const data = yaml.load(fs.readFileSync(file, 'utf-8')) as EnemyData;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,5 +86,10 @@ export function loadEnemy(file: string, options: {
     patternIndex: 0,
   };
 
-  return { combatant, meta };
+  const lootTable: LootTable = {
+    currency: data.Loot?.Currency?.Field,
+    items: (data.Loot?.Items ?? []).map(i => ({ id: i.id, type: i.type, field: i.Field })),
+  };
+
+  return { combatant, meta, lootTable };
 }

@@ -13,6 +13,8 @@ import {
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
+import RewardService from '../economy/reward_service.js';
+import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from '../discord/world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -33,7 +35,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable }>();
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string }>();
 
@@ -87,13 +89,13 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): CombatSession {
-  const shovel     = Weapon.from_file(join(__dirname, '../../database/weapons/shovel.yaml'));
-  const shovelInfo = buildWeaponInfo(shovel);
-  const playerHp   = 50;
-  const playerState = new CombatantState('Hero', playerHp, shovel.resource_name, shovel.resource_max);
+function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): { session: CombatSession; lootTable: LootTable } {
+  const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/fists.yaml'));
+  const fistsInfo = buildWeaponInfo(fists);
+  const playerHp  = 50;
+  const playerState = new CombatantState('Hero', playerHp, fists.resource_name, fists.resource_max);
 
-  const { combatant: enemy, meta: enemyMeta } = loadEnemy(
+  const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
     join(__dirname, `../../database/enemies/${enemyKey}.yaml`),
     { id: 'enemy-1', teamId: 'team-b', pos: { x: 6, y: 2 }, movementRange: 2 },
   );
@@ -121,14 +123,14 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
           name: 'Hero',
           hp: playerHp,
           maxHp: playerHp,
-          resource: shovel.resource_max,
-          maxResource: shovel.resource_max,
-          resourceName: shovel.resource_name,
+          resource: fists.resource_max,
+          maxResource: fists.resource_max,
+          resourceName: fists.resource_name,
           pos: { x: 0, y: 2 },
           movementRange: 2,
           isAI: false,
           teamId: 'team-a',
-          weaponInfo: shovelInfo,
+          weaponInfo: fistsInfo,
           sprite: playerSprite,
         }],
       },
@@ -140,11 +142,11 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
     ],
   );
 
-  session.meta.set('player-1', { weapon: shovel, state: playerState, pattern: [], patternIndex: 0 });
+  session.meta.set('player-1', { weapon: fists, state: playerState, pattern: [], patternIndex: 0 });
   session.meta.set('enemy-1', enemyMeta);
   session.phase = 'intent';
   refreshTelegraphs(session);
-  return session;
+  return { session, lootTable };
 }
 
 // ---- Web server ----
@@ -154,7 +156,7 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-sessions.set('test', createSession('test', 'rat'));
+sessions.set('test', createSession('test', 'rat').session);
 
 // ---- Socket.io ----
 
@@ -196,11 +198,18 @@ io.on('connection', (socket: Socket) => {
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
       const meta = sessionMeta.get(sessionId);
-      if (meta?.isTutorial && result.winner === 'team-a') {
-        await prisma.user.update({
-          where: { discord_id: meta.discordUserId },
-          data: { tutorial_complete: true },
-        }).catch(() => {});
+      if (meta && result.winner === 'team-a') {
+        const chars = await charRepo.list(meta.discordUserId);
+        const char = chars[0];
+        if (char) {
+          await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable).catch(() => {});
+        }
+        if (meta.isTutorial) {
+          await prisma.user.update({
+            where: { discord_id: meta.discordUserId },
+            data: { tutorial_complete: true },
+          }).catch(() => {});
+        }
       }
     }
   });
@@ -212,7 +221,7 @@ io.on('connection', (socket: Socket) => {
     const enemyKey = (VALID_ENEMIES.find(k =>
       session.combatants.some(c => c.isAI && c.name.toLowerCase().includes(k))
     ) ?? 'rat') as EnemyKey;
-    const fresh = createSession(sessionId, enemyKey);
+    const { session: fresh } = createSession(sessionId, enemyKey);
     sessions.set(sessionId, fresh);
     io.to(sessionId).emit('session_state', fresh.toState());
   });
@@ -350,8 +359,9 @@ if (discordToken) {
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        sessions.set(sessionId, createSession(sessionId, 'rat', playerSprite));
-        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true });
+        const { session: tutSession, lootTable } = createSession(sessionId, 'rat', playerSprite);
+        sessions.set(sessionId, tutSession);
+        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable });
         await interaction.reply({
           embeds: [
             new EmbedBuilder()
@@ -383,8 +393,9 @@ if (discordToken) {
       const chars = await charRepo.list(interaction.user.id);
       const playerSprite = chars[0]?.sprite_token ? `${HOST}/sprites/${chars[0].sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      sessions.set(sessionId, createSession(sessionId, enemyKey, playerSprite));
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false });
+      const { session: newSession, lootTable } = createSession(sessionId, enemyKey, playerSprite);
+      sessions.set(sessionId, newSession);
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable });
 
       await interaction.update({
         content: `**Battle ready!**\n${HOST}/battle/${sessionId}`,
@@ -438,8 +449,9 @@ if (discordToken) {
       const character = await charRepo.create(interaction.user.id, pending.name, 'fists', spriteKey);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      sessions.set(sessionId, createSession(sessionId, 'rat', playerSprite));
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true });
+      const { session: charSession, lootTable } = createSession(sessionId, 'rat', playerSprite);
+      sessions.set(sessionId, charSession);
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable });
       await interaction.update({
         content: '',
         embeds: [
@@ -517,17 +529,26 @@ if (discordToken) {
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
     const weapon = Weapon.from_file(join(__dirname, `../../database/weapons/${char.weapon_key}.yaml`));
 
+    const inventory = await prisma.inventoryItem.findMany({
+      where: { character_id: char.id },
+      include: { item: true },
+    });
+    const invText = inventory.length > 0
+      ? inventory.map(i => `${i.quantity}x ${i.item.name}`).join('\n')
+      : 'Empty';
+
     const embed = new EmbedBuilder()
       .setColor(0x1a1a2e)
       .setTitle(char.name)
       .addFields(
-        { name: 'HP',     value: `${char.health} / ${char.max_health}`, inline: true },
-        { name: 'Weapon', value: weapon.name,                           inline: true },
-        { name: 'Korel',  value: `${dbUser?.korel ?? 0}`,              inline: true },
+        { name: 'HP',        value: `${char.health} / ${char.max_health}`, inline: true },
+        { name: 'Weapon',    value: weapon.name,                           inline: true },
+        { name: 'Korel',     value: `${dbUser?.korel ?? 0}`,              inline: true },
+        { name: 'Inventory', value: invText,                               inline: false },
       );
 
     if (char.sprite_token) {
-      embed.setThumbnail(`${HOST}/sprites/${char.sprite_token}.png`);
+      embed.setThumbnail(`${worldConfig.sprite_cdn}/${char.sprite_token}.png`);
     }
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
