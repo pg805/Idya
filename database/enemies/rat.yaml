@@ -2,10 +2,12 @@ Name: Rat
 Health: 30
 Level: 1
 Loot:
+  Currency:
+    Field: [0, 0, 0, 1, 1, 1, 1, 2]
   Items:
-    - id: rat_tail
-      type: valuable
-      Field: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
+    - id: brain
+      type: material
+      Field: [0, 0, 1, 1, 1, 2]
 Pattern:
   - [1, 0]   # Defend: Curl Up
   - [2, 0]   # Attack: Scratch

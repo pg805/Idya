@@ -5,12 +5,15 @@ Loot:
   Currency:
     Field: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 7, 10, 14]
   Items:
-    - id: copper_scraps
+    - id: brain
       type: material
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2]
-    - id: enchanting_crystal
+      Field: [0, 0, 0, 1, 1, 1, 1, 2]
+    - id: broken_sword
       type: material
-      Field: [0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 1]
+    - id: broken_knife
+      type: material
+      Field: [0, 0, 0, 0, 0, 0, 0, 1, 1]
 Resistances:
   Mental: 0.75
   Sharp: 1.25

@@ -26,7 +26,7 @@ export default {
         const embed = new EmbedBuilder()
             .setColor(0xFFD700)
             .setTitle(`${interaction.user.username}'s Balance`)
-            .setDescription(`Currency: **${user.currency}**`);
+            .setDescription(`Korel: **${user.korel}**`);
 
         for (const char of characters) {
             const inventory = await prisma.inventoryItem.findMany({

@@ -29,7 +29,7 @@ export default class RewardService {
         if (currency > 0) {
             await prisma.user.update({
                 where: { discord_id },
-                data:  { currency: { increment: currency } }
+                data:  { korel: { increment: currency } }
             });
         }
 
@@ -51,7 +51,7 @@ export default class RewardService {
         }
 
         const lines = [
-            ...(currency > 0 ? [`+${currency} currency`] : []),
+            ...(currency > 0 ? [`+${currency} Korel`] : []),
             ...dropped.map(i => `+${i.quantity}x ${i.name}`)
         ];
         const summary = lines.length > 0 ? lines.join('\n') : 'No drops.';

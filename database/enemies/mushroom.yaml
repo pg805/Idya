@@ -2,13 +2,12 @@ Name: Mushroom
 Health: 100
 Level: 5
 Loot:
+  Currency:
+    Field: [0, 1, 2, 3, 4, 5]
   Items:
     - id: spores
-      type: valuable
-      Field: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    - id: wood_plank
       type: material
-      Field: [0, 1]
+      Field: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 Resistances:
   Physical: 0.75
   Poison: 0.75
