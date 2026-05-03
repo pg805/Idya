@@ -12,6 +12,15 @@ export default {
                         .setDescription('Target user')
                         .setRequired(true)
                 )
+        )
+        .addSubcommand(sub =>
+            sub.setName('resetcharacter')
+                .setDescription('[Superuser] Delete a user\'s character and reset tutorial')
+                .addUserOption(opt =>
+                    opt.setName('user')
+                        .setDescription('Target user')
+                        .setRequired(true)
+                )
         ),
     execute: async function(_interaction: any) {
         // Handled by the Discord client in src/server/index.ts

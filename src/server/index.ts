@@ -236,6 +236,10 @@ function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
     : (member.roles as string[]).includes(worldConfig.admin_role);
 }
 
+function isSuperuser(userId: string): boolean {
+  return worldConfig.superusers.includes(userId);
+}
+
 async function sendWelcomeDM(user: User): Promise<void> {
   const mayor = worldConfig.npcs.mayor;
   try {
@@ -449,6 +453,50 @@ if (discordToken) {
       await sendWelcomeDM(target);
       await interaction.reply({ content: `Join flow sent to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
+    if (sub === 'resetcharacter') {
+      if (!isSuperuser(interaction.user.id)) {
+        await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const target = interaction.options.getUser('user', true);
+      await prisma.character.deleteMany({ where: { discord_id: target.id } });
+      await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false } }).catch(() => {});
+      await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
+    }
+  });
+
+  // ---- Profile ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'profile') return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) {
+      await interaction.reply({
+        content: "You don't have a character yet! Use `/createcharacter` to get started.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const char = chars[0];
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const weapon = Weapon.from_file(join(__dirname, `../../database/weapons/${char.weapon_key}.yaml`));
+
+    const embed = new EmbedBuilder()
+      .setColor(0x1a1a2e)
+      .setTitle(char.name)
+      .addFields(
+        { name: 'HP',     value: `${char.health} / ${char.max_health}`, inline: true },
+        { name: 'Weapon', value: weapon.name,                           inline: true },
+        { name: 'Korel',  value: `${dbUser?.korel ?? 0}`,              inline: true },
+      );
+
+    if (char.sprite_token) {
+      embed.setThumbnail(`${HOST}/sprites/${char.sprite_token}.png`);
+    }
+
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   });
 
   // ---- Guild member join ----
