@@ -149,7 +149,7 @@ export default class CharacterHandler {
             await interaction.reply({ content: 'Session expired. Please run /createcharacter again.', flags: MessageFlags.Ephemeral });
             return;
         }
-        const data = await repo.create(interaction.user.id, pending.name, pending.weapon_key);
+        const data = await repo.create(interaction.user.id, pending.name, pending.weapon_key, undefined);
         this.pending.delete(interaction.user.id);
         logger.info(`Character created for ${interaction.user.id}: "${data.name}" with weapon "${data.weapon_key}"`);
         const weapon = Weapon.from_file(`./database/weapons/${data.weapon_key}.yaml`);

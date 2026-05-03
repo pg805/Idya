@@ -7,7 +7,11 @@ import { dirname, join } from 'path';
 import {
   Client, GatewayIntentBits, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
+  ModalBuilder, TextInputBuilder, TextInputStyle,
+  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
 } from 'discord.js';
+import CharacterRepository from '../character/character_repository.js';
+import { SPRITES } from '../character/sprites.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
@@ -27,6 +31,8 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
+const charRepo = new CharacterRepository();
+const pendingCharNames = new Map<string, string>(); // discord_id → name
 
 // ---- Telegraph ----
 
@@ -262,6 +268,93 @@ if (discordToken) {
         embeds: [],
         components: [],
       });
+    }
+
+    // ---- Character creation ----
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'createcharacter') {
+      const existing = await charRepo.list(interaction.user.id);
+      if (existing.length > 0) {
+        await interaction.reply({
+          content: 'You already have a character! Use `/profile` to view it.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId('CreateCharModal')
+        .setTitle('Create Your Character');
+
+      const nameInput = new TextInputBuilder()
+        .setCustomId('CreateCharNameInput')
+        .setLabel('Character Name')
+        .setStyle(TextInputStyle.Short)
+        .setMinLength(1)
+        .setMaxLength(32)
+        .setPlaceholder("Enter your character's name...")
+        .setRequired(true);
+
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
+      const name = interaction.fields.getTextInputValue('CreateCharNameInput');
+      pendingCharNames.set(interaction.user.id, name);
+
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId('CreateCharSpriteSelect')
+        .setPlaceholder('Choose your character sprite...')
+        .addOptions(SPRITES.map(s =>
+          new StringSelectMenuOptionBuilder().setLabel(s.name).setValue(s.key)
+        ));
+
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x1a1a2e)
+            .setTitle(`Welcome to Sulku'it, ${name}!`)
+            .setDescription('Choose a sprite to represent your character in battle.'),
+        ],
+        components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'CreateCharSpriteSelect') {
+      const spriteKey = interaction.values[0];
+      const name = pendingCharNames.get(interaction.user.id);
+      if (!name) {
+        await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
+        return;
+      }
+      pendingCharNames.delete(interaction.user.id);
+
+      const sprite = SPRITES.find(s => s.key === spriteKey);
+      const character = await charRepo.create(interaction.user.id, name, 'fists', spriteKey);
+
+      await interaction.update({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x00cc66)
+            .setTitle('Character Created!')
+            .setDescription(
+              `**${character.name}** has arrived in Sulku'it!\n\n` +
+              `A tutorial battle awaits — use \`/battle\` to begin your adventure.`
+            )
+            .setThumbnail(`${HOST}/sprites/${spriteKey}.png`)
+            .addFields(
+              { name: 'HP',     value: `${character.max_health}`, inline: true },
+              { name: 'Weapon', value: 'Fists',                   inline: true },
+              { name: 'Sprite', value: sprite?.name ?? spriteKey, inline: true },
+            ),
+        ],
+        components: [],
+      });
+      return;
     }
   });
 

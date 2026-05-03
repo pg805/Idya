@@ -5,8 +5,6 @@ import { Character } from '@prisma/client';
 
 export type { Character as CharacterData };
 
-const DEFAULT_IMAGE = 'https://cdn.discordapp.com/attachments/1258456865881194586/1341942313601204244/Asterius_with_Background_-_Big.png?ex=67b7d4ab&is=67b6832b&hm=e0f2f414fbf23dcca89969b37b6477e96049df1b142ea32feea0316e3f73c270&';
-
 export default class CharacterRepository {
 
     async list(discord_id: string): Promise<Character[]> {
@@ -17,7 +15,7 @@ export default class CharacterRepository {
         return prisma.character.findFirst({ where: { id: character_id, discord_id } });
     }
 
-    async create(discord_id: string, name: string, weapon_key: string): Promise<Character> {
+    async create(discord_id: string, name: string, weapon_key: string, sprite_token?: string): Promise<Character> {
         await prisma.user.upsert({
             where:  { discord_id },
             update: {},
@@ -29,15 +27,18 @@ export default class CharacterRepository {
                 discord_id,
                 name,
                 weapon_key,
-                health:     50,
-                max_health: 50,
-                image:      DEFAULT_IMAGE
+                sprite_token: sprite_token ?? null,
+                health:       50,
+                max_health:   50,
             }
         });
     }
 
     to_player_character(data: Character): Player_Character {
         const weapon = Weapon.from_file(`./database/weapons/${data.weapon_key}.yaml`);
-        return new Player_Character(data.name, data.health, weapon, data.image);
+        const image = data.sprite_token
+            ? `${process.env.HOST_URL ?? 'http://localhost:3001'}/sprites/${data.sprite_token}.png`
+            : '';
+        return new Player_Character(data.name, data.health, weapon, image);
     }
 }
