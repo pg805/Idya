@@ -5,14 +5,16 @@ import { Server, type Socket } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
-  Client, GatewayIntentBits, Events,
+  Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  type User,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
+import worldConfig from '../discord/world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
@@ -228,6 +230,27 @@ httpServer.listen(PORT, () => {
 
 // ---- Discord bot ----
 
+async function sendWelcomeDM(user: User): Promise<void> {
+  const mayor = worldConfig.npcs.mayor;
+  try {
+    await user.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x1a1a2e)
+          .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
+          .setDescription(
+            `"Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
+            `I won't keep you long. The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
+            `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
+          )
+          .setFooter({ text: 'Use /createcharacter to register your name in the ledger of Sulku\'it.' }),
+      ],
+    });
+  } catch {
+    // DMs disabled — nothing we can do
+  }
+}
+
 const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
 
 let discordToken: string | null = null;
@@ -238,7 +261,14 @@ try {
 } catch (_) {}
 
 if (discordToken) {
-  const discord = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const discord = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.DirectMessages,
+    ],
+    partials: [Partials.Channel],
+  });
 
   const enemySelectEmbed = new EmbedBuilder()
     .setColor(0x1a1a2e)
@@ -397,6 +427,29 @@ if (discordToken) {
       });
       return;
     }
+  });
+
+  // ---- Admin commands ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'admin') return;
+    if (!worldConfig.admins.includes(interaction.user.id)) {
+      await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const sub = interaction.options.getSubcommand();
+    if (sub === 'joinsim') {
+      const target = interaction.options.getUser('user', true);
+      await sendWelcomeDM(target);
+      await interaction.reply({ content: `Join flow sent to ${target.username}.`, flags: MessageFlags.Ephemeral });
+    }
+  });
+
+  // ---- Guild member join ----
+
+  discord.on(Events.GuildMemberAdd, async (member) => {
+    if (member.guild.id !== worldConfig.guild_id) return;
+    await sendWelcomeDM(member.user);
   });
 
   discord.once(Events.ClientReady, (c) => {

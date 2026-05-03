@@ -1,0 +1,20 @@
+{
+  "guild_id": "1083250123284418590",
+  "admins": ["210917143028563969"],
+  "channels": {
+    "town_square":    "1083254382168129546",
+    "blacksmith":     "1083619887202697256",
+    "general_store":  "1083625495133954101",
+    "forest":         "1083627990434467951",
+    "temple":         "1500378189468274758",
+    "enchanting_shop":"1500378293910896744"
+  },
+  "npcs": {
+    "mayor":         { "name": "Aldric Voss",   "title": "Mayor of Sulku'it" },
+    "general_store": { "name": "Maren Tholt",   "title": "Shopkeeper"        },
+    "blacksmith":    { "name": "Borvan Crane",  "title": "Blacksmith"        },
+    "temple":        { "name": "Brother Oswin", "title": "Temple Keeper"     },
+    "enchanting":    { "name": "Sevan Mirk",    "title": "Enchanter"         },
+    "carpenter":     { "name": "Wren Dallow",   "title": "Carpenter"         }
+  }
+}
