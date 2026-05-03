@@ -9,7 +9,7 @@ import {
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  type User, type GuildMember, type APIInteractionGuildMember,
+  type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
@@ -241,25 +241,17 @@ function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
 }
 
-async function sendWelcomeDM(user: User): Promise<void> {
+function buildWelcomeEmbed(mention: string): EmbedBuilder {
   const mayor = worldConfig.npcs.mayor;
-  try {
-    await user.send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0x1a1a2e)
-          .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
-          .setDescription(
-            `"Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
-            `I won't keep you long. The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
-            `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
-          )
-          .setFooter({ text: 'Use /createcharacter to register your name in the ledger of Sulku\'it.' }),
-      ],
-    });
-  } catch {
-    // DMs disabled — nothing we can do
-  }
+  return new EmbedBuilder()
+    .setColor(0x1a1a2e)
+    .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
+    .setDescription(
+      `${mention} — "Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
+      `The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
+      `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
+    )
+    .setFooter({ text: 'Use /createcharacter to register your name in the ledger of Sulku\'it.' });
 }
 
 const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
@@ -276,9 +268,7 @@ if (discordToken) {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.DirectMessages,
     ],
-    partials: [Partials.Channel],
   });
 
   const enemySelectEmbed = new EmbedBuilder()
@@ -454,8 +444,7 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'joinsim') {
       const target = interaction.options.getUser('user', true);
-      await sendWelcomeDM(target);
-      await interaction.reply({ content: `Join flow sent to ${target.username}.`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ embeds: [buildWelcomeEmbed(`<@${target.id}>`)], flags: MessageFlags.Ephemeral });
     }
   });
 
@@ -514,7 +503,9 @@ if (discordToken) {
 
   discord.on(Events.GuildMemberAdd, async (member) => {
     if (member.guild.id !== worldConfig.guild_id) return;
-    await sendWelcomeDM(member.user);
+    const channel = member.guild.channels.cache.get(worldConfig.channels.town_square);
+    if (!channel?.isTextBased()) return;
+    await channel.send({ embeds: [buildWelcomeEmbed(`<@${member.id}>`)] });
   });
 
   discord.once(Events.ClientReady, (c) => {
