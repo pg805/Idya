@@ -9,7 +9,7 @@ import {
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  type User,
+  type User, type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
@@ -230,6 +230,12 @@ httpServer.listen(PORT, () => {
 
 // ---- Discord bot ----
 
+function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
+  return 'cache' in member.roles
+    ? member.roles.cache.has(worldConfig.admin_role)
+    : (member.roles as string[]).includes(worldConfig.admin_role);
+}
+
 async function sendWelcomeDM(user: User): Promise<void> {
   const mayor = worldConfig.npcs.mayor;
   try {
@@ -433,7 +439,7 @@ if (discordToken) {
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'admin') return;
-    if (!worldConfig.admins.includes(interaction.user.id)) {
+    if (!interaction.member || !isAdmin(interaction.member)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
       return;
     }

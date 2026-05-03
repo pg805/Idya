@@ -11,8 +11,8 @@ interface NpcDef {
 }
 
 export interface WorldConfig {
-  guild_id: string;
-  admins:   string[];
+  guild_id:   string;
+  admin_role: string;
   channels: {
     town_square:    string;
     blacksmith:     string;
