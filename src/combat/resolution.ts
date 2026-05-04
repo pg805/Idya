@@ -129,6 +129,8 @@ export function resolveIntents(
     const actorMeta = session.meta.get(id);
     if (!actorMeta) continue;
 
+    if (actorMeta.state.health <= 0) continue; // killed earlier this turn, can't act
+
     const { weapon } = actorMeta;
     let action = null;
     if (intent.action.type === 'defend')  action = weapon.defend[intent.action.actionIndex]  ?? null;
@@ -174,12 +176,12 @@ export function resolveIntents(
 
       const targetMeta = session.meta.get(occupant.id);
       if (!targetMeta) continue;
+      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(occupant.id)?.action.type === 'special') {
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
     } else {
       // Reactive: auto-targets the nearest enemy in range after all moves
       const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
@@ -196,12 +198,12 @@ export function resolveIntents(
       );
       const targetMeta = session.meta.get(target.id);
       if (!targetMeta) continue;
+      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(target.id)?.action.type === 'special') {
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
     }
   }
 
@@ -248,11 +250,12 @@ export function resolveIntents(
     });
   }
 
-  // --- Advance AI pattern indices ---
-  for (const [, meta] of session.meta) {
-    if (meta.pattern.length > 0) {
-      meta.patternIndex = (meta.patternIndex + 1) % meta.pattern.length;
-    }
+  // --- Advance AI pattern indices (only when the action wasn't skipped) ---
+  for (const [id, meta] of session.meta) {
+    if (meta.pattern.length === 0) continue;
+    const intent = intents.get(id);
+    if (intent && intent.action.type === 'pass') continue;
+    meta.patternIndex = (meta.patternIndex + 1) % meta.pattern.length;
   }
 
   // --- Check win condition ---
