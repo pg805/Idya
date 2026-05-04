@@ -35,7 +35,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string }>();
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string }>();
 
@@ -89,7 +89,7 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): { session: CombatSession; lootTable: LootTable } {
+function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/branch.yaml'));
   const fistsInfo = buildWeaponInfo(fists);
   const playerHp  = 50;
@@ -146,7 +146,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
   session.meta.set('enemy-1', enemyMeta);
   session.phase = 'intent';
   refreshTelegraphs(session);
-  return { session, lootTable };
+  return { session, lootTable, enemyName: enemy.name };
 }
 
 // ---- Web server ----
@@ -212,11 +212,14 @@ io.on('connection', (socket: Socket) => {
             data: { tutorial_complete: true },
           }).catch(() => {});
         }
-        if (discord && rewardSummary) {
+        if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
-              await (ch as import('discord.js').TextChannel).send(`<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`);
+              const msg = rewardSummary && rewardSummary !== 'No drops.'
+                ? `<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`
+                : `<@${meta.discordUserId}> returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
+              await (ch as import('discord.js').TextChannel).send(msg);
             }
           } catch (_) {}
         }
@@ -370,9 +373,9 @@ if (discordToken) {
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        const { session: tutSession, lootTable } = createSession(sessionId, 'rat', playerSprite);
+        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite);
         sessions.set(sessionId, tutSession);
-        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable });
+        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName });
         await interaction.reply({
           embeds: [
             new EmbedBuilder()
@@ -404,9 +407,9 @@ if (discordToken) {
       const chars = await charRepo.list(interaction.user.id);
       const playerSprite = chars[0]?.sprite_token ? `${HOST}/sprites/${chars[0].sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: newSession, lootTable } = createSession(sessionId, enemyKey, playerSprite);
+      const { session: newSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite);
       sessions.set(sessionId, newSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName });
 
       await interaction.update({
         content: `**Battle ready!**\n${HOST}/battle/${sessionId}`,
@@ -460,9 +463,9 @@ if (discordToken) {
       const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: charSession, lootTable } = createSession(sessionId, 'rat', playerSprite);
+      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite);
       sessions.set(sessionId, charSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName });
       await interaction.update({
         content: '',
         embeds: [
