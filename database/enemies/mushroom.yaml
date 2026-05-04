@@ -2,8 +2,6 @@ Name: Mushroom
 Health: 100
 Level: 5
 Loot:
-  Currency:
-    Field: [0, 1, 2, 3, 4, 5]
   Items:
     - id: spores
       type: material
