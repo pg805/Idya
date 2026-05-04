@@ -57,6 +57,18 @@ export function resolveIntents(
     }
   }
 
+  // Also block movers whose destination is occupied by a non-moving combatant
+  for (const [id, intent] of intents) {
+    if (!intent.moveTo || blocked.has(id)) continue;
+    const dest = intent.moveTo;
+    const stationaryOccupant = snapshot.find(c =>
+      c.id !== id &&
+      c.pos.x === dest.x && c.pos.y === dest.y &&
+      !intents.get(c.id)?.moveTo
+    );
+    if (stationaryOccupant) blocked.add(id);
+  }
+
   for (const [id, intent] of intents) {
     if (!intent.moveTo || blocked.has(id)) continue;
     const c = session.combatants.find(c => c.id === id);
