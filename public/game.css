@@ -95,6 +95,12 @@ h1 { color: #c0a060; letter-spacing: 0.12em; font-size: 1.3rem; }
   outline-color: #30c060;
 }
 
+/* Path tiles — intermediate steps to the chosen destination */
+.cell.path-tile {
+  background: #0a2a14;
+  outline: 2px dashed #28804a;
+}
+
 /* Targetable tiles */
 .cell.target-valid { cursor: crosshair; outline: 2px solid #904020; background: #1e1008; }
 .cell.target-valid:hover { background: #2e1810; outline-color: #e06030; }

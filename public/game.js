@@ -9,6 +9,8 @@ const ui = {
   selected: null,    // combatant object the player is controlling
   moveTo: null,      // {x, y} | null
   reachable: new Set(),
+  moveParents: new Map(),
+  pathTiles: new Set(),
   action: null,      // ActionInfo | null
   targetTile: null,  // {x, y} | null
 };
@@ -63,6 +65,8 @@ function resetUI() {
   ui.selected = null;
   ui.moveTo = null;
   ui.reachable = new Set();
+  ui.moveParents = new Map();
+  ui.pathTiles = new Set();
   ui.action = null;
   ui.targetTile = null;
 }
@@ -82,7 +86,9 @@ function computeReachable(combatant) {
     state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
   const range = combatant.movementRange ?? 2;
-  const costs = new Map([[`${combatant.pos.x},${combatant.pos.y}`, 0]]);
+  const startKey = `${combatant.pos.x},${combatant.pos.y}`;
+  const costs = new Map([[startKey, 0]]);
+  const parents = new Map([[startKey, null]]);
   const queue = [[combatant.pos, 0]];
   const reachable = new Set();
 
@@ -100,12 +106,25 @@ function computeReachable(combatant) {
         if ((costs.get(k) ?? Infinity) <= newCost) continue;
         if (occupiedSet.has(k)) continue;
         costs.set(k, newCost);
+        if (!parents.has(k)) parents.set(k, `${pos.x},${pos.y}`);
         reachable.add(k);
         queue.push([{ x: nx, y: ny }, newCost]);
       }
     }
   }
-  return reachable;
+  return { reachable, parents };
+}
+
+function getPathTiles(start, dest, parents) {
+  const startKey = `${start.x},${start.y}`;
+  const destKey = `${dest.x},${dest.y}`;
+  const tiles = new Set();
+  let current = parents.get(destKey);
+  while (current && current !== startKey) {
+    tiles.add(current);
+    current = parents.get(current);
+  }
+  return tiles;
 }
 
 // ---- Action helpers ----
@@ -218,7 +237,9 @@ function renderBoard() {
         cell.classList.add('target-valid');
       } else if (k === moveTargetKey) {
         cell.classList.add('move-target');
-      } else if (ui.reachable.has(k) && !obstacle && !combatant) {
+      } else if (ui.pathTiles.has(k) && !obstacle && !combatant) {
+        cell.classList.add('path-tile');
+      } else if (ui.reachable.has(k) && !ui.moveTo && !obstacle && !combatant) {
         cell.classList.add('reachable');
       }
 
@@ -367,7 +388,9 @@ function onCellClick(x, y) {
   if (ui.phase === 'idle') {
     if (clicked && clicked.teamId === playerTeamId && !clicked.isAI) {
       ui.selected = clicked;
-      ui.reachable = computeReachable(clicked);
+      const { reachable, parents } = computeReachable(clicked);
+      ui.reachable = reachable;
+      ui.moveParents = parents;
       ui.phase = 'selecting_move';
       render();
     }
@@ -383,6 +406,7 @@ function onCellClick(x, y) {
     }
     if (ui.reachable.has(k)) {
       ui.moveTo = { x, y };
+      ui.pathTiles = getPathTiles(ui.selected.pos, { x, y }, ui.moveParents);
       ui.phase = 'selecting_action';
       render();
       return;
@@ -393,8 +417,11 @@ function onCellClick(x, y) {
   if (ui.phase === 'selecting_action') {
     if (clicked?.id === ui.selected?.id) {
       ui.moveTo = null;
+      ui.pathTiles = new Set();
       ui.action = null;
-      ui.reachable = computeReachable(ui.selected);
+      const { reachable, parents } = computeReachable(ui.selected);
+      ui.reachable = reachable;
+      ui.moveParents = parents;
       ui.phase = 'selecting_move';
       render();
     }

@@ -4,6 +4,7 @@ import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action } from './action_resolver.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
+import { reachableTiles } from './movement.js';
 
 export interface ResolutionResult {
   log: string[];
@@ -67,6 +68,46 @@ export function resolveIntents(
       !intents.get(c.id)?.moveTo
     );
     if (stationaryOccupant) blocked.add(id);
+  }
+
+  // Re-route blocked AI combatants to their next-best available tile
+  const nonBlockedDests = new Set<string>();
+  for (const [id, intent] of intents) {
+    if (intent.moveTo && !blocked.has(id)) {
+      nonBlockedDests.add(`${intent.moveTo.x},${intent.moveTo.y}`);
+    }
+  }
+
+  for (const [id] of intents) {
+    if (!blocked.has(id)) continue;
+    const c = snapshot.find(c => c.id === id);
+    if (!c?.isAI) continue;
+
+    const allOccupied = new Set<string>([
+      ...snapshot.filter(o => o.id !== id).map(o => `${o.pos.x},${o.pos.y}`),
+      ...nonBlockedDests,
+    ]);
+
+    const reachable = reachableTiles(c.pos, c.movementRange, session.board, allOccupied);
+
+    const enemies = snapshot.filter(e => e.teamId !== c.teamId);
+    if (enemies.length === 0) continue;
+    const target = enemies.reduce((a, b) =>
+      chebyshevDist(c.pos, a.pos) <= chebyshevDist(c.pos, b.pos) ? a : b
+    );
+
+    let bestDist = chebyshevDist(c.pos, target.pos);
+    let bestPos: { x: number; y: number } | null = null;
+    for (const pos of reachable.values()) {
+      const d = chebyshevDist(pos, target.pos);
+      if (d < bestDist) { bestDist = d; bestPos = pos; }
+    }
+
+    if (bestPos) {
+      blocked.delete(id);
+      intents.get(id)!.moveTo = bestPos;
+      nonBlockedDests.add(`${bestPos.x},${bestPos.y}`);
+    }
   }
 
   for (const [id, intent] of intents) {
