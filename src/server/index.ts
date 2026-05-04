@@ -90,7 +90,7 @@ const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): { session: CombatSession; lootTable: LootTable } {
-  const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/fists.yaml'));
+  const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/branch.yaml'));
   const fistsInfo = buildWeaponInfo(fists);
   const playerHp  = 50;
   const playerState = new CombatantState('Hero', playerHp, fists.resource_name, fists.resource_max);
@@ -446,7 +446,7 @@ if (discordToken) {
       }
       pendingCharCreation.delete(interaction.user.id);
       const sprite = SPRITES.find(s => s.key === spriteKey);
-      const character = await charRepo.create(interaction.user.id, pending.name, 'fists', spriteKey);
+      const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: charSession, lootTable } = createSession(sessionId, 'rat', playerSprite);
