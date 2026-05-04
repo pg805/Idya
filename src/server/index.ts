@@ -89,11 +89,11 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string, playerName = 'Hero'): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/branch.yaml'));
   const fistsInfo = buildWeaponInfo(fists);
   const playerHp  = 50;
-  const playerState = new CombatantState('Hero', playerHp, fists.resource_name, fists.resource_max);
+  const playerState = new CombatantState(playerName, playerHp, fists.resource_name, fists.resource_max);
 
   const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
     join(__dirname, `../../database/enemies/${enemyKey}.yaml`),
@@ -120,7 +120,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
         name: 'Player',
         combatants: [{
           id: 'player-1',
-          name: 'Hero',
+          name: playerName,
           hp: playerHp,
           maxHp: playerHp,
           resource: fists.resource_max,
@@ -170,7 +170,7 @@ io.on('connection', (socket: Socket) => {
       return;
     }
     socket.join(sessionId);
-    socket.emit('session_joined', { playerTeamId: 'team-a' });
+    socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: sessionMeta.get(sessionId)?.isTutorial ?? false });
     socket.emit('session_state', session.toState());
   });
 
@@ -228,15 +228,29 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('reset_session', (sessionId: string) => {
+  socket.on('reset_session', async (sessionId: string) => {
     const session = sessions.get(sessionId);
     if (!session) return;
+    const oldMeta = sessionMeta.get(sessionId);
     sessionMeta.delete(sessionId);
+
     const enemyKey = (VALID_ENEMIES.find(k =>
       session.combatants.some(c => c.isAI && c.name.toLowerCase().includes(k))
     ) ?? 'rat') as EnemyKey;
-    const { session: fresh } = createSession(sessionId, enemyKey);
+
+    let playerName = 'Hero';
+    const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
+    if (oldMeta) {
+      const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
+      if (chars[0]) playerName = chars[0].name;
+    }
+
+    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName);
     sessions.set(sessionId, fresh);
+    if (oldMeta) {
+      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName });
+    }
+    io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
   });
 

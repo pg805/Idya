@@ -1,6 +1,7 @@
 const socket = io();
 let state = null;
 let playerTeamId = null;
+let isTutorial = false;
 
 const PASS_ACTION = { label: 'Pass', choice: 'pass', index: 0, needsTarget: false, range: 0, cost: 0 };
 
@@ -37,8 +38,9 @@ socket.on('disconnect', () => {
   connStatusEl.className = 'disconnected';
 });
 
-socket.on('session_joined', ({ playerTeamId: tid }) => {
+socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
   playerTeamId = tid;
+  isTutorial = tutorial;
 });
 
 socket.on('session_state', (newState) => {
@@ -271,11 +273,13 @@ function renderActionPanel() {
   }
   if (ui.phase === 'ended') {
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
-    const restart = document.createElement('button');
-    restart.className = 'submit-btn';
-    restart.textContent = 'Play Again';
-    restart.addEventListener('click', resetSession);
-    actionPanelEl.appendChild(restart);
+    if (isTutorial) {
+      const restart = document.createElement('button');
+      restart.className = 'submit-btn';
+      restart.textContent = 'Try Again';
+      restart.addEventListener('click', resetSession);
+      actionPanelEl.appendChild(restart);
+    }
     return;
   }
 
