@@ -1,0 +1,13 @@
+Name: The Enchanting Shop
+NPC: Sylvara
+Title: Enchantress
+Greeting: "Sylvara looks up from her tome. 'Ingredients or curiosities? I deal in both.'"
+Sensitivity: 30
+
+Items:
+  - id: brain
+    Base_Buy: 40
+    Base_Sell: 15
+  - id: spores
+    Base_Buy: 18
+    Base_Sell: 7

@@ -1,0 +1,10 @@
+Name: The General Store
+NPC: Mira
+Title: Shopkeeper
+Greeting: "Mira smiles from behind the counter. 'Welcome in. Take a look around.'"
+Sensitivity: 50
+
+Items:
+  - id: spores
+    Base_Buy: 12
+    Base_Sell: 4

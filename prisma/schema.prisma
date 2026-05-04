@@ -45,6 +45,16 @@ model CharacterWeapon {
   @@id([character_id, weapon_key])
 }
 
+model ShopTransaction {
+  id         String   @id @default(uuid())
+  shop_id    String
+  item_id    String
+  type       String   // 'buy' | 'sell'
+  quantity   Int
+  discord_id String
+  created_at DateTime @default(now())
+}
+
 model InventoryItem {
   character_id  String
   item_id       String

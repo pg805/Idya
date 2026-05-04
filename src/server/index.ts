@@ -28,6 +28,8 @@ import { PatternActionType } from '../infrastructure/pattern.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
+import { loadShop } from '../economy/shop_loader.js';
+import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -717,6 +719,329 @@ if (discordToken) {
     await prisma.character.update({ where: { id: char.id }, data: { weapon_key: weaponKey } });
     const w = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
     await interaction.update({ content: `**${w.name}** equipped.`, components: [] });
+  });
+
+  // ---- Shop ----
+
+  const SHOP_DIR = join(__dirname, '../../database/shops');
+
+  const CHANNEL_TO_SHOP: Record<string, string> = {
+    [worldConfig.channels.blacksmith]:     'blacksmith',
+    [worldConfig.channels.general_store]:  'general_store',
+    [worldConfig.channels.temple]:         'temple',
+    [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
+  };
+
+  function shopEmbedBase(npc: string, title: string, shopName: string, greeting: string) {
+    return new EmbedBuilder()
+      .setColor(0x2b1d0e)
+      .setAuthor({ name: `${npc} — ${title}` })
+      .setTitle(shopName)
+      .setDescription(`*${greeting}*`);
+  }
+
+  function browseRow() {
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('Shop:Browse').setLabel('Browse').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('Shop:Sell').setLabel('Sell').setStyle(ButtonStyle.Secondary),
+    );
+  }
+
+  async function buildBrowseView(shopKey: string, korel: number) {
+    const config  = loadShop(shopKey, SHOP_DIR);
+    const prices  = await getPrices(shopKey, config);
+    const forSale = prices.filter(p => p.buy != null);
+
+    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
+      .addFields({ name: 'Your korel', value: `${korel}`, inline: true });
+
+    if (forSale.length === 0) {
+      embed.addFields({ name: 'Stock', value: 'Nothing for sale right now.' });
+    }
+
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [browseRow()];
+    for (let i = 0; i < forSale.length; i += 4) {
+      const row = new ActionRowBuilder<ButtonBuilder>();
+      for (const item of forSale.slice(i, i + 4)) {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`Shop:BuyDetail:${shopKey}:${item.id}`)
+            .setLabel(`${item.id} — ${item.buy} korel`)
+            .setStyle(ButtonStyle.Secondary),
+        );
+      }
+      rows.push(row);
+    }
+
+    return { embeds: [embed], components: rows };
+  }
+
+  async function buildSellView(shopKey: string, characterId: string, korel: number) {
+    const config    = loadShop(shopKey, SHOP_DIR);
+    const prices    = await getPrices(shopKey, config);
+    const shopBuys  = prices.filter(p => p.sell != null);
+    const inventory = await prisma.inventoryItem.findMany({
+      where: { character_id: characterId, item_id: { in: shopBuys.map(p => p.id) } },
+      include: { item: true },
+    });
+
+    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
+      .addFields({ name: 'Your korel', value: `${korel}`, inline: true });
+
+    if (inventory.length === 0) {
+      embed.addFields({ name: 'Your items', value: "You don't have anything I'd buy." });
+    }
+
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [browseRow()];
+    for (let i = 0; i < inventory.length; i += 4) {
+      const row = new ActionRowBuilder<ButtonBuilder>();
+      for (const inv of inventory.slice(i, i + 4)) {
+        const price = shopBuys.find(p => p.id === inv.item_id)!;
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`Shop:SellDetail:${shopKey}:${inv.item_id}`)
+            .setLabel(`${inv.item.name} ×${inv.quantity} — ${price.sell} ea`)
+            .setStyle(ButtonStyle.Secondary),
+        );
+      }
+      rows.push(row);
+    }
+
+    return { embeds: [embed], components: rows };
+  }
+
+  // /shop command
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'shop') return;
+
+    const shopKey = CHANNEL_TO_SHOP[interaction.channelId];
+    if (!shopKey) {
+      await interaction.reply({ content: "There's no shop here.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) {
+      await interaction.reply({ content: "You don't have a character yet!", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const payload = await buildBrowseView(shopKey, dbUser?.korel ?? 0);
+    await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+  });
+
+  // Browse / Sell tab buttons
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton()) return;
+    if (interaction.customId !== 'Shop:Browse' && interaction.customId !== 'Shop:Sell') return;
+
+    const shopKey = CHANNEL_TO_SHOP[interaction.channelId];
+    if (!shopKey) return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) return;
+
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const korel  = dbUser?.korel ?? 0;
+
+    const payload = interaction.customId === 'Shop:Browse'
+      ? await buildBrowseView(shopKey, korel)
+      : await buildSellView(shopKey, chars[0].id, korel);
+
+    await interaction.update(payload);
+  });
+
+  // Buy detail view
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:BuyDetail:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const config = loadShop(shopKey, SHOP_DIR);
+    const prices = await getPrices(shopKey, config);
+    const item   = prices.find(p => p.id === itemId);
+    if (!item || item.buy == null) return;
+
+    const dbItem = await prisma.item.findUnique({ where: { id: itemId } });
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+
+    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
+      .addFields(
+        { name: dbItem?.name ?? itemId, value: dbItem?.description ?? '', inline: false },
+        { name: 'Price',      value: `${item.buy} korel each`, inline: true },
+        { name: 'Your korel', value: `${dbUser?.korel ?? 0}`,  inline: true },
+      );
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('Shop:Browse').setLabel('← Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`Shop:BuyModal:${shopKey}:${itemId}`).setLabel('Buy').setStyle(ButtonStyle.Primary),
+    );
+
+    await interaction.update({ embeds: [embed], components: [row] });
+  });
+
+  // Sell detail view
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellDetail:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const config = loadShop(shopKey, SHOP_DIR);
+    const prices = await getPrices(shopKey, config);
+    const item   = prices.find(p => p.id === itemId);
+    if (!item || item.sell == null) return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) return;
+    const inv = await prisma.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
+      include: { item: true },
+    });
+    if (!inv) return;
+
+    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
+      .addFields(
+        { name: inv.item.name, value: inv.item.description, inline: false },
+        { name: 'Sell price', value: `${item.sell} korel each`, inline: true },
+        { name: 'You have',   value: `${inv.quantity}`,          inline: true },
+      );
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('Shop:Sell').setLabel('← Back').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`Shop:SellModal:${shopKey}:${itemId}`).setLabel('Sell').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`Shop:SellAll:${shopKey}:${itemId}`).setLabel('Sell All').setStyle(ButtonStyle.Danger),
+    );
+
+    await interaction.update({ embeds: [embed], components: [row] });
+  });
+
+  // Open buy quantity modal
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:BuyModal:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const modal = new ModalBuilder()
+      .setCustomId(`Shop:BuySubmit:${shopKey}:${itemId}`)
+      .setTitle('How many?')
+      .addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('quantity')
+            .setLabel('Quantity')
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(1)
+            .setMaxLength(6)
+            .setRequired(true),
+        ),
+      );
+    await interaction.showModal(modal);
+  });
+
+  // Open sell quantity modal
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellModal:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const modal = new ModalBuilder()
+      .setCustomId(`Shop:SellSubmit:${shopKey}:${itemId}`)
+      .setTitle('How many?')
+      .addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('quantity')
+            .setLabel('Quantity')
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(1)
+            .setMaxLength(6)
+            .setRequired(true),
+        ),
+      );
+    await interaction.showModal(modal);
+  });
+
+  // Buy modal submit
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isModalSubmit() || !interaction.customId.startsWith('Shop:BuySubmit:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
+    if (isNaN(quantity) || quantity < 1) {
+      await interaction.reply({ content: 'Invalid quantity.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) { await interaction.reply({ content: 'No character found.', flags: MessageFlags.Ephemeral }); return; }
+
+    const config = loadShop(shopKey, SHOP_DIR);
+    const prices = await getPrices(shopKey, config);
+    const item   = prices.find(p => p.id === itemId);
+    if (!item || item.buy == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
+
+    const result = await buyItem(shopKey, chars[0].id, interaction.user.id, itemId, quantity, item.buy);
+
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const payload = await buildBrowseView(shopKey, dbUser?.korel ?? 0);
+    const statusLine = result.success
+      ? `✓ ${result.message}`
+      : `✗ ${result.message}`;
+
+    payload.embeds[0].setFooter({ text: statusLine });
+    if (interaction.isFromMessage()) await interaction.update(payload);
+    else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+  });
+
+  // Sell modal submit
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isModalSubmit() || !interaction.customId.startsWith('Shop:SellSubmit:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
+    if (isNaN(quantity) || quantity < 1) {
+      await interaction.reply({ content: 'Invalid quantity.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) { await interaction.reply({ content: 'No character found.', flags: MessageFlags.Ephemeral }); return; }
+
+    const config = loadShop(shopKey, SHOP_DIR);
+    const prices = await getPrices(shopKey, config);
+    const item   = prices.find(p => p.id === itemId);
+    if (!item || item.sell == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
+
+    const result = await sellItem(shopKey, chars[0].id, interaction.user.id, itemId, quantity, item.sell);
+
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);
+    payload.embeds[0].setFooter({ text: result.success ? `✓ ${result.message}` : `✗ ${result.message}` });
+    if (interaction.isFromMessage()) await interaction.update(payload);
+    else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+  });
+
+  // Sell All button
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellAll:')) return;
+
+    const [, , shopKey, itemId] = interaction.customId.split(':');
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) return;
+
+    const inv = await prisma.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
+    });
+    if (!inv || inv.quantity === 0) { await interaction.update({ content: "You don't have any.", components: [] }); return; }
+
+    const config = loadShop(shopKey, SHOP_DIR);
+    const prices = await getPrices(shopKey, config);
+    const item   = prices.find(p => p.id === itemId);
+    if (!item || item.sell == null) return;
+
+    const result = await sellItem(shopKey, chars[0].id, interaction.user.id, itemId, inv.quantity, item.sell);
+
+    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+    const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);
+    payload.embeds[0].setFooter({ text: result.success ? `✓ ${result.message}` : `✗ ${result.message}` });
+    await interaction.update(payload);
   });
 
   // ---- Guild member join ----
