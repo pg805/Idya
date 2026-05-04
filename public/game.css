@@ -180,7 +180,8 @@ h1 { color: #c0a060; letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 .combatant-card.team-a { border-color: #4a90d9; }
 .combatant-card.team-b { border-color: #d94a4a; }
-.combatant-card h3 { font-size: 0.9rem; margin-bottom: 6px; }
+.combatant-card h3 { font-size: 0.9rem; margin-bottom: 2px; }
+.weapon-name { font-size: 0.7rem; color: #7090b0; margin-bottom: 6px; }
 .hp-bar-bg { background: #0d0d1a; border-radius: 3px; height: 6px; overflow: hidden; }
 .hp-bar { height: 100%; border-radius: 3px; transition: width 0.3s, background 0.3s; }
 .hp-text { font-size: 0.75rem; color: #888; margin-top: 3px; }

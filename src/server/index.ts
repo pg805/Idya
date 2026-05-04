@@ -201,14 +201,24 @@ io.on('connection', (socket: Socket) => {
       if (meta && result.winner === 'team-a') {
         const chars = await charRepo.list(meta.discordUserId);
         const char = chars[0];
+        let rewardSummary = '';
         if (char) {
-          await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable).catch(() => {});
+          const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable).catch(() => null);
+          rewardSummary = rewards?.summary ?? '';
         }
         if (meta.isTutorial) {
           await prisma.user.update({
             where: { discord_id: meta.discordUserId },
             data: { tutorial_complete: true },
           }).catch(() => {});
+        }
+        if (discord && rewardSummary) {
+          try {
+            const ch = await discord.channels.fetch(worldConfig.channels.forest);
+            if (ch?.isTextBased() && 'send' in ch) {
+              await (ch as import('discord.js').TextChannel).send(`<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`);
+            }
+          } catch (_) {}
         }
       }
     }
@@ -313,6 +323,7 @@ function buildCharModal(): ModalBuilder {
 
 const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
 
+let discord: import('discord.js').Client | null = null;
 let discordToken: string | null = null;
 try {
   discordToken = JSON.parse(
@@ -321,7 +332,7 @@ try {
 } catch (_) {}
 
 if (discordToken) {
-  const discord = new Client({
+  discord = new Client({
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMembers,

@@ -22,8 +22,9 @@ export function reachableTiles(
       if (!board.inBounds(n)) continue;
       if (board.isBlocked(n)) continue;
       if ((costs.get(k) ?? Infinity) <= newCost) continue;
+      if (occupied.has(k)) continue;
       costs.set(k, newCost);
-      if (!occupied.has(k)) reachable.set(k, n);
+      reachable.set(k, n);
       queue.push([n, newCost]);
     }
   }

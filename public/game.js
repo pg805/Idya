@@ -98,8 +98,9 @@ function computeReachable(combatant) {
         if (obstacleSet.has(k)) continue;
         if (newCost > range) continue;
         if ((costs.get(k) ?? Infinity) <= newCost) continue;
+        if (occupiedSet.has(k)) continue;
         costs.set(k, newCost);
-        if (!occupiedSet.has(k)) reachable.add(k);
+        reachable.add(k);
         queue.push([{ x: nx, y: ny }, newCost]);
       }
     }
@@ -341,8 +342,10 @@ function renderCombatantList() {
     const resPct = c.maxResource > 0 ? Math.max(0, (c.resource / c.maxResource) * 100) : 0;
     const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
     const telegraph = c.isAI && state.telegraphs?.[c.id];
+    const weaponLine = (!c.isAI && c.weaponInfo) ? `<div class="weapon-name">${c.weaponInfo.name}</div>` : '';
     card.innerHTML = `
       <h3>${c.name}${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
+      ${weaponLine}
       <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
       <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>
       <div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>
