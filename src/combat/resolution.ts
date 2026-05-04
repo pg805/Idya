@@ -250,12 +250,11 @@ export function resolveIntents(
     });
   }
 
-  // --- Advance AI pattern indices (only when the action wasn't skipped) ---
-  for (const [id, meta] of session.meta) {
-    if (meta.pattern.length === 0) continue;
-    const intent = intents.get(id);
-    if (intent && intent.action.type === 'pass') continue;
-    meta.patternIndex = (meta.patternIndex + 1) % meta.pattern.length;
+  // --- Advance AI pattern indices ---
+  for (const [, meta] of session.meta) {
+    if (meta.pattern.length > 0) {
+      meta.patternIndex = (meta.patternIndex + 1) % meta.pattern.length;
+    }
   }
 
   // --- Check win condition ---
