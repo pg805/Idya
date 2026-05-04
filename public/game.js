@@ -178,8 +178,9 @@ function computeTargetableTiles(actionInfo, fromPos) {
       const k = `${x},${y}`;
       if (obstacleSet.has(k)) continue;
       const d = chebyshev(fromPos, { x, y });
-      if (d >= 1 && d <= actionInfo.range) {
-        if (actionInfo.range === 1 || hasLineOfSight(fromPos, { x, y }, state.board)) {
+      const minDist = actionInfo.targeted ? 0 : 1;
+      if (d >= minDist && d <= actionInfo.range) {
+        if (d === 0 || actionInfo.range === 1 || hasLineOfSight(fromPos, { x, y }, state.board)) {
           tiles.add(k);
         }
       }

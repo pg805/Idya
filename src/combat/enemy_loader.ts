@@ -26,18 +26,18 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
 
   for (let i = 0; i < weapon.defend.length; i++) {
     const a = weapon.defend[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type);
-    actions.push({ label: a.name, choice: 'defend', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, range: a.range, cost: a.cost });
+    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
+    actions.push({ label: a.name, choice: 'defend', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, range: a.range, cost: a.cost });
   }
   for (let i = 0; i < weapon.attack.length; i++) {
     const a = weapon.attack[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type);
-    actions.push({ label: a.name, choice: 'attack', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, range: a.range, cost: a.cost });
+    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
+    actions.push({ label: a.name, choice: 'attack', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, range: a.range, cost: a.cost });
   }
   for (let i = 0; i < weapon.special.length; i++) {
     const a = weapon.special[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type);
-    actions.push({ label: a.name, choice: 'special', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, range: a.range, cost: a.cost });
+    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
+    actions.push({ label: a.name, choice: 'special', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, range: a.range, cost: a.cost });
   }
 
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions };
