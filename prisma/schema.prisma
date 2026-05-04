@@ -26,6 +26,7 @@ model Character {
 
   user         User            @relation(fields: [discord_id], references: [discord_id])
   inventory    InventoryItem[]
+  weapons      CharacterWeapon[]
 }
 
 model Item {
@@ -33,6 +34,15 @@ model Item {
   name        String
   description String
   inventory   InventoryItem[]
+}
+
+model CharacterWeapon {
+  character_id  String
+  weapon_key    String
+
+  character     Character @relation(fields: [character_id], references: [id])
+
+  @@id([character_id, weapon_key])
 }
 
 model InventoryItem {

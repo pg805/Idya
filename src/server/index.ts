@@ -8,6 +8,7 @@ import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   ModalBuilder, TextInputBuilder, TextInputStyle,
+  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
@@ -90,11 +91,11 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string, playerName = 'Hero'): { session: CombatSession; lootTable: LootTable; enemyName: string } {
-  const fists     = Weapon.from_file(join(__dirname, '../../database/weapons/branch.yaml'));
-  const fistsInfo = buildWeaponInfo(fists);
+function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string, playerName = 'Hero', weaponKey = 'branch'): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+  const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+  const fistsInfo = buildWeaponInfo(weapon);
   const playerHp  = 50;
-  const playerState = new CombatantState(playerName, playerHp, fists.resource_name, fists.resource_max);
+  const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
   const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
     join(__dirname, `../../database/enemies/${enemyKey}.yaml`),
@@ -124,9 +125,9 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
           name: playerName,
           hp: playerHp,
           maxHp: playerHp,
-          resource: fists.resource_max,
-          maxResource: fists.resource_max,
-          resourceName: fists.resource_name,
+          resource: weapon.resource_max,
+          maxResource: weapon.resource_max,
+          resourceName: weapon.resource_name,
           pos: { x: 0, y: 2 },
           movementRange: 2,
           isAI: false,
@@ -143,7 +144,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
     ],
   );
 
-  session.meta.set('player-1', { weapon: fists, state: playerState, pattern: [], patternIndex: 0 });
+  session.meta.set('player-1', { weapon: weapon, state: playerState, pattern: [], patternIndex: 0 });
   session.meta.set('enemy-1', enemyMeta);
   session.phase = 'intent';
   refreshTelegraphs(session);
@@ -283,13 +284,14 @@ io.on('connection', (socket: Socket) => {
     ) ?? 'rat') as EnemyKey;
 
     let playerName = 'Hero';
+    let playerWeaponKey = 'branch';
     const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
     if (oldMeta) {
       const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
-      if (chars[0]) playerName = chars[0].name;
+      if (chars[0]) { playerName = chars[0].name; playerWeaponKey = chars[0].weapon_key; }
     }
 
-    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName);
+    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
       sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName });
@@ -432,7 +434,7 @@ if (discordToken) {
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite);
+        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite, chars[0].name, chars[0].weapon_key);
         sessions.set(sessionId, tutSession);
         sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName });
         await interaction.reply({
@@ -466,7 +468,7 @@ if (discordToken) {
       const chars = await charRepo.list(interaction.user.id);
       const playerSprite = chars[0]?.sprite_token ? `${HOST}/sprites/${chars[0].sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: newSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite);
+      const { session: newSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, chars[0]?.name ?? 'Hero', chars[0]?.weapon_key ?? 'branch');
       sessions.set(sessionId, newSession);
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName });
 
@@ -583,8 +585,13 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
-      await prisma.character.update({ where: { id: chars[0].id }, data: { weapon_key: weaponKey } });
-      await interaction.reply({ content: `Gave \`${weaponKey}\` to ${target.username}'s character **${chars[0].name}**.`, flags: MessageFlags.Ephemeral });
+      await prisma.characterWeapon.upsert({
+        where:  { character_id_weapon_key: { character_id: chars[0].id, weapon_key: weaponKey } },
+        update: {},
+        create: { character_id: chars[0].id, weapon_key: weaponKey },
+      });
+      const w = Weapon.from_file(weaponPath);
+      await interaction.reply({ content: `Added **${w.name}** to ${target.username}'s weapon inventory. They can equip it with \`/weapon\`.`, flags: MessageFlags.Ephemeral });
     }
   });
 
@@ -601,6 +608,7 @@ if (discordToken) {
       const target = interaction.options.getUser('user', true);
       const chars = await prisma.character.findMany({ where: { discord_id: target.id }, select: { id: true } });
       await prisma.inventoryItem.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
+      await prisma.characterWeapon.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
       await prisma.character.deleteMany({ where: { discord_id: target.id } });
       await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false, korel: 0 } }).catch(() => {});
       await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
@@ -623,7 +631,14 @@ if (discordToken) {
 
     const char = chars[0];
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const weapon = Weapon.from_file(join(__dirname, `../../database/weapons/${char.weapon_key}.yaml`));
+
+    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    const weaponsText = ownedWeapons.length > 0
+      ? ownedWeapons.map(cw => {
+          const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
+          return cw.weapon_key === char.weapon_key ? `**${w.name}** (equipped)` : w.name;
+        }).join('\n')
+      : 'None';
 
     const inventory = await prisma.inventoryItem.findMany({
       where: { character_id: char.id },
@@ -638,8 +653,9 @@ if (discordToken) {
       .setTitle(char.name)
       .addFields(
         { name: 'HP',        value: `${char.health} / ${char.max_health}`, inline: true },
-        { name: 'Weapon',    value: weapon.name,                           inline: true },
         { name: 'Korel',     value: `${dbUser?.korel ?? 0}`,              inline: true },
+        { name: '​',    value: '​',                              inline: true },
+        { name: 'Weapons',   value: weaponsText,                           inline: false },
         { name: 'Inventory', value: invText,                               inline: false },
       );
 
@@ -648,6 +664,59 @@ if (discordToken) {
     }
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  });
+
+  // ---- Weapon equip ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon') return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) {
+      await interaction.reply({ content: "You don't have a character yet!", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const char = chars[0];
+    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    if (ownedWeapons.length === 0) {
+      await interaction.reply({ content: 'You have no weapons in your inventory.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const options = ownedWeapons.map(cw => {
+      const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(w.name)
+        .setDescription(w.description || cw.weapon_key)
+        .setValue(cw.weapon_key)
+        .setDefault(cw.weapon_key === char.weapon_key);
+    });
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId('WeaponEquip')
+      .setPlaceholder('Choose a weapon to equip')
+      .addOptions(options);
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+    await interaction.reply({ content: 'Choose a weapon to equip:', components: [row], flags: MessageFlags.Ephemeral });
+  });
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isStringSelectMenu() || interaction.customId !== 'WeaponEquip') return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) { await interaction.update({ content: 'No character found.', components: [] }); return; }
+    const char = chars[0];
+
+    const weaponKey = interaction.values[0];
+    const owned = await prisma.characterWeapon.findUnique({
+      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
+    });
+    if (!owned) { await interaction.update({ content: "You don't own that weapon.", components: [] }); return; }
+
+    await prisma.character.update({ where: { id: char.id }, data: { weapon_key: weaponKey } });
+    const w = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+    await interaction.update({ content: `**${w.name}** equipped.`, components: [] });
   });
 
   // ---- Guild member join ----

@@ -22,7 +22,7 @@ export default class CharacterRepository {
             create: { discord_id }
         });
 
-        return prisma.character.create({
+        const character = await prisma.character.create({
             data: {
                 discord_id,
                 name,
@@ -32,6 +32,8 @@ export default class CharacterRepository {
                 max_health:   50,
             }
         });
+        await prisma.characterWeapon.create({ data: { character_id: character.id, weapon_key } });
+        return character;
     }
 
     to_player_character(data: Character): Player_Character {
