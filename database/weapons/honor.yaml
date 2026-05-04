@@ -13,14 +13,14 @@ Defend:
     Value: 1000
     Cost: 1
     Action_String: "<User> extends mercy, healing 1000 damage."
-  - Name: Rest
+  - Name: Repentance
     Type: 2
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
     Value: 0
     Cost: -50
-    Action_String: "<User> rests, restoring 50 Virtue."
+    Action_String: "<User> repents, restoring 50 Virtue."
 
 Defend Crit: []
 
@@ -32,7 +32,7 @@ Attack:
     Damage_Subtype: Blunt
     Field: [0, 1000, 1000, 1000, 1000, 5000]
     Cost: 1
-    Aimed: false
+    Aimed: true
     Range: 5
     Action_String: "<User> delivers justice to <Target> for <Damage> damage."
 
