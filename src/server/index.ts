@@ -212,6 +212,7 @@ io.on('connection', (socket: Socket) => {
             data: { tutorial_complete: true },
           }).catch(() => {});
         }
+        io.to(sessionId).emit('reward_result', { summary: rewardSummary || 'No drops.' });
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);

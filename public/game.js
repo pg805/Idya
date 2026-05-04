@@ -59,6 +59,10 @@ socket.on('game_over', ({ winner }) => {
   render();
 });
 
+socket.on('reward_result', ({ summary }) => {
+  appendLog([`Loot: ${summary}`], 'crit');
+});
+
 // ---- State helpers ----
 function resetUI() {
   ui.phase = 'idle';
@@ -77,6 +81,7 @@ function myPlayerCombatant() {
 }
 
 // ---- Movement BFS (mirrors server) ----
+// Diagonals use alternating cost (1-2-1-2): even diagonal in path = 1, odd = 2.
 function computeReachable(combatant) {
   const { width, height, obstacles } = state.board;
   const obstacleSet = new Set(
@@ -87,28 +92,36 @@ function computeReachable(combatant) {
   );
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
-  const costs = new Map([[startKey, 0]]);
+  const stateCosts = new Map([[`${startKey}:0`, 0]]); // 'x,y:parity' → cost (BFS correctness)
+  const tileCosts  = new Map([[startKey, 0]]);         // 'x,y' → best cost (parent tracking)
   const parents = new Map([[startKey, null]]);
-  const queue = [[combatant.pos, 0]];
+  const queue = [[combatant.pos, 0, 0]]; // pos, cost, diagParity
   const reachable = new Set();
 
   while (queue.length) {
-    const [pos, cost] = queue.shift();
+    const [pos, cost, diagParity] = queue.shift();
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         if (dx === 0 && dy === 0) continue;
         const nx = pos.x + dx, ny = pos.y + dy;
         const k = `${nx},${ny}`;
-        const newCost = cost + 1;
+        const isDiag = dx !== 0 && dy !== 0;
+        const stepCost = isDiag ? (diagParity === 0 ? 1 : 2) : 1;
+        const newCost = cost + stepCost;
+        const newParity = isDiag ? 1 - diagParity : diagParity;
+        const sk = `${k}:${newParity}`;
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         if (obstacleSet.has(k)) continue;
         if (newCost > range) continue;
-        if ((costs.get(k) ?? Infinity) <= newCost) continue;
+        if ((stateCosts.get(sk) ?? Infinity) <= newCost) continue;
         if (occupiedSet.has(k)) continue;
-        costs.set(k, newCost);
-        if (!parents.has(k)) parents.set(k, `${pos.x},${pos.y}`);
+        stateCosts.set(sk, newCost);
+        if (newCost < (tileCosts.get(k) ?? Infinity)) {
+          tileCosts.set(k, newCost);
+          parents.set(k, `${pos.x},${pos.y}`);
+        }
         reachable.add(k);
-        queue.push([{ x: nx, y: ny }, newCost]);
+        queue.push([{ x: nx, y: ny }, newCost, newParity]);
       }
     }
   }
