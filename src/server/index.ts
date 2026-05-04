@@ -198,13 +198,14 @@ io.on('connection', (socket: Socket) => {
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
       const meta = sessionMeta.get(sessionId);
+
       if (meta && result.winner === 'team-a') {
         const chars = await charRepo.list(meta.discordUserId);
         const char = chars[0];
-        let rewardSummary = '';
+        let rewardSummary = 'No drops.';
         if (char) {
           const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable).catch(() => null);
-          rewardSummary = rewards?.summary ?? '';
+          rewardSummary = rewards?.summary ?? 'No drops.';
         }
         if (meta.isTutorial) {
           await prisma.user.update({
@@ -212,12 +213,12 @@ io.on('connection', (socket: Socket) => {
             data: { tutorial_complete: true },
           }).catch(() => {});
         }
-        io.to(sessionId).emit('reward_result', { summary: rewardSummary || 'No drops.' });
+        io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
-              const msg = rewardSummary && rewardSummary !== 'No drops.'
+              const msg = rewardSummary !== 'No drops.'
                 ? `<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`
                 : `<@${meta.discordUserId}> returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
               await (ch as import('discord.js').TextChannel).send(msg);
@@ -225,6 +226,37 @@ io.on('connection', (socket: Socket) => {
           } catch (_) {}
         }
       }
+
+      if (meta && result.winner === 'team-b') {
+        const dbUser = await prisma.user.findUnique({ where: { discord_id: meta.discordUserId } }).catch(() => null);
+        const currentKorel = dbUser?.korel ?? 0;
+        const fee = Math.floor(currentKorel * 0.1);
+        if (fee > 0) {
+          await prisma.user.update({
+            where: { discord_id: meta.discordUserId },
+            data: { korel: { decrement: fee } },
+          }).catch(() => {});
+        }
+        const feeMsg = fee > 0 ? `Mending fee: −${fee} Korel` : 'No mending fee.';
+        io.to(sessionId).emit('reward_result', { summary: feeMsg });
+        if (discord) {
+          try {
+            const ch = await discord.channels.fetch(worldConfig.channels.forest);
+            if (ch?.isTextBased() && 'send' in ch) {
+              const msg = fee > 0
+                ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in mending fees.`
+                : `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
+              await (ch as import('discord.js').TextChannel).send(msg);
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Clean up session after 10 minutes
+      setTimeout(() => {
+        sessions.delete(sessionId);
+        sessionMeta.delete(sessionId);
+      }, 10 * 60 * 1000);
     }
   });
 

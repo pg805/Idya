@@ -62,7 +62,7 @@ socket.on('game_over', ({ winner }) => {
 });
 
 socket.on('reward_result', ({ summary }) => {
-  appendLog([`Loot: ${summary}`], 'crit');
+  appendLog([summary], 'crit');
 });
 
 // ---- State helpers ----
@@ -279,6 +279,12 @@ function renderActionPanel() {
       restart.textContent = 'Try Again';
       restart.addEventListener('click', resetSession);
       actionPanelEl.appendChild(restart);
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'action-title';
+      hint.style.marginTop = '8px';
+      hint.textContent = 'Return to Discord to start another battle.';
+      actionPanelEl.appendChild(hint);
     }
     return;
   }
