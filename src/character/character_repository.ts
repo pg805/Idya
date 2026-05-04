@@ -33,6 +33,11 @@ export default class CharacterRepository {
             }
         });
         await prisma.characterWeapon.create({ data: { character_id: character.id, weapon_key } });
+        await prisma.eventLog.create({ data: {
+            discord_id,
+            event_type: 'character_created',
+            payload: { name, weapon_key, sprite_token: sprite_token ?? null },
+        }});
         return character;
     }
 

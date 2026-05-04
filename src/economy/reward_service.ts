@@ -15,7 +15,7 @@ function roll_field(field: number[]): number {
 }
 
 export default class RewardService {
-    async grant(discord_id: string, character_id: string, loot_table: LootTable): Promise<RewardResult> {
+    async grant(discord_id: string, character_id: string, loot_table: LootTable, note?: string): Promise<RewardResult> {
         const currency = loot_table.currency ? roll_field(loot_table.currency) : 0;
 
         const dropped: Array<{ id: string; name: string; quantity: number }> = [];
@@ -30,6 +30,9 @@ export default class RewardService {
             await prisma.user.update({
                 where: { discord_id },
                 data:  { korel: { increment: currency } }
+            });
+            await prisma.korelLedger.create({
+                data: { discord_id, amount: currency, reason: 'battle_reward', note: note ?? null }
             });
         }
 

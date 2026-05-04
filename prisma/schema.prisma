@@ -45,6 +45,35 @@ model CharacterWeapon {
   @@id([character_id, weapon_key])
 }
 
+model KorelLedger {
+  id         String   @id @default(uuid())
+  discord_id String
+  amount     Int
+  reason     String
+  note       String?
+  created_at DateTime @default(now())
+}
+
+model BattleLog {
+  id           String   @id @default(uuid())
+  discord_id   String
+  character_id String
+  enemy        String
+  outcome      String
+  korel_delta  Int
+  loot         String?
+  started_at   DateTime
+  ended_at     DateTime @default(now())
+}
+
+model EventLog {
+  id         String   @id @default(uuid())
+  discord_id String
+  event_type String
+  payload    Json?
+  created_at DateTime @default(now())
+}
+
 model ShopTransaction {
   id         String   @id @default(uuid())
   shop_id    String

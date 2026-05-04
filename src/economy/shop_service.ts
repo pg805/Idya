@@ -58,6 +58,9 @@ export async function buyItem(
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: itemId, type: 'buy', quantity, discord_id: discordId },
     });
+    await tx.korelLedger.create({
+      data: { discord_id: discordId, amount: -total, reason: 'shop_buy', note: `${quantity}× ${itemId} @ ${shopKey}` },
+    });
 
     return { success: true, message: `Bought ${quantity}× for **${total} korel**.` };
   });
@@ -95,6 +98,9 @@ export async function sellItem(
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: total } } });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: itemId, type: 'sell', quantity, discord_id: discordId },
+    });
+    await tx.korelLedger.create({
+      data: { discord_id: discordId, amount: total, reason: 'shop_sell', note: `${quantity}× ${itemId} @ ${shopKey}` },
     });
 
     return { success: true, message: `Sold ${quantity}× for **${total} korel**.` };

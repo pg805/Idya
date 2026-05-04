@@ -39,7 +39,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date }>();
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string }>();
 
@@ -218,9 +218,17 @@ io.on('connection', (socket: Socket) => {
         const chars = await charRepo.list(meta.discordUserId);
         const char = chars[0];
         let rewardSummary = 'No drops.';
+        let korelEarned = 0;
         if (char) {
-          const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable).catch(() => null);
+          const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
+          korelEarned = rewards?.currency ?? 0;
+          await prisma.battleLog.create({ data: {
+            discord_id: meta.discordUserId, character_id: char.id,
+            enemy: meta.enemyName, outcome: 'win',
+            korel_delta: korelEarned, loot: rewardSummary,
+            started_at: meta.startedAt,
+          }}).catch(() => {});
         }
         if (meta.isTutorial) {
           await prisma.user.update({
@@ -243,6 +251,8 @@ io.on('connection', (socket: Socket) => {
       }
 
       if (meta && result.winner === 'team-b') {
+        const chars = await charRepo.list(meta.discordUserId).catch(() => []);
+        const char = chars[0];
         const dbUser = await prisma.user.findUnique({ where: { discord_id: meta.discordUserId } }).catch(() => null);
         const currentKorel = dbUser?.korel ?? 0;
         const fee = Math.floor(currentKorel * 0.1);
@@ -251,6 +261,17 @@ io.on('connection', (socket: Socket) => {
             where: { discord_id: meta.discordUserId },
             data: { korel: { decrement: fee } },
           }).catch(() => {});
+          await prisma.korelLedger.create({ data: {
+            discord_id: meta.discordUserId, amount: -fee,
+            reason: 'mending_fee', note: `Defeated by ${meta.enemyName}`,
+          }}).catch(() => {});
+        }
+        if (char) {
+          await prisma.battleLog.create({ data: {
+            discord_id: meta.discordUserId, character_id: char.id,
+            enemy: meta.enemyName, outcome: 'loss',
+            korel_delta: -fee, started_at: meta.startedAt,
+          }}).catch(() => {});
         }
         const feeMsg = fee > 0 ? `Mending fee: −${fee} Korel` : 'No mending fee.';
         io.to(sessionId).emit('reward_result', { summary: feeMsg });
@@ -296,7 +317,7 @@ io.on('connection', (socket: Socket) => {
     const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
-      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date() });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -438,7 +459,7 @@ if (discordToken) {
         const sessionId = Math.random().toString(36).slice(2, 10);
         const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite, chars[0].name, chars[0].weapon_key);
         sessions.set(sessionId, tutSession);
-        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName });
+        sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
         await interaction.reply({
           embeds: [
             new EmbedBuilder()
@@ -472,7 +493,7 @@ if (discordToken) {
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: newSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, chars[0]?.name ?? 'Hero', chars[0]?.weapon_key ?? 'branch');
       sessions.set(sessionId, newSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date() });
 
       await interaction.update({
         content: `**Battle ready!**\n${HOST}/battle/${sessionId}`,
@@ -528,7 +549,7 @@ if (discordToken) {
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite);
       sessions.set(sessionId, charSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
       await interaction.update({
         content: '',
         embeds: [
@@ -593,6 +614,11 @@ if (discordToken) {
         create: { character_id: chars[0].id, weapon_key: weaponKey },
       });
       const w = Weapon.from_file(weaponPath);
+      await prisma.eventLog.create({ data: {
+        discord_id: target.id,
+        event_type: 'weapon_given',
+        payload: { weapon_key: weaponKey, weapon_name: w.name, given_by: interaction.user.id },
+      }}).catch(() => {});
       await interaction.reply({ content: `Added **${w.name}** to ${target.username}'s weapon inventory. They can equip it with \`/weapon\`.`, flags: MessageFlags.Ephemeral });
     }
   });
@@ -613,6 +639,10 @@ if (discordToken) {
       await prisma.characterWeapon.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
       await prisma.character.deleteMany({ where: { discord_id: target.id } });
       await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false, korel: 0 } }).catch(() => {});
+      await prisma.eventLog.create({ data: {
+        discord_id: target.id, event_type: 'character_reset',
+        payload: { reset_by: interaction.user.id },
+      }}).catch(() => {});
       await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
   });
@@ -718,6 +748,10 @@ if (discordToken) {
 
     await prisma.character.update({ where: { id: char.id }, data: { weapon_key: weaponKey } });
     const w = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+    await prisma.eventLog.create({ data: {
+      discord_id: interaction.user.id, event_type: 'weapon_equipped',
+      payload: { weapon_key: weaponKey, weapon_name: w.name },
+    }}).catch(() => {});
     await interaction.update({ content: `**${w.name}** equipped.`, components: [] });
   });
 
