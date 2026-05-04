@@ -2,7 +2,7 @@ Name: Honor
 Description: Virtue made manifest.
 Resource:
   Name: Virtue
-  Max: 10
+  Max: 100
 
 Defend:
   - Name: Mercy
@@ -11,8 +11,16 @@ Defend:
     Damage_Type: Elemental
     Damage_Subtype: Blunt
     Value: 1000
-    Cost: 0
+    Cost: 1
     Action_String: "<User> extends mercy, healing 1000 damage."
+  - Name: Rest
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 0
+    Cost: -50
+    Action_String: "<User> rests, restoring 50 Virtue."
 
 Defend Crit: []
 
@@ -23,7 +31,7 @@ Attack:
     Damage_Type: Physical
     Damage_Subtype: Blunt
     Field: [0, 1000, 1000, 1000, 1000, 5000]
-    Cost: 0
+    Cost: 1
     Aimed: false
     Range: 5
     Action_String: "<User> delivers justice to <Target> for <Damage> damage."
@@ -35,7 +43,7 @@ Attack Crit:
     Damage_Type: Physical
     Damage_Subtype: Blunt
     Value: 100
-    Cost: 0
+    Cost: -10
     Action_String: "<User>'s ideals stand firm, blocking 100 damage."
 
 Special:
@@ -46,7 +54,7 @@ Special:
     Damage_Subtype: Blunt
     Field: [5, 100, 100, 100]
     Rounds: 10
-    Cost: 0
+    Cost: 1
     Aimed: true
     Range: 5
     Action_String: "<User> reveals the truth to <Target>, condemning them to take <Damage> damage for 10 rounds."
