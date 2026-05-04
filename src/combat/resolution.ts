@@ -151,17 +151,20 @@ export function resolveIntents(
       const tileStr = `(${targetPos.x},${targetPos.y})`;
 
       if (dist > action.range) {
-        log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — out of range (dist ${dist}).`);
+        const rs = actorMeta.state.apply_cost(action);
+        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — out of range (dist ${dist}).`);
         continue;
       }
       if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
-        log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — no line of sight.`);
+        const rs = actorMeta.state.apply_cost(action);
+        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — no line of sight.`);
         continue;
       }
 
       const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
       if (!occupant) {
-        log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — commits to empty space, misses.`);
+        const rs = actorMeta.state.apply_cost(action);
+        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — commits to empty space, misses.`);
         continue;
       }
       if (occupant.teamId === actor.teamId) {
@@ -183,7 +186,8 @@ export function resolveIntents(
       const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
 
       if (inRange.length === 0) {
-        log.push(`${actor.name}'s ${action.name} — no target in range.`);
+        const rs = actorMeta.state.apply_cost(action);
+        log.push(`${actor.name}'s ${action.name}${rs} — no target in range.`);
         continue;
       }
 
