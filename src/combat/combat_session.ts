@@ -8,9 +8,10 @@ export interface ActionInfo {
   label: string;
   choice: 'defend' | 'attack' | 'special' | 'pass';
   index: number;
-  needsTarget: boolean; // true for aimed actions that require a target tile
+  needsTarget: boolean;   // true for aimed actions that require a target tile
   aimed: boolean;
-  targeted: boolean;    // true for Heal/Buff that can target any combatant incl. self
+  targeted: boolean;      // true for Heal/Buff that can target any combatant incl. friendlies
+  canTargetSelf: boolean; // true for Heal/Buff — own tile is a valid target
   range: number;
   cost: number;
 }
