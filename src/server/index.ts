@@ -519,6 +519,8 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'resetcharacter') {
       const target = interaction.options.getUser('user', true);
+      const chars = await prisma.character.findMany({ where: { discord_id: target.id }, select: { id: true } });
+      await prisma.inventoryItem.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
       await prisma.character.deleteMany({ where: { discord_id: target.id } });
       await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false } }).catch(() => {});
       await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
