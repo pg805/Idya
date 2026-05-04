@@ -8,16 +8,19 @@ Defend:
   - Name: Mercy
     Type: 6
     Type_Name: Heal
-    Damage_Type: Elemental
-    Damage_Subtype: Blunt
+    Damage_Type: Arcane
+    Damage_Subtype: Fire
     Value: 1000
     Cost: 1
+    Targeted: true
+    Aimed: true
+    Range: 5
     Action_String: "<User> extends mercy, healing 1000 damage."
   - Name: Repentance
     Type: 2
     Type_Name: Block
-    Damage_Type: Physical
-    Damage_Subtype: Blunt
+    Damage_Type: Arcane
+    Damage_Subtype: Water
     Value: 0
     Cost: -50
     Action_String: "<User> repents, restoring 50 Virtue."
@@ -28,8 +31,8 @@ Attack:
   - Name: Justice
     Type: 1
     Type_Name: Strike
-    Damage_Type: Physical
-    Damage_Subtype: Blunt
+    Damage_Type: Elemental
+    Damage_Subtype: Sharp
     Field: [0, 1000, 1000, 1000, 1000, 5000]
     Cost: 1
     Aimed: true
@@ -40,7 +43,7 @@ Attack Crit:
   - Name: Ideals
     Type: 2
     Type_Name: Block
-    Damage_Type: Physical
+    Damage_Type: Elemental
     Damage_Subtype: Blunt
     Value: 100
     Cost: -10
@@ -51,7 +54,7 @@ Special:
     Type: 4
     Type_Name: DOT
     Damage_Type: Elemental
-    Damage_Subtype: Blunt
+    Damage_Subtype: Mental
     Field: [5, 100, 100, 100]
     Rounds: 10
     Cost: 1

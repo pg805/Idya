@@ -25,7 +25,8 @@ type ActionData = {
     'Damage_Subtype'?: string,
     'Cost'?: number,
     'Range'?: number,
-    'Aimed'?: boolean
+    'Aimed'?: boolean,
+    'Targeted'?: boolean
 }
 
 function from_json(action_object: ActionData): Action {
@@ -71,6 +72,7 @@ function from_json(action_object: ActionData): Action {
     action.cost           = action_object['Cost']           ?? 0;
     action.range          = action_object['Range']          ?? 1;
     action.aimed          = action_object['Aimed']          ?? false;
+    action.targeted       = action_object['Targeted']       ?? false;
     return action;
 }
 

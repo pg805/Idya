@@ -22,25 +22,6 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${actor.block}`);
         }
 
-        if (action.type === ActionType.Buff) {
-            const resource_string = actor.apply_cost(action);
-            actor.buff.value  = (action as Buff).value;
-            actor.buff.rounds = (action as Buff).rounds;
-            actor.debuff.value  = 0;
-            actor.debuff.rounds = 0;
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
-            logger.info(`Resolving ${actor.name} Buff: ${action.name}\nValue: ${actor.buff.value}  Rounds: ${actor.buff.rounds}`);
-        }
-
-        if (action.type === ActionType.Heal) {
-            const resource_string = actor.apply_cost(action);
-            const heal = (action as Heal).value;
-            const hp_before = actor.health;
-            actor.health = Math.min(actor.health + heal, actor.max_health);
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}  [HP: ${hp_before} → ${actor.health}]`;
-            logger.info(`Resolving ${actor.name} Heal: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${actor.health}`);
-        }
-
         if (action.type === ActionType.Reflect) {
             const resource_string = actor.apply_cost(action);
             actor.reflect.value  = (action as Reflect).value;
@@ -117,6 +98,25 @@ function apply_hostile_actions(
             target.buff.rounds = 0;
             target_string += `\n<User> — ${action.name}${resource_string}${type_string}\n  ${action.action_string}`;
             logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
+        }
+
+        if (action.type === ActionType.Buff) {
+            const resource_string = attacker.apply_cost(action);
+            target.buff.value  = (action as Buff).value;
+            target.buff.rounds = (action as Buff).rounds;
+            target.debuff.value  = 0;
+            target.debuff.rounds = 0;
+            target_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
+            logger.info(`Resolving ${attacker.name} Buff on ${target.name}: ${action.name}\nValue: ${target.buff.value}  Rounds: ${target.buff.rounds}`);
+        }
+
+        if (action.type === ActionType.Heal) {
+            const resource_string = attacker.apply_cost(action);
+            const heal = (action as Heal).value;
+            const hp_before = target.health;
+            target.health = Math.min(target.health + heal, target.max_health);
+            target_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}  [HP: ${hp_before} → ${target.health}]`;
+            logger.info(`Resolving ${attacker.name} Heal on ${target.name}: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${target.health}`);
         }
     }
 

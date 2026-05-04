@@ -3,7 +3,7 @@ import { CombatIntent } from './intent.js';
 import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action } from './action_resolver.js';
-import { SELF_TARGET_TYPES } from '../weapon/action.js';
+import { SELF_TARGET_TYPES, ActionType } from '../weapon/action.js';
 import { reachableTiles } from './movement.js';
 
 export interface ResolutionResult {
@@ -139,7 +139,7 @@ export function resolveIntents(
 
     if (!action) continue;
 
-    if (SELF_TARGET_TYPES.has(action.type)) {
+    if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
       pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
       continue;
     }
@@ -169,7 +169,7 @@ export function resolveIntents(
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — commits to empty space, misses.`);
         continue;
       }
-      if (occupant.teamId === actor.teamId) {
+      if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
         log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — friendly fire avoided.`);
         continue;
       }

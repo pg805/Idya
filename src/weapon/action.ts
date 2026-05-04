@@ -28,6 +28,7 @@ export default class Action {
     cost: number = 0
     range: number = 1
     aimed: boolean = false
+    targeted: boolean = false
 
     constructor(name: string, action_string: string) {
         this.name = name;
