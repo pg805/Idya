@@ -1,0 +1,54 @@
+Name: Honor
+Description: Virtue made manifest.
+Resource:
+  Name: Virtue
+  Max: 10
+
+Defend:
+  - Name: Mercy
+    Type: 6
+    Type_Name: Heal
+    Damage_Type: Elemental
+    Damage_Subtype: Blunt
+    Value: 1000
+    Cost: 0
+    Action_String: "<User> extends mercy, healing 1000 damage."
+
+Defend Crit: []
+
+Attack:
+  - Name: Justice
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [0, 1000, 1000, 1000, 1000, 5000]
+    Cost: 0
+    Aimed: false
+    Range: 5
+    Action_String: "<User> delivers justice to <Target> for <Damage> damage."
+
+Attack Crit:
+  - Name: Ideals
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 100
+    Cost: 0
+    Action_String: "<User>'s ideals stand firm, blocking 100 damage."
+
+Special:
+  - Name: Truth
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Elemental
+    Damage_Subtype: Blunt
+    Field: [5, 100, 100, 100]
+    Rounds: 10
+    Cost: 0
+    Aimed: true
+    Range: 5
+    Action_String: "<User> reveals the truth to <Target>, condemning them to take <Damage> damage for 10 rounds."
+
+Special Crit: []

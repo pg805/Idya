@@ -565,6 +565,27 @@ if (discordToken) {
       const target = interaction.options.getUser('user', true);
       await interaction.reply({ ...buildWelcomeEmbed(`<@${target.id}>`), flags: MessageFlags.Ephemeral });
     }
+    if (sub === 'giveweapon') {
+      const target = interaction.options.getUser('user', true);
+      const weaponKey = interaction.options.getString('weapon', true).toLowerCase().trim();
+      const DEV_ONLY_WEAPONS = ['honor'];
+      if (DEV_ONLY_WEAPONS.includes(weaponKey) && !isDev(interaction.user.id)) {
+        await interaction.reply({ content: `\`${weaponKey}\` is a dev-only weapon.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const weaponPath = join(__dirname, `../../database/weapons/${weaponKey}.yaml`);
+      if (!fs.existsSync(weaponPath)) {
+        await interaction.reply({ content: `No weapon found with key \`${weaponKey}\`.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const chars = await charRepo.list(target.id);
+      if (chars.length === 0) {
+        await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await prisma.character.update({ where: { id: chars[0].id }, data: { weapon_key: weaponKey } });
+      await interaction.reply({ content: `Gave \`${weaponKey}\` to ${target.username}'s character **${chars[0].name}**.`, flags: MessageFlags.Ephemeral });
+    }
   });
 
   // ---- Dev commands ----
