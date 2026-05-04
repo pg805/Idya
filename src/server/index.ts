@@ -26,6 +26,7 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
+import { reachableTiles } from '../combat/movement.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -180,6 +181,17 @@ io.on('connection', (socket: Socket) => {
 
     const combatant = session.combatants.find(c => c.id === intent.combatantId);
     if (!combatant || combatant.isAI) return;
+
+    // Validate moveTo is actually reachable (prevents client spoofing)
+    if (intent.moveTo) {
+      const occupied = new Set(
+        session.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
+      );
+      const reachable = reachableTiles(combatant.pos, combatant.movementRange, session.board, occupied);
+      if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
+        intent.moveTo = null;
+      }
+    }
 
     session.pendingIntents.set(intent.combatantId, intent);
     if (!session.allHumansSubmitted()) return;
