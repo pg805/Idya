@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop</title>
+  <link rel="stylesheet" href="/shop.css">
+</head>
+<body>
+  <div id="loading" class="centered">Loading...</div>
+  <div id="session-error" class="centered" style="display:none">
+    <p>Session expired or not found.</p>
+    <p>Run <code>/shop</code> in Discord to open a fresh session.</p>
+  </div>
+  <div id="app" style="display:none">
+    <header id="shop-header">
+      <div id="shop-meta">
+        <span id="npc-name"></span>
+        <span id="korel-display"></span>
+      </div>
+      <p id="shop-greeting"></p>
+    </header>
+    <nav id="tab-bar">
+      <button id="tab-browse" class="tab active" onclick="switchTab('browse')">Browse</button>
+      <button id="tab-sell"   class="tab"        onclick="switchTab('sell')">Sell</button>
+    </nav>
+    <div id="status-msg"></div>
+    <div id="item-list"></div>
+  </div>
+  <script src="/shop.js"></script>
+</body>
+</html>

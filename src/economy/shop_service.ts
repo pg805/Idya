@@ -22,8 +22,10 @@ function xToMultiplier(x: number): number {
   return Math.pow(4, 2 * x - 1);
 }
 
-function currentR(item: ShopItemListing, cumulativeVolume: number): number {
-  return Math.min(item.r + (cumulativeVolume / item.volume_sensitivity) * 0.01, item.r_max);
+const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
+
+function currentR(item: ShopItemListing, recentVolume: number): number {
+  return Math.min(item.r + (recentVolume / item.volume_sensitivity) * 0.01, item.r_max);
 }
 
 function logisticStep(x: number, r: number): number {
@@ -46,7 +48,8 @@ async function getOrCreateState(shopKey: string, item: ShopItemListing) {
 async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
   if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) return state;
 
-  const r      = currentR(item, state.cumulative_volume);
+  const newRecentVolume = Math.floor(state.recent_volume * RECENT_VOLUME_DECAY);
+  const r      = currentR(item, newRecentVolume);
   const newX   = logisticStep(state.x, r);
   const restock = rollField(item.restock_field);
   const newStock = Math.min(state.stock + restock, item.stock_max);
@@ -54,7 +57,7 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
   // Optimistic lock — only one concurrent request runs the tick
   const updated = await prisma.shopItemState.updateMany({
     where: { shop_id: shopKey, item_id: item.id, last_tick: state.last_tick },
-    data:  { x: newX, stock: newStock, last_tick: new Date() },
+    data:  { x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() },
   });
 
   if (updated.count === 0) {
@@ -64,7 +67,7 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
     });
   }
 
-  return { ...state, x: newX, stock: newStock, last_tick: new Date() };
+  return { ...state, x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() };
 }
 
 function effectiveMultiplier(item: ShopItemListing, x: number, stock: number): number {
@@ -100,7 +103,7 @@ async function applyTransactionShock(shopKey: string, item: ShopItemListing, qua
     where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
   });
 
-  const r        = currentR(item, state.cumulative_volume);
+  const r        = currentR(item, state.recent_volume);
   const direction = isBuy ? 1 : -1;
   const shockMag  = Math.min(quantity / item.transaction_threshold, 3) * 0.1;
   const shockedX  = clamp(state.x + direction * shockMag, 0, 1);
@@ -144,7 +147,7 @@ export async function buyItem(
     });
     await tx.shopItemState.update({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-      data:  { stock: { decrement: quantity }, cumulative_volume: { increment: quantity } },
+      data:  { stock: { decrement: quantity }, cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } },
     });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: item.id, type: 'buy', quantity, discord_id: discordId },
@@ -201,7 +204,7 @@ export async function sellItem(
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: total } } });
     await tx.shopItemState.update({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-      data:  { stock: { increment: actualQty }, cumulative_volume: { increment: actualQty } },
+      data:  { stock: { increment: actualQty }, cumulative_volume: { increment: actualQty }, recent_volume: { increment: actualQty } },
     });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: item.id, type: 'sell', quantity: actualQty, discord_id: discordId },

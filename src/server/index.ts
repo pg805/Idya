@@ -43,6 +43,9 @@ const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string }>();
 
+interface ShopSession { discordUserId: string; characterId: string; shopKey: string; }
+const shopSessions = new Map<string, ShopSession>();
+
 // ---- Telegraph ----
 
 const TELEGRAPH: Record<string, Record<string, string>> = {
@@ -156,8 +159,93 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
 // ---- Web server ----
 
 app.use(express.static(join(__dirname, '../../public')));
+app.use(express.json());
+
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
+});
+
+app.get('/shop/:sessionId', (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/shop.html'));
+});
+
+app.get('/api/shop/:sessionId', async (req: Request, res: Response) => {
+  const sess = shopSessions.get(String(req.params.sessionId));
+  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+  const config   = loadShop(sess.shopKey, SHOP_DIR);
+  const prices   = await getPrices(sess.shopKey, config);
+  const dbUser   = await prisma.user.findUnique({ where: { discord_id: sess.discordUserId } });
+  const dbItems  = await prisma.item.findMany({ where: { id: { in: prices.map(p => p.id) } } });
+  const inventory = await prisma.inventoryItem.findMany({
+    where: { character_id: sess.characterId },
+    include: { item: true },
+  });
+  res.json({
+    shopName: config.name,
+    npc:      config.npc,
+    title:    config.title,
+    greeting: config.greeting,
+    korel:    dbUser?.korel ?? 0,
+    items: prices.map(p => ({
+      id:          p.id,
+      name:        dbItems.find(i => i.id === p.id)?.name        ?? p.id,
+      description: dbItems.find(i => i.id === p.id)?.description ?? '',
+      buy:         p.buy  ?? null,
+      sell:        p.sell ?? null,
+      stock:       p.current_stock,
+      stock_max:   p.stock_max,
+    })),
+    inventory: inventory.map(i => ({
+      item_id:     i.item_id,
+      name:        i.item.name,
+      description: i.item.description,
+      quantity:    i.quantity,
+    })),
+  });
+});
+
+app.post('/api/shop/:sessionId/buy', async (req: Request, res: Response) => {
+  const sess = shopSessions.get(String(req.params.sessionId));
+  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+  const { itemId, quantity } = req.body as { itemId: string; quantity: number };
+  if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
+    res.status(400).json({ error: 'Invalid request' }); return;
+  }
+  const config = loadShop(sess.shopKey, SHOP_DIR);
+  const prices = await getPrices(sess.shopKey, config);
+  const item   = prices.find(p => p.id === itemId);
+  if (!item || item.buy == null) { res.status(400).json({ error: 'Item not available' }); return; }
+  res.json(await buyItem(sess.shopKey, item, sess.characterId, sess.discordUserId, quantity));
+});
+
+app.post('/api/shop/:sessionId/sell', async (req: Request, res: Response) => {
+  const sess = shopSessions.get(String(req.params.sessionId));
+  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+  const { itemId, quantity } = req.body as { itemId: string; quantity: number };
+  if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
+    res.status(400).json({ error: 'Invalid request' }); return;
+  }
+  const config = loadShop(sess.shopKey, SHOP_DIR);
+  const prices = await getPrices(sess.shopKey, config);
+  const item   = prices.find(p => p.id === itemId);
+  if (!item || item.sell == null) { res.status(400).json({ error: 'Item not available' }); return; }
+  res.json(await sellItem(sess.shopKey, item, sess.characterId, sess.discordUserId, quantity));
+});
+
+app.post('/api/shop/:sessionId/sell-all', async (req: Request, res: Response) => {
+  const sess = shopSessions.get(String(req.params.sessionId));
+  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+  const { itemId } = req.body as { itemId: string };
+  if (!itemId) { res.status(400).json({ error: 'Invalid request' }); return; }
+  const config = loadShop(sess.shopKey, SHOP_DIR);
+  const prices = await getPrices(sess.shopKey, config);
+  const item   = prices.find(p => p.id === itemId);
+  if (!item || item.sell == null) { res.status(400).json({ error: 'Item not available' }); return; }
+  const inv = await prisma.inventoryItem.findUnique({
+    where: { character_id_item_id: { character_id: sess.characterId, item_id: itemId } },
+  });
+  if (!inv || inv.quantity === 0) { res.json({ success: false, message: "You don't have any." }); return; }
+  res.json(await sellItem(sess.shopKey, item, sess.characterId, sess.discordUserId, inv.quantity));
 });
 
 sessions.set('test', createSession('test', 'rat').session);
@@ -408,7 +496,8 @@ function buildCharModal(): ModalBuilder {
   return modal;
 }
 
-const HOST = process.env.HOST_URL ?? `http://localhost:${PORT}`;
+const HOST     = process.env.HOST_URL ?? `http://localhost:${PORT}`;
+const SHOP_DIR = join(__dirname, '../../database/shops');
 
 let discord: import('discord.js').Client | null = null;
 let discordToken: string | null = null;
@@ -757,105 +846,13 @@ if (discordToken) {
 
   // ---- Shop ----
 
-  const SHOP_DIR = join(__dirname, '../../database/shops');
-
   const CHANNEL_TO_SHOP: Record<string, string> = {
-    [worldConfig.channels.blacksmith]:     'blacksmith',
-    [worldConfig.channels.general_store]:  'general_store',
-    [worldConfig.channels.temple]:         'temple',
+    [worldConfig.channels.blacksmith]:      'blacksmith',
+    [worldConfig.channels.general_store]:   'general_store',
+    [worldConfig.channels.temple]:          'temple',
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
 
-  function shopEmbedBase(npc: string, title: string, shopName: string, greeting: string) {
-    return new EmbedBuilder()
-      .setColor(0x2b1d0e)
-      .setAuthor({ name: `${npc} — ${title}` })
-      .setTitle(shopName)
-      .setDescription(`*${greeting}*`);
-  }
-
-  function browseRow() {
-    return new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('Shop:Browse').setLabel('Browse').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('Shop:Sell').setLabel('Sell').setStyle(ButtonStyle.Secondary),
-    );
-  }
-
-  async function buildBrowseView(shopKey: string, korel: number) {
-    const config  = loadShop(shopKey, SHOP_DIR);
-    const prices  = await getPrices(shopKey, config);
-    const forSale = prices.filter(p => p.buy != null);
-
-    const dbItems = forSale.length > 0
-      ? await prisma.item.findMany({ where: { id: { in: forSale.map(p => p.id) } } })
-      : [];
-    const itemName = (id: string) => dbItems.find(i => i.id === id)?.name ?? id;
-
-    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
-      .addFields({ name: 'Your korel', value: `${korel}`, inline: true });
-
-    if (forSale.length === 0) {
-      embed.addFields({ name: 'Stock', value: 'Nothing for sale right now.' });
-    }
-
-    const rows: ActionRowBuilder<ButtonBuilder>[] = [browseRow()];
-    for (let i = 0; i < forSale.length; i += 4) {
-      const row = new ActionRowBuilder<ButtonBuilder>();
-      for (const item of forSale.slice(i, i + 4)) {
-        const outOfStock = item.current_stock === 0;
-        row.addComponents(
-          new ButtonBuilder()
-            .setCustomId(`Shop:BuyDetail:${shopKey}:${item.id}`)
-            .setLabel(outOfStock ? `${itemName(item.id)} — out of stock` : `${itemName(item.id)} — ${item.buy} korel`)
-            .setStyle(outOfStock ? ButtonStyle.Danger : ButtonStyle.Secondary)
-            .setDisabled(outOfStock),
-        );
-      }
-      rows.push(row);
-    }
-
-    return { embeds: [embed], components: rows };
-  }
-
-  async function buildSellView(shopKey: string, characterId: string, korel: number) {
-    const config    = loadShop(shopKey, SHOP_DIR);
-    const prices    = await getPrices(shopKey, config);
-    const shopBuys  = prices.filter(p => p.sell != null);
-    const inventory = await prisma.inventoryItem.findMany({
-      where: { character_id: characterId, item_id: { in: shopBuys.map(p => p.id) } },
-      include: { item: true },
-    });
-
-    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
-      .addFields({ name: 'Your korel', value: `${korel}`, inline: true });
-
-    if (inventory.length === 0) {
-      embed.addFields({ name: 'Your items', value: "You don't have anything I'd buy." });
-    }
-
-    const rows: ActionRowBuilder<ButtonBuilder>[] = [browseRow()];
-    for (let i = 0; i < inventory.length; i += 4) {
-      const row = new ActionRowBuilder<ButtonBuilder>();
-      for (const inv of inventory.slice(i, i + 4)) {
-        const priceItem = shopBuys.find(p => p.id === inv.item_id)!;
-        const shopFull  = priceItem.current_stock >= priceItem.stock_max;
-        row.addComponents(
-          new ButtonBuilder()
-            .setCustomId(`Shop:SellDetail:${shopKey}:${inv.item_id}`)
-            .setLabel(shopFull
-              ? `${inv.item.name} — not buying`
-              : `${inv.item.name} ×${inv.quantity} — ${priceItem.sell} ea`)
-            .setStyle(shopFull ? ButtonStyle.Danger : ButtonStyle.Secondary)
-            .setDisabled(shopFull),
-        );
-      }
-      rows.push(row);
-    }
-
-    return { embeds: [embed], components: rows };
-  }
-
-  // /shop command
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'shop') return;
 
@@ -871,225 +868,15 @@ if (discordToken) {
       return;
     }
 
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const payload = await buildBrowseView(shopKey, dbUser?.korel ?? 0);
-    await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
-  });
+    const sessionId = Math.random().toString(36).slice(2, 10);
+    shopSessions.set(sessionId, { discordUserId: interaction.user.id, characterId: chars[0].id, shopKey });
+    setTimeout(() => shopSessions.delete(sessionId), 2 * 60 * 60 * 1000);
 
-  // Browse / Sell tab buttons
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton()) return;
-    if (interaction.customId !== 'Shop:Browse' && interaction.customId !== 'Shop:Sell') return;
-
-    const shopKey = CHANNEL_TO_SHOP[interaction.channelId];
-    if (!shopKey) return;
-
-    const chars = await charRepo.list(interaction.user.id);
-    if (chars.length === 0) return;
-
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const korel  = dbUser?.korel ?? 0;
-
-    const payload = interaction.customId === 'Shop:Browse'
-      ? await buildBrowseView(shopKey, korel)
-      : await buildSellView(shopKey, chars[0].id, korel);
-
-    await interaction.update(payload);
-  });
-
-  // Buy detail view
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:BuyDetail:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
     const config = loadShop(shopKey, SHOP_DIR);
-    const prices = await getPrices(shopKey, config);
-    const item   = prices.find(p => p.id === itemId);
-    if (!item || item.buy == null) return;
-
-    const dbItem = await prisma.item.findUnique({ where: { id: itemId } });
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-
-    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
-      .addFields(
-        { name: dbItem?.name ?? itemId, value: dbItem?.description ?? '', inline: false },
-        { name: 'Price',      value: `${item.buy} korel each`,           inline: true },
-        { name: 'In stock',   value: `${item.current_stock}`,            inline: true },
-        { name: 'Your korel', value: `${dbUser?.korel ?? 0}`,            inline: true },
-      );
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('Shop:Browse').setLabel('← Back').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`Shop:BuyModal:${shopKey}:${itemId}`).setLabel('Buy').setStyle(ButtonStyle.Primary),
-    );
-
-    await interaction.update({ embeds: [embed], components: [row] });
-  });
-
-  // Sell detail view
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellDetail:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const config = loadShop(shopKey, SHOP_DIR);
-    const prices = await getPrices(shopKey, config);
-    const item   = prices.find(p => p.id === itemId);
-    if (!item || item.sell == null) return;
-
-    const chars = await charRepo.list(interaction.user.id);
-    if (chars.length === 0) return;
-    const inv = await prisma.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
-      include: { item: true },
+    await interaction.reply({
+      content: `**${config.name}**\n${HOST}/shop/${sessionId}`,
+      flags: MessageFlags.Ephemeral,
     });
-    if (!inv) return;
-
-    const shopFull  = item.current_stock >= item.stock_max;
-    const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
-      .addFields(
-        { name: inv.item.name,  value: inv.item.description,                                  inline: false },
-        { name: 'Sell price',   value: shopFull ? 'Not buying (fully stocked)' : `${item.sell} korel each`, inline: true },
-        { name: 'You have',     value: `${inv.quantity}`,                                     inline: true },
-        { name: 'Shop stock',   value: `${item.current_stock} / ${item.stock_max}`,           inline: true },
-      );
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('Shop:Sell').setLabel('← Back').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`Shop:SellModal:${shopKey}:${itemId}`).setLabel('Sell').setStyle(ButtonStyle.Primary).setDisabled(shopFull),
-      new ButtonBuilder().setCustomId(`Shop:SellAll:${shopKey}:${itemId}`).setLabel('Sell All').setStyle(ButtonStyle.Danger).setDisabled(shopFull),
-    );
-
-    await interaction.update({ embeds: [embed], components: [row] });
-  });
-
-  // Open buy quantity modal
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:BuyModal:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const modal = new ModalBuilder()
-      .setCustomId(`Shop:BuySubmit:${shopKey}:${itemId}`)
-      .setTitle('How many?')
-      .addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder()
-            .setCustomId('quantity')
-            .setLabel('Quantity')
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(1)
-            .setMaxLength(6)
-            .setRequired(true),
-        ),
-      );
-    await interaction.showModal(modal);
-  });
-
-  // Open sell quantity modal
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellModal:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const modal = new ModalBuilder()
-      .setCustomId(`Shop:SellSubmit:${shopKey}:${itemId}`)
-      .setTitle('How many?')
-      .addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder()
-            .setCustomId('quantity')
-            .setLabel('Quantity')
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(1)
-            .setMaxLength(6)
-            .setRequired(true),
-        ),
-      );
-    await interaction.showModal(modal);
-  });
-
-  // Buy modal submit
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isModalSubmit() || !interaction.customId.startsWith('Shop:BuySubmit:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
-    if (isNaN(quantity) || quantity < 1) {
-      await interaction.reply({ content: 'Invalid quantity.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    const chars = await charRepo.list(interaction.user.id);
-    if (chars.length === 0) { await interaction.reply({ content: 'No character found.', flags: MessageFlags.Ephemeral }); return; }
-
-    const config = loadShop(shopKey, SHOP_DIR);
-    const prices = await getPrices(shopKey, config);
-    const item   = prices.find(p => p.id === itemId);
-    if (!item || item.buy == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
-
-    const result = await buyItem(shopKey, item, chars[0].id, interaction.user.id, quantity);
-
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const payload = await buildBrowseView(shopKey, dbUser?.korel ?? 0);
-    const statusLine = result.success
-      ? `✓ ${result.message}`
-      : `✗ ${result.message}`;
-
-    payload.embeds[0].setFooter({ text: statusLine });
-    if (interaction.isFromMessage()) await interaction.update(payload);
-    else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
-  });
-
-  // Sell modal submit
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isModalSubmit() || !interaction.customId.startsWith('Shop:SellSubmit:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
-    if (isNaN(quantity) || quantity < 1) {
-      await interaction.reply({ content: 'Invalid quantity.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    const chars = await charRepo.list(interaction.user.id);
-    if (chars.length === 0) { await interaction.reply({ content: 'No character found.', flags: MessageFlags.Ephemeral }); return; }
-
-    const config = loadShop(shopKey, SHOP_DIR);
-    const prices = await getPrices(shopKey, config);
-    const item   = prices.find(p => p.id === itemId);
-    if (!item || item.sell == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
-
-    const result = await sellItem(shopKey, item, chars[0].id, interaction.user.id, quantity);
-
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);
-    payload.embeds[0].setFooter({ text: result.success ? `✓ ${result.message}` : `✗ ${result.message}` });
-    if (interaction.isFromMessage()) await interaction.update(payload);
-    else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
-  });
-
-  // Sell All button
-  discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isButton() || !interaction.customId.startsWith('Shop:SellAll:')) return;
-
-    const [, , shopKey, itemId] = interaction.customId.split(':');
-    const chars = await charRepo.list(interaction.user.id);
-    if (chars.length === 0) return;
-
-    const inv = await prisma.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
-    });
-    if (!inv || inv.quantity === 0) { await interaction.update({ content: "You don't have any.", components: [] }); return; }
-
-    const config = loadShop(shopKey, SHOP_DIR);
-    const prices = await getPrices(shopKey, config);
-    const item   = prices.find(p => p.id === itemId);
-    if (!item || item.sell == null) return;
-
-    const result = await sellItem(shopKey, item, chars[0].id, interaction.user.id, inv.quantity);
-
-    const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-    const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);
-    payload.embeds[0].setFooter({ text: result.success ? `✓ ${result.message}` : `✗ ${result.message}` });
-    await interaction.update(payload);
   });
 
   // ---- Guild member join ----
