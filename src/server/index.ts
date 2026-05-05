@@ -927,6 +927,45 @@ if (discordToken) {
       }}).catch(() => {});
       await interaction.reply({ content: `Added **${w.name}** to ${target.username}'s weapon inventory. They can equip it with \`/weapon\`.`, flags: MessageFlags.Ephemeral });
     }
+    if (sub === 'givekorel') {
+      const target = interaction.options.getUser('user', true);
+      const amount = interaction.options.getInteger('amount', true);
+      const user = await prisma.user.findUnique({ where: { discord_id: target.id } });
+      if (!user) {
+        await interaction.reply({ content: `${target.username} doesn't have an account.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await prisma.$transaction([
+        prisma.user.update({ where: { discord_id: target.id }, data: { korel: { increment: amount } } }),
+        prisma.korelLedger.create({ data: {
+          discord_id: target.id, amount,
+          reason: 'admin_give', note: `given by ${interaction.user.username}`,
+        }}),
+      ]);
+      const sign = amount >= 0 ? '+' : '';
+      await interaction.reply({ content: `${sign}${amount.toLocaleString()} korel → ${target.username}.`, flags: MessageFlags.Ephemeral });
+    }
+    if (sub === 'giveitem') {
+      const target   = interaction.options.getUser('user', true);
+      const itemId   = interaction.options.getString('item', true).toLowerCase().trim();
+      const quantity = interaction.options.getInteger('quantity') ?? 1;
+      const item = await prisma.item.findUnique({ where: { id: itemId } });
+      if (!item) {
+        await interaction.reply({ content: `No item found with ID \`${itemId}\`.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const chars = await charRepo.list(target.id);
+      if (chars.length === 0) {
+        await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await prisma.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
+        update: { quantity: { increment: quantity } },
+        create: { character_id: chars[0].id, item_id: itemId, quantity },
+      });
+      await interaction.reply({ content: `Gave ${quantity}× **${item.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
+    }
   });
 
   // ---- Dev commands ----
