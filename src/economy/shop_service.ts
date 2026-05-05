@@ -1,7 +1,9 @@
 import prisma from '../database/prisma.js';
 import type { ShopItemListing, ShopConfig } from './shop_loader.js';
+import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
 
 const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
 
 export interface PricedItem extends ShopItemListing {
   buy?:          number;
@@ -9,27 +11,8 @@ export interface PricedItem extends ShopItemListing {
   current_stock: number;
 }
 
-function clamp(v: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, v));
-}
-
 function rollField(field: number[]): number {
   return field[Math.floor(Math.random() * field.length)];
-}
-
-// x=0 → 0.25×, x=0.5 → 1.0×, x=1 → 4.0×
-function xToMultiplier(x: number): number {
-  return Math.pow(4, 2 * x - 1);
-}
-
-const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
-
-function currentR(item: ShopItemListing, recentVolume: number): number {
-  return Math.min(item.r + (recentVolume / item.volume_sensitivity) * 0.01, item.r_max);
-}
-
-function logisticStep(x: number, r: number): number {
-  return clamp(r * x * (1 - x), 0, 1);
 }
 
 async function getOrCreateState(shopKey: string, item: ShopItemListing) {
@@ -70,11 +53,6 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
   return { ...state, x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() };
 }
 
-function effectiveMultiplier(item: ShopItemListing, x: number, stock: number): number {
-  const stockRatio = item.stock_max > 0 ? stock / item.stock_max : 0.5;
-  const effectiveX = clamp(x + (0.5 - stockRatio) * item.stock_influence, 0, 1);
-  return xToMultiplier(effectiveX);
-}
 
 export async function getPrices(shopKey: string, config: ShopConfig): Promise<PricedItem[]> {
   const results: PricedItem[] = [];
