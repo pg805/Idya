@@ -786,6 +786,11 @@ if (discordToken) {
     const prices  = await getPrices(shopKey, config);
     const forSale = prices.filter(p => p.buy != null);
 
+    const dbItems = forSale.length > 0
+      ? await prisma.item.findMany({ where: { id: { in: forSale.map(p => p.id) } } })
+      : [];
+    const itemName = (id: string) => dbItems.find(i => i.id === id)?.name ?? id;
+
     const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
       .addFields({ name: 'Your korel', value: `${korel}`, inline: true });
 
@@ -797,11 +802,13 @@ if (discordToken) {
     for (let i = 0; i < forSale.length; i += 4) {
       const row = new ActionRowBuilder<ButtonBuilder>();
       for (const item of forSale.slice(i, i + 4)) {
+        const outOfStock = item.current_stock === 0;
         row.addComponents(
           new ButtonBuilder()
             .setCustomId(`Shop:BuyDetail:${shopKey}:${item.id}`)
-            .setLabel(`${item.id} — ${item.buy} korel`)
-            .setStyle(ButtonStyle.Secondary),
+            .setLabel(outOfStock ? `${itemName(item.id)} — out of stock` : `${itemName(item.id)} — ${item.buy} korel`)
+            .setStyle(outOfStock ? ButtonStyle.Danger : ButtonStyle.Secondary)
+            .setDisabled(outOfStock),
         );
       }
       rows.push(row);
@@ -830,12 +837,16 @@ if (discordToken) {
     for (let i = 0; i < inventory.length; i += 4) {
       const row = new ActionRowBuilder<ButtonBuilder>();
       for (const inv of inventory.slice(i, i + 4)) {
-        const price = shopBuys.find(p => p.id === inv.item_id)!;
+        const priceItem = shopBuys.find(p => p.id === inv.item_id)!;
+        const shopFull  = priceItem.current_stock >= priceItem.stock_max;
         row.addComponents(
           new ButtonBuilder()
             .setCustomId(`Shop:SellDetail:${shopKey}:${inv.item_id}`)
-            .setLabel(`${inv.item.name} ×${inv.quantity} — ${price.sell} ea`)
-            .setStyle(ButtonStyle.Secondary),
+            .setLabel(shopFull
+              ? `${inv.item.name} — not buying`
+              : `${inv.item.name} ×${inv.quantity} — ${priceItem.sell} ea`)
+            .setStyle(shopFull ? ButtonStyle.Danger : ButtonStyle.Secondary)
+            .setDisabled(shopFull),
         );
       }
       rows.push(row);
@@ -902,8 +913,9 @@ if (discordToken) {
     const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
       .addFields(
         { name: dbItem?.name ?? itemId, value: dbItem?.description ?? '', inline: false },
-        { name: 'Price',      value: `${item.buy} korel each`, inline: true },
-        { name: 'Your korel', value: `${dbUser?.korel ?? 0}`,  inline: true },
+        { name: 'Price',      value: `${item.buy} korel each`,           inline: true },
+        { name: 'In stock',   value: `${item.current_stock}`,            inline: true },
+        { name: 'Your korel', value: `${dbUser?.korel ?? 0}`,            inline: true },
       );
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -932,17 +944,19 @@ if (discordToken) {
     });
     if (!inv) return;
 
+    const shopFull  = item.current_stock >= item.stock_max;
     const embed = shopEmbedBase(config.npc, config.title, config.name, config.greeting)
       .addFields(
-        { name: inv.item.name, value: inv.item.description, inline: false },
-        { name: 'Sell price', value: `${item.sell} korel each`, inline: true },
-        { name: 'You have',   value: `${inv.quantity}`,          inline: true },
+        { name: inv.item.name,  value: inv.item.description,                                  inline: false },
+        { name: 'Sell price',   value: shopFull ? 'Not buying (fully stocked)' : `${item.sell} korel each`, inline: true },
+        { name: 'You have',     value: `${inv.quantity}`,                                     inline: true },
+        { name: 'Shop stock',   value: `${item.current_stock} / ${item.stock_max}`,           inline: true },
       );
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId('Shop:Sell').setLabel('← Back').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`Shop:SellModal:${shopKey}:${itemId}`).setLabel('Sell').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`Shop:SellAll:${shopKey}:${itemId}`).setLabel('Sell All').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`Shop:SellModal:${shopKey}:${itemId}`).setLabel('Sell').setStyle(ButtonStyle.Primary).setDisabled(shopFull),
+      new ButtonBuilder().setCustomId(`Shop:SellAll:${shopKey}:${itemId}`).setLabel('Sell All').setStyle(ButtonStyle.Danger).setDisabled(shopFull),
     );
 
     await interaction.update({ embeds: [embed], components: [row] });
@@ -1011,7 +1025,7 @@ if (discordToken) {
     const item   = prices.find(p => p.id === itemId);
     if (!item || item.buy == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
 
-    const result = await buyItem(shopKey, chars[0].id, interaction.user.id, itemId, quantity, item.buy);
+    const result = await buyItem(shopKey, item, chars[0].id, interaction.user.id, quantity);
 
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
     const payload = await buildBrowseView(shopKey, dbUser?.korel ?? 0);
@@ -1043,7 +1057,7 @@ if (discordToken) {
     const item   = prices.find(p => p.id === itemId);
     if (!item || item.sell == null) { await interaction.reply({ content: 'Item not available.', flags: MessageFlags.Ephemeral }); return; }
 
-    const result = await sellItem(shopKey, chars[0].id, interaction.user.id, itemId, quantity, item.sell);
+    const result = await sellItem(shopKey, item, chars[0].id, interaction.user.id, quantity);
 
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
     const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);
@@ -1070,7 +1084,7 @@ if (discordToken) {
     const item   = prices.find(p => p.id === itemId);
     if (!item || item.sell == null) return;
 
-    const result = await sellItem(shopKey, chars[0].id, interaction.user.id, itemId, inv.quantity, item.sell);
+    const result = await sellItem(shopKey, item, chars[0].id, interaction.user.id, inv.quantity);
 
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
     const payload = await buildSellView(shopKey, chars[0].id, dbUser?.korel ?? 0);

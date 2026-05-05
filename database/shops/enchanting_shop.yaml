@@ -2,12 +2,25 @@ Name: The Enchanting Shop
 NPC: Sylvara
 Title: Enchantress
 Greeting: "Sylvara looks up from her tome. 'Ingredients or curiosities? I deal in both.'"
-Sensitivity: 30
 
 Items:
   - id: brain
     Base_Buy: 40
     Base_Sell: 15
+    R: 3.4
+    R_Max: 3.9
+    Volume_Sensitivity: 150
+    Transaction_Threshold: 10
+    Stock_Max: 30
+    Stock_Influence: 0.25
+    Restock_Field: [0, 0, 1, 2, 0]
   - id: spores
     Base_Buy: 18
     Base_Sell: 7
+    R: 3.3
+    R_Max: 3.8
+    Volume_Sensitivity: 200
+    Transaction_Threshold: 15
+    Stock_Max: 50
+    Stock_Influence: 0.2
+    Restock_Field: [3, 5, 5, 0, 0]

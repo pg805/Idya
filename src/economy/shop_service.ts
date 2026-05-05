@@ -1,49 +1,136 @@
 import prisma from '../database/prisma.js';
-import type { ShopConfig, ShopItemListing } from './shop_loader.js';
+import type { ShopItemListing, ShopConfig } from './shop_loader.js';
 
-const PRICE_FLOOR    = 0.25;
-const PRICE_CEILING  = 4.0;
-const WINDOW_MS      = 7 * 24 * 60 * 60 * 1000;
+const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export interface PricedItem extends ShopItemListing {
-  buy?:  number;
-  sell?: number;
+  buy?:          number;
+  sell?:         number;
+  current_stock: number;
+}
+
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function rollField(field: number[]): number {
+  return field[Math.floor(Math.random() * field.length)];
+}
+
+// x=0 → 0.25×, x=0.5 → 1.0×, x=1 → 4.0×
+function xToMultiplier(x: number): number {
+  return Math.pow(4, 2 * x - 1);
+}
+
+function currentR(item: ShopItemListing, cumulativeVolume: number): number {
+  return Math.min(item.r + (cumulativeVolume / item.volume_sensitivity) * 0.01, item.r_max);
+}
+
+function logisticStep(x: number, r: number): number {
+  return clamp(r * x * (1 - x), 0, 1);
+}
+
+async function getOrCreateState(shopKey: string, item: ShopItemListing) {
+  return prisma.shopItemState.upsert({
+    where:  { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    update: {},
+    create: {
+      shop_id: shopKey,
+      item_id: item.id,
+      x:       0.5,
+      stock:   Math.floor(item.stock_max / 2),
+    },
+  });
+}
+
+async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
+  if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) return state;
+
+  const r      = currentR(item, state.cumulative_volume);
+  const newX   = logisticStep(state.x, r);
+  const restock = rollField(item.restock_field);
+  const newStock = Math.min(state.stock + restock, item.stock_max);
+
+  // Optimistic lock — only one concurrent request runs the tick
+  const updated = await prisma.shopItemState.updateMany({
+    where: { shop_id: shopKey, item_id: item.id, last_tick: state.last_tick },
+    data:  { x: newX, stock: newStock, last_tick: new Date() },
+  });
+
+  if (updated.count === 0) {
+    // Another request already ticked — re-read fresh state
+    return prisma.shopItemState.findUniqueOrThrow({
+      where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    });
+  }
+
+  return { ...state, x: newX, stock: newStock, last_tick: new Date() };
+}
+
+function effectiveMultiplier(item: ShopItemListing, x: number, stock: number): number {
+  const stockRatio = item.stock_max > 0 ? stock / item.stock_max : 0.5;
+  const effectiveX = clamp(x + (0.5 - stockRatio) * item.stock_influence, 0, 1);
+  return xToMultiplier(effectiveX);
 }
 
 export async function getPrices(shopKey: string, config: ShopConfig): Promise<PricedItem[]> {
-  const since = new Date(Date.now() - WINDOW_MS);
-  const txns  = await prisma.shopTransaction.findMany({
-    where: { shop_id: shopKey, created_at: { gte: since } },
+  const results: PricedItem[] = [];
+
+  for (const item of config.items) {
+    let state = await getOrCreateState(shopKey, item);
+    state = await maybeTickDaily(shopKey, item, state);
+
+    const mult = effectiveMultiplier(item, state.x, state.stock);
+
+    results.push({
+      ...item,
+      buy:           item.base_buy  != null ? Math.round(item.base_buy  * mult) : undefined,
+      sell:          item.base_sell != null ? Math.round(item.base_sell * mult) : undefined,
+      current_stock: state.stock,
+    });
+  }
+
+  return results;
+}
+
+async function applyTransactionShock(shopKey: string, item: ShopItemListing, quantity: number, isBuy: boolean) {
+  if (quantity < item.transaction_threshold) return;
+
+  const state = await prisma.shopItemState.findUniqueOrThrow({
+    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
   });
 
-  return config.items.map(item => {
-    const itemTxns = txns.filter(t => t.item_id === item.id);
-    const netBuys  = itemTxns.reduce((sum, t) =>
-      sum + (t.type === 'buy' ? t.quantity : -t.quantity), 0
-    );
-    const multiplier = Math.max(PRICE_FLOOR, Math.min(PRICE_CEILING,
-      1 + netBuys / config.sensitivity
-    ));
+  const r        = currentR(item, state.cumulative_volume);
+  const direction = isBuy ? 1 : -1;
+  const shockMag  = Math.min(quantity / item.transaction_threshold, 3) * 0.1;
+  const shockedX  = clamp(state.x + direction * shockMag, 0, 1);
+  const newX      = logisticStep(shockedX, r);
 
-    return {
-      ...item,
-      buy:  item.base_buy  != null ? Math.round(item.base_buy  * multiplier) : undefined,
-      sell: item.base_sell != null ? Math.round(item.base_sell * multiplier) : undefined,
-    };
+  await prisma.shopItemState.update({
+    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    data:  { x: newX },
   });
 }
 
 export async function buyItem(
   shopKey: string,
+  item: PricedItem,
   characterId: string,
   discordId: string,
-  itemId: string,
   quantity: number,
-  unitPrice: number,
 ): Promise<{ success: boolean; message: string }> {
-  const total = unitPrice * quantity;
+  if (item.buy == null) return { success: false, message: 'Not for sale.' };
 
-  return prisma.$transaction(async tx => {
+  const state = await prisma.shopItemState.findUniqueOrThrow({
+    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+  });
+  if (state.stock < quantity) {
+    return { success: false, message: `Only ${state.stock} in stock.` };
+  }
+
+  const total = item.buy * quantity;
+
+  const result = await prisma.$transaction(async tx => {
     const user = await tx.user.findUnique({ where: { discord_id: discordId } });
     if (!user || user.korel < total) {
       return { success: false, message: `Not enough korel — need ${total}, have ${user?.korel ?? 0}.` };
@@ -51,58 +138,84 @@ export async function buyItem(
 
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { decrement: total } } });
     await tx.inventoryItem.upsert({
-      where:  { character_id_item_id: { character_id: characterId, item_id: itemId } },
+      where:  { character_id_item_id: { character_id: characterId, item_id: item.id } },
       update: { quantity: { increment: quantity } },
-      create: { character_id: characterId, item_id: itemId, quantity },
+      create: { character_id: characterId, item_id: item.id, quantity },
+    });
+    await tx.shopItemState.update({
+      where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+      data:  { stock: { decrement: quantity }, cumulative_volume: { increment: quantity } },
     });
     await tx.shopTransaction.create({
-      data: { shop_id: shopKey, item_id: itemId, type: 'buy', quantity, discord_id: discordId },
+      data: { shop_id: shopKey, item_id: item.id, type: 'buy', quantity, discord_id: discordId },
     });
     await tx.korelLedger.create({
-      data: { discord_id: discordId, amount: -total, reason: 'shop_buy', note: `${quantity}× ${itemId} @ ${shopKey}` },
+      data: { discord_id: discordId, amount: -total, reason: 'shop_buy', note: `${quantity}× ${item.id} @ ${shopKey}` },
     });
 
     return { success: true, message: `Bought ${quantity}× for **${total} korel**.` };
   });
+
+  if (result.success) {
+    await applyTransactionShock(shopKey, item, quantity, true);
+  }
+  return result;
 }
 
 export async function sellItem(
   shopKey: string,
+  item: PricedItem,
   characterId: string,
   discordId: string,
-  itemId: string,
   quantity: number,
-  unitPrice: number,
 ): Promise<{ success: boolean; message: string }> {
-  const total = unitPrice * quantity;
+  if (item.sell == null) return { success: false, message: "This shop doesn't buy that." };
 
-  return prisma.$transaction(async tx => {
+  const state = await prisma.shopItemState.findUniqueOrThrow({
+    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+  });
+  if (state.stock >= item.stock_max) {
+    return { success: false, message: "The shop is fully stocked and isn't buying right now." };
+  }
+  const canTake = item.stock_max - state.stock;
+  const actualQty = Math.min(quantity, canTake);
+  const total = item.sell * actualQty;
+
+  const result = await prisma.$transaction(async tx => {
     const inv = await tx.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: characterId, item_id: itemId } },
+      where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
     });
     if (!inv || inv.quantity < quantity) {
       return { success: false, message: `You only have ${inv?.quantity ?? 0}.` };
     }
 
-    if (inv.quantity === quantity) {
-      await tx.inventoryItem.delete({
-        where: { character_id_item_id: { character_id: characterId, item_id: itemId } },
-      });
+    if (inv.quantity === actualQty) {
+      await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: characterId, item_id: item.id } } });
     } else {
       await tx.inventoryItem.update({
-        where:  { character_id_item_id: { character_id: characterId, item_id: itemId } },
-        data:   { quantity: { decrement: quantity } },
+        where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
+        data:  { quantity: { decrement: actualQty } },
       });
     }
 
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: total } } });
+    await tx.shopItemState.update({
+      where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+      data:  { stock: { increment: actualQty }, cumulative_volume: { increment: actualQty } },
+    });
     await tx.shopTransaction.create({
-      data: { shop_id: shopKey, item_id: itemId, type: 'sell', quantity, discord_id: discordId },
+      data: { shop_id: shopKey, item_id: item.id, type: 'sell', quantity: actualQty, discord_id: discordId },
     });
     await tx.korelLedger.create({
-      data: { discord_id: discordId, amount: total, reason: 'shop_sell', note: `${quantity}× ${itemId} @ ${shopKey}` },
+      data: { discord_id: discordId, amount: total, reason: 'shop_sell', note: `${actualQty}× ${item.id} @ ${shopKey}` },
     });
 
-    return { success: true, message: `Sold ${quantity}× for **${total} korel**.` };
+    const partialNote = actualQty < quantity ? ` (shop only had room for ${actualQty})` : '';
+    return { success: true, message: `Sold ${actualQty}× for **${total} korel**${partialNote}.` };
   });
+
+  if (result.success) {
+    await applyTransactionShock(shopKey, item, actualQty, false);
+  }
+  return result;
 }
