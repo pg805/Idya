@@ -9,9 +9,14 @@
 <body>
   <div id="loading" class="splash">Loading...</div>
 
+  <div id="auth-error" class="splash" style="display:none">
+    <p>Not authenticated.</p>
+    <p class="hint">Run <code>/shop</code> in Discord — the link will log you in.</p>
+  </div>
+
   <div id="session-error" class="splash" style="display:none">
-    <p>Session not found or expired.</p>
-    <p class="hint">Run <code>/shop</code> in Discord to open a fresh session.</p>
+    <p>Shop not found.</p>
+    <p class="hint">Run <code>/shop</code> in the correct channel.</p>
   </div>
 
   <div id="app" style="display:none">

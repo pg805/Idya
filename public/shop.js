@@ -1,10 +1,42 @@
-const sessionId = location.pathname.split('/').pop();
+const shopKey = location.pathname.split('/').pop();
 let data     = null;
 let openBuy  = null;
 let openSell = null;
 
+// ---- Auth ----
+
+function getToken() { return localStorage.getItem('shop_auth') ?? ''; }
+
+function authHeaders(json = false) {
+  const h = { 'Authorization': `Bearer ${getToken()}` };
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+// On first visit via Discord link, persist the token and clean the URL
+(function initAuth() {
+  const params = new URLSearchParams(location.search);
+  const auth   = params.get('auth');
+  if (auth) {
+    localStorage.setItem('shop_auth', auth);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+
+// ---- Load ----
+
 async function load() {
-  const res = await fetch(`/api/shop/${sessionId}`);
+  if (!getToken()) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-error').style.display = 'flex';
+    return;
+  }
+  const res = await fetch(`/api/shop/${shopKey}`, { headers: authHeaders() });
+  if (res.status === 401) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-error').style.display = 'flex';
+    return;
+  }
   if (!res.ok) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('session-error').style.display = 'flex';
@@ -16,6 +48,8 @@ async function load() {
   document.getElementById('app').style.display = 'block';
   render();
 }
+
+// ---- Render ----
 
 function render() {
   document.getElementById('shop-name').textContent = data.shopName;
@@ -113,6 +147,8 @@ function adj(id, delta, max) {
   el.value  = val;
 }
 
+// ---- Toast ----
+
 function toast(msg, ok) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -121,15 +157,17 @@ function toast(msg, ok) {
   el._t = setTimeout(() => { el.className = ''; }, 4500);
 }
 
+// ---- Transactions ----
+
 async function refresh() {
-  const res = await fetch(`/api/shop/${sessionId}`);
+  const res = await fetch(`/api/shop/${shopKey}`, { headers: authHeaders() });
   if (res.ok) { data = await res.json(); render(); }
 }
 
 async function doBuy(itemId) {
   const qty = parseInt(document.getElementById(`qty-b${itemId}`).value, 10) || 1;
-  const res = await fetch(`/api/shop/${sessionId}/buy`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(`/api/shop/${shopKey}/buy`, {
+    method: 'POST', headers: authHeaders(true),
     body: JSON.stringify({ itemId, quantity: qty }),
   });
   const r = await res.json();
@@ -139,8 +177,8 @@ async function doBuy(itemId) {
 
 async function doSell(itemId) {
   const qty = parseInt(document.getElementById(`qty-s${itemId}`).value, 10) || 1;
-  const res = await fetch(`/api/shop/${sessionId}/sell`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(`/api/shop/${shopKey}/sell`, {
+    method: 'POST', headers: authHeaders(true),
     body: JSON.stringify({ itemId, quantity: qty }),
   });
   const r = await res.json();
@@ -149,8 +187,8 @@ async function doSell(itemId) {
 }
 
 async function doSellAll(itemId) {
-  const res = await fetch(`/api/shop/${sessionId}/sell-all`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(`/api/shop/${shopKey}/sell-all`, {
+    method: 'POST', headers: authHeaders(true),
     body: JSON.stringify({ itemId }),
   });
   const r = await res.json();

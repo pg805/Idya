@@ -43,8 +43,9 @@ const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string }>();
 
-interface ShopSession { discordUserId: string; characterId: string; shopKey: string; }
-const shopSessions = new Map<string, ShopSession>();
+interface AuthToken { discordUserId: string; }
+const authTokens = new Map<string, AuthToken>(); // token → user
+const userTokens = new Map<string, string>();    // discordUserId → token (reuse across visits)
 
 // ---- Telegraph ----
 
@@ -165,19 +166,33 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-app.get('/shop/:sessionId', (_req: Request, res: Response) => {
+function resolveAuth(req: Request): string | null {
+  const header = req.headers['authorization'];
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
+  return authTokens.get(header.slice(7))?.discordUserId ?? null;
+}
+
+function validShop(key: string): boolean {
+  return fs.existsSync(join(SHOP_DIR, `${key}.yaml`));
+}
+
+app.get('/shop/:shopKey', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/shop.html'));
 });
 
-app.get('/api/shop/:sessionId', async (req: Request, res: Response) => {
-  const sess = shopSessions.get(String(req.params.sessionId));
-  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
-  const config   = loadShop(sess.shopKey, SHOP_DIR);
-  const prices   = await getPrices(sess.shopKey, config);
-  const dbUser   = await prisma.user.findUnique({ where: { discord_id: sess.discordUserId } });
-  const dbItems  = await prisma.item.findMany({ where: { id: { in: prices.map(p => p.id) } } });
+app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const config    = loadShop(shopKey, SHOP_DIR);
+  const prices    = await getPrices(shopKey, config);
+  const dbUser    = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  const dbItems   = await prisma.item.findMany({ where: { id: { in: prices.map(p => p.id) } } });
   const inventory = await prisma.inventoryItem.findMany({
-    where: { character_id: sess.characterId },
+    where: { character_id: chars[0].id },
     include: { item: true },
   });
   res.json({
@@ -204,48 +219,60 @@ app.get('/api/shop/:sessionId', async (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/shop/:sessionId/buy', async (req: Request, res: Response) => {
-  const sess = shopSessions.get(String(req.params.sessionId));
-  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+app.post('/api/shop/:shopKey/buy', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
   const { itemId, quantity } = req.body as { itemId: string; quantity: number };
   if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
     res.status(400).json({ error: 'Invalid request' }); return;
   }
-  const config = loadShop(sess.shopKey, SHOP_DIR);
-  const prices = await getPrices(sess.shopKey, config);
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const config = loadShop(shopKey, SHOP_DIR);
+  const prices = await getPrices(shopKey, config);
   const item   = prices.find(p => p.id === itemId);
   if (!item || item.buy == null) { res.status(400).json({ error: 'Item not available' }); return; }
-  res.json(await buyItem(sess.shopKey, item, sess.characterId, sess.discordUserId, quantity));
+  res.json(await buyItem(shopKey, item, chars[0].id, discordId, quantity));
 });
 
-app.post('/api/shop/:sessionId/sell', async (req: Request, res: Response) => {
-  const sess = shopSessions.get(String(req.params.sessionId));
-  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
   const { itemId, quantity } = req.body as { itemId: string; quantity: number };
   if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
     res.status(400).json({ error: 'Invalid request' }); return;
   }
-  const config = loadShop(sess.shopKey, SHOP_DIR);
-  const prices = await getPrices(sess.shopKey, config);
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const config = loadShop(shopKey, SHOP_DIR);
+  const prices = await getPrices(shopKey, config);
   const item   = prices.find(p => p.id === itemId);
   if (!item || item.sell == null) { res.status(400).json({ error: 'Item not available' }); return; }
-  res.json(await sellItem(sess.shopKey, item, sess.characterId, sess.discordUserId, quantity));
+  res.json(await sellItem(shopKey, item, chars[0].id, discordId, quantity));
 });
 
-app.post('/api/shop/:sessionId/sell-all', async (req: Request, res: Response) => {
-  const sess = shopSessions.get(String(req.params.sessionId));
-  if (!sess) { res.status(404).json({ error: 'Session not found' }); return; }
+app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
   const { itemId } = req.body as { itemId: string };
   if (!itemId) { res.status(400).json({ error: 'Invalid request' }); return; }
-  const config = loadShop(sess.shopKey, SHOP_DIR);
-  const prices = await getPrices(sess.shopKey, config);
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const config = loadShop(shopKey, SHOP_DIR);
+  const prices = await getPrices(shopKey, config);
   const item   = prices.find(p => p.id === itemId);
   if (!item || item.sell == null) { res.status(400).json({ error: 'Item not available' }); return; }
   const inv = await prisma.inventoryItem.findUnique({
-    where: { character_id_item_id: { character_id: sess.characterId, item_id: itemId } },
+    where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
   });
   if (!inv || inv.quantity === 0) { res.json({ success: false, message: "You don't have any." }); return; }
-  res.json(await sellItem(sess.shopKey, item, sess.characterId, sess.discordUserId, inv.quantity));
+  res.json(await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity));
 });
 
 sessions.set('test', createSession('test', 'rat').session);
@@ -868,13 +895,16 @@ if (discordToken) {
       return;
     }
 
-    const sessionId = Math.random().toString(36).slice(2, 10);
-    shopSessions.set(sessionId, { discordUserId: interaction.user.id, characterId: chars[0].id, shopKey });
-    setTimeout(() => shopSessions.delete(sessionId), 2 * 60 * 60 * 1000);
+    let token = userTokens.get(interaction.user.id);
+    if (!token) {
+      token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      authTokens.set(token, { discordUserId: interaction.user.id });
+      userTokens.set(interaction.user.id, token);
+    }
 
     const config = loadShop(shopKey, SHOP_DIR);
     await interaction.reply({
-      content: `**${config.name}**\n${HOST}/shop/${sessionId}`,
+      content: `**${config.name}**\n${HOST}/shop/${shopKey}?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
