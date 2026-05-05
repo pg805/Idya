@@ -966,6 +966,23 @@ if (discordToken) {
       });
       await interaction.reply({ content: `Gave ${quantity}× **${item.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
+    if (sub === 'giveprofession') {
+      const target     = interaction.options.getUser('user', true);
+      const profession = interaction.options.getString('profession', true);
+      const level      = interaction.options.getInteger('level', true);
+      const chars = await charRepo.list(target.id);
+      if (chars.length === 0) {
+        await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await prisma.characterProfession.upsert({
+        where:  { character_id_profession: { character_id: chars[0].id, profession } },
+        update: { level },
+        create: { character_id: chars[0].id, profession, level },
+      });
+      const label = { lumberjack: 'Lumberjack', blacksmith: 'Blacksmith', enchanter: 'Enchanter' }[profession] ?? profession;
+      await interaction.reply({ content: `Set ${target.username}'s **${label}** to level ${level}.`, flags: MessageFlags.Ephemeral });
+    }
   });
 
   // ---- Dev commands ----

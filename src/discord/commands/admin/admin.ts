@@ -59,6 +59,32 @@ export default {
                         .setDescription('Quantity to give')
                         .setRequired(false)
                 )
+        )
+        .addSubcommand(sub =>
+            sub.setName('giveprofession')
+                .setDescription('Set a profession level for a user\'s character')
+                .addUserOption(opt =>
+                    opt.setName('user')
+                        .setDescription('Target user')
+                        .setRequired(true)
+                )
+                .addStringOption(opt =>
+                    opt.setName('profession')
+                        .setDescription('Profession key')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Lumberjack', value: 'lumberjack' },
+                            { name: 'Blacksmith', value: 'blacksmith' },
+                            { name: 'Enchanter',  value: 'enchanter'  },
+                        )
+                )
+                .addIntegerOption(opt =>
+                    opt.setName('level')
+                        .setDescription('Level to set (0–10)')
+                        .setRequired(true)
+                        .setMinValue(0)
+                        .setMaxValue(10)
+                )
         ),
     execute: async function(_interaction: any) {
         // Handled by the Discord client in src/server/index.ts
