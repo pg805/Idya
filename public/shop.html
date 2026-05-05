@@ -7,26 +7,42 @@
   <link rel="stylesheet" href="/shop.css">
 </head>
 <body>
-  <div id="loading" class="centered">Loading...</div>
-  <div id="session-error" class="centered" style="display:none">
-    <p>Session expired or not found.</p>
-    <p>Run <code>/shop</code> in Discord to open a fresh session.</p>
+  <div id="loading" class="splash">Loading...</div>
+
+  <div id="session-error" class="splash" style="display:none">
+    <p>Session not found or expired.</p>
+    <p class="hint">Run <code>/shop</code> in Discord to open a fresh session.</p>
   </div>
+
   <div id="app" style="display:none">
-    <header id="shop-header">
-      <div id="shop-meta">
-        <span id="npc-name"></span>
-        <span id="korel-display"></span>
+    <header>
+      <div class="header-main">
+        <div>
+          <h1 id="shop-name"></h1>
+          <p id="npc-line"></p>
+        </div>
+        <div class="korel-box">
+          <span class="korel-label">Korel</span>
+          <span id="korel-val"></span>
+        </div>
       </div>
-      <p id="shop-greeting"></p>
+      <p id="greeting"></p>
     </header>
-    <nav id="tab-bar">
-      <button id="tab-browse" class="tab active" onclick="switchTab('browse')">Browse</button>
-      <button id="tab-sell"   class="tab"        onclick="switchTab('sell')">Sell</button>
-    </nav>
-    <div id="status-msg"></div>
-    <div id="item-list"></div>
+
+    <main class="panels">
+      <section class="panel">
+        <div class="panel-label">For Sale</div>
+        <div id="buy-list"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-label">Your Inventory</div>
+        <div id="sell-list"></div>
+      </section>
+    </main>
   </div>
+
+  <div id="toast"></div>
+
   <script src="/shop.js"></script>
 </body>
 </html>

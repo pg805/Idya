@@ -1,7 +1,7 @@
 const sessionId = location.pathname.split('/').pop();
 let data     = null;
-let tab      = 'browse';
-let expanded = null;
+let openBuy  = null;
+let openSell = null;
 
 async function load() {
   const res = await fetch(`/api/shop/${sessionId}`);
@@ -18,15 +18,17 @@ async function load() {
 }
 
 function render() {
-  document.getElementById('npc-name').textContent     = `${data.npc} — ${data.title}`;
-  document.getElementById('korel-display').textContent = `${data.korel.toLocaleString()} korel`;
-  document.getElementById('shop-greeting').textContent = `"${data.greeting}"`;
-  tab === 'browse' ? renderBrowse() : renderSell();
+  document.getElementById('shop-name').textContent = data.shopName;
+  document.getElementById('npc-line').textContent  = `${data.npc} · ${data.title}`;
+  document.getElementById('korel-val').textContent  = data.korel.toLocaleString();
+  document.getElementById('greeting').textContent   = `"${data.greeting}"`;
+  renderBuy();
+  renderSell();
 }
 
-function renderBrowse() {
+function renderBuy() {
   const forSale = data.items.filter(i => i.buy != null);
-  const list = document.getElementById('item-list');
+  const list = document.getElementById('buy-list');
   if (forSale.length === 0) {
     list.innerHTML = '<p class="empty">Nothing for sale right now.</p>';
     return;
@@ -34,26 +36,30 @@ function renderBrowse() {
   list.innerHTML = '';
   for (const item of forSale) {
     const oos    = item.stock === 0;
-    const isOpen = expanded === item.id;
-    const card   = document.createElement('div');
-    card.className = 'item-card';
-    card.innerHTML = `
-      <div class="item-row" onclick="toggle('${item.id}')">
+    const isOpen = openBuy === item.id;
+    const el     = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML = `
+      <div class="item-row${isOpen ? ' open' : ''}" onclick="toggleBuy('${item.id}')">
         <span class="item-name${oos ? ' dim' : ''}">${esc(item.name)}</span>
-        <span class="item-meta">${oos ? 'out of stock' : `${item.buy} korel · ${item.stock} left`}</span>
+        <span class="item-price ${oos ? 'price-dim' : 'price-buy'}">${oos ? 'out of stock' : `${item.buy} korel`}</span>
       </div>
       ${isOpen ? `
         <div class="item-detail">
           <p class="item-desc">${esc(item.description)}</p>
-          ${oos
-            ? '<p class="empty-note">Come back when stock is replenished.</p>'
-            : `<div class="controls">
-                <input type="number" id="qty-${item.id}" class="qty-input" min="1" max="${item.stock}" value="1">
-                <button class="primary" onclick="doBuy('${item.id}')">Buy</button>
-               </div>`}
+          <p class="stock-line">${item.stock} in stock</p>
+          ${oos ? '<p class="unavailable">Check back when restocked.</p>' : `
+            <div class="controls">
+              <div class="qty-wrap">
+                <button class="qty-step" onclick="adj('b${item.id}', -1, ${item.stock})">−</button>
+                <input  type="number" id="qty-b${item.id}" class="qty-input" value="1" min="1" max="${item.stock}">
+                <button class="qty-step" onclick="adj('b${item.id}', 1, ${item.stock})">+</button>
+              </div>
+              <button class="btn btn-buy" onclick="doBuy('${item.id}')">Buy</button>
+            </div>`}
         </div>` : ''}
     `;
-    list.appendChild(card);
+    list.appendChild(el);
   }
 }
 
@@ -62,58 +68,57 @@ function renderSell() {
     const si = data.items.find(i => i.id === inv.item_id);
     return si && si.sell != null;
   });
-  const list = document.getElementById('item-list');
+  const list = document.getElementById('sell-list');
   if (sellable.length === 0) {
-    list.innerHTML = "<p class='empty'>You don't have anything this shop buys.</p>";
+    list.innerHTML = "<p class='empty'>Nothing in your inventory to sell here.</p>";
     return;
   }
   list.innerHTML = '';
   for (const inv of sellable) {
     const si     = data.items.find(i => i.id === inv.item_id);
     const full   = si.stock >= si.stock_max;
-    const isOpen = expanded === inv.item_id;
-    const card   = document.createElement('div');
-    card.className = 'item-card';
-    card.innerHTML = `
-      <div class="item-row" onclick="toggle('${inv.item_id}')">
-        <span class="item-name${full ? ' dim' : ''}">${esc(inv.name)}</span>
-        <span class="item-meta">${full ? 'not buying' : `${si.sell} korel ea · ×${inv.quantity}`}</span>
+    const isOpen = openSell === inv.item_id;
+    const el     = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML = `
+      <div class="item-row${isOpen ? ' open' : ''}" onclick="toggleSell('${inv.item_id}')">
+        <span class="item-name${full ? ' dim' : ''}">${esc(inv.name)}<span class="qty-tag">×${inv.quantity}</span></span>
+        <span class="item-price ${full ? 'price-dim' : 'price-sell'}">${full ? 'not buying' : `${si.sell} korel`}</span>
       </div>
       ${isOpen ? `
         <div class="item-detail">
           <p class="item-desc">${esc(inv.description)}</p>
-          ${full
-            ? '<p class="empty-note">Shop is fully stocked.</p>'
-            : `<div class="controls">
-                <input type="number" id="qty-${inv.item_id}" class="qty-input" min="1" max="${inv.quantity}" value="1">
-                <button class="secondary" onclick="doSell('${inv.item_id}')">Sell</button>
-                <button class="danger"    onclick="doSellAll('${inv.item_id}')">Sell All</button>
-               </div>`}
+          ${full ? '<p class="unavailable">Shop is fully stocked.</p>' : `
+            <div class="controls">
+              <div class="qty-wrap">
+                <button class="qty-step" onclick="adj('s${inv.item_id}', -1, ${inv.quantity})">−</button>
+                <input  type="number" id="qty-s${inv.item_id}" class="qty-input" value="1" min="1" max="${inv.quantity}">
+                <button class="qty-step" onclick="adj('s${inv.item_id}', 1, ${inv.quantity})">+</button>
+              </div>
+              <button class="btn btn-sell" onclick="doSell('${inv.item_id}')">Sell</button>
+              <button class="btn btn-all"  onclick="doSellAll('${inv.item_id}')">All</button>
+            </div>`}
         </div>` : ''}
     `;
-    list.appendChild(card);
+    list.appendChild(el);
   }
 }
 
-function toggle(id) {
-  expanded = expanded === id ? null : id;
-  render();
+function toggleBuy(id)  { openBuy  = openBuy  === id ? null : id; renderBuy();  }
+function toggleSell(id) { openSell = openSell === id ? null : id; renderSell(); }
+
+function adj(id, delta, max) {
+  const el  = document.getElementById(`qty-${id}`);
+  const val = Math.max(1, Math.min(max, (parseInt(el.value, 10) || 1) + delta));
+  el.value  = val;
 }
 
-function switchTab(t) {
-  tab = t;
-  expanded = null;
-  document.getElementById('tab-browse').classList.toggle('active', t === 'browse');
-  document.getElementById('tab-sell').classList.toggle('active', t === 'sell');
-  render();
-}
-
-function showStatus(msg, ok) {
-  const el = document.getElementById('status-msg');
+function toast(msg, ok) {
+  const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = ok ? 'ok' : 'err';
-  clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.textContent = ''; el.className = ''; }, 5000);
+  el.className   = `show ${ok ? 'ok' : 'err'}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, 4500);
 }
 
 async function refresh() {
@@ -122,40 +127,35 @@ async function refresh() {
 }
 
 async function doBuy(itemId) {
-  const qty = parseInt(document.getElementById(`qty-${itemId}`).value, 10);
-  if (!qty || qty < 1) return;
+  const qty = parseInt(document.getElementById(`qty-b${itemId}`).value, 10) || 1;
   const res = await fetch(`/api/shop/${sessionId}/buy`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ itemId, quantity: qty }),
   });
   const r = await res.json();
-  showStatus(r.message ?? r.error, r.success !== false);
-  if (r.success) { expanded = null; await refresh(); }
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) { openBuy = null; await refresh(); }
 }
 
 async function doSell(itemId) {
-  const qty = parseInt(document.getElementById(`qty-${itemId}`).value, 10);
-  if (!qty || qty < 1) return;
+  const qty = parseInt(document.getElementById(`qty-s${itemId}`).value, 10) || 1;
   const res = await fetch(`/api/shop/${sessionId}/sell`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ itemId, quantity: qty }),
   });
   const r = await res.json();
-  showStatus(r.message ?? r.error, r.success !== false);
-  if (r.success) { expanded = null; await refresh(); }
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) { openSell = null; await refresh(); }
 }
 
 async function doSellAll(itemId) {
   const res = await fetch(`/api/shop/${sessionId}/sell-all`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ itemId }),
   });
   const r = await res.json();
-  showStatus(r.message ?? r.error, r.success !== false);
-  if (r.success) { expanded = null; await refresh(); }
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) { openSell = null; await refresh(); }
 }
 
 function esc(s) {
