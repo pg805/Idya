@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crafting</title>
+  <link rel="stylesheet" href="/craft.css">
+</head>
+<body>
+  <div id="loading" class="splash">Loading...</div>
+
+  <div id="auth-error" class="splash" style="display:none">
+    <p>Not authenticated.</p>
+    <p class="hint">Run <code>/craft</code> in Discord — the link will log you in.</p>
+  </div>
+
+  <div id="app" style="display:none">
+    <header>
+      <h1>Crafting Bench</h1>
+      <span id="char-name"></span>
+    </header>
+
+    <section id="professions"></section>
+
+    <section id="recipes-section">
+      <div id="recipe-filter">
+        <button class="filter-btn active" data-prof="all"   onclick="filterRecipes('all')">All</button>
+        <button class="filter-btn"        data-prof="lumberjack" onclick="filterRecipes('lumberjack')">Lumberjack</button>
+        <button class="filter-btn"        data-prof="blacksmith" onclick="filterRecipes('blacksmith')">Blacksmith</button>
+        <button class="filter-btn"        data-prof="enchanter"  onclick="filterRecipes('enchanter')">Enchanter</button>
+      </div>
+      <div id="recipe-list"></div>
+    </section>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="/craft.js"></script>
+</body>
+</html>

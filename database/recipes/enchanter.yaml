@@ -1,0 +1,26 @@
+recipes:
+  - id: en_vine_and_thorn
+    name: Vine and Thorn
+    description: "Weave living vines into a whip that crackles with latent energy."
+    profession: enchanter
+    required_level: 2
+    ingredients:
+      - item_id: spores
+        quantity: 5
+    output:
+      type: weapon
+      id: vine_and_thorn
+
+  - id: en_awakened_mind
+    name: Awakened Mind
+    description: "Channel a preserved brain into a psionic focus. Horrifying, effective."
+    profession: enchanter
+    required_level: 6
+    ingredients:
+      - item_id: brain
+        quantity: 2
+      - item_id: spores
+        quantity: 4
+    output:
+      type: weapon
+      id: awakened_mind

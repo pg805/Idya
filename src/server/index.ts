@@ -30,6 +30,7 @@ import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
+import { loadAllRecipes } from '../economy/recipe_loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -195,12 +196,30 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     where: { character_id: chars[0].id },
     include: { item: true },
   });
+
+  const profKey  = SHOP_TO_PROFESSION[shopKey];
+  let training: { profession: string; label: string; level: number; maxLevel: number; nextCost: number | null } | null = null;
+  if (profKey) {
+    const prof = await prisma.characterProfession.findUnique({
+      where: { character_id_profession: { character_id: chars[0].id, profession: profKey } },
+    });
+    const level = prof?.level ?? 0;
+    training = {
+      profession: profKey,
+      label:      PROFESSION_NAMES[profKey],
+      level,
+      maxLevel:   PROFESSION_MAX_LEVEL,
+      nextCost:   level < PROFESSION_MAX_LEVEL ? PROFESSION_LEVEL_COSTS[level] : null,
+    };
+  }
+
   res.json({
     shopName: config.name,
     npc:      config.npc,
     title:    config.title,
     greeting: config.greeting,
     korel:    dbUser?.korel ?? 0,
+    training,
     items: prices.map(p => ({
       id:          p.id,
       name:        dbItems.find(i => i.id === p.id)?.name        ?? p.id,
@@ -216,6 +235,55 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
       description: i.item.description,
       quantity:    i.quantity,
     })),
+  });
+});
+
+app.post('/api/shop/:shopKey/train', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  const profKey = SHOP_TO_PROFESSION[shopKey];
+  if (!profKey) { res.status(400).json({ error: 'No training available here.' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+
+  const prof = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: chars[0].id, profession: profKey } },
+  });
+  const currentLevel = prof?.level ?? 0;
+  if (currentLevel >= PROFESSION_MAX_LEVEL) {
+    res.json({ success: false, message: 'Already at max level.' }); return;
+  }
+
+  const cost   = PROFESSION_LEVEL_COSTS[currentLevel];
+  const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  if (!dbUser || dbUser.korel < cost) {
+    res.json({ success: false, message: `Need ${cost.toLocaleString()} korel (have ${(dbUser?.korel ?? 0).toLocaleString()}).` }); return;
+  }
+
+  await prisma.$transaction(async tx => {
+    await tx.user.update({ where: { discord_id: discordId }, data: { korel: { decrement: cost } } });
+    await tx.characterProfession.upsert({
+      where:  { character_id_profession: { character_id: chars[0].id, profession: profKey } },
+      update: { level: { increment: 1 } },
+      create: { character_id: chars[0].id, profession: profKey, level: 1 },
+    });
+    await tx.korelLedger.create({ data: {
+      discord_id: discordId, amount: -cost,
+      reason: 'profession_training',
+      note:   `${PROFESSION_NAMES[profKey]} level ${currentLevel + 1}`,
+    }});
+    await tx.eventLog.create({ data: {
+      discord_id: discordId, event_type: 'profession_leveled',
+      payload: { profession: profKey, from_level: currentLevel, to_level: currentLevel + 1, cost },
+    }}).catch(() => {});
+  });
+
+  res.json({
+    success:  true,
+    message:  `${PROFESSION_NAMES[profKey]} trained to level ${currentLevel + 1}.`,
+    newLevel: currentLevel + 1,
+    nextCost: currentLevel + 1 < PROFESSION_MAX_LEVEL ? PROFESSION_LEVEL_COSTS[currentLevel + 1] : null,
   });
 });
 
@@ -273,6 +341,110 @@ app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
   });
   if (!inv || inv.quantity === 0) { res.json({ success: false, message: "You don't have any." }); return; }
   res.json(await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity));
+});
+
+// ---- Craft routes ----
+
+app.get('/craft', (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/craft.html'));
+});
+
+app.get('/api/craft', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+
+  const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
+  const profLevels: Record<string, number> = {};
+  for (const p of profRows) profLevels[p.profession] = p.level;
+
+  const inventory = await prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } });
+  const invMap: Record<string, number> = {};
+  for (const inv of inventory) invMap[inv.item_id] = inv.quantity;
+
+  const allRecipes = loadAllRecipes(RECIPES_DIR);
+  const recipes = allRecipes.map(r => ({
+    ...r,
+    levelMet:          (profLevels[r.profession] ?? 0) >= r.required_level,
+    ingredientsMet:    r.ingredients.every(i => (invMap[i.item_id] ?? 0) >= i.quantity),
+    available:         (profLevels[r.profession] ?? 0) >= r.required_level
+                    && r.ingredients.every(i => (invMap[i.item_id] ?? 0) >= i.quantity),
+  }));
+
+  res.json({
+    characterName: chars[0].name,
+    professions: Object.fromEntries(
+      PROFESSIONS.map(p => [p, {
+        label:    PROFESSION_NAMES[p],
+        level:    profLevels[p] ?? 0,
+        maxLevel: PROFESSION_MAX_LEVEL,
+        costs:    PROFESSION_LEVEL_COSTS,
+      }])
+    ),
+    recipes,
+    inventory: invMap,
+  });
+});
+
+app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+
+  const allRecipes = loadAllRecipes(RECIPES_DIR);
+  const recipe = allRecipes.find(r => r.id === String(req.params.recipeId));
+  if (!recipe) { res.status(404).json({ error: 'Recipe not found' }); return; }
+
+  const prof = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: chars[0].id, profession: recipe.profession } },
+  });
+  if ((prof?.level ?? 0) < recipe.required_level) {
+    res.json({ success: false, message: `Requires ${PROFESSION_NAMES[recipe.profession as ProfessionKey] ?? recipe.profession} level ${recipe.required_level}.` }); return;
+  }
+
+  const result = await prisma.$transaction(async tx => {
+    for (const ing of recipe.ingredients) {
+      const inv = await tx.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
+      });
+      if (!inv || inv.quantity < ing.quantity) {
+        return { success: false, message: `Not enough ${ing.item_id}.` };
+      }
+      if (inv.quantity === ing.quantity) {
+        await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } } });
+      } else {
+        await tx.inventoryItem.update({
+          where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
+          data:  { quantity: { decrement: ing.quantity } },
+        });
+      }
+    }
+
+    if (recipe.output.type === 'item') {
+      await tx.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: chars[0].id, item_id: recipe.output.id } },
+        update: { quantity: { increment: recipe.output.quantity ?? 1 } },
+        create: { character_id: chars[0].id, item_id: recipe.output.id, quantity: recipe.output.quantity ?? 1 },
+      });
+    } else {
+      await tx.characterWeapon.upsert({
+        where:  { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
+        update: {},
+        create: { character_id: chars[0].id, weapon_key: recipe.output.id },
+      });
+    }
+
+    await tx.eventLog.create({ data: {
+      discord_id: discordId, event_type: 'item_crafted',
+      payload: { recipe_id: recipe.id, output: recipe.output as unknown as object },
+    }}).catch(() => {});
+
+    return { success: true, message: `Crafted ${recipe.name}.` };
+  });
+
+  res.json(result);
 });
 
 sessions.set('test', createSession('test', 'rat').session);
@@ -523,8 +695,26 @@ function buildCharModal(): ModalBuilder {
   return modal;
 }
 
-const HOST     = process.env.HOST_URL ?? `http://localhost:${PORT}`;
-const SHOP_DIR = join(__dirname, '../../database/shops');
+const HOST        = process.env.HOST_URL ?? `http://localhost:${PORT}`;
+const SHOP_DIR    = join(__dirname, '../../database/shops');
+const RECIPES_DIR = join(__dirname, '../../database/recipes');
+
+const PROFESSIONS = ['lumberjack', 'blacksmith', 'enchanter'] as const;
+type ProfessionKey = typeof PROFESSIONS[number];
+const PROFESSION_NAMES: Record<ProfessionKey, string> = {
+  lumberjack: 'Lumberjack',
+  blacksmith:  'Blacksmith',
+  enchanter:   'Enchanter',
+};
+// Cost to go from level N to N+1 (index 0 = 0→1, index 9 = 9→10). Tune after economy is set.
+const PROFESSION_LEVEL_COSTS = [100, 300, 700, 1_500, 3_000, 6_000, 12_000, 22_000, 40_000, 75_000];
+const PROFESSION_MAX_LEVEL   = 10;
+
+const SHOP_TO_PROFESSION: Partial<Record<string, ProfessionKey>> = {
+  blacksmith:      'blacksmith',
+  general_store:   'lumberjack',
+  enchanting_shop: 'enchanter',
+};
 
 let discord: import('discord.js').Client | null = null;
 let discordToken: string | null = null;
@@ -905,6 +1095,30 @@ if (discordToken) {
     const config = loadShop(shopKey, SHOP_DIR);
     await interaction.reply({
       content: `**${config.name}**\n${HOST}/shop/${shopKey}?auth=${token}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  });
+
+  // ---- Craft ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'craft') return;
+
+    const chars = await charRepo.list(interaction.user.id);
+    if (chars.length === 0) {
+      await interaction.reply({ content: "You don't have a character yet!", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    let token = userTokens.get(interaction.user.id);
+    if (!token) {
+      token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      authTokens.set(token, { discordUserId: interaction.user.id });
+      userTokens.set(interaction.user.id, token);
+    }
+
+    await interaction.reply({
+      content: `${HOST}/craft?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });

@@ -56,8 +56,34 @@ function render() {
   document.getElementById('npc-line').textContent  = `${data.npc} · ${data.title}`;
   document.getElementById('korel-val').textContent  = data.korel.toLocaleString();
   document.getElementById('greeting').textContent   = `"${data.greeting}"`;
+  renderTraining();
   renderBuy();
   renderSell();
+}
+
+function renderTraining() {
+  const bar = document.getElementById('training-bar');
+  const t   = data.training;
+  if (!t) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('training-label').textContent = t.label;
+  const atMax = t.level >= t.maxLevel;
+  document.getElementById('training-level').textContent = atMax
+    ? `Level ${t.level} / ${t.maxLevel} — Mastered`
+    : `Level ${t.level} / ${t.maxLevel} — Next: ${t.nextCost.toLocaleString()} korel`;
+  const btn = document.getElementById('training-btn');
+  btn.disabled = atMax;
+  btn.textContent = atMax ? 'Mastered' : 'Train';
+}
+
+async function doTrain() {
+  const res = await fetch(`/api/shop/${shopKey}/train`, {
+    method: 'POST', headers: authHeaders(true),
+    body: JSON.stringify({}),
+  });
+  const r = await res.json();
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) await refresh();
 }
 
 function renderBuy() {

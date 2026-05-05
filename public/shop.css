@@ -75,6 +75,40 @@ h1 {
   line-height: 1.5;
 }
 
+/* ---- Training bar ---- */
+#training-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  background: #0f1825;
+  border-bottom: 1px solid #1c2838;
+  font-size: 0.8rem;
+}
+
+#training-label {
+  color: #c0a060;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+#training-level { color: #556; }
+
+#training-bar button {
+  margin-left: auto;
+  background: #1a2e1a;
+  border: 1px solid #2a4a2a;
+  border-radius: 4px;
+  color: #70a870;
+  padding: 4px 16px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+#training-bar button:hover { background: #243c24; }
+#training-bar button:disabled { opacity: 0.4; cursor: default; }
+
 /* ---- Two-panel layout ---- */
 .panels {
   display: grid;

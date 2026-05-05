@@ -24,9 +24,20 @@ model Character {
   max_health   Int
   weapon_key   String
 
-  user         User            @relation(fields: [discord_id], references: [discord_id])
+  user         User                  @relation(fields: [discord_id], references: [discord_id])
   inventory    InventoryItem[]
   weapons      CharacterWeapon[]
+  professions  CharacterProfession[]
+}
+
+model CharacterProfession {
+  character_id  String
+  profession    String
+  level         Int       @default(0)
+
+  character     Character @relation(fields: [character_id], references: [id])
+
+  @@id([character_id, profession])
 }
 
 model Item {

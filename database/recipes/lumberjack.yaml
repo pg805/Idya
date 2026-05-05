@@ -1,0 +1,25 @@
+recipes:
+  - id: lj_branch
+    name: Branch
+    description: "Trim a decent branch into a proper fighting club."
+    profession: lumberjack
+    required_level: 1
+    ingredients:
+      - item_id: wood
+        quantity: 3
+    output:
+      type: weapon
+      id: branch
+
+  - id: lj_shovel_handle
+    name: Shovel Handle
+    description: "Carve a sturdy handle from raw wood. One step toward a real shovel."
+    profession: lumberjack
+    required_level: 3
+    ingredients:
+      - item_id: wood
+        quantity: 5
+    output:
+      type: item
+      id: shovel_handle
+      quantity: 1
