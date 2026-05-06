@@ -68,7 +68,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [2, 6, 10, 12]
+    Field: [6, 10, 12, 20]
     Cost: 2
     Aimed: false
     Range: 1
