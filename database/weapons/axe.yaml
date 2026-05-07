@@ -1,0 +1,66 @@
+Name: Axe
+Description: Heavy and unforgiving. Put your whole body into it and it shows.
+Level: 1
+
+Resource:
+  Name: Strength
+  Max: 5
+
+Defend:
+  - Name: Shoulder
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 0
+    Cost: -4
+    Action_String: "<User> lowers their guard and drives forward with their shoulder, restoring strength."
+
+  - Name: Axe Head
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 5
+    Cost: 1
+    Action_String: "<User> raises the axe head to intercept, bracing for 5 damage."
+
+Defend Crit: []
+
+Attack:
+  - Name: Chop
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [0, 5, 10, 12]
+    Cost: 1
+    Aimed: false
+    Range: 1
+    Action_String: "<User> brings the axe down hard on <Target>, dealing <Damage> damage."
+
+Attack Crit:
+  - Name: Arterial Cut
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [10, 15, 15, 20, 30]
+    Cost: 0
+    Aimed: false
+    Range: 1
+    Action_String: "<User> catches <Target> across a vital point for <Damage> damage."
+
+Special:
+  - Name: Heavy Swing
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [10, 20, 20, 20, 20, 40]
+    Cost: 3
+    Aimed: true
+    Range: 1
+    Action_String: "<User> winds up and brings the full weight of the axe into <Target>, dealing <Damage> damage."
+
+Special Crit: []
