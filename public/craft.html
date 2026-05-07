@@ -22,14 +22,26 @@
 
     <section id="professions"></section>
 
-    <section id="recipes-section">
+    <div id="page-tabs">
+      <button class="page-tab active" data-tab="craft"   onclick="showTab('craft')">Craft</button>
+      <button class="page-tab"        data-tab="upgrade" onclick="showTab('upgrade')">Upgrade</button>
+    </div>
+
+    <section id="craft-tab">
       <div id="recipe-filter">
-        <button class="filter-btn active" data-prof="all"   onclick="filterRecipes('all')">All</button>
+        <button class="filter-btn active" data-prof="all"       onclick="filterRecipes('all')">All</button>
         <button class="filter-btn"        data-prof="lumberjack" onclick="filterRecipes('lumberjack')">Lumberjack</button>
         <button class="filter-btn"        data-prof="blacksmith" onclick="filterRecipes('blacksmith')">Blacksmith</button>
         <button class="filter-btn"        data-prof="enchanter"  onclick="filterRecipes('enchanter')">Enchanter</button>
       </div>
       <div id="recipe-list"></div>
+    </section>
+
+    <section id="upgrade-tab" style="display:none">
+      <div id="upgrade-header">
+        <select id="weapon-picker" onchange="pickWeapon(this.value)"></select>
+      </div>
+      <div id="upgrade-panel"></div>
     </section>
   </div>
 

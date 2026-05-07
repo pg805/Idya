@@ -14,6 +14,7 @@ import {
 import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
+import { Prisma } from '@prisma/client';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from '../discord/world_config.js';
@@ -31,6 +32,13 @@ import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
 import { loadAllRecipes } from '../economy/recipe_loader.js';
+import {
+  budgetForLevel, upgradeCost, totalUpgradesUsed,
+  upgradeKind, actionsWithCategories, buildFieldLenMap,
+  allRawActions,
+  type RawWeapon,
+} from '../economy/upgrade_service.js';
+import yaml from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -442,6 +450,165 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
     }}).catch(() => {});
 
     return { success: true, message: `Crafted ${recipe.name}.` };
+  });
+
+  res.json(result);
+});
+
+// ---- Upgrade endpoints ----
+
+function loadWeaponYaml(weaponKey: string, dirname: string): RawWeapon | null {
+  const p = join(dirname, `../../database/weapons/${weaponKey}.yaml`);
+  if (!fs.existsSync(p)) return null;
+  return yaml.load(fs.readFileSync(p, 'utf-8')) as RawWeapon;
+}
+
+app.get('/api/upgrade', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const profRows = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
+  const ljLevel  = profRows.find(p => p.profession === 'lumberjack')?.level ?? 0;
+  const budget   = budgetForLevel(ljLevel);
+
+  const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+
+  const CAT_LABELS: Record<string, string> = {
+    defend: 'Defend', defend_crit: 'Defend Crit',
+    attack: 'Attack', attack_crit: 'Attack Crit',
+    special: 'Special', special_crit: 'Special Crit',
+  };
+
+  const weapons = [];
+  for (const row of weaponRows) {
+    const raw = loadWeaponYaml(row.weapon_key, __dirname);
+    if (!raw) continue;
+
+    const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
+    const playerDeltas = (upgrades.player ?? {}) as Record<string, number | number[]>;
+    const baseDeltas   = (upgrades.base   ?? {}) as Record<string, number | number[]>;
+
+    const fieldLens = buildFieldLenMap(raw);
+    const used      = totalUpgradesUsed(playerDeltas, fieldLens);
+    const atCap     = used >= budget;
+
+    const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
+      const kind = upgradeKind(a);
+      if (!kind) {
+        return { name: a.Name, category, label: CAT_LABELS[category], upgradeable: false };
+      }
+      if (kind === 'field') {
+        const base      = a.Field!;
+        const baseB     = (baseDeltas[a.Name]   as number[] | undefined) ?? base.map(() => 0);
+        const playerB   = (playerDeltas[a.Name] as number[] | undefined) ?? base.map(() => 0);
+        const effective = base.map((v, i) => v + (baseB[i] ?? 0) + (playerB[i] ?? 0));
+        return { name: a.Name, category, label: CAT_LABELS[category], upgradeable: true, type: 'field', base, base_bonus: baseB, player_bonus: playerB, effective, field_len: base.length };
+      }
+      const base    = a.Value!;
+      const baseB   = (baseDeltas[a.Name]   as number | undefined) ?? 0;
+      const playerB = (playerDeltas[a.Name] as number | undefined) ?? 0;
+      return { name: a.Name, category, label: CAT_LABELS[category], upgradeable: true, type: 'value', base, base_bonus: baseB, player_bonus: playerB, effective: base + baseB + playerB };
+    });
+
+    weapons.push({
+      weapon_key: row.weapon_key,
+      name: raw.Name,
+      equipped: row.weapon_key === char.weapon_key,
+      upgrades_used: used,
+      budget,
+      at_cap: atCap,
+      next_cost: atCap ? null : upgradeCost(used + 1),
+      actions,
+    });
+  }
+
+  res.json({ characterName: char.name, lj_level: ljLevel, weapons });
+});
+
+app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const weaponKey = String(req.params['weaponKey']);
+  const { action, delta } = req.body as { action: string; delta: number | number[] };
+
+  const raw = loadWeaponYaml(weaponKey, __dirname);
+  if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
+
+  const rawAction = allRawActions(raw).find(a => a.Name === action);
+  if (!rawAction) { res.json({ success: false, message: 'Action not found.' }); return; }
+
+  const kind = upgradeKind(rawAction);
+  if (!kind) { res.json({ success: false, message: 'This action cannot be upgraded.' }); return; }
+
+  if (kind === 'field') {
+    if (!Array.isArray(delta)) { res.json({ success: false, message: 'Expected array delta for field action.' }); return; }
+    const len = rawAction.Field!.length;
+    if (delta.length !== len) { res.json({ success: false, message: `Delta must have ${len} entries.` }); return; }
+    if (!delta.every(v => Number.isInteger(v) && v >= 0)) { res.json({ success: false, message: 'Delta values must be non-negative integers.' }); return; }
+    if (delta.reduce((a, b) => a + b, 0) !== len) { res.json({ success: false, message: `Field delta must sum to ${len}.` }); return; }
+  } else {
+    if (delta !== 1) { res.json({ success: false, message: 'Value delta must be 1.' }); return; }
+  }
+
+  const fieldLens = buildFieldLenMap(raw);
+
+  const result = await prisma.$transaction(async tx => {
+    const weaponRow = await tx.characterWeapon.findUnique({
+      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
+    });
+    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+
+    const profRow = await tx.characterProfession.findUnique({
+      where: { character_id_profession: { character_id: char.id, profession: 'lumberjack' } },
+    });
+    const ljLevel = profRow?.level ?? 0;
+    const budget  = budgetForLevel(ljLevel);
+
+    const upgrades    = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
+    const playerDeltas: Record<string, number | number[]> = { ...(upgrades.player ?? {}) as Record<string, number | number[]> };
+    const used = totalUpgradesUsed(playerDeltas, fieldLens);
+
+    if (used >= budget) {
+      return { success: false, message: `Upgrade budget full (${used}/${budget}). Level up Lumberjack to unlock more.` };
+    }
+
+    const cost = upgradeCost(used + 1);
+    const invRow = await tx.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
+    });
+    if ((invRow?.quantity ?? 0) < cost.quantity) {
+      return { success: false, message: `Need ${cost.quantity} ${cost.material} (have ${invRow?.quantity ?? 0}).` };
+    }
+
+    if (invRow!.quantity === cost.quantity) {
+      await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
+    } else {
+      await tx.inventoryItem.update({
+        where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
+        data: { quantity: { decrement: cost.quantity } },
+      });
+    }
+
+    if (kind === 'field') {
+      const existing = (playerDeltas[action] as number[] | undefined) ?? rawAction.Field!.map(() => 0);
+      playerDeltas[action] = existing.map((v, i) => v + (delta as number[])[i]);
+    } else {
+      playerDeltas[action] = ((playerDeltas[action] as number | undefined) ?? 0) + 1;
+    }
+
+    await tx.characterWeapon.update({
+      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
+      data: { upgrades: { base: upgrades.base ?? {}, player: playerDeltas } as Prisma.InputJsonValue },
+    });
+
+    return { success: true, message: `Upgraded ${action}.` };
   });
 
   res.json(result);

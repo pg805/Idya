@@ -1,8 +1,12 @@
-let data        = null;
+let data         = null;
 let activeFilter = 'all';
 let openRecipe   = null;
 
-// ---- Auth (reuse same token as shop) ----
+let upgradeData      = null;
+let selectedWeapon   = null;  // weapon object from upgradeData
+let pendingDelta     = null;  // { actionName, delta: number[] } for field editor
+
+// ---- Auth ----
 
 function getToken() { return localStorage.getItem('shop_auth') ?? ''; }
 
@@ -40,7 +44,16 @@ async function load() {
   render();
 }
 
-// ---- Render ----
+// ---- Tabs ----
+
+function showTab(tab) {
+  document.querySelectorAll('.page-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('craft-tab').style.display   = tab === 'craft'   ? '' : 'none';
+  document.getElementById('upgrade-tab').style.display = tab === 'upgrade' ? '' : 'none';
+  if (tab === 'upgrade' && !upgradeData) loadUpgrade();
+}
+
+// ---- Craft render ----
 
 function render() {
   document.getElementById('char-name').textContent = data.characterName;
@@ -140,7 +153,7 @@ function filterRecipes(prof) {
   renderRecipes();
 }
 
-// ---- Craft ----
+// ---- Craft action ----
 
 async function doCraft(recipeId) {
   const res = await fetch(`/api/craft/${recipeId}`, {
@@ -154,6 +167,212 @@ async function doCraft(recipeId) {
     const fresh = await fetch('/api/craft', { headers: authHeaders() });
     if (fresh.ok) { data = await fresh.json(); render(); }
   }
+}
+
+// ---- Upgrade load ----
+
+async function loadUpgrade() {
+  const res = await fetch('/api/upgrade', { headers: authHeaders() });
+  if (!res.ok) { document.getElementById('upgrade-panel').innerHTML = '<p class="empty">Could not load weapons.</p>'; return; }
+  upgradeData = await res.json();
+
+  const picker = document.getElementById('weapon-picker');
+  picker.innerHTML = '';
+  if (upgradeData.weapons.length === 0) {
+    picker.innerHTML = '<option disabled>No weapons owned</option>';
+    document.getElementById('upgrade-panel').innerHTML = '<p class="empty">Craft a weapon first.</p>';
+    return;
+  }
+  for (const w of upgradeData.weapons) {
+    const opt = document.createElement('option');
+    opt.value = w.weapon_key;
+    opt.textContent = w.name + (w.equipped ? ' (equipped)' : '');
+    picker.appendChild(opt);
+  }
+  selectedWeapon = upgradeData.weapons[0];
+  picker.value = selectedWeapon.weapon_key;
+  renderUpgradePanel();
+}
+
+async function refreshUpgrade() {
+  const prevKey = selectedWeapon?.weapon_key;
+  const res = await fetch('/api/upgrade', { headers: authHeaders() });
+  if (res.ok) {
+    upgradeData = await res.json();
+    const picker = document.getElementById('weapon-picker');
+    picker.innerHTML = '';
+    for (const w of upgradeData.weapons) {
+      const opt = document.createElement('option');
+      opt.value = w.weapon_key;
+      opt.textContent = w.name + (w.equipped ? ' (equipped)' : '');
+      picker.appendChild(opt);
+    }
+    selectedWeapon = upgradeData.weapons.find(w => w.weapon_key === prevKey) ?? upgradeData.weapons[0] ?? null;
+    if (selectedWeapon) picker.value = selectedWeapon.weapon_key;
+    renderUpgradePanel();
+  }
+}
+
+function pickWeapon(key) {
+  selectedWeapon = upgradeData?.weapons.find(w => w.weapon_key === key) ?? null;
+  pendingDelta = null;
+  renderUpgradePanel();
+}
+
+// ---- Upgrade render ----
+
+const CAT_ORDER = ['defend', 'defend_crit', 'attack', 'attack_crit', 'special', 'special_crit'];
+const CAT_LABELS = { defend: 'Defend', defend_crit: 'Defend Crit', attack: 'Attack', attack_crit: 'Attack Crit', special: 'Special', special_crit: 'Special Crit' };
+
+function renderUpgradePanel() {
+  const panel = document.getElementById('upgrade-panel');
+  if (!selectedWeapon) { panel.innerHTML = ''; return; }
+  const w = selectedWeapon;
+
+  const budgetHtml = `
+    <div class="upgrade-budget">
+      <span class="budget-used">${w.upgrades_used} / ${w.budget} upgrades used</span>
+      ${w.at_cap
+        ? '<span class="budget-cap">Budget full — level up Lumberjack</span>'
+        : `<span class="budget-next">Next: <b>${w.next_cost.quantity}</b> ${esc(w.next_cost.material)}</span>`}
+    </div>`;
+
+  let sectionsHtml = '';
+  for (const cat of CAT_ORDER) {
+    const actions = w.actions.filter(a => a.category === cat);
+    if (actions.length === 0) continue;
+    sectionsHtml += `<div class="upgrade-section"><p class="upg-cat-label">${CAT_LABELS[cat]}</p>`;
+    for (const a of actions) sectionsHtml += renderActionRow(a, w);
+    sectionsHtml += '</div>';
+  }
+
+  panel.innerHTML = budgetHtml + sectionsHtml;
+
+  if (pendingDelta) renderFieldEditor();
+}
+
+function renderActionRow(a, w) {
+  if (!a.upgradeable) {
+    return `<div class="upg-action dim">
+      <span class="upg-name">${esc(a.name)}</span>
+      <span class="cannot-upg">Cannot be upgraded</span>
+    </div>`;
+  }
+
+  const editingThis = pendingDelta?.actionName === a.name;
+
+  if (a.type === 'value') {
+    const totalBonus = a.base_bonus + a.player_bonus;
+    const bonusTag   = totalBonus > 0 ? `<span class="bonus-tag">+${totalBonus}</span>` : '';
+    const btn = (!w.at_cap && !pendingDelta)
+      ? `<button class="upg-btn" onclick="upgradeValue('${esc(a.name)}')">+1</button>` : '';
+    return `<div class="upg-action">
+      <span class="upg-name">${esc(a.name)}</span>
+      <span class="upg-stat">${a.effective}${bonusTag}</span>
+      ${btn}
+    </div>`;
+  }
+
+  // field action
+  const playerTotal = a.player_bonus.reduce((s, v) => s + v, 0);
+  const baseTotal   = a.base_bonus.reduce((s, v) => s + v, 0);
+  const totalBonus  = playerTotal + baseTotal;
+  const bonusTag    = totalBonus > 0 ? `<span class="bonus-tag">+${totalBonus}</span>` : '';
+  const statText    = fieldSummary(a.effective);
+  const btn = (!w.at_cap && !pendingDelta && !editingThis)
+    ? `<button class="upg-btn" onclick="startFieldEdit('${esc(a.name)}', ${a.field_len})">Upgrade</button>` : '';
+
+  return `<div class="upg-action" id="upg-action-${safeId(a.name)}">
+    <span class="upg-name">${esc(a.name)}</span>
+    <span class="upg-stat">${statText}${bonusTag}</span>
+    ${btn}
+    ${editingThis ? '<div id="field-editor"></div>' : ''}
+  </div>`;
+}
+
+function fieldSummary(field) {
+  const min = Math.min(...field);
+  const max = Math.max(...field);
+  const avg = (field.reduce((a, b) => a + b, 0) / field.length).toFixed(1);
+  return `${min}–${max} <span class="field-avg">avg ${avg}</span>`;
+}
+
+function safeId(name) { return name.replace(/[^a-zA-Z0-9]/g, '-'); }
+
+// ---- Field editor ----
+
+function startFieldEdit(actionName, fieldLen) {
+  pendingDelta = { actionName, delta: new Array(fieldLen).fill(0) };
+  renderUpgradePanel();
+}
+
+function renderFieldEditor() {
+  const el = document.getElementById('field-editor');
+  if (!el || !pendingDelta) return;
+
+  const a       = selectedWeapon.actions.find(x => x.name === pendingDelta.actionName);
+  const spent   = pendingDelta.delta.reduce((s, v) => s + v, 0);
+  const rem     = pendingDelta.delta.length - spent;
+
+  let entriesHtml = '';
+  for (let i = 0; i < pendingDelta.delta.length; i++) {
+    const effective = a.effective[i] + pendingDelta.delta[i];
+    const canMinus  = pendingDelta.delta[i] > 0;
+    const canPlus   = rem > 0;
+    entriesHtml += `<div class="fe-entry">
+      <span class="fe-val">${effective}</span>
+      <div class="fe-btns">
+        <button onclick="adjustDelta(${i}, -1)" ${canMinus ? '' : 'disabled'}>−</button>
+        <button onclick="adjustDelta(${i},  1)" ${canPlus  ? '' : 'disabled'}>+</button>
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = `<div class="field-editor">
+    <p class="fe-budget">${rem} point${rem !== 1 ? 's' : ''} to place</p>
+    <div class="fe-entries">${entriesHtml}</div>
+    <div class="fe-controls">
+      <button onclick="cancelFieldEdit()">Cancel</button>
+      <button class="upg-btn" onclick="confirmFieldEdit()" ${rem !== 0 ? 'disabled' : ''}>Confirm</button>
+    </div>
+  </div>`;
+}
+
+function adjustDelta(i, dir) {
+  if (!pendingDelta) return;
+  const spent = pendingDelta.delta.reduce((s, v) => s + v, 0);
+  const rem   = pendingDelta.delta.length - spent;
+  if (dir > 0 && rem === 0) return;
+  if (dir < 0 && pendingDelta.delta[i] === 0) return;
+  pendingDelta.delta[i] += dir;
+  renderFieldEditor();
+}
+
+function cancelFieldEdit() {
+  pendingDelta = null;
+  renderUpgradePanel();
+}
+
+async function confirmFieldEdit() {
+  if (!pendingDelta || !selectedWeapon) return;
+  const res = await fetch(`/api/upgrade/${selectedWeapon.weapon_key}`, {
+    method: 'POST', headers: authHeaders(true),
+    body: JSON.stringify({ action: pendingDelta.actionName, delta: pendingDelta.delta }),
+  });
+  const r = await res.json();
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) { pendingDelta = null; await refreshUpgrade(); }
+}
+
+async function upgradeValue(actionName) {
+  if (!selectedWeapon) return;
+  const res = await fetch(`/api/upgrade/${selectedWeapon.weapon_key}`, {
+    method: 'POST', headers: authHeaders(true),
+    body: JSON.stringify({ action: actionName, delta: 1 }),
+  });
+  const r = await res.json();
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) await refreshUpgrade();
 }
 
 // ---- Toast ----
