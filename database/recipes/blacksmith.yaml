@@ -1,27 +1,27 @@
 recipes:
-  - id: bs_iron_ingot
-    name: Iron Ingot
-    description: "Smelt raw ore into a usable iron bar."
+  - id: bs_talamite_ingot
+    name: Talamite Ingot
+    description: "Smelt raw talamite ore into a usable bar."
     profession: blacksmith
     required_level: 1
     ingredients:
-      - item_id: iron_ore
+      - item_id: talamite_ore
         quantity: 3
     output:
       type: item
-      id: iron_ingot
+      id: talamite_ingot
       quantity: 1
 
   - id: bs_shovel
-    name: Shovel
-    description: "A solid iron-headed shovel. Works well as a weapon too."
+    name: Sulwood Shovel
+    description: "A solid sulwood shovel. Works well as a weapon too."
     profession: blacksmith
     required_level: 4
     ingredients:
       - item_id: shovel_handle
         quantity: 1
-      - item_id: iron_ingot
-        quantity: 2
+      - item_id: shovel_head
+        quantity: 1
     output:
       type: weapon
-      id: shovel
+      id: shovel_wood
