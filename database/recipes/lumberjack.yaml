@@ -28,7 +28,7 @@ recipes:
     name: Sword Hilt
     description: "A wrapped sulwood hilt, ready to receive a blade."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 2
@@ -41,7 +41,7 @@ recipes:
     name: Sword Blade
     description: "A hardened sulwood blade, shaped and edged for cutting."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 3
@@ -54,7 +54,7 @@ recipes:
     name: Axe Handle
     description: "A thick sulwood handle, balanced for a heavy head."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 2
@@ -67,7 +67,7 @@ recipes:
     name: Axe Head
     description: "A rough-hewn sulwood axe head, edged and hardened."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 3
@@ -80,7 +80,7 @@ recipes:
     name: Shovel Handle
     description: "A sturdy sulwood handle, ready for a blade."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 2
@@ -93,7 +93,7 @@ recipes:
     name: Shovel Head
     description: "A shaped sulwood blade, ready to be fitted to a handle."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 3
