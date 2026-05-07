@@ -67,14 +67,14 @@ function renderProfessions() {
   for (const [key, prof] of Object.entries(data.professions)) {
     const pct = prof.level / prof.maxLevel * 100;
     const atMax = prof.level >= prof.maxLevel;
-    const nextCost = !atMax ? prof.costs[prof.level].toLocaleString() : null;
+    const nextCost = prof.nextCost != null ? prof.nextCost.toLocaleString() : null;
     const card = document.createElement('div');
     card.className = 'prof-card';
     card.innerHTML = `
       <p class="prof-name">${esc(prof.label)}</p>
       <p class="prof-level">${prof.level}<span> / ${prof.maxLevel}</span></p>
       <div class="prof-bar-bg"><div class="prof-bar" style="width:${pct}%"></div></div>
-      <p class="prof-meta">${atMax ? 'Mastered' : `Next level: ${nextCost} korel`}</p>
+      <p class="prof-meta">${atMax ? 'Mastered' : nextCost != null ? `Next level: ${nextCost} korel` : 'Cap reached'}</p>
     `;
     container.appendChild(card);
   }

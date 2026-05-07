@@ -211,13 +211,14 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     const prof = await prisma.characterProfession.findUnique({
       where: { character_id_profession: { character_id: chars[0].id, profession: profKey } },
     });
-    const level = prof?.level ?? 0;
+    const level    = prof?.level ?? 0;
+    const combined = await getCombinedLevel(chars[0].id);
     training = {
       profession: profKey,
       label:      PROFESSION_NAMES[profKey],
       level,
       maxLevel:   PROFESSION_MAX_LEVEL,
-      nextCost:   level < PROFESSION_MAX_LEVEL ? PROFESSION_LEVEL_COSTS[level] : null,
+      nextCost:   level < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
     };
   }
 
@@ -263,7 +264,11 @@ app.post('/api/shop/:shopKey/train', async (req: Request, res: Response) => {
     res.json({ success: false, message: 'Already at max level.' }); return;
   }
 
-  const cost   = PROFESSION_LEVEL_COSTS[currentLevel];
+  const combined = await getCombinedLevel(chars[0].id);
+  const cost     = levelCost(combined);
+  if (cost === null) {
+    res.json({ success: false, message: 'Combined profession level cap reached.' }); return;
+  }
   const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
   if (!dbUser || dbUser.korel < cost) {
     res.json({ success: false, message: `Need ${cost.toLocaleString()} korel (have ${(dbUser?.korel ?? 0).toLocaleString()}).` }); return;
@@ -291,7 +296,7 @@ app.post('/api/shop/:shopKey/train', async (req: Request, res: Response) => {
     success:  true,
     message:  `${PROFESSION_NAMES[profKey]} trained to level ${currentLevel + 1}.`,
     newLevel: currentLevel + 1,
-    nextCost: currentLevel + 1 < PROFESSION_MAX_LEVEL ? PROFESSION_LEVEL_COSTS[currentLevel + 1] : null,
+    nextCost: currentLevel + 1 < PROFESSION_MAX_LEVEL ? levelCost(combined + 1) : null,
   });
 });
 
@@ -366,6 +371,7 @@ app.get('/api/craft', async (req: Request, res: Response) => {
   const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
   const profLevels: Record<string, number> = {};
   for (const p of profRows) profLevels[p.profession] = p.level;
+  const combined = profRows.reduce((sum, p) => sum + p.level, 0);
 
   const inventory = await prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } });
   const invMap: Record<string, number> = {};
@@ -387,7 +393,7 @@ app.get('/api/craft', async (req: Request, res: Response) => {
         label:    PROFESSION_NAMES[p],
         level:    profLevels[p] ?? 0,
         maxLevel: PROFESSION_MAX_LEVEL,
-        costs:    PROFESSION_LEVEL_COSTS,
+        nextCost: (profLevels[p] ?? 0) < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
       }])
     ),
     recipes,
@@ -873,9 +879,27 @@ const PROFESSION_NAMES: Record<ProfessionKey, string> = {
   blacksmith:  'Blacksmith',
   enchanter:   'Enchanter',
 };
-// Cost to go from level N to N+1 (index 0 = 0→1, index 9 = 9→10). Tune after economy is set.
-const PROFESSION_LEVEL_COSTS = [100, 300, 700, 1_500, 3_000, 6_000, 12_000, 22_000, 40_000, 75_000];
+// Cost indexed by combined profession level (all professions summed). Cap is 30 (3 × 10).
+// Index N = cost to go from combined level N to N+1. Tune after economy is set.
+const PROFESSION_LEVEL_COSTS = [
+  100, 300, 700, 1_500, 3_000, 6_000, 12_000, 22_000, 40_000, 75_000,         // combined 0–9
+  140_000, 250_000, 450_000, 800_000, 1_400_000, 2_400_000, 4_200_000,        // combined 10–16
+  7_200_000, 12_000_000, 20_000_000, 33_000_000, 54_000_000, 88_000_000,      // combined 17–22
+  143_000_000, 230_000_000, 370_000_000, 590_000_000, 950_000_000,             // combined 23–27
+  1_500_000_000, 2_400_000_000,                                                 // combined 28–29
+];
 const PROFESSION_MAX_LEVEL   = 10;
+const PROFESSION_COMBINED_CAP = 30;
+
+async function getCombinedLevel(characterId: string): Promise<number> {
+  const rows = await prisma.characterProfession.findMany({ where: { character_id: characterId } });
+  return rows.reduce((sum, r) => sum + r.level, 0);
+}
+
+function levelCost(combinedLevel: number): number | null {
+  if (combinedLevel >= PROFESSION_COMBINED_CAP) return null;
+  return PROFESSION_LEVEL_COSTS[combinedLevel] ?? PROFESSION_LEVEL_COSTS[PROFESSION_LEVEL_COSTS.length - 1];
+}
 
 const SHOP_TO_PROFESSION: Partial<Record<string, ProfessionKey>> = {
   blacksmith:      'blacksmith',
