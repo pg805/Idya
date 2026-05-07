@@ -9,28 +9,28 @@ function tempDir(): string {
 
 const FIXTURE_YAML = `
 recipes:
-  - id: lj_branch
-    name: Branch
-    description: A test branch
+  - id: lj_quarterstaff
+    name: Quarterstaff
+    description: Shape a long, balanced length of sulwood into a fighting staff.
     profession: lumberjack
     required_level: 1
     ingredients:
-      - item_id: wood
-        quantity: 3
+      - item_id: sulwood
+        quantity: 4
     output:
       type: weapon
-      id: branch
+      id: quarterstaff
 
-  - id: bs_ingot
-    name: Iron Ingot
+  - id: bs_talamite_ingot
+    name: Talamite Ingot
     profession: blacksmith
     required_level: 1
     ingredients:
-      - item_id: iron_ore
+      - item_id: talamite_ore
         quantity: 3
     output:
       type: item
-      id: iron_ingot
+      id: talamite_ingot
       quantity: 1
 `;
 
@@ -60,12 +60,12 @@ describe('loadAllRecipes', () => {
     const recipes = loadAllRecipes(dir);
     fs.rmSync(dir, { recursive: true });
 
-    const branch = recipes.find(r => r.id === 'lj_branch')!;
-    expect(branch.name).toBe('Branch');
-    expect(branch.profession).toBe('lumberjack');
-    expect(branch.required_level).toBe(1);
-    expect(branch.ingredients).toEqual([{ item_id: 'wood', quantity: 3 }]);
-    expect(branch.output).toEqual({ type: 'weapon', id: 'branch', quantity: undefined });
+    const qs = recipes.find(r => r.id === 'lj_quarterstaff')!;
+    expect(qs.name).toBe('Quarterstaff');
+    expect(qs.profession).toBe('lumberjack');
+    expect(qs.required_level).toBe(1);
+    expect(qs.ingredients).toEqual([{ item_id: 'sulwood', quantity: 4 }]);
+    expect(qs.output).toEqual({ type: 'weapon', id: 'quarterstaff', quantity: undefined });
   });
 
   test('optional output quantity is loaded when present', () => {
@@ -74,7 +74,7 @@ describe('loadAllRecipes', () => {
     const recipes = loadAllRecipes(dir);
     fs.rmSync(dir, { recursive: true });
 
-    const ingot = recipes.find(r => r.id === 'bs_ingot')!;
+    const ingot = recipes.find(r => r.id === 'bs_talamite_ingot')!;
     expect(ingot.output.quantity).toBe(1);
   });
 

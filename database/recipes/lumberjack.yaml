@@ -1,39 +1,105 @@
 recipes:
-  - id: lj_branch
-    name: Branch
-    description: "Trim a decent branch into a proper fighting club."
-    profession: lumberjack
-    required_level: 1
-    ingredients:
-      - item_id: wood
-        quantity: 3
-    output:
-      type: weapon
-      id: branch
-
   - id: lj_quarterstaff
     name: Quarterstaff
     description: "Shape a long, balanced length of sulwood into a fighting staff."
     profession: lumberjack
     required_level: 1
     ingredients:
-      - item_id: wood
-        quantity: 8
+      - item_id: sulwood
+        quantity: 4
     output:
       type: weapon
       id: quarterstaff
 
-  - id: lj_sulwood_plank
-    name: Sulwood Plank
-    description: "Mill raw wood into a workable plank of sulwood."
+  - id: lj_treated_sulwood
+    name: Treated Sulwood
+    description: "Cure raw sulwood with resin and heat, producing a denser, more workable material."
     profession: lumberjack
     required_level: 2
     ingredients:
-      - item_id: wood
+      - item_id: sulwood
+        quantity: 2
+    output:
+      type: item
+      id: treated_sulwood
+      quantity: 1
+
+  - id: lj_sword_hilt
+    name: Sword Hilt
+    description: "A wrapped sulwood hilt, ready to receive a blade."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 2
+    output:
+      type: item
+      id: sword_hilt
+      quantity: 1
+
+  - id: lj_sword_blade
+    name: Sword Blade
+    description: "A hardened sulwood blade, shaped and edged for cutting."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
         quantity: 3
     output:
       type: item
-      id: sulwood_plank
+      id: sword_blade
+      quantity: 1
+
+  - id: lj_axe_handle
+    name: Axe Handle
+    description: "A thick sulwood handle, balanced for a heavy head."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 2
+    output:
+      type: item
+      id: axe_handle
+      quantity: 1
+
+  - id: lj_axe_head
+    name: Axe Head
+    description: "A rough-hewn sulwood axe head, edged and hardened."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 3
+    output:
+      type: item
+      id: axe_head
+      quantity: 1
+
+  - id: lj_shovel_handle
+    name: Shovel Handle
+    description: "A sturdy sulwood handle, ready for a blade."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 2
+    output:
+      type: item
+      id: shovel_handle
+      quantity: 1
+
+  - id: lj_shovel_head
+    name: Shovel Head
+    description: "A shaped sulwood blade, ready to be fitted to a handle."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 3
+    output:
+      type: item
+      id: shovel_head
       quantity: 1
 
   - id: lj_bow
@@ -42,32 +108,36 @@ recipes:
     profession: lumberjack
     required_level: 3
     ingredients:
-      - item_id: sulwood_plank
-        quantity: 4
+      - item_id: treated_sulwood
+        quantity: 5
     output:
       type: weapon
       id: bow
 
   - id: lj_sword_wood
     name: Sulwood Sword
-    description: "Carve and harden a sulwood blade — crude but holds an edge."
+    description: "Bind hilt and blade into a full sulwood sword."
     profession: lumberjack
     required_level: 3
     ingredients:
-      - item_id: sulwood_plank
-        quantity: 6
+      - item_id: sword_hilt
+        quantity: 1
+      - item_id: sword_blade
+        quantity: 1
     output:
       type: weapon
       id: sword_wood
 
   - id: lj_axe_wood
     name: Sulwood Axe
-    description: "Split a sulwood plank to a rough edge and lash it to a haft."
+    description: "Lash the axe head to the handle and set the wedge."
     profession: lumberjack
     required_level: 3
     ingredients:
-      - item_id: sulwood_plank
-        quantity: 5
+      - item_id: axe_handle
+        quantity: 1
+      - item_id: axe_head
+        quantity: 1
     output:
       type: weapon
       id: axe_wood
@@ -78,21 +148,21 @@ recipes:
     profession: lumberjack
     required_level: 3
     ingredients:
-      - item_id: sulwood_plank
-        quantity: 4
+      - item_id: treated_sulwood
+        quantity: 2
     output:
       type: weapon
       id: wand
 
-  - id: lj_shovel_handle
-    name: Shovel Handle
-    description: "Carve a sturdy handle from raw wood. One step toward a real shovel."
+  - id: lj_hardwood
+    name: Hardwood
+    description: "Press-cure treated sulwood under high heat to produce dense, durable hardwood."
     profession: lumberjack
-    required_level: 3
+    required_level: 7
     ingredients:
-      - item_id: wood
-        quantity: 5
+      - item_id: treated_sulwood
+        quantity: 3
     output:
       type: item
-      id: shovel_handle
+      id: hardwood
       quantity: 1
