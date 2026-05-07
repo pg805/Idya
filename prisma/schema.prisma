@@ -50,6 +50,7 @@ model Item {
 model CharacterWeapon {
   character_id  String
   weapon_key    String
+  upgrades      Json   @default("{}")
 
   character     Character @relation(fields: [character_id], references: [id])
 
