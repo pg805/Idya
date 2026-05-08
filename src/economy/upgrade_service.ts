@@ -18,26 +18,25 @@ const TIER3: Record<Profession, string> = {
     enchanter:  'refined_enchanting_reagent',  // TBD
 };
 
-// Which profession governs the upgrade budget and material cost for each weapon.
-// Hybrid weapons (talamite blade on wood handle) fall under lumberjack —
-// full dual-profession upgrade support for hybrids is a future TODO.
-const WEAPON_UPGRADE_PROFESSION: Record<string, Profession> = {
-    quarterstaff:    'lumberjack',
-    bow:             'lumberjack',
-    wand:            'lumberjack',
-    sword_wood:      'lumberjack',
-    axe_wood:        'lumberjack',
-    shovel_wood:     'lumberjack',
-    sword_talamite:  'lumberjack',
-    axe_talamite:    'lumberjack',
-    shovel_talamite: 'lumberjack',
-    dagger:          'blacksmith',
-    mace:            'blacksmith',
-    wand_talamite:   'blacksmith',
+// Hybrid weapons have a wood handle (LJ) and metal head (BS) — both professions can upgrade them.
+const HYBRID_WEAPONS = new Set(['sword_talamite', 'axe_talamite', 'shovel_talamite']);
+
+const SINGLE_PROFESSION: Record<string, Profession> = {
+    quarterstaff:  'lumberjack',
+    bow:           'lumberjack',
+    wand:          'lumberjack',
+    sword_wood:    'lumberjack',
+    axe_wood:      'lumberjack',
+    shovel_wood:   'lumberjack',
+    dagger:        'blacksmith',
+    mace:          'blacksmith',
+    wand_talamite: 'blacksmith',
 };
 
-export function weaponUpgradeProfession(weaponKey: string): Profession {
-    return WEAPON_UPGRADE_PROFESSION[weaponKey] ?? 'lumberjack';
+// All professions that can upgrade a given weapon.
+export function weaponUpgradeProfessions(weaponKey: string): Profession[] {
+    if (HYBRID_WEAPONS.has(weaponKey)) return ['lumberjack', 'blacksmith'];
+    return [SINGLE_PROFESSION[weaponKey] ?? 'lumberjack'];
 }
 
 export function budgetForLevel(level: number): number {
@@ -51,13 +50,29 @@ export function upgradeCost(n: number, profession: Profession): { quantity: numb
     return { quantity: n - 10, material: TIER3[profession] };
 }
 
+// Player upgrades are stored nested by profession: { lumberjack: { Slash: [...] }, blacksmith: { ... } }
+// Old flat format ({ Slash: [...] }) is migrated on read to the weapon's primary profession.
+export function normalizePlayerUpgrades(
+    raw: unknown,
+    primaryProfession: Profession,
+): Partial<Record<Profession, Record<string, number | number[]>>> {
+    if (!raw || typeof raw !== 'object') return {};
+    const vals = Object.values(raw as object);
+    if (vals.length === 0) return {};
+    // Old flat format: values are numbers or arrays directly
+    if (typeof vals[0] === 'number' || Array.isArray(vals[0])) {
+        return { [primaryProfession]: raw as Record<string, number | number[]> };
+    }
+    return raw as Partial<Record<Profession, Record<string, number | number[]>>>;
+}
+
 // For a field action, one upgrade = exactly field.length points distributed.
 export function fieldUpgradeCount(delta: number[], fieldLen: number): number {
     if (fieldLen === 0) return 0;
     return Math.floor(delta.reduce((a, b) => a + b, 0) / fieldLen);
 }
 
-// Total player-applied upgrade count across all actions on a weapon.
+// Total player-applied upgrade count for a single profession's deltas.
 export function totalUpgradesUsed(
     playerDeltas: Record<string, number | number[]>,
     actionFieldLens: Map<string, number>,
@@ -71,6 +86,37 @@ export function totalUpgradesUsed(
         }
     }
     return count;
+}
+
+// Sum player bonuses across all professions for a single field action (for effective display).
+export function summedFieldBonus(
+    playerUpgrades: Partial<Record<Profession, Record<string, number | number[]>>>,
+    professions: Profession[],
+    actionName: string,
+    fieldLen: number,
+): number[] {
+    const result = new Array<number>(fieldLen).fill(0);
+    for (const prof of professions) {
+        const deltas = playerUpgrades[prof]?.[actionName];
+        if (Array.isArray(deltas)) {
+            for (let i = 0; i < fieldLen; i++) result[i] += deltas[i] ?? 0;
+        }
+    }
+    return result;
+}
+
+// Sum player bonuses across all professions for a single value action.
+export function summedValueBonus(
+    playerUpgrades: Partial<Record<Profession, Record<string, number | number[]>>>,
+    professions: Profession[],
+    actionName: string,
+): number {
+    let total = 0;
+    for (const prof of professions) {
+        const delta = playerUpgrades[prof]?.[actionName];
+        if (typeof delta === 'number') total += delta;
+    }
+    return total;
 }
 
 export type RawAction = {
