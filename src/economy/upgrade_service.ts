@@ -6,8 +6,9 @@ export function budgetForLevel(ljLevel: number): number {
     return UPGRADE_BUDGET[Math.min(Math.max(ljLevel, 0), 10)] ?? 0;
 }
 
-// Upgrade N (1-indexed) costs N treated_sulwood if N ≤ 12,
-// or (N - 10) hardwood if N ≥ 13 (so upgrade 13 → 3 hardwood, 35 → 25 hardwood).
+// Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
+// or (N - 10) tier-3 material if N ≥ 13 (e.g. upgrade 13 → 3 units, 35 → 25 units).
+// Currently hardcoded to LJ materials. Needs profession parameter when BS upgrades are added.
 export function upgradeCost(n: number): { quantity: number; material: string } {
     if (n <= 12) return { quantity: n, material: 'treated_sulwood' };
     return { quantity: n - 10, material: 'hardwood' };

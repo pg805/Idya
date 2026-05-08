@@ -1,14 +1,261 @@
 recipes:
-  - id: bs_talamite_ingot
-    name: Talamite Ingot
-    description: "Smelt raw talamite ore into a usable bar."
+  # BS1 ─────────────────────────────────────────────────────────────────────
+
+  - id: bs_dagger
+    name: Dagger
+    description: "Shape crude talamite into a short, concealable blade."
     profession: blacksmith
     required_level: 1
     ingredients:
-      - item_id: talamite_ore
+      - item_id: crude_talamite
+        quantity: 4
+    output:
+      type: weapon
+      id: dagger
+
+  # BS2 ─────────────────────────────────────────────────────────────────────
+
+  - id: bs_talamite
+    name: Talamite
+    description: "Smelt crude talamite ore into refined ingots."
+    profession: blacksmith
+    required_level: 2
+    ingredients:
+      - item_id: crude_talamite
+        quantity: 2
+    output:
+      type: item
+      id: talamite
+      quantity: 1
+
+  - id: bs_dagger_talamite
+    name: Dagger (Talamite)
+    description: "A dagger forged from refined talamite — sharper edge, better balance."
+    profession: blacksmith
+    required_level: 2
+    ingredients:
+      - item_id: talamite
+        quantity: 3
+    output:
+      type: weapon
+      id: dagger
+      base_bonus:
+        attack: 1
+
+  # BS3 ─────────────────────────────────────────────────────────────────────
+
+  - id: bs_mace
+    name: Mace
+    description: "Forge a dense talamite mace head and fit it to a shaft."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: talamite
+        quantity: 5
+    output:
+      type: weapon
+      id: mace
+
+  - id: bs_sword_head
+    name: Sword Head
+    description: "A talamite blade, edged and ready for a hilt."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: talamite
         quantity: 3
     output:
       type: item
-      id: talamite_ingot
+      id: sword_head
       quantity: 1
 
+  - id: bs_axe_head_talamite
+    name: Talamite Axe Head
+    description: "A talamite axe head — takes an edge sulwood never could."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: talamite
+        quantity: 3
+    output:
+      type: item
+      id: axe_head_talamite
+      quantity: 1
+
+  - id: bs_shovel_head_talamite
+    name: Talamite Shovel Head
+    description: "A talamite shovel blade — stays sharp no matter the abuse."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: talamite
+        quantity: 3
+    output:
+      type: item
+      id: shovel_head_talamite
+      quantity: 1
+
+  - id: bs_wand_talamite
+    name: Talamite Wand
+    description: "A rod of talamite — cold and dense where sulwood is warm."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: talamite
+        quantity: 2
+    output:
+      type: weapon
+      id: wand_talamite
+
+  - id: bs_sword_talamite
+    name: Talamite Sword
+    description: "Fit the talamite blade to a sulwood hilt."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: sword_hilt
+        quantity: 1
+      - item_id: sword_head
+        quantity: 1
+    output:
+      type: weapon
+      id: sword_talamite
+
+  - id: bs_axe_talamite
+    name: Talamite Axe
+    description: "Lash the talamite head to a sulwood handle."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: axe_handle
+        quantity: 1
+      - item_id: axe_head_talamite
+        quantity: 1
+    output:
+      type: weapon
+      id: axe_talamite
+
+  - id: bs_shovel_talamite
+    name: Talamite Shovel
+    description: "Set the talamite blade onto a sulwood handle."
+    profession: blacksmith
+    required_level: 3
+    ingredients:
+      - item_id: shovel_handle
+        quantity: 1
+      - item_id: shovel_head_talamite
+        quantity: 1
+    output:
+      type: weapon
+      id: shovel_talamite
+
+  # BS7 ─────────────────────────────────────────────────────────────────────
+
+  - id: bs_alloy
+    name: Alloy
+    description: "Fuse talamite with a binding agent under extreme heat to produce a superior alloy."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: talamite
+        quantity: 3
+    output:
+      type: item
+      id: alloy
+      quantity: 1
+
+  - id: bs_dagger_alloy
+    name: Dagger (Alloy)
+    description: "A dagger of refined alloy — the finest edge a blacksmith can produce."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 2
+    output:
+      type: weapon
+      id: dagger
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
+
+  - id: bs_mace_alloy
+    name: Mace (Alloy)
+    description: "A mace of refined alloy — heavier, denser, and harder to stop."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 2
+    output:
+      type: weapon
+      id: mace
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
+
+  - id: bs_sword_talamite_alloy
+    name: Talamite Sword (Alloy)
+    description: "A talamite sword with an alloy blade — holds an edge far longer."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 3
+    output:
+      type: weapon
+      id: sword_talamite
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
+
+  - id: bs_axe_talamite_alloy
+    name: Talamite Axe (Alloy)
+    description: "A talamite axe with an alloy head — weight and edge working together."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 3
+    output:
+      type: weapon
+      id: axe_talamite
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
+
+  - id: bs_shovel_talamite_alloy
+    name: Talamite Shovel (Alloy)
+    description: "A talamite shovel with an alloy blade — sharper and more durable."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 3
+    output:
+      type: weapon
+      id: shovel_talamite
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
+
+  - id: bs_wand_talamite_alloy
+    name: Talamite Wand (Alloy)
+    description: "A wand of refined alloy — more precisely attuned to channeling."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: alloy
+        quantity: 1
+    output:
+      type: weapon
+      id: wand_talamite
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
