@@ -61,7 +61,7 @@ recipes:
         quantity: 3
     output:
       type: item
-      id: sword_blade
+      id: sword_blade_wood
       quantity: 1
 
   - id: lj_axe_handle
@@ -87,7 +87,7 @@ recipes:
         quantity: 3
     output:
       type: item
-      id: axe_head
+      id: axe_head_wood
       quantity: 1
 
   - id: lj_shovel_handle
@@ -113,7 +113,7 @@ recipes:
         quantity: 3
     output:
       type: item
-      id: shovel_head
+      id: shovel_head_wood
       quantity: 1
 
   - id: lj_bow
@@ -136,7 +136,7 @@ recipes:
     ingredients:
       - item_id: sword_hilt
         quantity: 1
-      - item_id: sword_blade
+      - item_id: sword_blade_wood
         quantity: 1
     output:
       type: weapon
@@ -150,7 +150,7 @@ recipes:
     ingredients:
       - item_id: axe_handle
         quantity: 1
-      - item_id: axe_head
+      - item_id: axe_head_wood
         quantity: 1
     output:
       type: weapon
@@ -176,7 +176,7 @@ recipes:
     ingredients:
       - item_id: shovel_handle
         quantity: 1
-      - item_id: shovel_head
+      - item_id: shovel_head_wood
         quantity: 1
     output:
       type: weapon
@@ -211,14 +211,29 @@ recipes:
         attack: 1
         special: 1
 
-  - id: lj_sword_wood_hardwood
-    name: Sulwood Sword (Hardwood)
-    description: "A sulwood sword with hardwood components — the grain runs true and the edge holds longer."
+  - id: lj_sword_blade_hardwood
+    name: Sword Blade (Hardwood)
+    description: "A hardwood blade — denser grain, holds a finer edge."
     profession: lumberjack
     required_level: 7
     ingredients:
       - item_id: hardwood
-        quantity: 3
+        quantity: 2
+    output:
+      type: item
+      id: sword_blade_hardwood
+      quantity: 1
+
+  - id: lj_sword_wood_hardwood
+    name: Sulwood Sword (Hardwood)
+    description: "A sulwood sword with a hardwood blade — the grain runs true and the edge holds longer."
+    profession: lumberjack
+    required_level: 7
+    ingredients:
+      - item_id: sword_hilt
+        quantity: 1
+      - item_id: sword_blade_hardwood
+        quantity: 1
     output:
       type: weapon
       id: sword_wood
@@ -227,14 +242,29 @@ recipes:
         attack: 1
         special: 1
 
+  - id: lj_axe_head_hardwood
+    name: Axe Head (Hardwood)
+    description: "A hardwood axe head — heavier and better balanced than treated sulwood."
+    profession: lumberjack
+    required_level: 7
+    ingredients:
+      - item_id: hardwood
+        quantity: 2
+    output:
+      type: item
+      id: axe_head_hardwood
+      quantity: 1
+
   - id: lj_axe_wood_hardwood
     name: Sulwood Axe (Hardwood)
     description: "A hardwood axe — heavier head, better balance. Hits with more intent."
     profession: lumberjack
     required_level: 7
     ingredients:
-      - item_id: hardwood
-        quantity: 3
+      - item_id: axe_handle
+        quantity: 1
+      - item_id: axe_head_hardwood
+        quantity: 1
     output:
       type: weapon
       id: axe_wood
@@ -275,14 +305,29 @@ recipes:
         attack: 1
         special: 1
 
+  - id: lj_shovel_head_hardwood
+    name: Shovel Head (Hardwood)
+    description: "A hardwood shovel blade — sturdier and better balanced than treated sulwood."
+    profession: lumberjack
+    required_level: 7
+    ingredients:
+      - item_id: hardwood
+        quantity: 2
+    output:
+      type: item
+      id: shovel_head_hardwood
+      quantity: 1
+
   - id: lj_shovel_wood_hardwood
     name: Sulwood Shovel (Hardwood)
     description: "A hardwood shovel — better balanced and sturdier than the sulwood version."
     profession: lumberjack
     required_level: 7
     ingredients:
-      - item_id: hardwood
-        quantity: 3
+      - item_id: shovel_handle
+        quantity: 1
+      - item_id: shovel_head_hardwood
+        quantity: 1
     output:
       type: weapon
       id: shovel_wood

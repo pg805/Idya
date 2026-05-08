@@ -56,8 +56,8 @@ recipes:
       type: weapon
       id: mace
 
-  - id: bs_sword_head
-    name: Sword Head
+  - id: bs_sword_blade_talamite
+    name: Sword Blade (Talamite)
     description: "A talamite blade, edged and ready for a hilt."
     profession: blacksmith
     required_level: 3
@@ -66,11 +66,11 @@ recipes:
         quantity: 3
     output:
       type: item
-      id: sword_head
+      id: sword_blade_talamite
       quantity: 1
 
   - id: bs_axe_head_talamite
-    name: Talamite Axe Head
+    name: Axe Head (Talamite)
     description: "A talamite axe head — takes an edge sulwood never could."
     profession: blacksmith
     required_level: 3
@@ -83,7 +83,7 @@ recipes:
       quantity: 1
 
   - id: bs_shovel_head_talamite
-    name: Talamite Shovel Head
+    name: Shovel Head (Talamite)
     description: "A talamite shovel blade — stays sharp no matter the abuse."
     profession: blacksmith
     required_level: 3
@@ -115,7 +115,7 @@ recipes:
     ingredients:
       - item_id: sword_hilt
         quantity: 1
-      - item_id: sword_head
+      - item_id: sword_blade_talamite
         quantity: 1
     output:
       type: weapon
@@ -196,14 +196,29 @@ recipes:
         attack: 1
         special: 1
 
-  - id: bs_sword_talamite_alloy
-    name: Talamite Sword (Alloy)
-    description: "A talamite sword with an alloy blade — holds an edge far longer."
+  - id: bs_sword_blade_alloy
+    name: Sword Blade (Alloy)
+    description: "An alloy blade — holds an edge far longer than talamite."
     profession: blacksmith
     required_level: 7
     ingredients:
       - item_id: alloy
-        quantity: 3
+        quantity: 2
+    output:
+      type: item
+      id: sword_blade_alloy
+      quantity: 1
+
+  - id: bs_sword_talamite_alloy
+    name: Talamite Sword (Alloy)
+    description: "Fit the alloy blade to a sulwood hilt."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: sword_hilt
+        quantity: 1
+      - item_id: sword_blade_alloy
+        quantity: 1
     output:
       type: weapon
       id: sword_talamite
@@ -212,14 +227,29 @@ recipes:
         attack: 1
         special: 1
 
-  - id: bs_axe_talamite_alloy
-    name: Talamite Axe (Alloy)
-    description: "A talamite axe with an alloy head — weight and edge working together."
+  - id: bs_axe_head_alloy
+    name: Axe Head (Alloy)
+    description: "An alloy axe head — weight and edge in perfect balance."
     profession: blacksmith
     required_level: 7
     ingredients:
       - item_id: alloy
-        quantity: 3
+        quantity: 2
+    output:
+      type: item
+      id: axe_head_alloy
+      quantity: 1
+
+  - id: bs_axe_talamite_alloy
+    name: Talamite Axe (Alloy)
+    description: "Lash the alloy head to a sulwood handle."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: axe_handle
+        quantity: 1
+      - item_id: axe_head_alloy
+        quantity: 1
     output:
       type: weapon
       id: axe_talamite
@@ -228,14 +258,29 @@ recipes:
         attack: 1
         special: 1
 
-  - id: bs_shovel_talamite_alloy
-    name: Talamite Shovel (Alloy)
-    description: "A talamite shovel with an alloy blade — sharper and more durable."
+  - id: bs_shovel_head_alloy
+    name: Shovel Head (Alloy)
+    description: "An alloy shovel blade — sharper and more durable than talamite."
     profession: blacksmith
     required_level: 7
     ingredients:
       - item_id: alloy
-        quantity: 3
+        quantity: 2
+    output:
+      type: item
+      id: shovel_head_alloy
+      quantity: 1
+
+  - id: bs_shovel_talamite_alloy
+    name: Talamite Shovel (Alloy)
+    description: "Set the alloy blade onto a sulwood handle."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: shovel_handle
+        quantity: 1
+      - item_id: shovel_head_alloy
+        quantity: 1
     output:
       type: weapon
       id: shovel_talamite

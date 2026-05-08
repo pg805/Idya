@@ -1,17 +1,54 @@
-// Cumulative upgrade budget per weapon, indexed by LJ level 0–10.
-// Level 7 unlocks hardwood crafting but grants no additional budget.
+// Cumulative upgrade budget per weapon, indexed by profession level 0–10.
+// Level 7 unlocks tier-3 material crafting but grants no additional budget.
 const UPGRADE_BUDGET: readonly number[] = [0, 0, 0, 0, 3, 7, 12, 12, 18, 25, 35];
 
-export function budgetForLevel(ljLevel: number): number {
-    return UPGRADE_BUDGET[Math.min(Math.max(ljLevel, 0), 10)] ?? 0;
+export type Profession = 'lumberjack' | 'blacksmith' | 'enchanter';
+
+// Tier-2 and tier-3 upgrade materials per profession.
+// Upgrades 1–12 cost tier-2; upgrades 13–35 cost tier-3.
+const TIER2: Record<Profession, string> = {
+    lumberjack: 'treated_sulwood',
+    blacksmith: 'talamite',
+    enchanter:  'enchanting_reagent',    // TBD
+};
+
+const TIER3: Record<Profession, string> = {
+    lumberjack: 'hardwood',
+    blacksmith: 'alloy',
+    enchanter:  'refined_enchanting_reagent',  // TBD
+};
+
+// Which profession governs the upgrade budget and material cost for each weapon.
+// Hybrid weapons (talamite blade on wood handle) fall under lumberjack —
+// full dual-profession upgrade support for hybrids is a future TODO.
+const WEAPON_UPGRADE_PROFESSION: Record<string, Profession> = {
+    quarterstaff:    'lumberjack',
+    bow:             'lumberjack',
+    wand:            'lumberjack',
+    sword_wood:      'lumberjack',
+    axe_wood:        'lumberjack',
+    shovel_wood:     'lumberjack',
+    sword_talamite:  'lumberjack',
+    axe_talamite:    'lumberjack',
+    shovel_talamite: 'lumberjack',
+    dagger:          'blacksmith',
+    mace:            'blacksmith',
+    wand_talamite:   'blacksmith',
+};
+
+export function weaponUpgradeProfession(weaponKey: string): Profession {
+    return WEAPON_UPGRADE_PROFESSION[weaponKey] ?? 'lumberjack';
+}
+
+export function budgetForLevel(level: number): number {
+    return UPGRADE_BUDGET[Math.min(Math.max(level, 0), 10)] ?? 0;
 }
 
 // Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
-// or (N - 10) tier-3 material if N ≥ 13 (e.g. upgrade 13 → 3 units, 35 → 25 units).
-// Currently hardcoded to LJ materials. Needs profession parameter when BS upgrades are added.
-export function upgradeCost(n: number): { quantity: number; material: string } {
-    if (n <= 12) return { quantity: n, material: 'treated_sulwood' };
-    return { quantity: n - 10, material: 'hardwood' };
+// or (N - 10) tier-3 material if N ≥ 13 (so upgrade 13 → 3 units, 35 → 25 units).
+export function upgradeCost(n: number, profession: Profession): { quantity: number; material: string } {
+    if (n <= 12) return { quantity: n, material: TIER2[profession] };
+    return { quantity: n - 10, material: TIER3[profession] };
 }
 
 // For a field action, one upgrade = exactly field.length points distributed.

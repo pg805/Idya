@@ -35,7 +35,7 @@ import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
-  allRawActions,
+  allRawActions, weaponUpgradeProfession,
   type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
 import yaml from 'js-yaml';
@@ -523,9 +523,8 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const profRows = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
-  const ljLevel  = profRows.find(p => p.profession === 'lumberjack')?.level ?? 0;
-  const budget   = budgetForLevel(ljLevel);
+  const profRows    = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
+  const profLevelOf = (p: string) => profRows.find(r => r.profession === p)?.level ?? 0;
 
   const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
 
@@ -539,6 +538,9 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   for (const row of weaponRows) {
     const raw = loadWeaponYaml(row.weapon_key, __dirname);
     if (!raw) continue;
+
+    const profession   = weaponUpgradeProfession(row.weapon_key);
+    const budget       = budgetForLevel(profLevelOf(profession));
 
     const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
     const playerDeltas = (upgrades.player ?? {}) as Record<string, number | number[]>;
@@ -573,12 +575,12 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       upgrades_used: used,
       budget,
       at_cap: atCap,
-      next_cost: atCap ? null : upgradeCost(used + 1),
+      next_cost: atCap ? null : upgradeCost(used + 1, profession),
       actions,
     });
   }
 
-  res.json({ characterName: char.name, lj_level: ljLevel, weapons });
+  res.json({ characterName: char.name, lj_level: profLevelOf('lumberjack'), weapons });
 });
 
 app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
@@ -618,21 +620,21 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
     });
     if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
 
+    const profession = weaponUpgradeProfession(weaponKey);
     const profRow = await tx.characterProfession.findUnique({
-      where: { character_id_profession: { character_id: char.id, profession: 'lumberjack' } },
+      where: { character_id_profession: { character_id: char.id, profession } },
     });
-    const ljLevel = profRow?.level ?? 0;
-    const budget  = budgetForLevel(ljLevel);
+    const budget = budgetForLevel(profRow?.level ?? 0);
 
     const upgrades    = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
     const playerDeltas: Record<string, number | number[]> = { ...(upgrades.player ?? {}) as Record<string, number | number[]> };
     const used = totalUpgradesUsed(playerDeltas, fieldLens);
 
     if (used >= budget) {
-      return { success: false, message: `Upgrade budget full (${used}/${budget}). Level up Lumberjack to unlock more.` };
+      return { success: false, message: `Upgrade budget full (${used}/${budget}). Level up ${profession} to unlock more.` };
     }
 
-    const cost = upgradeCost(used + 1);
+    const cost = upgradeCost(used + 1, profession);
     const invRow = await tx.inventoryItem.findUnique({
       where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
     });
