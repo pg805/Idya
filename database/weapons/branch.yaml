@@ -1,6 +1,7 @@
 Name: Branch
 Description: A sturdy fallen branch. Not much, but it'll do.
 Level: 1
+HP: 30
 
 Resource:
   Name: Integrity

@@ -1,11 +1,11 @@
-﻿Name: Sulwood Shovel
-Description: A rusty shovel with a few knicks in the cutting edge. It has obviously served another fighter well.
-Level: 3
-HP: 60
+Name: Talamite Shovel
+Description: The talamite blade stays sharp no matter the abuse. Same rhythm, just hits harder.
+Level: 4
+HP: 70
 
 Resource:
   Name: Stamina
-  Max: 6
+  Max: 8
 
 Defend:
   - Name: Block
@@ -13,9 +13,9 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 7
-    Cost: -2  # restores 2 stamina
-    Action_String: "<User> enters a defensive pose, preparing to block 7 damage."
+    Value: 8
+    Cost: -2
+    Action_String: "<User> enters a defensive pose, preparing to block 8 damage."
 
 Defend Crit: []
 
@@ -25,18 +25,19 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
-    Cost: -2  # restores 2 stamina
+    Field: [0, 4, 5, 6, 7, 7, 7, 8, 10, 12]
+    Cost: -2
     Aimed: false
     Range: 1
     Action_String: "<User> quickly strikes <Target> with their shovel, dealing <Damage> damage."
+
   - Name: Proc
     Type: 1
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [15]
-    Cost: 3  # costs 3 stamina
+    Field: [20]
+    Cost: 3
     Aimed: true
     Range: 1
     Action_String: "<User> winds up and slams <Target> with their shovel, dealing <Damage> damage."
@@ -47,8 +48,8 @@ Attack Crit:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 7
-    Action_String: "<User> recovers to a defensive position, preparing to block 7 damage."
+    Value: 8
+    Action_String: "<User> recovers to a defensive position, preparing to block 8 damage."
 
 Special:
   - Name: Charge
@@ -56,7 +57,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [5, 10, 10, 20]
+    Field: [6, 12, 12, 24]
     Cost: 0
     Aimed: false
     Range: 1

@@ -8,9 +8,10 @@ export interface RecipeIngredient {
 }
 
 export interface RecipeOutput {
-  type:      'item' | 'weapon';
-  id:        string;
-  quantity?: number;
+  type:        'item' | 'weapon';
+  id:          string;
+  quantity?:   number;
+  base_bonus?: { defend?: number; attack?: number; special?: number };
 }
 
 export interface Recipe {
@@ -45,9 +46,10 @@ export function loadAllRecipes(recipesDir: string): Recipe[] {
           quantity: i['quantity'] as number,
         })),
         output: {
-          type:     out['type']     as 'item' | 'weapon',
-          id:       out['id']       as string,
-          quantity: out['quantity'] as number | undefined,
+          type:       out['type']       as 'item' | 'weapon',
+          id:         out['id']         as string,
+          quantity:   out['quantity']   as number | undefined,
+          base_bonus: out['base_bonus'] as { defend?: number; attack?: number; special?: number } | undefined,
         },
       });
     }

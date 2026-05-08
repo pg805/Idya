@@ -16,7 +16,8 @@
     "cli-test": "node ./lib/test_battle.js",
     "build": "tsc --project tsconfig.json",
     "lint": "eslint . --fix",
-    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "simulate": "npm run build && node ./lib/tools/simulate.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -31,12 +31,12 @@ import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
-import { loadAllRecipes } from '../economy/recipe_loader.js';
+import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions,
-  type RawWeapon,
+  type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
 import yaml from 'js-yaml';
 
@@ -443,11 +443,33 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
         create: { character_id: chars[0].id, item_id: recipe.output.id, quantity: recipe.output.quantity ?? 1 },
       });
     } else {
-      await tx.characterWeapon.upsert({
-        where:  { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
-        update: {},
-        create: { character_id: chars[0].id, weapon_key: recipe.output.id },
+      const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(recipe.output.id, __dirname) : null;
+      const baseUpgrades = rawWeapon && recipe.output.base_bonus
+        ? computeBaseUpgrades(rawWeapon, recipe.output.base_bonus)
+        : {};
+      const hasBase = Object.keys(baseUpgrades).length > 0;
+
+      const existingWeapon = await tx.characterWeapon.findUnique({
+        where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
       });
+
+      if (existingWeapon) {
+        if (hasBase) {
+          const prev = (existingWeapon.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
+          await tx.characterWeapon.update({
+            where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
+            data:  { upgrades: { ...prev, base: { ...(prev.base ?? {}), ...baseUpgrades } } as Prisma.InputJsonValue },
+          });
+        }
+      } else {
+        await tx.characterWeapon.create({
+          data: {
+            character_id: chars[0].id,
+            weapon_key:   recipe.output.id,
+            ...(hasBase ? { upgrades: { base: baseUpgrades } as Prisma.InputJsonValue } : {}),
+          },
+        });
+      }
     }
 
     await tx.eventLog.create({ data: {
@@ -467,6 +489,31 @@ function loadWeaponYaml(weaponKey: string, dirname: string): RawWeapon | null {
   const p = join(dirname, `../../database/weapons/${weaponKey}.yaml`);
   if (!fs.existsSync(p)) return null;
   return yaml.load(fs.readFileSync(p, 'utf-8')) as RawWeapon;
+}
+
+function computeBaseUpgrades(
+  raw: RawWeapon,
+  base_bonus: NonNullable<RecipeOutput['base_bonus']>,
+): Record<string, number | number[]> {
+  const result: Record<string, number | number[]> = {};
+  const catMap: Record<string, RawAction[]> = {
+    defend:  raw.Defend  ?? [],
+    attack:  raw.Attack  ?? [],
+    special: raw.Special ?? [],
+  };
+  for (const cat of Object.keys(base_bonus) as ('defend' | 'attack' | 'special')[]) {
+    for (const action of catMap[cat]) {
+      const kind = upgradeKind(action);
+      if (kind === 'field') {
+        result[action.Name] = new Array(action.Field!.length).fill(1);
+        break;
+      } else if (kind === 'value') {
+        result[action.Name] = 1;
+        break;
+      }
+    }
+  }
+  return result;
 }
 
 app.get('/api/upgrade', async (req: Request, res: Response) => {

@@ -1,6 +1,7 @@
 Name: Quarterstaff
 Description: A smooth length of sulwood, balanced for reach and control. Simple to make, hard to master.
-Level: 1
+Level: 2
+HP: 35
 
 Resource:
   Name: Balance

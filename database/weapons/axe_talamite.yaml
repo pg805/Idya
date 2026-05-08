@@ -1,11 +1,11 @@
-﻿Name: Sulwood Axe
-Description: Heavy and unforgiving. Put your whole body into it and it shows.
-Level: 3
-HP: 55
+Name: Talamite Axe
+Description: Heavy and unforgiving. The talamite head takes an edge that sulwood never could.
+Level: 4
+HP: 65
 
 Resource:
   Name: Strength
-  Max: 5
+  Max: 6
 
 Defend:
   - Name: Shoulder
@@ -14,7 +14,7 @@ Defend:
     Damage_Type: Physical
     Damage_Subtype: Blunt
     Value: 0
-    Cost: -4
+    Cost: -5
     Action_String: "<User> lowers their guard and drives forward with their shoulder, restoring strength."
 
   - Name: Axe Head
@@ -22,9 +22,9 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 5
+    Value: 6
     Cost: 1
-    Action_String: "<User> raises the axe head to intercept, bracing for 5 damage."
+    Action_String: "<User> raises the axe head to intercept, bracing for 6 damage."
 
 Defend Crit: []
 
@@ -34,8 +34,8 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 5, 10, 12]
-    Cost: 2
+    Field: [0, 6, 11, 14]
+    Cost: 3
     Aimed: false
     Range: 1
     Action_String: "<User> brings the axe down hard on <Target>, dealing <Damage> damage."
@@ -46,7 +46,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [8, 12, 15, 18, 22]
+    Field: [10, 15, 18, 22, 28]
     Cost: 0
     Aimed: false
     Range: 1
@@ -58,7 +58,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [10, 20, 20, 20, 20, 40]
+    Field: [12, 22, 24, 24, 24, 44]
     Cost: 3
     Aimed: true
     Range: 1

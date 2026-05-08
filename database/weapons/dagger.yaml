@@ -1,0 +1,78 @@
+Name: Dagger
+Description: A slim talamite blade, quick in the hand. Keep it close or throw it — either way, it draws blood.
+Level: 2
+HP: 30
+
+Resource:
+  Name: Poise
+  Max: 3
+
+Defend:
+  - Name: Dodge
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 5
+    Cost: 0
+    Action_String: "<User> sidesteps the incoming strike, deflecting 5 damage."
+
+  - Name: Hidden Blade
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 0
+    Cost: -3
+    Action_String: "<User> draws a concealed blade, resetting their poise."
+
+Defend Crit: []
+
+Attack:
+  - Name: Swipe
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    Cost: 1
+    Aimed: false
+    Range: 1
+    Action_String: "<User> swipes at <Target>, dealing <Damage> damage."
+
+  - Name: Throw Blade
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [0, 5, 6, 7, 8, 8, 10, 10]
+    Cost: 3
+    Aimed: false
+    Range: 3
+    Action_String: "<User> hurls a blade at <Target>, dealing <Damage> damage."
+
+Attack Crit:
+  - Name: Second Dagger
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [4, 4, 4, 8, 8, 8]
+    Cost: 0
+    Aimed: false
+    Range: 3
+    Action_String: "<User> launches a second dagger at <Target> for <Damage> damage."
+
+Special:
+  - Name: Stiletto
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [5, 10, 10, 10, 15]
+    Cost: 2
+    Aimed: true
+    Range: 1
+    Action_String: "<User> drives their stiletto into <Target> for <Damage> damage."
+
+Special Crit: []

@@ -1,11 +1,11 @@
-﻿Name: Sulwood Sword
-Description: A well-balanced blade. Sharpness is everything â€” let it dull and you'll feel it.
-Level: 3
-HP: 45
+Name: Talamite Sword
+Description: A well-balanced talamite blade. The edge holds far longer than sulwood — let it work.
+Level: 4
+HP: 55
 
 Resource:
   Name: Sharpness
-  Max: 10
+  Max: 12
 
 Defend:
   - Name: Parry
@@ -13,9 +13,9 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 7
+    Value: 8
     Cost: 2
-    Action_String: "<User> deflects the incoming strike, bracing for 7 damage."
+    Action_String: "<User> deflects the incoming strike, bracing for 8 damage."
 
 Defend Crit: []
 
@@ -25,7 +25,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 1, 2, 4, 5, 6, 8, 9, 10]
+    Field: [0, 2, 4, 5, 7, 9, 11, 13]
     Cost: 2
     Aimed: false
     Range: 1
@@ -37,7 +37,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [5, 10, 15, 15, 15, 20, 25]
+    Field: [7, 12, 17, 17, 17, 22, 27]
     Cost: 0
     Aimed: false
     Range: 1
@@ -49,7 +49,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [2, 4, 5, 8, 10, 12, 15]
+    Field: [3, 6, 7, 10, 13, 15, 18]
     Cost: 1
     Aimed: true
     Range: 1
@@ -61,7 +61,7 @@ Special:
     Damage_Type: Physical
     Damage_Subtype: Mental
     Value: 0
-    Cost: -3
-    Action_String: "<User> takes a moment to hone their blade, restoring its edge."
+    Cost: -5
+    Action_String: "<User> takes a moment to hone the blade, restoring its edge."
 
 Special Crit: []

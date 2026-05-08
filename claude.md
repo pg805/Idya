@@ -87,6 +87,8 @@ Bot token goes in `database/config.json`:
 - JSON files: `snake_case`
 - Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=Debuff, 5=Heal, 6=DOT, 7=Reflect, 8=Shield
 - Action templates use placeholders: `<User>`, `<Target>`, `<Damage>`
+- `Aimed: false` is the in-game term **reactive** — attack fires without targeting a specific tile
+- `Aimed: true` is the in-game term **aimed** — player selects a target tile before the attack resolves
 
 ## Current System: Spatial Web Combat
 
@@ -109,6 +111,43 @@ Key files for the new system:
 - **Player resistances** — currently players have no type resistances; only enemies do. Player class/race resistances are design space for later once the character system exists.
 - **LOS tile feedback** — aimed tiles blocked by obstacles silently don't highlight. A tooltip or visual indicator for blocked LOS is a future UX improvement.
 - **Weapon balance** — Aimed/Range decisions and damage field tuning are ongoing design work, not architecture.
+
+## Weapon Balance Tooling
+
+### Running the Simulation
+
+```bash
+npm run simulate
+```
+
+Builds and runs `src/tools/simulate.ts` — 5,000 Monte Carlo battles per weapon × enemy matchup. Outputs a table to stdout.
+
+**Columns:** Win% | Avg rounds to win | Avg HP left (on win) | Damage per round dealt (DPR) | Damage per round taken (DTR)
+`*` = >5% of battles hit the 80-round cap.
+
+### Interpreting Results
+
+- **Win%** is the primary balance metric. 60–80% vs the hardest enemy is a reasonable target for style-tier weapons.
+- **Avg HP left** shows comfort margin. Winning at 2 HP isn't reliable in practice.
+- **DPR** reflects offensive pressure. Low DPR + high Win% means the weapon is surviving on defense or crits.
+- **Mushroom (100HP)** is the most discriminating matchup — use it to separate weapon tiers.
+- **Range caveat:** The sim ignores spatial position. Ranged weapons (Bow, Wand, Deck of Cards) are systematically undervalued. Take their mushroom% with skepticism.
+
+### Estimation Formula
+
+Quick DPR estimate from YAML, without running the sim:
+
+1. `base_DPR = avg(attack[0].Field)` where avg = sum / length
+2. `cycle_factor = attacks_per_restore / (attacks_per_restore + 1)` where attacks_per_restore = floor(resource_max / attack_cost)
+3. `effective_DPR ≈ base_DPR × cycle_factor`
+
+Example — Axe Chop (Field [0,5,10,12], cost 2, Strength 5, Shoulder restores 4):
+- base_DPR = 27/4 = 6.75
+- attacks before restore = floor(5/2) = 2 → cycle_factor = 2/3
+- effective_DPR ≈ 6.75 × 0.67 ≈ 4.5
+
+Win rate is roughly: if `enemy_HP / effective_DPR` < `weapon_HP / DTR`, weapon tends to win.
+Crits (attack_crit) add hidden DPR — estimate frequency from how often the enemy Pattern hits type 3 (Special).
 
 ## Removed Features (kept in YAML data, not used in combat)
 
