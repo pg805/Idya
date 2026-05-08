@@ -36,7 +36,7 @@ import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
-  summedFieldBonus, summedValueBonus,
+  summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon,
   type Profession, type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
 import yaml from 'js-yaml';
@@ -544,14 +544,15 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
     const baseDeltas   = (upgrades.base ?? {}) as Record<string, number | number[]>;
     const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
-    const fieldLens    = buildFieldLenMap(raw);
+    const fieldLens      = buildFieldLenMap(raw);
+    const weaponTotal    = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
 
     const professionInfo = professions.map(prof => {
       const profDeltas = playerUpgrades[prof] ?? {};
-      const used   = totalUpgradesUsed(profDeltas, fieldLens);
-      const budget = budgetForLevel(profLevelOf(prof));
-      const atCap  = used >= budget;
-      return { profession: prof, used, budget, at_cap: atCap, next_cost: atCap ? null : upgradeCost(used + 1, prof) };
+      const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
+      const budget   = budgetForLevel(profLevelOf(prof));
+      const atCap    = profUsed >= budget;
+      return { profession: prof, used: profUsed, budget, at_cap: atCap, next_cost: atCap ? null : upgradeCost(weaponTotal + 1, prof) };
     });
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
@@ -638,13 +639,14 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
     const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
     const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
     const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
-    const used = totalUpgradesUsed(profDeltas, fieldLens);
+    const profUsed    = totalUpgradesUsed(profDeltas, fieldLens);
+    const weaponTotal = totalUpgradesOnWeapon(playerUpgrades, validProfessions, fieldLens);
 
-    if (used >= budget) {
-      return { success: false, message: `Upgrade budget full (${used}/${budget}). Level up ${profession} to unlock more.` };
+    if (profUsed >= budget) {
+      return { success: false, message: `Upgrade budget full (${profUsed}/${budget}). Level up ${profession} to unlock more.` };
     }
 
-    const cost = upgradeCost(used + 1, profession);
+    const cost = upgradeCost(weaponTotal + 1, profession);
     const invRow = await tx.inventoryItem.findUnique({
       where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
     });

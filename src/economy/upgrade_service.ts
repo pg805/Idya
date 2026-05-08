@@ -88,6 +88,16 @@ export function totalUpgradesUsed(
     return count;
 }
 
+// Total upgrades applied to the weapon across ALL professions — determines the next upgrade's cost.
+export function totalUpgradesOnWeapon(
+    playerUpgrades: Partial<Record<Profession, Record<string, number | number[]>>>,
+    professions: Profession[],
+    fieldLens: Map<string, number>,
+): number {
+    return professions.reduce((sum, prof) =>
+        sum + totalUpgradesUsed(playerUpgrades[prof] ?? {}, fieldLens), 0);
+}
+
 // Sum player bonuses across all professions for a single field action (for effective display).
 export function summedFieldBonus(
     playerUpgrades: Partial<Record<Profession, Record<string, number | number[]>>>,
