@@ -1,0 +1,58 @@
+Name: Mace
+Description: A dense talamite mace. Once it gets moving, hard to stop — and hard to get away from.
+Level: 3
+HP: 80
+
+Resource:
+  Name: Momentum
+  Max: 8
+
+Defend:
+  - Name: Spin
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 0
+    Cost: -4
+    Action_String: "<User> winds their mace in a wide arc, restoring momentum."
+
+Defend Crit: []
+
+Attack:
+  - Name: Slam
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [1, 1, 2, 9, 9, 10]
+    Cost: 2
+    Aimed: true
+    Range: 2
+    Action_String: "<User> heaves their mace into <Target>, dealing <Damage> damage."
+
+Attack Crit:
+  - Name: Heavyweight
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [1, 1, 2, 12, 12, 14]
+    Cost: 0
+    Aimed: false
+    Range: 2
+    Action_String: "<User> follows through with the full weight of the mace, striking <Target> for <Damage> damage."
+
+Special:
+  - Name: Skull Crush
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [0, 2, 2, 15, 15, 20]
+    Cost: 3
+    Aimed: false
+    Range: 1
+    Action_String: "<User> drives the mace down onto <Target> for <Damage> damage."
+
+Special Crit: []
