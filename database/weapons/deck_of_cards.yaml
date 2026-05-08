@@ -1,10 +1,11 @@
 Name: Deck of Cards
 Description: The cards in this deck are razor sharp and fly with precision. An worthy weapon for any adventurer.
-Level: 5
+Level: 3
+HP: 25
 
 Resource:
   Name: Luck
-  Max: 20
+  Max: 7
 
 Defend:
   - Name: Shuffle
@@ -35,7 +36,7 @@ Attack:
     Damage_Type: Arcane
     Damage_Subtype: Sharp
     Field: [11]
-    Cost: 10  # costs 10 luck
+    Cost: 4  # costs 4 luck
     Aimed: true
     Range: 3
     Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
@@ -67,7 +68,7 @@ Special:
     Damage_Type: Arcane
     Damage_Subtype: Sharp
     Field: [22]
-    Cost: 20  # costs 20 luck
+    Cost: 7  # costs all luck
     Aimed: true
     Range: 3
     Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."

@@ -37,7 +37,10 @@ import {
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
   summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon, weaponUpgradeCap,
-  type Profession, type RawWeapon, type RawAction,
+  canEnchant, enchantDelta,
+  ENCHANT_SLOTS, ENCHANT_MINOR_COST, ENCHANT_MAJOR_COST,
+  ENCHANT_CATEGORIES, ENCHANT_SUBTYPES, ENCHANT_DAMAGE_TYPE, ENCHANT_LEVEL_REQUIRED,
+  type Profession, type RawWeapon, type RawAction, type WeaponEnchants, type EnchantKind, type EnchantCategory,
 } from '../economy/upgrade_service.js';
 import yaml from 'js-yaml';
 
@@ -374,17 +377,25 @@ app.get('/api/craft', async (req: Request, res: Response) => {
   for (const p of profRows) profLevels[p.profession] = p.level;
   const combined = profRows.reduce((sum, p) => sum + p.level, 0);
 
-  const inventory = await prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } });
+  const [inventory, ownedWeapons] = await Promise.all([
+    prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } }),
+    prisma.characterWeapon.findMany({ where: { character_id: chars[0].id }, select: { weapon_key: true } }),
+  ]);
   const invMap: Record<string, number> = {};
   for (const inv of inventory) invMap[inv.item_id] = inv.quantity;
+  const ownedWeaponKeys = new Set(ownedWeapons.map(w => w.weapon_key));
+
+  const ingredientMet = (i: { item_id?: string; weapon_id?: string; quantity: number }): boolean => {
+    if (i.weapon_id) return ownedWeaponKeys.has(i.weapon_id) && i.weapon_id !== chars[0].weapon_key;
+    return (invMap[i.item_id ?? ''] ?? 0) >= i.quantity;
+  };
 
   const allRecipes = loadAllRecipes(RECIPES_DIR);
   const recipes = allRecipes.map(r => ({
     ...r,
-    levelMet:          (profLevels[r.profession] ?? 0) >= r.required_level,
-    ingredientsMet:    r.ingredients.every(i => (invMap[i.item_id] ?? 0) >= i.quantity),
-    available:         (profLevels[r.profession] ?? 0) >= r.required_level
-                    && r.ingredients.every(i => (invMap[i.item_id] ?? 0) >= i.quantity),
+    levelMet:       (profLevels[r.profession] ?? 0) >= r.required_level,
+    ingredientsMet: r.ingredients.every(ingredientMet),
+    available:      (profLevels[r.profession] ?? 0) >= r.required_level && r.ingredients.every(ingredientMet),
   }));
 
   res.json({
@@ -411,6 +422,9 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   const allRecipes = loadAllRecipes(RECIPES_DIR);
   const recipe = allRecipes.find(r => r.id === String(req.params.recipeId));
   if (!recipe) { res.status(404).json({ error: 'Recipe not found' }); return; }
+  if (recipe.output.type === 'enchant') {
+    res.status(400).json({ error: 'Enchant recipes are applied via /api/enchant, not /api/craft.' }); return;
+  }
 
   const prof = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: chars[0].id, profession: recipe.profession } },
@@ -421,44 +435,58 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
 
   const result = await prisma.$transaction(async tx => {
     for (const ing of recipe.ingredients) {
-      const inv = await tx.inventoryItem.findUnique({
-        where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
-      });
-      if (!inv || inv.quantity < ing.quantity) {
-        return { success: false, message: `Not enough ${ing.item_id}.` };
-      }
-      if (inv.quantity === ing.quantity) {
-        await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } } });
-      } else {
-        await tx.inventoryItem.update({
-          where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
-          data:  { quantity: { decrement: ing.quantity } },
+      if (ing.weapon_id) {
+        if (chars[0].weapon_key === ing.weapon_id) {
+          return { success: false, message: `Unequip your ${ing.weapon_id} before using it in a recipe.` };
+        }
+        const wep = await tx.characterWeapon.findUnique({
+          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
         });
+        if (!wep) return { success: false, message: `Requires a ${ing.weapon_id}.` };
+        await tx.characterWeapon.delete({
+          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
+        });
+      } else if (ing.item_id) {
+        const inv = await tx.inventoryItem.findUnique({
+          where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
+        });
+        if (!inv || inv.quantity < ing.quantity) {
+          return { success: false, message: `Not enough ${ing.item_id}.` };
+        }
+        if (inv.quantity === ing.quantity) {
+          await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } } });
+        } else {
+          await tx.inventoryItem.update({
+            where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
+            data:  { quantity: { decrement: ing.quantity } },
+          });
+        }
       }
     }
 
+    const outputId = recipe.output.id!;
     if (recipe.output.type === 'item') {
       await tx.inventoryItem.upsert({
-        where:  { character_id_item_id: { character_id: chars[0].id, item_id: recipe.output.id } },
+        where:  { character_id_item_id: { character_id: chars[0].id, item_id: outputId } },
         update: { quantity: { increment: recipe.output.quantity ?? 1 } },
-        create: { character_id: chars[0].id, item_id: recipe.output.id, quantity: recipe.output.quantity ?? 1 },
+        create: { character_id: chars[0].id, item_id: outputId, quantity: recipe.output.quantity ?? 1 },
       });
     } else {
-      const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(recipe.output.id, __dirname) : null;
+      const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(outputId, __dirname) : null;
       const baseUpgrades = rawWeapon && recipe.output.base_bonus
         ? computeBaseUpgrades(rawWeapon, recipe.output.base_bonus)
         : {};
       const hasBase = Object.keys(baseUpgrades).length > 0;
 
       const existingWeapon = await tx.characterWeapon.findUnique({
-        where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
+        where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
       });
 
       if (existingWeapon) {
         if (hasBase) {
           const prev = (existingWeapon.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
           await tx.characterWeapon.update({
-            where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: recipe.output.id } },
+            where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
             data:  { upgrades: { ...prev, base: { ...(prev.base ?? {}), ...baseUpgrades } } as Prisma.InputJsonValue },
           });
         }
@@ -466,7 +494,7 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
         await tx.characterWeapon.create({
           data: {
             character_id: chars[0].id,
-            weapon_key:   recipe.output.id,
+            weapon_key:   outputId,
             ...(hasBase ? { upgrades: { base: baseUpgrades } as Prisma.InputJsonValue } : {}),
           },
         });
@@ -687,6 +715,131 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
     });
 
     return { success: true, message: `Upgraded ${action} via ${profession}.` };
+  });
+
+  res.json(result);
+});
+
+// ---- Enchant endpoint ----
+
+app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const weaponKey = String(req.params['weaponKey']);
+  const { action: actionName, kind, category, subtype, delta } = req.body as {
+    action: string; kind: string; category: string; subtype: string; delta: number | number[];
+  };
+
+  if (kind !== 'minor' && kind !== 'major') {
+    res.status(400).json({ error: "kind must be 'minor' or 'major'" }); return;
+  }
+  if (!ENCHANT_CATEGORIES.includes(category as EnchantCategory)) {
+    res.status(400).json({ error: `category must be one of: ${ENCHANT_CATEGORIES.join(', ')}` }); return;
+  }
+  const enchantKind = kind as EnchantKind;
+  const enchantCategory = category as EnchantCategory;
+
+  if (!ENCHANT_SUBTYPES[enchantCategory].includes(subtype)) {
+    res.json({ success: false, message: `Invalid subtype '${subtype}' for ${enchantCategory} enchant. Valid: ${ENCHANT_SUBTYPES[enchantCategory].join(', ')}.` }); return;
+  }
+
+  const raw = loadWeaponYaml(weaponKey, __dirname);
+  if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
+
+  const action = allRawActions(raw).find(a => a.Name === actionName);
+  if (!action) { res.json({ success: false, message: 'Action not found on this weapon.' }); return; }
+
+  const uk = upgradeKind(action);
+  if (!uk) { res.json({ success: false, message: 'This action cannot be enchanted.' }); return; }
+
+  const expected = enchantDelta(enchantKind);
+  if (uk === 'field') {
+    if (!Array.isArray(delta) || delta.length !== (action.Field?.length ?? 0)) {
+      res.json({ success: false, message: 'Delta must be an array matching action field length.' }); return;
+    }
+    if ((delta as number[]).reduce((a, b) => a + b, 0) !== expected) {
+      res.json({ success: false, message: `Delta must sum to ${expected} for a ${enchantKind} enchant.` }); return;
+    }
+  } else {
+    if (delta !== expected) {
+      res.json({ success: false, message: `Delta must be ${expected} for a ${enchantKind} enchant.` }); return;
+    }
+  }
+
+  // Check enchanter level for this category + kind
+  const encProfRow = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
+  });
+  const encLvl = encProfRow?.level ?? 0;
+  const requiredLvl = ENCHANT_LEVEL_REQUIRED[enchantCategory][enchantKind];
+  if (encLvl < requiredLvl) {
+    res.json({ success: false, message: `Requires Enchanter level ${requiredLvl} for ${enchantCategory} ${enchantKind} enchants.` }); return;
+  }
+
+  const cost = enchantKind === 'minor' ? ENCHANT_MINOR_COST : ENCHANT_MAJOR_COST;
+
+  const result = await prisma.$transaction(async tx => {
+    for (const [mat, qty] of Object.entries(cost)) {
+      const inv = await tx.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: char.id, item_id: mat } },
+      });
+      if (!inv || inv.quantity < qty) {
+        return { success: false, message: `Not enough ${mat} — need ${qty}.` };
+      }
+      if (inv.quantity === qty) {
+        await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: mat } } });
+      } else {
+        await tx.inventoryItem.update({
+          where: { character_id_item_id: { character_id: char.id, item_id: mat } },
+          data:  { quantity: { decrement: qty } },
+        });
+      }
+    }
+
+    const weaponRow = await tx.characterWeapon.findUnique({
+      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
+    });
+    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+
+    const upgrades = (weaponRow.upgrades ?? {}) as {
+      base?: Record<string, unknown>;
+      player?: Record<string, unknown>;
+      enchants?: WeaponEnchants;
+    };
+    const enchants: WeaponEnchants = upgrades.enchants ?? {};
+
+    const check = canEnchant(enchants, actionName);
+    if (!check.ok) return { success: false, message: check.reason };
+
+    const newEnchant = {
+      kind:     enchantKind,
+      category: enchantCategory,
+      subtype,
+      ...(enchantKind === 'major' ? { type: ENCHANT_DAMAGE_TYPE[enchantCategory] } : {}),
+      delta,
+    };
+
+    await tx.characterWeapon.update({
+      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
+      data: {
+        upgrades: {
+          ...upgrades,
+          enchants: { ...enchants, [actionName]: newEnchant },
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    await tx.eventLog.create({ data: {
+      discord_id: discordId,
+      event_type: 'weapon_enchanted',
+      payload: { weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
+    }}).catch(() => {});
+
+    return { success: true, message: `${actionName} enchanted with ${enchantCategory} (${subtype}).` };
   });
 
   res.json(result);

@@ -35,7 +35,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: talamite
-        quantity: 3
+        quantity: 4
     output:
       type: weapon
       id: dagger
@@ -96,16 +96,17 @@ recipes:
       quantity: 1
 
   - id: bs_wand_talamite
-    name: Talamite Wand
-    description: "A rod of talamite — cold and dense where sulwood is warm."
+    name: Wand Base (Talamite)
+    description: "A rod of talamite — cold and dense where sulwood is warm. Blank until attuned."
     profession: blacksmith
     required_level: 3
     ingredients:
       - item_id: talamite
         quantity: 2
     output:
-      type: weapon
-      id: wand_talamite
+      type: item
+      id: wand_base_talamite
+      quantity: 1
 
   - id: bs_sword_talamite
     name: Talamite Sword
@@ -290,17 +291,14 @@ recipes:
         special: 1
 
   - id: bs_wand_talamite_alloy
-    name: Talamite Wand (Alloy)
-    description: "A wand of refined alloy — more precisely attuned to channeling."
+    name: Wand Base (Alloy)
+    description: "A rod of refined alloy — more precisely attuned to channeling. Blank until an enchanter awakens it."
     profession: blacksmith
     required_level: 7
     ingredients:
       - item_id: alloy
         quantity: 1
     output:
-      type: weapon
-      id: wand_talamite
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
+      type: item
+      id: wand_base_alloy
+      quantity: 1

@@ -1,0 +1,56 @@
+Name: Spellbook
+Description: A tome of bound spells — each page a strike, each chapter a strategy.
+Level: 2
+HP: 35
+
+Resource:
+  Name: Pages
+  Max: 9
+
+Defend:
+  - Name: Next Chapter
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 3
+    Cost: -4
+    Action_String: "<User> turns to the next chapter, blocking <Damage> damage and restoring 4 Pages."
+
+Defend Crit: []
+
+Attack:
+  - Name: Plot Point
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [3, 3, 3, 4, 5, 6, 7, 7, 7]
+    Cost: 1
+    Aimed: true
+    Range: 2
+    Action_String: "<User> drives a plot point into <Target> for <Damage> damage."
+
+Attack Crit:
+  - Name: Denouement
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [5, 6, 7, 8, 9]
+    Range: 2
+    Action_String: "<User>'s denouement lands on <Target> for <Damage> damage."
+
+Special:
+  - Name: Climax
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [5, 7, 9, 11, 13, 15, 15, 15]
+    Cost: 3
+    Aimed: true
+    Range: 3
+    Action_String: "<User> builds to a climax, striking <Target> for <Damage> damage."
+
+Special Crit: []

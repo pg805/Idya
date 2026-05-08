@@ -3,15 +3,19 @@ import fs from 'fs';
 import path from 'path';
 
 export interface RecipeIngredient {
-  item_id:  string;
-  quantity: number;
+  item_id?:   string;
+  weapon_id?: string;
+  quantity:   number;
 }
 
 export interface RecipeOutput {
-  type:        'item' | 'weapon';
-  id:          string;
+  type:        'item' | 'weapon' | 'enchant';
+  id?:         string;
   quantity?:   number;
   base_bonus?: { defend?: number; attack?: number; special?: number };
+  // enchant-specific fields
+  kind?:       'minor' | 'major';
+  category?:   'physical' | 'arcane' | 'elemental';
 }
 
 export interface Recipe {
@@ -42,14 +46,17 @@ export function loadAllRecipes(recipesDir: string): Recipe[] {
         profession:     r['profession']     as string,
         required_level: r['required_level'] as number,
         ingredients: ((r['ingredients'] as Record<string, unknown>[]) ?? []).map(i => ({
-          item_id:  i['item_id']  as string,
-          quantity: i['quantity'] as number,
+          item_id:   i['item_id']   as string | undefined,
+          weapon_id: i['weapon_id'] as string | undefined,
+          quantity:  i['quantity']  as number,
         })),
         output: {
-          type:       out['type']       as 'item' | 'weapon',
-          id:         out['id']         as string,
+          type:       out['type']       as 'item' | 'weapon' | 'enchant',
+          id:         out['id']         as string | undefined,
           quantity:   out['quantity']   as number | undefined,
           base_bonus: out['base_bonus'] as { defend?: number; attack?: number; special?: number } | undefined,
+          kind:       out['kind']       as 'minor' | 'major' | undefined,
+          category:   out['category']   as 'physical' | 'arcane' | 'elemental' | undefined,
         },
       });
     }

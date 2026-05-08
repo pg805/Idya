@@ -68,13 +68,12 @@ await new Promise((resolve, reject) => rl.question('Choose your weapon! [Shovel=
             break;
         case '5':
         case 'vine':
-        case 'thorn':
-        case 'vines and thorns':
-            logger.info('Vines and Thorns Chosen as weapon!');
+        case 'kustaff':
+            logger.info('Kustaff chosen as weapon!');
             human = new Player_Character(
                 'Human',
                 50,
-                Weapon.from_file('./database/weapons/vine_and_thorn.yaml'),
+                Weapon.from_file('./database/weapons/kustaff.yaml'),
                 human_image
             );
             break;

@@ -1,0 +1,66 @@
+Name: Mental Cage
+Description: A lattice of psychic force worn on the mind — invisible to anyone else, crushing to its wearer's enemies. It does not bind you. It binds them.
+Level: 5
+HP: 30
+
+Resource:
+  Name: Tranquility
+  Max: 12
+
+Defend:
+  - Name: Psychic Focus
+    Type: 3
+    Type_Name: Buff
+    Damage_Type: Arcane
+    Damage_Subtype: Force
+    Value: 7
+    Rounds: 3
+    Cost: 3
+    Action_String: "<User> sharpens their mind to a point, buffing their attack by 7 for 3 rounds."
+  - Name: Forewarn
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
+    Value: 10
+    Cost: 2
+    Action_String: "<User> sets the stone to orbit their head, preparing to block for 10 damage."
+
+Defend Crit: []
+
+Attack:
+  - Name: Mind Spike
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Force
+    Field: [1, 1, 1, 5, 5, 5, 9, 9, 9]
+    Cost: 0
+    Aimed: false
+    Range: 3
+    Action_String: "<User> drives a spike of force into <Target>, dealing <Damage> damage."
+
+Attack Crit:
+  - Name: Mental Pressure
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
+    Field: [2, 4, 6, 8]
+    Rounds: 3
+    Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness. <Target> will take <Damage> damage for 3 rounds."
+
+Special:
+  - Name: Eye Fixation
+    Type: 5
+    Type_Name: Debuff
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 8
+    Rounds: 4
+    Cost: 3
+    Aimed: true
+    Range: 3
+    Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 8 for 4 rounds."
+
+Special Crit: []

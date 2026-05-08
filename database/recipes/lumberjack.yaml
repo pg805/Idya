@@ -18,7 +18,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: treated_sulwood
-        quantity: 3
+        quantity: 4
     output:
       type: weapon
       id: quarterstaff
@@ -157,7 +157,7 @@ recipes:
       id: axe_wood
 
   - id: lj_wand
-    name: Sulwood Wand
+    name: Wand Base (Sulwood)
     description: "Shape a slender sulwood rod — blank until attuned by an enchanter."
     profession: lumberjack
     required_level: 3
@@ -165,8 +165,9 @@ recipes:
       - item_id: treated_sulwood
         quantity: 2
     output:
-      type: weapon
-      id: wand
+      type: item
+      id: wand_base_wood
+      quantity: 1
 
   - id: lj_shovel_wood
     name: Sulwood Shovel
@@ -290,20 +291,17 @@ recipes:
         special: 1
 
   - id: lj_wand_hardwood
-    name: Sulwood Wand (Hardwood)
-    description: "A hardwood wand — more attuned to channeling, with a natural precision."
+    name: Wand Base (Hardwood)
+    description: "A hardwood wand rod — denser grain, holds attunement more cleanly."
     profession: lumberjack
     required_level: 7
     ingredients:
       - item_id: hardwood
         quantity: 1
     output:
-      type: weapon
-      id: wand
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
+      type: item
+      id: wand_base_hardwood
+      quantity: 1
 
   - id: lj_shovel_head_hardwood
     name: Shovel Head (Hardwood)

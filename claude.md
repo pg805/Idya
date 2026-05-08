@@ -112,6 +112,57 @@ Key files for the new system:
 - **LOS tile feedback** — aimed tiles blocked by obstacles silently don't highlight. A tooltip or visual indicator for blocked LOS is a future UX improvement.
 - **Weapon balance** — Aimed/Range decisions and damage field tuning are ongoing design work, not architecture.
 
+## Economy System
+
+### Professions
+Three professions, each leveling 1–10. Combined cap: 30 (3 × 10).
+
+| Profession | Crafts | Can upgrade |
+|------------|--------|-------------|
+| Lumberjack (LJ) | Wood + hybrid weapons | Any weapon with a wood component (quarterstaff, bow, wand, sword_wood, axe_wood, shovel_wood, sword_talamite, axe_talamite, shovel_talamite) |
+| Blacksmith (BS) | Metal weapons | Talamite-only weapons (dagger, mace, wand_talamite) — NOT hybrid ones with wood handles |
+| Enchanter | Enchanted upgrades | All weapons |
+
+Hybrid weapons (sword_talamite, axe_talamite, shovel_talamite) are upgradeable by **both** LJ and BS — cross-profession collaboration is intentional.
+
+### Upgrade Budget Schedule
+Indexed by profession level (0–10). Levels with recipes give 0 budget increase; "empty" levels each raise the cap.
+
+```
+Level:   0  1  2  3  4  5   6   7   8   9  10
+Budget:  0  0  0  0  3  7  12  12  18  25  35
+```
+
+Level 7 unlocks tier-3 material crafting but grants no budget increase (budget stays at 12).
+
+### Upgrade Costs (per profession)
+- **Upgrades 1–12** (budget unlocked at levels 4–6): cost **tier-2 material**
+- **Upgrades 13–35** (budget unlocked at levels 8–10): cost **tier-3 material**
+
+Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units.
+
+| Profession | Tier-2 material | Tier-3 material |
+|------------|-----------------|-----------------|
+| LJ | treated_sulwood | hardwood |
+| BS | talamite | alloy |
+| EN | hiruos | nodol |
+
+### Recipe Progression
+| Level | LJ | BS | EN |
+|-------|----|----|-----|
+| 1 | Quarterstaff | Dagger | Spellbook (TBD) |
+| 2 | Treated sulwood (smelt) + Quarterstaff (Treated, +atk) | Talamite (smelt) + Dagger (Talamite, +atk) | Hiruos (smelt) |
+| 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Deck of Cards, Mental Cage |
+| 4 | — (budget +3) | — (budget +3) | Physical enchant: sharp/blunt, +1 (costs 3 thuvel + 6 hiruos) |
+| 5 | — (budget +4) | — (budget +4) | Arcane enchant: mental/force, +1 |
+| 6 | — (budget +5) | — (budget +5) | Elemental enchant: fire/water/earth/wind/plant, +1 |
+| 7 | Hardwood (smelt) + all hardwood variants (+all) | Alloy (smelt) + all alloy variants (+all) | Nodol (smelt) + all nodol weapon variants (+all) |
+| 8 | — (budget +6) | — (budget +6) | Physical major enchant: type→Physical, any subtype, +3 (costs 3 thuvel + 6 hiruos + 9 nodol) |
+| 9 | — (budget +7) | — (budget +7) | Arcane major enchant: type→Arcane, any subtype, +3 |
+| 10 | — (budget +10) | — (budget +10) | Elemental major enchant: type→Elemental, any subtype, +3 |
+
+**Enchant rules:** 3 slots per weapon max, one enchant per action, permanent. Minor enchants change subtype only. Major enchants change both Damage_Type and Damage_Subtype. Applied via `/api/enchant` endpoint (not the craft system).
+
 ## Weapon Balance Tooling
 
 ### Running the Simulation

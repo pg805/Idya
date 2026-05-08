@@ -1,6 +1,7 @@
-Name: Vines and Thorns
-Description: Nature calls to you. You ask for aid. The aid is given.
-Level: 2
+Name: Kustaff
+Description: A quarterstaff woven through with living vines and hardened thorns. It grows, constricts, and reflects — the wood doesn't end where the plant begins.
+Level: 3
+HP: 60
 
 Resource:
   Name: Connection
@@ -29,7 +30,7 @@ Defend:
 Defend Crit: []
 
 Attack:
-  - Name: Branch
+  - Name: Lash
     Type: 1
     Type_Name: Strike
     Damage_Type: Physical
@@ -38,10 +39,10 @@ Attack:
     Cost: 0
     Aimed: false
     Range: 1
-    Action_String: "<User> pokes <Target> with a branch, dealing <Damage> damage."
+    Action_String: "<User> lashes at <Target> with the vine-wrapped staff, dealing <Damage> damage."
 
 Attack Crit:
-  - Name: Grow
+  - Name: Regrow
     Type: 6
     Type_Name: Heal
     Damage_Type: Elemental
@@ -57,9 +58,9 @@ Special:
     Damage_Subtype: Blunt
     Field: [1, 3]
     Rounds: 3
-    Cost: 3  # costs 3 connection
+    Cost: 3
     Aimed: true
     Range: 4
-    Action_String: "<User> sets vines to constrict <Target>. <Target> will take <Damage> damage for 3 rounds."
+    Action_String: "<User> sends vines lashing at <Target>. <Target> will take <Damage> damage for 3 rounds."
 
 Special Crit: []
