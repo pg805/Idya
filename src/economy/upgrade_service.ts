@@ -88,6 +88,12 @@ export function totalUpgradesUsed(
     return count;
 }
 
+// The shared upgrade cap for a weapon — max across all valid profession budgets.
+// Both professions on a hybrid weapon contribute to this single pool.
+export function weaponUpgradeCap(professionBudgets: number[]): number {
+    return professionBudgets.length === 0 ? 0 : Math.max(...professionBudgets);
+}
+
 // Total upgrades applied to the weapon across ALL professions — determines the next upgrade's cost.
 export function totalUpgradesOnWeapon(
     playerUpgrades: Partial<Record<Profession, Record<string, number | number[]>>>,

@@ -36,7 +36,7 @@ import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
-  summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon,
+  summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon, weaponUpgradeCap,
   type Profession, type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
 import yaml from 'js-yaml';
@@ -543,15 +543,18 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     const professions  = weaponUpgradeProfessions(row.weapon_key);
     const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
     const baseDeltas   = (upgrades.base ?? {}) as Record<string, number | number[]>;
-    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
-    const fieldLens      = buildFieldLenMap(raw);
-    const weaponTotal    = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+    const playerUpgrades  = normalizePlayerUpgrades(upgrades.player, professions[0]);
+    const fieldLens       = buildFieldLenMap(raw);
+    const weaponTotal     = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+    const profBudgets     = professions.map(p => budgetForLevel(profLevelOf(p)));
+    const weaponCap       = weaponUpgradeCap(profBudgets);
+    const weaponAtCap     = weaponTotal >= weaponCap;
 
-    const professionInfo = professions.map(prof => {
+    const professionInfo = professions.map((prof, i) => {
       const profDeltas = playerUpgrades[prof] ?? {};
       const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
-      const budget   = budgetForLevel(profLevelOf(prof));
-      const atCap    = profUsed >= budget;
+      const budget   = profBudgets[i];
+      const atCap    = profUsed >= budget || weaponAtCap;
       return { profession: prof, used: profUsed, budget, at_cap: atCap, next_cost: atCap ? null : upgradeCost(weaponTotal + 1, prof) };
     });
 
@@ -577,6 +580,8 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       weapon_key: row.weapon_key,
       name: raw.Name,
       equipped: row.weapon_key === char.weapon_key,
+      weapon_total: weaponTotal,
+      weapon_cap: weaponCap,
       upgrade_professions: professionInfo,
       actions,
     });
@@ -631,10 +636,12 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
     });
     if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
 
-    const profRow = await tx.characterProfession.findUnique({
-      where: { character_id_profession: { character_id: char.id, profession } },
+    const profRows = await tx.characterProfession.findMany({
+      where: { character_id: char.id, profession: { in: validProfessions } },
     });
-    const budget = budgetForLevel(profRow?.level ?? 0);
+    const profLevelOf = (p: Profession) => profRows.find(r => r.profession === p)?.level ?? 0;
+    const budget     = budgetForLevel(profLevelOf(profession));
+    const weaponCap  = weaponUpgradeCap(validProfessions.map(p => budgetForLevel(profLevelOf(p))));
 
     const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
     const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
@@ -644,6 +651,9 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
 
     if (profUsed >= budget) {
       return { success: false, message: `Upgrade budget full (${profUsed}/${budget}). Level up ${profession} to unlock more.` };
+    }
+    if (weaponTotal >= weaponCap) {
+      return { success: false, message: `This weapon is at its upgrade cap (${weaponTotal}/${weaponCap}).` };
     }
 
     const cost = upgradeCost(weaponTotal + 1, profession);
