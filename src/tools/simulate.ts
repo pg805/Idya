@@ -24,6 +24,7 @@ const N           = 5_000;
 type EnemyData = {
     Name: string;
     Health: number;
+    Level?: number;
     Pattern: [number, number][];
     Weapon: Record<string, unknown>;
     Resistances?: Record<string, number>;
@@ -160,13 +161,14 @@ function aggregate(results: BattleResult[]): Stats {
 
 // ---- Load files ----
 
-function loadWeapons(): { key: string; name: string; weapon: Weapon }[] {
-    const out: { key: string; name: string; weapon: Weapon }[] = [];
+function loadWeapons(): { key: string; name: string; level: number; weapon: Weapon }[] {
+    const out: { key: string; name: string; level: number; weapon: Weapon }[] = [];
     for (const f of fs.readdirSync(WEAPONS_DIR).filter(f => f.endsWith('.yaml'))) {
         try {
+            const raw = yaml.load(fs.readFileSync(join(WEAPONS_DIR, f), 'utf-8')) as Record<string, unknown>;
             const w = Weapon.from_file(join(WEAPONS_DIR, f));
-            if (w.attack.length === 0) continue; // skip weapons with no attack
-            out.push({ key: f.replace('.yaml', ''), name: w.name, weapon: w });
+            if (w.attack.length === 0) continue;
+            out.push({ key: f.replace('.yaml', ''), name: w.name, level: (raw['Level'] as number) ?? 0, weapon: w });
         } catch { /* skip malformed */ }
     }
     return out.sort((a, b) => a.key.localeCompare(b.key));
@@ -191,12 +193,12 @@ const fmt = {
     num0:  (v: number) => v.toFixed(0).padStart(4),
 };
 
-function printTable(weapons: { key: string; name: string; weapon: Weapon }[], enemies: { key: string; data: EnemyData }[]) {
-    const COL = 30;
+function printTable(weapons: { key: string; name: string; level: number; weapon: Weapon }[], enemies: { key: string; data: EnemyData }[]) {
+    const COL = 32;
     const ECOL = 38;
 
     // Header
-    const header = 'Weapon'.padEnd(COL) + enemies.map(e => `  ${e.data.Name} (${e.data.Health}hp)`.padEnd(ECOL)).join('');
+    const header = 'Weapon'.padEnd(COL) + enemies.map(e => `  ${e.data.Name} L${e.data.Level ?? '?'} (${e.data.Health}hp)`.padEnd(ECOL)).join('');
     const subhdr = ' '.repeat(COL) + enemies.map(() => `  ${'Win%'.padEnd(5)}${'Rds'.padEnd(5)}${'HP'.padEnd(5)}${'DPR'.padEnd(5)}${'DTR'.padEnd(5)}`.padEnd(ECOL)).join('');
     const divider = '-'.repeat(COL + ECOL * enemies.length);
 
@@ -205,8 +207,8 @@ function printTable(weapons: { key: string; name: string; weapon: Weapon }[], en
     console.log(subhdr);
     console.log(divider);
 
-    for (const { name, weapon } of weapons) {
-        const label = name.slice(0, COL - 1).padEnd(COL);
+    for (const { name, level, weapon } of weapons) {
+        const label = `${name} (L${level})`.slice(0, COL - 1).padEnd(COL);
         let row = label;
         for (const { data } of enemies) {
             const results: BattleResult[] = [];

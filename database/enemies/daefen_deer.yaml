@@ -1,0 +1,86 @@
+Name: Daefen Deer
+Health: 80
+Level: 3
+Loot:
+  Items:
+    - id: thuvel
+      type: material
+      Field: [0, 1, 2, 2, 2, 3, 3]
+    - id: crude_talamite
+      type: material
+      Field: [0, 0, 0, 1, 1, 1]
+    - id: sulwood
+      type: material
+      Field: [0, 0, 0, 0, 1]
+    - id: antler_trophy
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    - id: venison
+      type: valuable
+      Field: [0, 1, 1, 1, 2, 2]
+Pattern:
+  - [1, 0]   # Defend: Bow
+  - [2, 0]   # Attack: Horn Crash
+  - [2, 0]   # Attack: Horn Crash
+  - [3, 0]   # Special: Rain
+  - [2, 0]   # Attack: Horn Crash
+  - [1, 0]   # Defend: Bow
+  - [2, 0]   # Attack: Horn Crash
+  - [3, 0]   # Special: Rain
+Image: ""
+
+Weapon:
+  Name: Burning Antlers
+  Description: A daefen deer, antlers ablaze with elemental charge.
+  Resource:
+    Name: Rein
+    Max: 10
+
+  Defend:
+    - Name: Bow
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Blunt
+      Value: 0
+      Cost: -7
+      Action_String: "<User> dips its head in a bow, restoring 7 Rein."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Horn Crash
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [0, 4, 6, 8, 12, 12, 12]
+      Cost: 2
+      Aimed: false
+      Range: 1
+      Action_String: "<User> crashes its horns into <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Horn Burn
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Elemental
+      Damage_Subtype: Fire
+      Field: [0, 4, 5, 6, 10, 14, 14]
+      Range: 1
+      Action_String: "<User>'s burning horns scorch <Target> for <Damage> damage."
+
+  Special:
+    - Name: Rain
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Field: [3, 5, 7]
+      Rounds: 3
+      Cost: 3
+      Aimed: true
+      Range: 3
+      Action_String: "<User> calls down rain on <Target>, dealing <Damage> damage for 3 rounds."
+
+  Special Crit: []

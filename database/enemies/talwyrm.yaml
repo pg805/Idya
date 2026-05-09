@@ -1,0 +1,71 @@
+Name: Talwyrm
+Health: 40
+Level: 2
+Loot:
+  Items:
+    - id: crude_talamite
+      type: material
+      Field: [0, 1, 1, 1, 1, 2, 2, 2, 2, 3]
+    - id: crystal_tooth
+      type: valuable
+      Field: [0, 0, 0, 1, 1, 2]
+Pattern:
+  - [1, 0]   # Defend: Dig
+  - [2, 0]   # Attack: Tail Whip
+  - [2, 0]   # Attack: Tail Whip
+  - [3, 0]   # Special: Crystalize
+Image: ""
+
+Weapon:
+  Name: Crystal Fangs
+  Description: A talwyrm, scales hardened with crude talamite crystal.
+  Resource:
+    Name: Talam
+    Max: 4
+
+  Defend:
+    - Name: Dig
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 20
+      Cost: -4
+      Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 4 Talam."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Tail Whip
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Field: [0, 1, 2, 3, 4, 5]
+      Cost: 1
+      Aimed: false
+      Range: 1
+      Action_String: "<User> whips its tail at <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Chomp
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [3, 6, 8, 9, 9, 9]
+      Range: 1
+      Action_String: "<User> chomps into <Target> for <Damage> damage."
+
+  Special:
+    - Name: Crystalize
+      Type: 7
+      Type_Name: Reflect
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Value: 4
+      Rounds: 3
+      Cost: 2
+      Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."
+
+  Special Crit: []

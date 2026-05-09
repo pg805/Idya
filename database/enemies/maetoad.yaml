@@ -1,0 +1,84 @@
+Name: Maetoad
+Health: 100
+Level: 3
+Loot:
+  Items:
+    - id: thuvel
+      type: material
+      Field: [0, 1, 2, 2, 2, 3, 5]
+    - id: maek_egg
+      type: valuable
+      Field: [0, 0, 0, 1]
+Pattern:
+  - [1, 0]   # Defend: Bleed
+  - [2, 0]   # Attack: Tongue Lash
+  - [2, 0]   # Attack: Tongue Lash
+  - [3, 0]   # Special: Bloodlet
+  - [3, 1]   # Special: Maekeav
+  - [3, 0]   # Special: Bloodlet
+Image: ""
+
+Weapon:
+  Name: Maek Glands
+  Description: A maetoad, Maek pooling behind its eyes.
+  Resource:
+    Name: Maek
+    Max: 8
+
+  Defend:
+    - Name: Bleed
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 0
+      Cost: -4
+      Action_String: "<User> bleeds Maek, restoring 4 Maek."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Tongue Lash
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Field: [0, 2, 2, 4, 4, 5, 6, 8]
+      Cost: 2
+      Aimed: false
+      Range: 2
+      Action_String: "<User> lashes its tongue at <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Wound
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Field: [2, 3, 5]
+      Rounds: 3
+      Action_String: "<User> opens a wound on <Target>, dealing <Damage> damage for 3 rounds."
+
+  Special:
+    - Name: Bloodlet
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Field: [0, 1, 3, 4, 6]
+      Cost: -4
+      Aimed: true
+      Range: 1
+      Action_String: "<User> bloodlets into <Target> for <Damage> damage, restoring 4 Maek."
+    - Name: Maekeav
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Field: [5, 10, 10, 15, 15, 20]
+      Cost: 8
+      Aimed: true
+      Range: 2
+      Action_String: "<User> unleashes a surge of Maek into <Target> for <Damage> damage."
+
+  Special Crit: []
