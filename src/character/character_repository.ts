@@ -22,14 +22,16 @@ export default class CharacterRepository {
             create: { discord_id }
         });
 
+        const weapon = Weapon.from_file(`./database/weapons/${weapon_key}.yaml`);
+        const hp = weapon.hp || 50;
         const character = await prisma.character.create({
             data: {
                 discord_id,
                 name,
                 weapon_key,
                 sprite_token: sprite_token ?? null,
-                health:       50,
-                max_health:   50,
+                health:       hp,
+                max_health:   hp,
             }
         });
         await prisma.characterWeapon.create({ data: { character_id: character.id, weapon_key } });

@@ -1344,7 +1344,7 @@ if (discordToken) {
           new EmbedBuilder()
             .setColor(0x00cc66)
             .setTitle('Character Created!')
-            .setDescription(`**${character.name}** has arrived in Sulku'it!\n\nYour first battle awaits in the forest.`)
+            .setDescription(`**${character.name}** has arrived in Sulku'it!\n\nFendalok has a bird problem. Follow him upstairs and help him take care of it.`)
             .setThumbnail(playerSprite)
             .addFields(
               { name: 'HP',     value: `${character.max_health}`, inline: true },
