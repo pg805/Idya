@@ -128,12 +128,12 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
         width: 7,
         height: 5,
         obstacles: [
-          { pos: { x: 2, y: 1 }, state: 'intact' },
-          { pos: { x: 2, y: 2 }, state: 'intact' },
-          { pos: { x: 2, y: 3 }, state: 'intact' },
-          { pos: { x: 4, y: 1 }, state: 'intact' },
-          { pos: { x: 4, y: 2 }, state: 'intact' },
-          { pos: { x: 4, y: 3 }, state: 'intact' },
+          { pos: { x: 2, y: 1 }, state: 'intact' as const },
+          { pos: { x: 2, y: 2 }, state: 'intact' as const },
+          { pos: { x: 2, y: 3 }, state: 'intact' as const },
+          { pos: { x: 4, y: 1 }, state: 'intact' as const },
+          { pos: { x: 4, y: 2 }, state: 'intact' as const },
+          { pos: { x: 4, y: 3 }, state: 'intact' as const },
         ],
       };
 
@@ -898,6 +898,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     session.phase = 'resolving';
+    const playerIntent = session.pendingIntents.get('player-1');
     const result = resolveIntents(session, session.pendingIntents);
     refreshTelegraphs(session);
 
@@ -906,7 +907,7 @@ io.on('connection', (socket: Socket) => {
 
     const tutMeta = sessionMeta.get(sessionId);
     if (tutMeta?.isTutorial && !result.winner) {
-      const playerChoice = session.pendingIntents.get('player-1')?.choice ?? '';
+      const playerChoice = playerIntent?.action.type ?? '';
       const TUTORIAL_ASIDES: Record<number, string> = {
         1: 'ASIDE_TURN1_PLACEHOLDER',
         2: playerChoice === 'defend'

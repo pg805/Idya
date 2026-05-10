@@ -34,7 +34,7 @@
     "winston": "^3.17.0"
   },
   "engines": {
-    "node": "^16.6.0"
+    "node": ">=16.6.0"
   },
   "repository": {
     "url": "git+https://github.com/pg805/Idya.git"
