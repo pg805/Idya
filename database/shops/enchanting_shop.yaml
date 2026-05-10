@@ -4,23 +4,91 @@ Title: Enchantress
 Greeting: "Sylvara looks up from her tome. 'Ingredients or curiosities? I deal in both.'"
 
 Items:
-  - id: brain
-    Base_Buy: 40
-    Base_Sell: 15
-    R: 3.4
-    R_Max: 3.9
-    Volume_Sensitivity: 150
-    Transaction_Threshold: 10
-    Stock_Max: 30
-    Stock_Influence: 0.25
-    Restock_Field: [0, 0, 1, 2, 0]
-  - id: spores
-    Base_Buy: 18
-    Base_Sell: 7
-    R: 3.3
-    R_Max: 3.8
-    Volume_Sensitivity: 200
+  - id: thuvel
+    Base_Buy: 100
+    Base_Sell: 20
+    R: 1.8
+    R_Max: 3.0
+    Volume_Sensitivity: 400
     Transaction_Threshold: 15
-    Stock_Max: 50
+    Stock_Max: 500
     Stock_Influence: 0.2
-    Restock_Field: [3, 5, 5, 0, 0]
+    Restock_Field: [5, 10, 10, 15, 0]
+
+  - id: crystal_tooth
+    Base_Buy: 100
+    Base_Sell: 25
+    R: 1.8
+    R_Max: 2.8
+    Volume_Sensitivity: 400
+    Transaction_Threshold: 15
+    Stock_Max: 500
+    Stock_Influence: 0.15
+    Restock_Field: [3, 5, 5, 10, 0]
+
+  # Weapons
+  - id: spellbook
+    Base_Buy: 500
+    Base_Sell: 100
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
+
+  - id: wand
+    Base_Buy: 1000
+    Base_Sell: 200
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
+
+  - id: wand_talamite
+    Base_Buy: 1000
+    Base_Sell: 200
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
+
+  - id: kustaff
+    Base_Buy: 1000
+    Base_Sell: 200
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
+
+  - id: deck_of_cards
+    Base_Buy: 1000
+    Base_Sell: 200
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
+
+  - id: mental_cage
+    Base_Buy: 1000
+    Base_Sell: 200
+    R: 2.0
+    R_Max: 3.2
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 5
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [0, 1, 1, 0, 0]
