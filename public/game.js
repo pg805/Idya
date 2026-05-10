@@ -282,13 +282,7 @@ function renderActionPanel() {
   }
   if (ui.phase === 'ended') {
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
-    if (isTutorial) {
-      const restart = document.createElement('button');
-      restart.className = 'submit-btn';
-      restart.textContent = 'Try Again';
-      restart.addEventListener('click', resetSession);
-      actionPanelEl.appendChild(restart);
-    } else {
+    if (!isTutorial) {
       const hint = document.createElement('div');
       hint.className = 'action-title';
       hint.style.marginTop = '8px';
