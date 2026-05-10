@@ -65,6 +65,10 @@ socket.on('reward_result', ({ summary }) => {
   appendLog([summary], 'crit');
 });
 
+socket.on('tutorial_aside', ({ text }) => {
+  appendLog([`Fendalok: "${text}"`], 'tutorial-aside');
+});
+
 // ---- State helpers ----
 function resetUI() {
   ui.phase = 'idle';

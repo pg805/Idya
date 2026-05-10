@@ -107,7 +107,7 @@ function refreshTelegraphs(session: CombatSession): void {
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['rat', 'zombie', 'mushroom'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string, playerName = 'Hero', weaponKey = 'branch'): { session: CombatSession; lootTable: LootTable; enemyName: string } {
@@ -845,7 +845,7 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
   res.json(result);
 });
 
-sessions.set('test', createSession('test', 'rat').session);
+sessions.set('test', createSession('test', 'lithkem_swallow').session);
 
 // ---- Socket.io ----
 
@@ -895,6 +895,17 @@ io.on('connection', (socket: Socket) => {
     io.to(sessionId).emit('session_state', session.toState());
     io.to(sessionId).emit('turn_result', { log: result.log });
 
+    const tutMeta = sessionMeta.get(sessionId);
+    if (tutMeta?.isTutorial && !result.winner) {
+      const TUTORIAL_ASIDES: Record<number, string> = {
+        1: 'ASIDE_1_PLACEHOLDER',
+        2: 'ASIDE_2_PLACEHOLDER',
+        3: 'ASIDE_3_PLACEHOLDER',
+      };
+      const aside = TUTORIAL_ASIDES[session.turn];
+      if (aside) io.to(sessionId).emit('tutorial_aside', { text: aside });
+    }
+
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
       const meta = sessionMeta.get(sessionId);
@@ -922,6 +933,9 @@ io.on('connection', (socket: Socket) => {
           }).catch(() => {});
         }
         io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
+        if (meta.isTutorial) {
+          io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_WIN_PLACEHOLDER' });
+        }
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
@@ -989,7 +1003,7 @@ io.on('connection', (socket: Socket) => {
 
     const enemyKey = (VALID_ENEMIES.find(k =>
       session.combatants.some(c => c.isAI && c.name.toLowerCase().includes(k))
-    ) ?? 'rat') as EnemyKey;
+    ) ?? 'lithkem_swallow') as EnemyKey;
 
     let playerName = 'Hero';
     let playerWeaponKey = 'branch';
@@ -1039,16 +1053,18 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
         .setColor(0x1a1a2e)
         .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
         .setDescription(
-          `${mention} — "Ah, a new face in Sulku'it. The forest has a way of drawing wanderers in — few arrive here by accident.\n\n` +
-          `The town is yours to explore: the general store is well stocked, the temple keeps its doors open, and the forest... well, the forest is what it is. Respect it and it'll let you pass.\n\n` +
-          `If you mean to stay, introduce yourself properly. We keep a ledger of those who pass through these parts."`
+          `${mention}\n\n` +
+          `The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first — small towns reportedly had found new sources of wealth from their local wildlife. With much of the rest of the empire recovering from an economic depression, many had decided to journey to the frontier to make a new life. A local merchant caravan agreed to let you join for the remains of your savings, and with little choice, you joined.\n\n` +
+          `The caravan stops in a clearing on the outskirts of your final destination, **Sulku'it**. A tall man with a gruff chinstrap beard wearing rugged overalls approaches the caravan. After a word with the caravan leader, he turns to you.\n\n` +
+          `**${mayor.name}** — *${mayor.title}*\n` +
+          `*"Ah, another traveler — welcome to Sulku'it. My name is Fendalok and I'm the Padev around here. I take it you are here to help out in the forest. The empire* asks *that we record everyone in the town census log for... tax purposes. Do you mind? Also, I don't mean to be terse, but a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? Sorry, I don't have a better weapon to give. You can keep whatever it leaves behind."*`
         ),
     ],
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('CreateChar_Begin')
-          .setLabel('Register in the Ledger')
+          .setLabel('Register in the Census Log')
           .setStyle(ButtonStyle.Primary)
       ),
     ],
@@ -1179,7 +1195,7 @@ if (discordToken) {
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite, chars[0].name, chars[0].weapon_key);
+        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, chars[0].name, chars[0].weapon_key);
         sessions.set(sessionId, tutSession);
         sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
         await interaction.reply({
@@ -1188,8 +1204,8 @@ if (discordToken) {
               .setColor(0x1a1a2e)
               .setTitle('Tutorial Battle')
               .setDescription(
-                "Welcome to Sulku'it! Your first battle awaits.\n\n" +
-                'Defeat the rat to complete your tutorial and unlock full battle selection.'
+                "Fendalok hands you the branch. There's a lithkem swallow in the rafters above the general store — quick and aggravated.\n\n" +
+                "Fendalok will talk you through the basics as you go."
               ),
           ],
           content: `${HOST}/battle/${sessionId}`,
@@ -1269,7 +1285,7 @@ if (discordToken) {
       const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'rat', playerSprite);
+      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite);
       sessions.set(sessionId, charSession);
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
       await interaction.update({

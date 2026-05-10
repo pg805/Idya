@@ -12,7 +12,7 @@
     "enchanting_shop":"1500378293910896744"
   },
   "npcs": {
-    "mayor":         { "name": "Aldric Voss",   "title": "Mayor of Sulku'it" },
+    "mayor":         { "name": "Fendalok",       "title": "Padev"             },
     "general_store": { "name": "Maren Tholt",   "title": "Shopkeeper"        },
     "blacksmith":    { "name": "Borvan Crane",  "title": "Blacksmith"        },
     "temple":        { "name": "Brother Oswin", "title": "Temple Keeper"     },
