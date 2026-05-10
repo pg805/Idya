@@ -913,7 +913,7 @@ io.on('connection', (socket: Socket) => {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
           text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
-          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.  Check the enemy\'s card — the hint below their health bar shows what action type they are planning next.',
+          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.  The enemy\'s card will show a hint as to which action they are planning next.',
         },
         2: {
           text: "It's winding up to peck you, put your guard up.",
