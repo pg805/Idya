@@ -48,16 +48,7 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
 
   const { choice, actionIndex, action } = resolved;
 
-  // Self-targeting actions don't need movement toward enemy
-  if (SELF_TARGET_TYPES.has(action.type)) {
-    return {
-      combatantId: ai.id,
-      moveTo: null,
-      action: { type: choice, actionIndex, targetPos: null },
-    };
-  }
-
-  // Move toward the nearest enemy
+  // Always move toward the nearest enemy
   const target = enemies.reduce((a, b) =>
     chebyshevDist(ai.pos, a.pos) <= chebyshevDist(ai.pos, b.pos) ? a : b
   );
@@ -76,6 +67,16 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   }
 
   const moveTo = bestPos === ai.pos ? null : bestPos;
+
+  // Self-targeting actions fire regardless of position
+  if (SELF_TARGET_TYPES.has(action.type)) {
+    return {
+      combatantId: ai.id,
+      moveTo,
+      action: { type: choice, actionIndex, targetPos: null },
+    };
+  }
+
   const finalPos = moveTo ?? ai.pos;
   const distAfterMove = chebyshevDist(finalPos, target.pos);
 

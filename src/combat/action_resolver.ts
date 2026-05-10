@@ -18,7 +18,7 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
         if (action.type === ActionType.Block) {
             const resource_string = actor.apply_cost(action);
             actor.block = (action as Block).value;
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
+            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string.replace('<Damage>', `${actor.block}`)}`;
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${actor.block}`);
         }
 

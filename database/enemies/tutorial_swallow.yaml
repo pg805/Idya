@@ -1,8 +1,11 @@
 Name: Lithkem Swallow
-Health: 100
+Health: 30
 Level: 1
 Loot:
   Items: []
+
+Resistances:
+  Blunt: 1.5
 
 Pattern:
   - [1, 0]   # Turn 1:  Swallow (restore — effectively a pass while both sides move)

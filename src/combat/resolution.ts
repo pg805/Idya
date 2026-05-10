@@ -139,6 +139,11 @@ export function resolveIntents(
 
     if (!action) continue;
 
+    if (action.cost > 0 && action.cost > actorMeta.state.resource_current) {
+      log.push(`${actor.name} cannot afford ${action.name}.`);
+      continue;
+    }
+
     if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
       pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
       continue;

@@ -871,7 +871,7 @@ io.on('connection', (socket: Socket) => {
     socket.emit('session_state', session.toState());
     if (isTut) {
       socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
-      socket.emit('tutorial_aside', { text: 'Click a highlighted tile to move before acting, or skip straight to your action.', isOOC: true });
+      socket.emit('tutorial_aside', { text: 'Click a highlighted tile to move before acting, or select the tile you are on to stay put.', isOOC: true });
     }
   });
 
@@ -913,15 +913,15 @@ io.on('connection', (socket: Socket) => {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
           text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
-          ooc: 'You have three actions each turn: Defend, Attack, and Special.  Special beats Defend — use it when the enemy holds back.',
+          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.',
         },
         2: {
           text: "It's winding up to peck you, put your guard up.",
-          ooc: 'Defend beats Attack — blocking reduces damage when the enemy strikes.',
+          ooc: 'Defend actions beat Attack actions — blocking reduces damage when the enemy strikes.',
         },
         3: {
           text: "Looks like it's going to try to slow you down with it's water.  Hit it first!",
-          ooc: 'Attack beats Special — swing while the enemy winds up and you\'ll land your hit first.',
+          ooc: 'Attack actions beat Special actions.  Attack actions also have a special property if used against Special actions: if you hit an enemy while they are winding up, you will land a critical hit giving either more damage or additional effects.  Reactive Attack actions will automatically target the nearest enemy without needing to aim.',
         },
         4: {
           text: "Alright, seems like you got the hang of it.  I'll be downstairs if you need me.",
@@ -936,6 +936,16 @@ io.on('connection', (socket: Socket) => {
       if (session.turn >= 10) {
         io.to(sessionId).emit('tutorial_aside', { text: "Still working?  Let me help." });
         io.to(sessionId).emit('tutorial_aside', { text: "Fendalok draws a gleaming metalic sword and swings it at the bird, cutting off it's head.", isOOC: true });
+        for (const team of session.teams) {
+          if (team.id === 'team-b') {
+            for (const c of team.combatants) {
+              c.hp = 0;
+              const m = session.meta.get(c.id);
+              if (m) m.state.health = 0;
+            }
+          }
+        }
+        io.to(sessionId).emit('session_state', session.toState());
         io.to(sessionId).emit('game_over', { winner: 'team-a' });
         await prisma.user.update({
           where: { discord_id: tutMeta.discordUserId },
@@ -1104,7 +1114,7 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('CreateChar_Begin')
-          .setLabel('Register in the Census Log')
+          .setLabel('Follow Fendalok')
           .setStyle(ButtonStyle.Primary)
       ),
     ],
@@ -1338,7 +1348,7 @@ if (discordToken) {
             .setThumbnail(playerSprite)
             .addFields(
               { name: 'HP',     value: `${character.max_health}`, inline: true },
-              { name: 'Weapon', value: 'Fists',                   inline: true },
+              { name: 'Weapon', value: 'Branch',                  inline: true },
               { name: 'Sprite', value: sprite?.name ?? spriteKey, inline: true },
             ),
         ],
