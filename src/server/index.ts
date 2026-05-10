@@ -113,7 +113,7 @@ type EnemyKey = typeof VALID_ENEMIES[number];
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   const fistsInfo = buildWeaponInfo(weapon);
-  const playerHp  = 50;
+  const playerHp  = isTutorial ? 30 : 50;
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
   const enemyFile = isTutorial ? 'tutorial_swallow' : enemyKey;
@@ -869,7 +869,10 @@ io.on('connection', (socket: Socket) => {
     const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
     socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
-    if (isTut) socket.emit('tutorial_aside', { text: 'ASIDE_INTRO_PLACEHOLDER' });
+    if (isTut) {
+      socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
+      socket.emit('tutorial_aside', { text: 'Click a highlighted tile to move before acting, or skip straight to your action.', isOOC: true });
+    }
   });
 
   socket.on('submit_intent', async ({ sessionId, intent }: { sessionId: string; intent: CombatIntent }) => {
@@ -907,27 +910,39 @@ io.on('connection', (socket: Socket) => {
 
     const tutMeta = sessionMeta.get(sessionId);
     if (tutMeta?.isTutorial && !result.winner) {
-      const playerChoice = playerIntent?.action.type ?? '';
-      const TUTORIAL_ASIDES: Record<number, string> = {
-        1: 'ASIDE_TURN1_PLACEHOLDER',
-        2: playerChoice === 'defend'
-          ? 'ASIDE_TURN2_DEFENDED_PLACEHOLDER'
-          : 'ASIDE_TURN2_ATTACKED_PLACEHOLDER',
-        3: 'ASIDE_TURN3_PLACEHOLDER',
-        4: 'ASIDE_TURN4_PLACEHOLDER',
+      const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
+        1: {
+          text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
+          ooc: 'You have three actions each turn: Defend, Attack, and Special.  Special beats Defend — use it when the enemy holds back.',
+        },
+        2: {
+          text: "It's winding up to peck you, put your guard up.",
+          ooc: 'Defend beats Attack — blocking reduces damage when the enemy strikes.',
+        },
+        3: {
+          text: "Looks like it's going to try to slow you down with it's water.  Hit it first!",
+          ooc: 'Attack beats Special — swing while the enemy winds up and you\'ll land your hit first.',
+        },
+        4: {
+          text: "Alright, seems like you got the hang of it.  I'll be downstairs if you need me.",
+        },
       };
       const aside = TUTORIAL_ASIDES[session.turn];
-      if (aside) io.to(sessionId).emit('tutorial_aside', { text: aside });
+      if (aside) {
+        io.to(sessionId).emit('tutorial_aside', { text: aside.text });
+        if (aside.ooc) io.to(sessionId).emit('tutorial_aside', { text: aside.ooc, isOOC: true });
+      }
 
       if (session.turn >= 10) {
-        io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_FENDALOK_KILL_PLACEHOLDER' });
+        io.to(sessionId).emit('tutorial_aside', { text: "Still working?  Let me help." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Fendalok draws a gleaming metalic sword and swings it at the bird, cutting off it's head.", isOOC: true });
         io.to(sessionId).emit('game_over', { winner: 'team-a' });
         await prisma.user.update({
           where: { discord_id: tutMeta.discordUserId },
           data: { tutorial_complete: true },
         }).catch(() => {});
         io.to(sessionId).emit('reward_result', { summary: 'Tutorial complete.' });
-        io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_WIN_PLACEHOLDER' });
+        io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here.  Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do.  Reactive actions are usually lower power, but not needing to aim makes them more consistent.  Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
       }
     }
 
@@ -959,7 +974,7 @@ io.on('connection', (socket: Socket) => {
         }
         io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
         if (meta.isTutorial) {
-          io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_WIN_PLACEHOLDER' });
+          io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here.  Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do.  Reactive actions are usually lower power, but not needing to aim makes them more consistent.  Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
         }
         if (discord) {
           try {

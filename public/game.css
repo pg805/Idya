@@ -230,6 +230,7 @@ h1 { color: #c0a060; letter-spacing: 0.12em; font-size: 1.3rem; }
 #combat-log p.turn-divider { color: #c0a060; font-weight: bold; border-bottom-color: #3a2a00; }
 #combat-log p.crit { color: #ffd060; font-weight: bold; }
 #combat-log p.tutorial-aside { color: #a8c8a0; font-style: italic; border-left: 2px solid #4a7a40; padding-left: 6px; }
+#combat-log p.tutorial-ooc { color: #7090c0; font-size: 0.72rem; border-left: 2px solid #304060; padding-left: 6px; }
 
 /* ---- Status ---- */
 #connection-status { font-size: 0.75rem; }
