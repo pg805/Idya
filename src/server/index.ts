@@ -1452,16 +1452,26 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'resetcharacter') {
       const target = interaction.options.getUser('user', true);
-      const chars = await prisma.character.findMany({ where: { discord_id: target.id }, select: { id: true } });
-      await prisma.inventoryItem.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
-      await prisma.characterWeapon.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
-      await prisma.character.deleteMany({ where: { discord_id: target.id } });
-      await prisma.user.update({ where: { discord_id: target.id }, data: { tutorial_complete: false, korel: 0 } }).catch(() => {});
-      await prisma.eventLog.create({ data: {
-        discord_id: target.id, event_type: 'character_reset',
-        payload: { reset_by: interaction.user.id },
-      }}).catch(() => {});
-      await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
+      try {
+        const chars = await prisma.character.findMany({ where: { discord_id: target.id }, select: { id: true } });
+        if (chars.length > 0) {
+          await prisma.inventoryItem.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
+          await prisma.characterWeapon.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
+          await prisma.character.deleteMany({ where: { discord_id: target.id } });
+        }
+        await prisma.user.upsert({
+          where: { discord_id: target.id },
+          update: { tutorial_complete: false, korel: 0 },
+          create: { discord_id: target.id, tutorial_complete: false, korel: 0 },
+        });
+        await prisma.eventLog.create({ data: {
+          discord_id: target.id, event_type: 'character_reset',
+          payload: { reset_by: interaction.user.id },
+        }}).catch(() => {});
+        await interaction.reply({ content: `Character reset for ${target.username}.`, flags: MessageFlags.Ephemeral });
+      } catch (e) {
+        await interaction.reply({ content: `Reset failed: ${e instanceof Error ? e.message : String(e)}`, flags: MessageFlags.Ephemeral });
+      }
     }
   });
 
