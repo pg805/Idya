@@ -110,31 +110,38 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
-function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: string, playerName = 'Hero', weaponKey = 'branch'): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   const fistsInfo = buildWeaponInfo(weapon);
   const playerHp  = 50;
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
+  const enemyFile = isTutorial ? 'tutorial_swallow' : enemyKey;
   const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
-    join(__dirname, `../../database/enemies/${enemyKey}.yaml`),
-    { id: 'enemy-1', teamId: 'team-b', pos: { x: 6, y: 2 }, movementRange: 2 },
+    join(__dirname, `../../database/enemies/${enemyFile}.yaml`),
+    { id: 'enemy-1', teamId: 'team-b', pos: isTutorial ? { x: 5, y: 0 } : { x: 6, y: 2 }, movementRange: 2 },
   );
+
+  const boardConfig = isTutorial
+    ? { width: 6, height: 2, obstacles: [] }
+    : {
+        width: 7,
+        height: 5,
+        obstacles: [
+          { pos: { x: 2, y: 1 }, state: 'intact' },
+          { pos: { x: 2, y: 2 }, state: 'intact' },
+          { pos: { x: 2, y: 3 }, state: 'intact' },
+          { pos: { x: 4, y: 1 }, state: 'intact' },
+          { pos: { x: 4, y: 2 }, state: 'intact' },
+          { pos: { x: 4, y: 3 }, state: 'intact' },
+        ],
+      };
+
+  const playerStartPos = isTutorial ? { x: 0, y: 1 } : { x: 0, y: 2 };
 
   const session = new CombatSession(
     sessionId,
-    {
-      width: 7,
-      height: 5,
-      obstacles: [
-        { pos: { x: 2, y: 1 }, state: 'intact' },
-        { pos: { x: 2, y: 2 }, state: 'intact' },
-        { pos: { x: 2, y: 3 }, state: 'intact' },
-        { pos: { x: 4, y: 1 }, state: 'intact' },
-        { pos: { x: 4, y: 2 }, state: 'intact' },
-        { pos: { x: 4, y: 3 }, state: 'intact' },
-      ],
-    },
+    boardConfig,
     [
       {
         id: 'team-a',
@@ -147,7 +154,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey, playerSprite?: str
           resource: weapon.resource_max,
           maxResource: weapon.resource_max,
           resourceName: weapon.resource_name,
-          pos: { x: 0, y: 2 },
+          pos: playerStartPos,
           movementRange: 2,
           isAI: false,
           teamId: 'team-a',
@@ -859,8 +866,10 @@ io.on('connection', (socket: Socket) => {
       return;
     }
     socket.join(sessionId);
-    socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: sessionMeta.get(sessionId)?.isTutorial ?? false });
+    const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
+    socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
+    if (isTut) socket.emit('tutorial_aside', { text: 'ASIDE_INTRO_PLACEHOLDER' });
   });
 
   socket.on('submit_intent', async ({ sessionId, intent }: { sessionId: string; intent: CombatIntent }) => {
@@ -897,13 +906,28 @@ io.on('connection', (socket: Socket) => {
 
     const tutMeta = sessionMeta.get(sessionId);
     if (tutMeta?.isTutorial && !result.winner) {
+      const playerChoice = session.pendingIntents.get('player-1')?.choice ?? '';
       const TUTORIAL_ASIDES: Record<number, string> = {
-        1: 'ASIDE_1_PLACEHOLDER',
-        2: 'ASIDE_2_PLACEHOLDER',
-        3: 'ASIDE_3_PLACEHOLDER',
+        1: 'ASIDE_TURN1_PLACEHOLDER',
+        2: playerChoice === 'defend'
+          ? 'ASIDE_TURN2_DEFENDED_PLACEHOLDER'
+          : 'ASIDE_TURN2_ATTACKED_PLACEHOLDER',
+        3: 'ASIDE_TURN3_PLACEHOLDER',
+        4: 'ASIDE_TURN4_PLACEHOLDER',
       };
       const aside = TUTORIAL_ASIDES[session.turn];
       if (aside) io.to(sessionId).emit('tutorial_aside', { text: aside });
+
+      if (session.turn >= 10) {
+        io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_FENDALOK_KILL_PLACEHOLDER' });
+        io.to(sessionId).emit('game_over', { winner: 'team-a' });
+        await prisma.user.update({
+          where: { discord_id: tutMeta.discordUserId },
+          data: { tutorial_complete: true },
+        }).catch(() => {});
+        io.to(sessionId).emit('reward_result', { summary: 'Tutorial complete.' });
+        io.to(sessionId).emit('tutorial_aside', { text: 'ASIDE_WIN_PLACEHOLDER' });
+      }
     }
 
     if (result.winner) {
@@ -1195,7 +1219,7 @@ if (discordToken) {
       const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
       if (!dbUser?.tutorial_complete) {
         const sessionId = Math.random().toString(36).slice(2, 10);
-        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, chars[0].name, chars[0].weapon_key);
+        const { session: tutSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, chars[0].name, chars[0].weapon_key, true);
         sessions.set(sessionId, tutSession);
         sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
         await interaction.reply({
@@ -1285,7 +1309,7 @@ if (discordToken) {
       const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite);
+      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
       sessions.set(sessionId, charSession);
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
       await interaction.update({

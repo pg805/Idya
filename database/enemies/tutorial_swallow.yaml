@@ -1,0 +1,97 @@
+Name: Lithkem Swallow
+Health: 100
+Level: 1
+Loot:
+  Items: []
+
+Pattern:
+  - [1, 0]   # Turn 1:  Swallow (restore — effectively a pass while both sides move)
+  - [1, 1]   # Turn 2:  Fly (block)
+  - [2, 1]   # Turn 3:  Peck (attack)
+  - [3, 0]   # Turn 4:  Drench (special — crit window for player)
+  - [1, 1]   # Turn 5:  Fly (block)
+  - [1, 0]   # Turn 6:  Swallow (restore)
+  - [2, 1]   # Turn 7:  Peck
+  - [3, 0]   # Turn 8:  Drench
+  - [1, 1]   # Turn 9:  Fly
+  - [1, 0]   # Turn 10: Swallow — then Fendalok intervenes
+
+Image: ""
+
+Weapon:
+  Name: Beak and Wings
+  Description: A lithkem swallow in a fighting stance.
+  Resource:
+    Name: Water
+    Max: 7
+
+  Defend:
+    - Name: Swallow
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Value: 0
+      Cost: -7
+      Action_String: "<User> swallows deeply, fully restoring its Water."
+
+    - Name: Fly
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 5
+      Cost: 1
+      Action_String: "<User> takes to the air, blocking <Damage> damage."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Spit
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Field: [3]
+      Cost: 2
+      Aimed: true
+      Range: 2
+      Action_String: "<User> spits a jet of water at <Target> for <Damage> damage."
+
+    - Name: Peck
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [2]
+      Cost: 1
+      Aimed: false
+      Range: 1
+      Action_String: "<User> pecks at <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Splash
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Field: [3]
+      Cost: 0
+      Aimed: false
+      Range: 2
+      Action_String: "<User> splashes <Target> for <Damage> damage."
+
+  Special:
+    - Name: Drench
+      Type: 5
+      Type_Name: Debuff
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Value: 1
+      Rounds: 2
+      Cost: 3
+      Aimed: true
+      Range: 2
+      Action_String: "<User> drenches <Target>, debuffing their attack by 1 for 2 rounds."
+
+  Special Crit: []
