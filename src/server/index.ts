@@ -113,7 +113,7 @@ type EnemyKey = typeof VALID_ENEMIES[number];
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   const fistsInfo = buildWeaponInfo(weapon);
-  const playerHp  = isTutorial ? 30 : 50;
+  const playerHp  = weapon.hp;
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
   const enemyFile = isTutorial ? 'tutorial_swallow' : enemyKey;
