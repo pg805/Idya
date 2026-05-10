@@ -948,7 +948,7 @@ io.on('connection', (socket: Socket) => {
           }).catch(() => {});
           await prisma.korelLedger.create({ data: {
             discord_id: meta.discordUserId, amount: -fee,
-            reason: 'mending_fee', note: `Defeated by ${meta.enemyName}`,
+            reason: 'heal_fee', note: `Defeated by ${meta.enemyName}`,
           }}).catch(() => {});
         }
         if (char) {
@@ -958,14 +958,14 @@ io.on('connection', (socket: Socket) => {
             korel_delta: -fee, started_at: meta.startedAt,
           }}).catch(() => {});
         }
-        const feeMsg = fee > 0 ? `Mending fee: −${fee} Korel` : 'No mending fee.';
+        const feeMsg = fee > 0 ? `Healing fee: −${fee} Korel` : 'No healing fee.';
         io.to(sessionId).emit('reward_result', { summary: feeMsg });
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
               const msg = fee > 0
-                ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in mending fees.`
+                ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
                 : `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
               await (ch as import('discord.js').TextChannel).send(msg);
             }
