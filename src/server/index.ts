@@ -1114,7 +1114,7 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('CreateChar_Begin')
-          .setLabel('Follow Fendalok')
+          .setLabel('Register in the Census Log')
           .setStyle(ButtonStyle.Primary)
       ),
     ],
@@ -1355,7 +1355,7 @@ if (discordToken) {
         components: [
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
-              .setLabel('Enter the Forest')
+              .setLabel('Follow Fendalok')
               .setURL(`${HOST}/battle/${sessionId}`)
               .setStyle(ButtonStyle.Link)
           ),
