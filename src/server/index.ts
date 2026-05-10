@@ -1455,8 +1455,10 @@ if (discordToken) {
       try {
         const chars = await prisma.character.findMany({ where: { discord_id: target.id }, select: { id: true } });
         if (chars.length > 0) {
-          await prisma.inventoryItem.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
-          await prisma.characterWeapon.deleteMany({ where: { character_id: { in: chars.map(c => c.id) } } });
+          const ids = chars.map(c => c.id);
+          await prisma.inventoryItem.deleteMany({ where: { character_id: { in: ids } } });
+          await prisma.characterWeapon.deleteMany({ where: { character_id: { in: ids } } });
+          await prisma.characterProfession.deleteMany({ where: { character_id: { in: ids } } });
           await prisma.character.deleteMany({ where: { discord_id: target.id } });
         }
         await prisma.user.upsert({
