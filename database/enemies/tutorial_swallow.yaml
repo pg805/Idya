@@ -69,7 +69,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [2]
+      Field: [3, 4]
       Cost: 1
       Aimed: false
       Range: 1

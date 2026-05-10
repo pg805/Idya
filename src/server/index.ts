@@ -871,7 +871,7 @@ io.on('connection', (socket: Socket) => {
     socket.emit('session_state', session.toState());
     if (isTut) {
       socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
-      socket.emit('tutorial_aside', { text: 'Click a highlighted tile to move before acting, or select the tile you are on to stay put.', isOOC: true });
+      socket.emit('tutorial_aside', { text: 'Click your character first, then select a highlighted tile to move, or select the tile you are on to stay put.', isOOC: true });
     }
   });
 
@@ -913,7 +913,7 @@ io.on('connection', (socket: Socket) => {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
           text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
-          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.',
+          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.  Check the enemy\'s card — the hint below their health bar shows what action type they are planning next.',
         },
         2: {
           text: "It's winding up to peck you, put your guard up.",
