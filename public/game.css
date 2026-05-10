@@ -161,6 +161,7 @@ h1 { color: #c0a060; letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 .action-btn:hover { background: #2a3e6a; border-color: #60a0e0; }
 .action-btn.selected { background: #1a4a2a; border-color: #40c060; color: #a0ffc0; }
+.action-btn.unaffordable { opacity: 0.35; cursor: not-allowed; }
 .submit-btn {
   background: #3a2000;
   border: 1px solid #c08020;

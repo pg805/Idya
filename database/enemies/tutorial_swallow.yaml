@@ -2,7 +2,10 @@ Name: Lithkem Swallow
 Health: 30
 Level: 1
 Loot:
-  Items: []
+  Items:
+    - id: swallow_feather
+      type: valuable
+      Field: [1, 2]
 
 Resistances:
   Blunt: 1.5

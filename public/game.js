@@ -352,9 +352,11 @@ function renderActionPanel() {
   const allActions = [...player.weaponInfo.actions, PASS_ACTION];
 
   for (const action of allActions) {
+    const canAfford = action.cost <= 0 || action.cost <= player.resource;
     const btn = document.createElement('button');
-    btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}`;
+    btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
     btn.textContent = action.label;
+    if (!canAfford) btn.disabled = true;
 
     const parts = [];
     if (action.cost !== 0) parts.push(`${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}`);
