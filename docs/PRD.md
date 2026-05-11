@@ -292,6 +292,11 @@ Battles → Currency + Raw Materials
 - **Quests**: NPC-driven objectives
 - **Events**: Time-limited content, seasonal items
 - **Mobile**: Responsive web or dedicated app
+- **Reputation & NPC State System**: Telltale-style dialogue where decisions matter and state is tracked, not infinite generated text. The system tracks a handful of flags and scores per player per NPC — things like "met before", reputation score(s), and recent event flags — and uses them to select from pre-written dialogue pools. The writing does the heavy lifting; the engineering just picks the right branch and surfaces state back to the player in ways they notice ("Fendalok will remember that").
+  - **Conversation model**: Player-initiated (`/talk Fendalok`), not ambient NPC posts. NPCs respond when approached; variety comes from state.
+  - **Cross-NPC effects**: Actions that benefit one NPC can affect standing with others — e.g. helping the empire's tax collector damages reputation with Ketulvu townspeople. Player-to-player reputation (reliable trader vs. known scammer) is also in scope.
+  - **Reputation axes**: TBD whether reputation is a single score per NPC or split into separate axes (e.g. trust vs. familiarity). Split axes allow more expressive branching — Fendalok could trust you but not know you well, or know you well but have reason to be wary. Worth deciding before writing branches, as retrofitting is annoying.
+  - **Service gating**: Reputation tiers can unlock services and dialogue branches, giving players reason to engage with the world rather than skip past it. Tutorial/introduction dialogue is allowed to be scripted — a first meeting having a consistent arc makes sense.
 
 ---
 
