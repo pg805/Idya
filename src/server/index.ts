@@ -952,7 +952,10 @@ io.on('connection', (socket: Socket) => {
           data: { tutorial_complete: true },
         }).catch(() => {});
         io.to(sessionId).emit('reward_result', { summary: 'Tutorial complete.' });
-        io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here.  Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do.  Reactive actions are usually lower power, but not needing to aim makes them more consistent.  Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
       }
     }
 
@@ -984,7 +987,10 @@ io.on('connection', (socket: Socket) => {
         }
         io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
         if (meta.isTutorial) {
-          io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here.  Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do.  Reactive actions are usually lower power, but not needing to aim makes them more consistent.  Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
+          io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
+        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
         }
         if (discord) {
           try {
