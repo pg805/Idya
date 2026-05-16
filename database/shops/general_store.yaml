@@ -1,7 +1,7 @@
 Name: The General Store
-NPC: Mira
+NPC: Dolan
 Title: Shopkeeper
-Greeting: "Mira smiles from behind the counter. 'Welcome in. Take a look around.'"
+Greeting: "Dolan glances up from behind the counter. 'Take a look around.'"
 
 Items:
   - id: swallow_feather

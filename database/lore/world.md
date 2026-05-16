@@ -47,3 +47,20 @@ Follows traditional Ketulvu beliefs. Holds a quiet disdain for the Chae empire a
 Can be off-color without meaning to be. Delegates disputes to Morna when he has other appointments.
 
 **Appears in:** Welcome message (town square on player join), tutorial battle embed.
+
+---
+
+### Dolan — General Store, Sulku'it
+
+**Age:** 78 | **Origin:** Ketulvu (denounced) | **Background:** Retired officer, 5th Division, Chaevul military
+
+Grew up in Sulku'it and always found it stifling. Left at 18 to join the Chaevul military when recruiters came through — his parents weren't happy but didn't want to cross the empire. Spent decades traveling the continent, rising to officer of the 5th Division. The experience shaped him profoundly: he came to see the Chae empire's power as legitimate and admirable, and quietly shed his Ketulvu heritage along the way.
+
+Returned home in his later years after his mother fell ill. His parents have since both died, and he's too old to rejoin the army. He opened the general store to make ends meet — a practical decision that also keeps him informed. His military connections and caravan trades mean he often carries equipment and supplies the town couldn't source otherwise.
+
+His pretension is earned but wearing. He genuinely believes his experience — leading men, seeing the world — makes him more capable than the people who stayed. There's resentment underneath it: he got out, lived a wide life, and ended up back where he started. He thinks Fendalok is a small leader for a small town and makes no real effort to hide it. The two butt heads regularly.
+
+Participated in brief courtships with both Morna and Lithona in his teenage years, before he left. Never married and never wanted to. Keeps largely to himself — participates in town traditions only when the social cost of skipping is too high, which makes him an outsider in a place he grew up in. Views the Chae empire favorably, thinks little of Ketulvu tradition, and has few friends for it.
+
+**Served with:** Fakel (military, 5th Division)
+**Rivals:** Fendalok
