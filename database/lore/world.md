@@ -172,3 +172,27 @@ She always wanted children. Fendalok was always too busy, and now she feels it's
 No one really dislikes Morna. But beyond Fendalok, she feels close to no one. She is warm with everyone and intimate with almost no one.
 
 **Married to:** Fendalok
+
+---
+
+### Dagwen — Apprentice Lumberjack, Sulku'it
+
+**Age:** 14 | **Origin:** Ketulvu
+
+Takes after his father — boisterous, a lot of energy. Without Fendalok's steadying presence, though, it has tipped into truancy. He was often in trouble growing up and rarely listened to his elders. He took the apprenticeship with Vetha to get close to Nisra, thinking himself clever, and accidentally landed on something resembling responsibility. He won't admit this to anyone, including himself. As far as he's concerned the job was his idea and Nisra has nothing to do with it.
+
+**Parents:** Kethalis and Lithona | **Employer:** Vetha
+
+---
+
+### Nisra — Aspiring Guard, Sulku'it
+
+**Age:** 16 | **Origin:** Chae/Ketulvu
+
+A combination of her father and mother in ways that produce an awkward style all her own. No one would say it out loud, but she's striking in a way that draws more attention than she wants. The combination — the awkwardness and the looks — has been the driving force of her life, putting her in situations she never asked for and doesn't know how to navigate.
+
+She finds male attention disconcerting. She's getting more of it than she expected. Dagwen has been making his interest obvious and she's noticed — he's not unappealing, but he's immature and he works with her mother, which complicates things.
+
+She admires her father's stoic steadiness and tries to emulate it. She wants to travel one day, maybe see what's beyond Sulku'it. She keeps this to herself — joining the army is social suicide in town, and she knows what being associated with the empire has already cost her family.
+
+**Parents:** Vetha and Fakel
