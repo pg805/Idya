@@ -173,4 +173,3 @@ She always wanted children. Fendalok was always too busy, and now she feels it's
 No one really dislikes Morna. But beyond Fendalok, she feels close to no one. She is warm with everyone and intimate with almost no one.
 
 **Married to:** Fendalok
-**History:** Brief courtship with Dolan in her teenage years
