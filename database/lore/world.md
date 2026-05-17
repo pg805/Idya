@@ -22,6 +22,18 @@ Both traditions produce practitioners. The tension between them is cultural and 
 
 ---
 
+## The Gods
+
+The Ketulvu pantheon is anchored by two divine figures whose relationship defines the shape of the world.
+
+**Vidali** is the god of life — growth, warmth, creation, and the force that animates living things. Sidaev in its most generous form is understood as Vidali's gift.
+
+**Nokorna** is the god of death — not malevolent, but necessary. The end of things, the return, the boundary that gives life its meaning. The Ketulvu do not fear Nokorna but treat the deity with deep respect.
+
+The relationship between Vidali and Nokorna is the central myth of Ketulvu faith: opposing forces that are incomplete without each other. Life without death is not life; death without life has nothing to return. Their divine pairing is the template the Ketulvu hold up for what a good partnership looks like — each drawing the other toward what they cannot reach alone. Lithona sees her marriage to Kethalis as a reflection of this.
+
+---
+
 ## The Player
 
 Player characters are Chae or Ketulvu by origin, arriving in Sulku'it with little more than a branch and a reason to be there. The "story" is what they make of it. Sulku'it is a place where people come with nothing and a chance to become something. That framing is the game.
@@ -119,7 +131,9 @@ Despite her separateness from ordinary town life, she had many friends growing u
 
 She sees through Kethalis in ways others don't. She feels he wears a mask in public — the warmth is real, but there's more underneath that he keeps to himself. She sees her role in the marriage as keeping him grounded and honest. He pulls her outward; she pulls him inward. She understands this as a mirror of Vidali and Nokorna's divine relationship, which gives the dynamic a spiritual weight for her beyond the personal. They also simply love each other.
 
-She is protective of Dagwen, probably to a fault. She knows it and does it anyway.
+She is protective of Dagwen, probably to a fault. She knows it and does it anyway. Her feelings about Nisra are complicated — she has a genuine connection to Vetha that has trickled down, but she isn't sure Nisra is good enough for her son. She holds both things at once without resolving them.
+
+She doesn't share Kethalis's hostility toward the Chae, but she disapproves of the empire's military conduct. She will help anyone who comes to the temple — Chae included — because the traditions of the gods demand it, and because she genuinely wants to. The obligation and the desire aren't in conflict for her. She doesn't hate Dolan the way Kethalis does. She feels protective of Vetha despite being younger than her — something about Vetha invites it.
 
 **Married to:** Kethalis | **Son:** Dagwen
 **History:** Brief courtship with Dolan in her teenage years
