@@ -1,7 +1,7 @@
 Name: The Rusty Anvil
-NPC: Edric
-Title: Master Smith
-Greeting: "Edric wipes soot from his brow. 'Need something forged?'"
+NPC: Kethalis
+Title: Blacksmith
+Greeting: "Kethalis grins through the heat. 'What can I do for you?'"
 
 Items:
   # Raw material

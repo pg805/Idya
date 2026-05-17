@@ -83,3 +83,24 @@ Her marriage to Fakel didn't read as loyal to some Ketulvu in town. She understa
 
 **Married to:** Fakel | **Apprentice:** Dagwen | **Mentor:** Thegan (deceased)
 **History:** Briefly courted by Fendalok when younger
+
+---
+
+### Kethalis — Blacksmith, Sulku'it
+
+**Age:** 41 | **Origin:** Ketulvu
+
+Always had a lot of energy and a lot of friends. Boisterous from the start — if someone was interrupting an elder mid-story, Kethalis's name was usually the first one called, and usually correctly. Fendalok took something of an older-brother role with him growing up and was one of the few who could rein him in.
+
+Tovanas, the old blacksmith, picked Kethalis as his apprentice — strong, good with his hands, and energetic enough to run multiple projects at once. When Tovanas died suddenly in the night, Kethalis was left with notes as his only teacher and more responsibility than he'd bargained for. He's carried it with varying degrees of success. Blacksmithing was never a passion, but he knows he's a load-bearing part of how Sulku'it functions, and he makes the most of it.
+
+His personality makes the smithy welcoming despite the heat. Quick with a joke, skilled at steering conversations toward something lighter. In the evenings he's usually at the tavern — telling stories, leading a song, filling the room. The townsfolk say it's not a party until Kethalis arrives.
+
+He and Lithona were seen as a couple from a young age by the whole town. They never seriously considered anyone else. If Sulku'it has a power couple, it's them — his warmth and her quiet calm read to the Ketulvu as the best of what they are. He loves Dagwen deeply and talks about him with nothing but pride, even knowing the boy has some growing up to do. The day Dagwen was born was the best day of his life.
+
+Believes in the gods and sees Sulku'it as under their protection. He leaves the formal worship to Lithona beyond what tradition requires. He sees his role as helping carry out Fendalok's vision — or getting the other townsfolk to carry it out when he can't.
+
+He hates the Chae empire and is quietly suspicious of Fakel, though he hides it well. He and Dolan avoid each other.
+
+**Married to:** Lithona | **Son:** Dagwen | **Mentor:** Tovanas (deceased)
+**Allies:** Fendalok | **Avoids:** Dolan
