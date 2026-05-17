@@ -30,11 +30,13 @@ for (const folder of commandFolders) {
     }
 }
 
-const config = JSON.parse(fs.readFileSync('./database/config.json','utf-8'));
-const env    = config[process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV'];
-const token  = env?.['TOKEN'];
-const appId  = env?.['APP_ID'];
-const guildId = env?.['GUILD_ID'];
+const config  = JSON.parse(fs.readFileSync('./database/config.json', 'utf-8'));
+const world   = JSON.parse(fs.readFileSync('./database/world.json',  'utf-8'));
+const isProd  = process.env.NODE_ENV === 'production';
+const env     = config[isProd ? 'PROD' : 'DEV'];
+const token   = env?.['TOKEN'];
+const appId   = env?.['APP_ID'];
+const guildId = world[isProd ? 'prod' : 'dev']?.['guild_id'];
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(token);
