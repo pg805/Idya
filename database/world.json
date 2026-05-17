@@ -1,31 +1,56 @@
 {
-  "guild_id": "1505456783655702620",
-  "sprite_cdn": "https://raw.githubusercontent.com/pg805/Idya/dev/public/sprites",
-  "admin_role": "1083251767749390378",
-  "dev": ["210917143028563969"],
-  "categories": {
-    "admin":    "1083250123783548968",
-    "sulkuit":  "1083254328824975380",
-    "ooc":      "1505446290408869968"
+  "shared": {
+    "sprite_cdn": "https://raw.githubusercontent.com/pg805/Idya/dev/public/sprites",
+    "dev": ["210917143028563969"],
+    "npcs": {
+      "mayor":         { "name": "Fendalok", "title": "Padev"         },
+      "general_store": { "name": "Dolan",    "title": "Shopkeeper"    },
+      "blacksmith":    { "name": "Kethalis", "title": "Blacksmith"    },
+      "lumberjack":    { "name": "Vetha",    "title": "Lumberjack"    },
+      "temple":        { "name": "Lithona",  "title": "Temple Keeper" },
+      "enchanting":    { "name": "Lomis",    "title": "Enchanter"     }
+    }
   },
-  "channels": {
-    "welcome":        "1083250123783548970",
-    "rules":          "1505446406775636110",
-    "town_square":    "1083254382168129546",
-    "general_store":  "1083625495133954101",
-    "blacksmith":     "1083619887202697256",
-    "temple":         "1500378189468274758",
-    "enchanting_shop":"1500378293910896744",
-    "lumberjack":     "1505444652768034826",
-    "forest":         "1083627990434467951",
-    "ooc":            "1342554533322293385"
+  "prod": {
+    "guild_id":   "1083250123284418590",
+    "admin_role": "1083251767749390378",
+    "categories": {
+      "admin":    "1083250123783548968",
+      "sulkuit":  "1083254328824975380",
+      "ooc":      "1505446290408869968"
+    },
+    "channels": {
+      "welcome":        "1083250123783548970",
+      "rules":          "1505446406775636110",
+      "town_square":    "1083254382168129546",
+      "general_store":  "1083625495133954101",
+      "blacksmith":     "1083619887202697256",
+      "temple":         "1500378189468274758",
+      "enchanting_shop":"1500378293910896744",
+      "lumberjack":     "1505444652768034826",
+      "forest":         "1083627990434467951",
+      "ooc":            "1342554533322293385"
+    }
   },
-  "npcs": {
-    "mayor":         { "name": "Fendalok", "title": "Padev"         },
-    "general_store": { "name": "Dolan",    "title": "Shopkeeper"    },
-    "blacksmith":    { "name": "Kethalis", "title": "Blacksmith"    },
-    "lumberjack":    { "name": "Vetha",    "title": "Lumberjack"    },
-    "temple":        { "name": "Lithona",  "title": "Temple Keeper" },
-    "enchanting":    { "name": "Lomis",    "title": "Enchanter"     }
+  "dev": {
+    "guild_id":   "1505456783655702620",
+    "admin_role": "",
+    "categories": {
+      "admin":    "",
+      "sulkuit":  "",
+      "ooc":      ""
+    },
+    "channels": {
+      "welcome":        "",
+      "rules":          "",
+      "town_square":    "",
+      "general_store":  "",
+      "blacksmith":     "",
+      "temple":         "",
+      "enchanting_shop":"",
+      "lumberjack":     "",
+      "forest":         "",
+      "ooc":            ""
+    }
   }
 }
