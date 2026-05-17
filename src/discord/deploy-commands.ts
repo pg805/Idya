@@ -31,7 +31,10 @@ for (const folder of commandFolders) {
 }
 
 const config = JSON.parse(fs.readFileSync('./database/config.json','utf-8'));
-const token = config[process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV']?.['TOKEN'];
+const env    = config[process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV'];
+const token  = env?.['TOKEN'];
+const appId  = env?.['APP_ID'];
+const guildId = env?.['GUILD_ID'];
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(token);
@@ -44,10 +47,7 @@ const rest = new REST().setToken(token);
         // The put method is used to fully refresh all commands in the guild with the current set
         const data = await rest.put(
             // Routes.applicationGuildCommands('912129153216675851', '594244452437065729'),
-            Routes.applicationGuildCommands(
-                process.env.NODE_ENV === 'production' ? '1505456272965898270' : '912129153216675851',
-                process.env.NODE_ENV === 'production' ? '1083250123284418590' : '1505456783655702620'
-            ),
+            Routes.applicationGuildCommands(appId, guildId),
             { body: commands },
         );
 
