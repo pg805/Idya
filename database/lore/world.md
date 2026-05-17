@@ -91,7 +91,6 @@ Took Dagwen on as an apprentice to continue what Thegan did for her, and because
 Her marriage to Fakel didn't read as loyal to some Ketulvu in town. She understands the optics but doesn't much care — the Chae feel distant to her, and the ones she knows are kind enough. She and Dolan have a functional working relationship; he doesn't grate on her the way he does others, and she doesn't perform the social warmth he usually dismisses.
 
 **Married to:** Fakel | **Apprentice:** Dagwen | **Mentor:** Thegan (deceased)
-**History:** Briefly courted by Fendalok when younger
 
 ---
 
