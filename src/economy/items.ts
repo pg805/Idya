@@ -37,6 +37,13 @@ export const ITEMS: Record<string, ItemDef> = {
     shovel_head_alloy:    { name: 'Shovel Head (Alloy)',  description: 'An alloy shovel blade — sharper and more durable than talamite.',        type: 'material' },
     wand_base_alloy:      { name: 'Wand Base (Alloy)',    description: 'A rod of refined alloy. Channels arcane energy with exceptional precision.', type: 'material' },
 
+    // Bait — consumed to start a battle, bought at the general store
+    swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones. Draws lithkem swallows out of the trees.',   type: 'consumable' },
+    sulfolk_bait: { name: 'Sulfolk Bait',  description: 'A bundle of fresh-cut branches. Sulfolk can\'t resist investigating.',                  type: 'consumable' },
+    wyrm_bait:    { name: 'Wyrm Bait',     description: 'A chunk of raw talamite ore. Talwyrm are drawn to the mineral scent.',                  type: 'consumable' },
+    deer_bait:    { name: 'Deer Bait',     description: 'A pouch of dried herbs from the forest floor. Daefen deer follow the smell for miles.', type: 'consumable' },
+    toad_bait:    { name: 'Toad Bait',     description: 'A jar of murky pond water. Maetoads surface when they smell their own.',                type: 'consumable' },
+
     // Valuables — dropped by enemies, sold at shops
     swallow_feather: { name: 'Swallow Feather', description: 'A sleek feather from a lithkem swallow. Light and iridescent.',                   type: 'valuable'   },
     venison:         { name: 'Venison',         description: 'Fresh meat from a daefen deer. Worth good korel at the general store.',           type: 'valuable'   },

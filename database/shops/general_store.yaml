@@ -4,6 +4,61 @@ Title: Shopkeeper
 Greeting: "Dolan glances up from behind the counter. 'Take a look around.'"
 
 Items:
+  - id: swallow_bait
+    Base_Buy: 0
+    Base_Sell: null
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: sulfolk_bait
+    Base_Buy: 5
+    Base_Sell: null
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: wyrm_bait
+    Base_Buy: 8
+    Base_Sell: 2
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: deer_bait
+    Base_Buy: 30
+    Base_Sell: 10
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: toad_bait
+    Base_Buy: 15
+    Base_Sell: 5
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
   - id: swallow_feather
     Base_Buy: 10
     Base_Sell: 6
