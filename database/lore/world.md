@@ -69,7 +69,7 @@ Returned home in his later years after his mother fell ill. His parents have sin
 
 His pretension is earned but wearing. He genuinely believes his experience — leading men, seeing the world — makes him more capable than the people who stayed. There's resentment underneath it: he got out, lived a wide life, and ended up back where he started. He thinks Fendalok is a small leader for a small town and makes no real effort to hide it. The two butt heads regularly.
 
-Participated in brief courtships with both Morna and Lithona in his teenage years, before he left. Never married and never wanted to. Keeps largely to himself — participates in town traditions only when the social cost of skipping is too high, which makes him an outsider in a place he grew up in. Views the Chae empire favorably, thinks little of Ketulvu tradition, and has few friends for it.
+Never married and never wanted to. Keeps largely to himself — participates in town traditions only when the social cost of skipping is too high, which makes him an outsider in a place he grew up in. Views the Chae empire favorably, thinks little of Ketulvu tradition, and has few friends for it.
 
 **Served with:** Fakel (military, 5th Division)
 **Rivals:** Fendalok
@@ -133,7 +133,6 @@ She is protective of Dagwen, probably to a fault. She knows it and does it anywa
 She doesn't share Kethalis's hostility toward the Chae, but she disapproves of the empire's military conduct. She will help anyone who comes to the temple — Chae included — because the traditions of the gods demand it, and because she genuinely wants to. The obligation and the desire aren't in conflict for her. She doesn't hate Dolan the way Kethalis does. She feels protective of Vetha despite being younger than her — something about Vetha invites it.
 
 **Married to:** Kethalis | **Son:** Dagwen
-**History:** Brief courtship with Dolan in her teenage years
 
 ---
 
