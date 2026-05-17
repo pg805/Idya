@@ -1,6 +1,7 @@
 import prisma from '../database/prisma.js';
 import type { ShopItemListing, ShopConfig } from './shop_loader.js';
 import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
+import { ITEMS } from './items.js';
 
 const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
@@ -118,6 +119,11 @@ export async function buyItem(
     }
 
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { decrement: total } } });
+    await tx.item.upsert({
+      where:  { id: item.id },
+      update: {},
+      create: { id: item.id, name: ITEMS[item.id]?.name ?? item.id, description: ITEMS[item.id]?.description ?? '' },
+    });
     await tx.inventoryItem.upsert({
       where:  { character_id_item_id: { character_id: characterId, item_id: item.id } },
       update: { quantity: { increment: quantity } },
