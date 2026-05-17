@@ -64,3 +64,22 @@ Participated in brief courtships with both Morna and Lithona in his teenage year
 
 **Served with:** Fakel (military, 5th Division)
 **Rivals:** Fendalok
+
+---
+
+### Vetha — Lumberjack, Sulku'it
+
+**Age:** 47 | **Origin:** Ketulvu
+
+Always struggled socially as a child — found more comfort among the sulfolk than her fellow townsfolk. She had friends, but often drifted elsewhere. As she grew up she learned the expected ways to behave, but only ever felt fully herself when working on something. Thegan, the old lumberjack, noticed and took her under his wing. She was a natural. She runs the trade now, carrying on his tradition.
+
+The gods confuse her. She follows the traditions so as not to upset them, but suspects she does anyway sometimes. Faith is an obligation she tries to honor without quite understanding it.
+
+When Fakel arrived she saw just another Chae guard come to collect taxes. It took months before he earned Fendalok's respect, and a few more before he earned hers. Their courtship was short. She found that his sensitivity contrasts and synergizes with her own disposition in ways that are hard to explain to outside observers — they look like an odd pair and work well anyway. She's glad Nisra takes after her father.
+
+Took Dagwen on as an apprentice to continue what Thegan did for her, and because the town needs it. She's worried he's not the right fit. He's capable and strong, but his immaturity sits poorly with the demands of running a business, and she feels ill-equipped to force him to grow up.
+
+Her marriage to Fakel didn't read as loyal to some Ketulvu in town. She understands the optics but doesn't much care — the Chae feel distant to her, and the ones she knows are kind enough. She and Dolan have a functional working relationship; he doesn't grate on her the way he does others, and she doesn't perform the social warmth he usually dismisses.
+
+**Married to:** Fakel | **Apprentice:** Dagwen | **Mentor:** Thegan (deceased)
+**History:** Briefly courted by Fendalok when younger

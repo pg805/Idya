@@ -1,7 +1,7 @@
 Name: A Hard Knock
-NPC: Bram
-Title: Woodcutter
-Greeting: "Bram sets down his axe. 'Need lumber, or something off the wall?'"
+NPC: Vetha
+Title: Lumberjack
+Greeting: "Vetha looks up from her work. 'What do you need?'"
 
 Items:
   # Raw material
