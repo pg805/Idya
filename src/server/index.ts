@@ -31,6 +31,7 @@ import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
+import { ITEMS } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
@@ -251,8 +252,8 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     training,
     items: prices.map(p => ({
       id:          p.id,
-      name:        dbItems.find(i => i.id === p.id)?.name        ?? p.id,
-      description: dbItems.find(i => i.id === p.id)?.description ?? '',
+      name:        ITEMS[p.id]?.name        ?? dbItems.find(i => i.id === p.id)?.name        ?? p.id,
+      description: ITEMS[p.id]?.description ?? dbItems.find(i => i.id === p.id)?.description ?? '',
       buy:         p.buy  ?? null,
       sell:        p.sell ?? null,
       stock:       p.current_stock,
@@ -1335,7 +1336,6 @@ if (discordToken) {
         return;
       }
 
-      const { ITEMS } = await import('../economy/items.js');
       const baitButtons = availableBait.map(r =>
         new ButtonBuilder()
           .setCustomId(`Hunt_${r.item_id}`)
