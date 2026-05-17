@@ -9,14 +9,15 @@
     "general_store":  "1083625495133954101",
     "forest":         "1083627990434467951",
     "temple":         "1500378189468274758",
-    "enchanting_shop":"1500378293910896744"
+    "enchanting_shop":"1500378293910896744",
+    "lumberjack":     "1505444652768034826"
   },
   "npcs": {
-    "mayor":         { "name": "Fendalok",       "title": "Padev"             },
-    "general_store": { "name": "Maren Tholt",   "title": "Shopkeeper"        },
-    "blacksmith":    { "name": "Borvan Crane",  "title": "Blacksmith"        },
-    "temple":        { "name": "Brother Oswin", "title": "Temple Keeper"     },
-    "enchanting":    { "name": "Sevan Mirk",    "title": "Enchanter"         },
-    "carpenter":     { "name": "Wren Dallow",   "title": "Carpenter"         }
+    "mayor":         { "name": "Fendalok", "title": "Padev"         },
+    "general_store": { "name": "Dolan",    "title": "Shopkeeper"    },
+    "blacksmith":    { "name": "Kethalis", "title": "Blacksmith"    },
+    "lumberjack":    { "name": "Vetha",    "title": "Lumberjack"    },
+    "temple":        { "name": "Lithona",  "title": "Temple Keeper" },
+    "enchanting":    { "name": "Lomis",    "title": "Enchanter"     }
   }
 }
