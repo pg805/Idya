@@ -44,7 +44,10 @@ const rest = new REST().setToken(token);
         // The put method is used to fully refresh all commands in the guild with the current set
         const data = await rest.put(
             // Routes.applicationGuildCommands('912129153216675851', '594244452437065729'),
-            Routes.applicationGuildCommands('912129153216675851', '1083250123284418590'),
+            Routes.applicationGuildCommands(
+                process.env.NODE_ENV === 'production' ? '1505456272965898270' : '912129153216675851',
+                '1083250123284418590'
+            ),
             { body: commands },
         );
 
