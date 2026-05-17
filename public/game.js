@@ -55,8 +55,9 @@ socket.on('turn_result', ({ log }) => {
 });
 
 socket.on('game_over', ({ winner }) => {
-  ui.phase = 'ended';
   const winnerTeam = state?.teams?.find(t => t.id === winner);
+  resetUI();
+  ui.phase = 'ended';
   appendLog([`━━━ Game Over! ${winnerTeam ? winnerTeam.name + ' wins!' : 'Draw!'} ━━━`], 'turn-divider');
   render();
 });

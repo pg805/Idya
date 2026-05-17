@@ -6,6 +6,7 @@
 - [ ] **Discord channel rework** — current channel structure is a mess, testers will see it immediately.
 - [ ] **Weapon flavor text pass** — go through all weapons, fix placeholder or weak strings.
 - [ ] **Dev → prod branch** — prod branch with finished code only.
+- [ ] **Proxied IP** — switch HOST_URL from local IP to a public proxy before testers join.
 
 ## Important (ship soon after)
 
