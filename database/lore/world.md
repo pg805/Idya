@@ -104,3 +104,22 @@ He hates the Chae empire and is quietly suspicious of Fakel, though he hides it 
 
 **Married to:** Lithona | **Son:** Dagwen | **Mentor:** Tovanas (deceased)
 **Allies:** Fendalok | **Avoids:** Dolan
+
+---
+
+### Lithona — Temple Keeper, Sulku'it
+
+**Age:** 40 | **Origin:** Ketulvu
+
+Born with stark white hair. Many saw it as a sign she was chosen by the gods and she was brought into temple life early. She learned the traditions with precision and developed a genuine, deep faith — not the inherited obligation many feel, but something she arrived at herself. She aims to embody the spirit and direction of the gods, not just the forms.
+
+She helps anyone who comes to her, without question. Healing, or just someone to listen. She carries her duties with care.
+
+Despite her separateness from ordinary town life, she had many friends growing up and kept them. If Morna is the town's mother, Lithona is its older sister — present, steady, someone people come to before things get bad enough to need Morna.
+
+She sees through Kethalis in ways others don't. She feels he wears a mask in public — the warmth is real, but there's more underneath that he keeps to himself. She sees her role in the marriage as keeping him grounded and honest. He pulls her outward; she pulls him inward. She understands this as a mirror of Vidali and Nokorna's divine relationship, which gives the dynamic a spiritual weight for her beyond the personal. They also simply love each other.
+
+She is protective of Dagwen, probably to a fault. She knows it and does it anyway.
+
+**Married to:** Kethalis | **Son:** Dagwen
+**History:** Brief courtship with Dolan in her teenage years
