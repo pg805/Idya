@@ -155,3 +155,22 @@ He thinks Kethalis is genuinely a good person and considers him a friend. He's n
 
 **Married to:** Vetha | **Daughter:** Nisra
 **Served with:** Dolan (5th Division) | **Respects:** Fendalok
+
+---
+
+### Morna — Baker, Sulku'it
+
+**Age:** 60 | **Origin:** Ketulvu
+
+The child the elders always held up as an example. She listened, did her work, stayed out of trouble. Never went through a rebellious phase. She got along with everyone, always has. Prim and proper in a way that has never felt like a performance — it's simply who she is.
+
+She became a baker because it was the proper thing to become. Not flashy, but essential. She follows the traditions of the gods for the same reason: it's what's right. She finds the Chae empire's conduct distasteful and improper, but has watched long enough to see the order it brings, and harbors a quiet, secret admiration she would never say aloud.
+
+Fendalok was the right choice. She knew it and chose accordingly. They have grown together over the years and she knows his mind as well as her own. When he's occupied, she considers herself the natural person to step in — she knows his goals, his values, his way of handling things. The town largely agrees with her on this.
+
+She always wanted children. Fendalok was always too busy, and now she feels it's too late. She has directed that feeling toward Nisra, filling something of a godmother role — or closer to a grandmother. She babies her more than Nisra probably wants.
+
+No one really dislikes Morna. But beyond Fendalok, she feels close to no one. She is warm with everyone and intimate with almost no one.
+
+**Married to:** Fendalok
+**History:** Brief courtship with Dolan in her teenage years
