@@ -24,13 +24,10 @@ Both traditions produce practitioners. The tension between them is cultural and 
 
 ## The Gods
 
-The Ketulvu pantheon is anchored by two divine figures whose relationship defines the shape of the world.
-
-**Vidali** is the god of life — growth, warmth, creation, and the force that animates living things. Sidaev in its most generous form is understood as Vidali's gift.
-
-**Nokorna** is the god of death — not malevolent, but necessary. The end of things, the return, the boundary that gives life its meaning. The Ketulvu do not fear Nokorna but treat the deity with deep respect.
-
-The relationship between Vidali and Nokorna is the central myth of Ketulvu faith: opposing forces that are incomplete without each other. Life without death is not life; death without life has nothing to return. Their divine pairing is the template the Ketulvu hold up for what a good partnership looks like — each drawing the other toward what they cannot reach alone. Lithona sees her marriage to Kethalis as a reflection of this.
+Ketulvu gods (details TBD):
+- **Dae** — referenced in Sidaev section
+- **Vidali** — god of life
+- **Nokorna** — god of death
 
 ---
 
@@ -112,7 +109,7 @@ He and Lithona were seen as a couple from a young age by the whole town. They ne
 
 Believes in the gods and sees Sulku'it as under their protection. He leaves the formal worship to Lithona beyond what tradition requires. He sees his role as helping carry out Fendalok's vision — or getting the other townsfolk to carry it out when he can't.
 
-He hates the Chae empire and is quietly suspicious of Fakel, though he hides it well. He and Dolan avoid each other.
+He hates the Chae empire and is quietly suspicious of Fakel, though he hides it well. He and Dolan avoid each other. He is subtly against Dagwen and Nisra's courtship but keeps it to himself.
 
 **Married to:** Lithona | **Son:** Dagwen | **Mentor:** Tovanas (deceased)
 **Allies:** Fendalok | **Avoids:** Dolan
@@ -137,3 +134,24 @@ She doesn't share Kethalis's hostility toward the Chae, but she disapproves of t
 
 **Married to:** Kethalis | **Son:** Dagwen
 **History:** Brief courtship with Dolan in her teenage years
+
+---
+
+### Fakel — Guard, Sulku'it
+
+**Age:** 52 | **Origin:** Chae, New Festus
+
+Grew up in New Festus, a city known for its great yearly festival. Had an awkward charm that got him along with most people and kept a small, close group of friends. Joined the army at 24, directionless. After years of combat he was stationed in Sulku'it for guard duty. That was twenty years ago.
+
+He has made good relations with most of the town. He knows how people see the empire, and he knows it could be a lot worse — he sees himself as the best person for the job precisely because of that. He feels no deep love for the empire; his city was conquered generations before he was born. The empire was just a constant. He figures he can be responsible with the power it gives him.
+
+He and Fendalok respect each other. Neither wants the friction that comes with their roles, but the nature of their jobs demands some of it. He loves Vetha deeply — has since he first saw her. The time it took to earn her respect was worth every bit of it. Every day with her is a gift.
+
+He doesn't believe in the Ketulvu gods, or the Chae ones either. He sees religion as a mechanism for enforcing cultural norms, and the norms it would have enforced for him were gone long before he arrived. He participates in Ketulvu tradition for Vetha and to be part of the community, and helps out where he can.
+
+He loves Nisra and sees a lot of himself in her — protective of the people she cares about. He's also worried she'll be a perpetual outsider because of him and what he does. He gently discourages her from following his path but is honored she'd want to. He's in favor of her and Dagwen's courtship.
+
+He thinks Kethalis is genuinely a good person and considers him a friend. He's noticed some low hostility and attributes it to the tax collection — he really hopes Kethalis actually likes him. He doesn't actually like Dolan much despite Dolan's respect for his service. He thinks being grouped with Dolan is bad for the life he's trying to build here.
+
+**Married to:** Vetha | **Daughter:** Nisra
+**Served with:** Dolan (5th Division) | **Respects:** Fendalok
