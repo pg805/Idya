@@ -1219,7 +1219,7 @@ let discordToken: string | null = null;
 try {
   discordToken = JSON.parse(
     fs.readFileSync(join(__dirname, '../../database/config.json'), 'utf-8')
-  )['TOKEN'] ?? null;
+  )[process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV']?.['TOKEN'] ?? null;
 } catch (_) {}
 
 if (discordToken) {

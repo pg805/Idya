@@ -30,7 +30,8 @@ for (const folder of commandFolders) {
     }
 }
 
-const token=JSON.parse(fs.readFileSync('./database/config.json','utf-8'))['TOKEN']
+const config = JSON.parse(fs.readFileSync('./database/config.json','utf-8'));
+const token = config[process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV']?.['TOKEN'];
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(token);
