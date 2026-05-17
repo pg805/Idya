@@ -1,7 +1,7 @@
 Name: The Enchanting Shop
-NPC: Sylvara
-Title: Enchantress
-Greeting: "Sylvara looks up from her tome. 'Ingredients or curiosities? I deal in both.'"
+NPC: Lomis
+Title: Enchanter
+Greeting: "Lomis looks up from his tome. 'Need something enchanted?'"
 
 Items:
   - id: thuvel

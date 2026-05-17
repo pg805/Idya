@@ -196,3 +196,23 @@ She finds male attention disconcerting. She's getting more of it than she expect
 She admires her father's stoic steadiness and tries to emulate it. She wants to travel one day, maybe see what's beyond Sulku'it. She keeps this to herself — joining the army is social suicide in town, and she knows what being associated with the empire has already cost her family.
 
 **Parents:** Vetha and Fakel
+
+---
+
+### Lomis — Enchanter, Sulku'it
+
+**Age:** 33 | **Origin:** Ketulvu, born and raised in Sulku'it
+
+Very smart as a kid, very smart as an adult. Discovered his affinity with Sidaev when he accidentally turned his hair orange as a child. He's kept it that way since.
+
+He doesn't like what the Chae empire has done to his town and culture, but lights up when a caravan brings new tomes or unfamiliar methods of working with Sidaev. The knowledge is the thing, wherever it comes from. He would rather spend an evening with a book than at the tavern, but will go out when Kethalis asks — Kethalis being one of the few people who can reliably pull him out.
+
+He likes Fakel. Thinks of him as a chill presence in a town that can have a lot of tension around him.
+
+He sees his practice as his form of worship — his way of serving the gods and honoring their traditions. He just arrives at it differently than everyone else, setting aside the conventional forms in favor of his work. Lithona and Morna find this distasteful. He understands their position and disagrees with it.
+
+Fendalok has started relying on him more as his capabilities have grown. New enchanting methods, new weapons — Lomis is increasingly a resource Fendalok didn't know he needed.
+
+He has been trying to recruit Dagwen as an apprentice, deploying Sidaev tricks to impress him. It hasn't worked.
+
+**Allies:** Kethalis, Fakel, Fendalok | **Friction:** Lithona, Morna
