@@ -110,6 +110,15 @@ function refreshTelegraphs(session: CombatSession): void {
 const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
+const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
+  swallow_bait: 'lithkem_swallow',
+  sulfolk_bait: 'sulfolk',
+  wyrm_bait:    'talwyrm',
+  deer_bait:    'daefen_deer',
+  toad_bait:    'maetoad',
+};
+const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
+
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   const fistsInfo = buildWeaponInfo(weapon);
@@ -1294,6 +1303,106 @@ if (discordToken) {
         embeds: [],
         components: [],
       });
+    }
+
+    // ---- Hunt ----
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'hunt') {
+      if (interaction.channelId !== worldConfig.channels.forest) {
+        await interaction.reply({ content: "You can only hunt in the forest.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const chars = await charRepo.list(interaction.user.id);
+      if (chars.length === 0) {
+        await interaction.reply({ content: "You don't have a character yet. Use the button in welcome to get started.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
+      if (!dbUser?.tutorial_complete) {
+        await interaction.reply({ content: "Talk to Fendalok first — use `/battle` to start the tutorial.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const baitRows = await prisma.inventoryItem.findMany({
+        where: { character_id: chars[0].id, item_id: { in: BAIT_ITEM_IDS } },
+      });
+      const availableBait = baitRows.filter(r => r.quantity > 0);
+
+      if (availableBait.length === 0) {
+        await interaction.reply({ content: "You don't have any bait. Visit the General Store to pick some up.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const { ITEMS } = await import('../economy/items.js');
+      const baitButtons = availableBait.map(r =>
+        new ButtonBuilder()
+          .setCustomId(`Hunt_${r.item_id}`)
+          .setLabel(`${ITEMS[r.item_id]?.name ?? r.item_id} (${r.quantity})`)
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+      for (let i = 0; i < baitButtons.length; i += 5) {
+        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(baitButtons.slice(i, i + 5)));
+      }
+
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x1a1a2e)
+            .setTitle('Sulkupa Forest')
+            .setDescription('The trees are dense this far out. Choose your bait and head in.'),
+        ],
+        components: rows,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('Hunt_')) {
+      const baitId = interaction.customId.replace('Hunt_', '');
+      const enemyKey = BAIT_TO_ENEMY[baitId];
+      if (!enemyKey) return;
+
+      const chars = await charRepo.list(interaction.user.id);
+      if (chars.length === 0) return;
+      const char = chars[0];
+
+      const consumed = await prisma.$transaction(async tx => {
+        const inv = await tx.inventoryItem.findUnique({
+          where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
+        });
+        if (!inv || inv.quantity < 1) return false;
+        if (inv.quantity === 1) {
+          await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: baitId } } });
+        } else {
+          await tx.inventoryItem.update({
+            where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
+            data: { quantity: { decrement: 1 } },
+          });
+        }
+        return true;
+      });
+
+      if (!consumed) {
+        await interaction.update({ content: "You don't have that bait anymore.", embeds: [], components: [] });
+        return;
+      }
+
+      const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
+      const sessionId = Math.random().toString(36).slice(2, 10);
+      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, char.weapon_key);
+      sessions.set(sessionId, huntSession);
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date() });
+
+      await interaction.update({
+        content: `**Into the forest!**\n${HOST}/battle/${sessionId}`,
+        embeds: [],
+        components: [],
+      });
+      return;
     }
 
     // ---- Character creation ----
