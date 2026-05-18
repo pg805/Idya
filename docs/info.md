@@ -4,7 +4,6 @@
 
 | Command | What it does |
 |---|---|
-| `/battle` | Start the tutorial |
 | `/hunt [bait]` | Start a real battle — consumes one bait item |
 | `/profile` | View your HP, korel, inventory, and weapons |
 | `/weapon` | Equip a weapon from your collection |
@@ -15,7 +14,7 @@
 
 ## How the Game Works
 
-Start with `/battle` to run through the tutorial. After that, buy bait from the General Store and use `/hunt` to fight real enemies.
+When you join the server, a welcome message will appear with a button to start the tutorial. Complete it before heading out to fight. After that, buy bait from the General Store and use `/hunt` to fight real enemies.
 
 Each fight is turn-based. You and the enemy pick actions simultaneously each round — strike, block, buff, and more. Win to earn korel and loot. Lose and you'll pay a 10% korel healing fee before you can fight again.
 
@@ -35,9 +34,8 @@ Open any shop with `/shop`. Prices shift dynamically based on supply and demand 
 |---|---|---|
 | General Store | Dolan | Bait, valuables |
 | Blacksmith | Kethalis | Metal weapons and components |
-| Lumberjack Shop | — | Wood weapons and components |
-| Enchanting Shop | — | Enchanting materials |
-| Temple | — | Coming soon |
+| Lumberjack Shop | Vetha | Wood weapons and components |
+| Enchanting Shop | Lomis | Enchanting materials |
 
 You can also sell items back to shops, and train your professions from the shop screen.
 
