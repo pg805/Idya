@@ -6,8 +6,9 @@ module.exports = {
             cwd: '/home/mac-admin/Idya',
             env: {
                 NODE_ENV: 'development',
-                PORT: 3001,
-                HOST_URL: 'http://10.0.0.52:3001'
+                PORT: 3000,
+                HOST_URL: 'http://10.0.0.52:3000',
+                DATABASE_URL: process.env.DATABASE_URL
             },
             watch: false
         },
