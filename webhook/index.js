@@ -27,8 +27,15 @@ createServer((req, res) => {
 
         if (event === 'push' && payload.ref === 'refs/heads/dev') {
             res.writeHead(200);
-            res.end('Deploying');
+            res.end('Deploying dev');
             exec('/home/mac-admin/Idya/deploy.sh', (err, stdout, stderr) => {
+                if (err) console.error('Deploy error:', stderr);
+                else console.log('Deploy output:', stdout);
+            });
+        } else if (event === 'push' && payload.ref === 'refs/heads/main') {
+            res.writeHead(200);
+            res.end('Deploying prod');
+            exec('/home/mac-admin/Idya/deploy-prod.sh', (err, stdout, stderr) => {
                 if (err) console.error('Deploy error:', stderr);
                 else console.log('Deploy output:', stdout);
             });
