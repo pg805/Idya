@@ -41,16 +41,16 @@
       "ooc":      ""
     },
     "channels": {
-      "welcome":        "",
-      "rules":          "",
-      "town_square":    "",
-      "general_store":  "",
-      "blacksmith":     "",
-      "temple":         "",
-      "enchanting_shop":"",
-      "lumberjack":     "",
-      "forest":         "",
-      "ooc":            ""
+      "welcome":        "1505456785404858400",
+      "rules":          "1505768106423746620",
+      "town_square":    "1505768263156629534",
+      "general_store":  "1505768448553259050",
+      "blacksmith":     "1505768489405780052",
+      "temple":         "1505768518229168249",
+      "enchanting_shop":"1505768605911093400",
+      "lumberjack":     "1505768648994979941",
+      "forest":         "1505768691311317072",
+      "ooc":            "1505768803810938981"
     }
   }
 }
