@@ -1713,6 +1713,13 @@ if (discordToken) {
     });
   });
 
+  // ---- Ping ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'ping') return;
+    await interaction.reply('Pong!');
+  });
+
   // ---- Guild member join ----
 
   discord.on(Events.GuildMemberAdd, async (member) => {
