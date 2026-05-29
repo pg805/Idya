@@ -190,7 +190,6 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
 // ---- Web server ----
 
 app.use(express.static(join(__dirname, '../../public')));
-app.use('/cdn', express.static(join(__dirname, '../../public')));
 app.use(express.json());
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
