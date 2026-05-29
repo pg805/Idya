@@ -523,6 +523,11 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
 
     const outputId = recipe.output.id!;
     if (recipe.output.type === 'item') {
+      await tx.item.upsert({
+        where:  { id: outputId },
+        update: {},
+        create: { id: outputId, name: ITEMS[outputId]?.name ?? outputId, description: ITEMS[outputId]?.description ?? '' },
+      });
       await tx.inventoryItem.upsert({
         where:  { character_id_item_id: { character_id: chars[0].id, item_id: outputId } },
         update: { quantity: { increment: recipe.output.quantity ?? 1 } },
@@ -1572,8 +1577,8 @@ if (discordToken) {
       const target   = interaction.options.getUser('user', true);
       const itemId   = interaction.options.getString('item', true).toLowerCase().trim();
       const quantity = interaction.options.getInteger('quantity') ?? 1;
-      const item = await prisma.item.findUnique({ where: { id: itemId } });
-      if (!item) {
+      const itemDef = ITEMS[itemId];
+      if (!itemDef) {
         await interaction.reply({ content: `No item found with ID \`${itemId}\`.`, flags: MessageFlags.Ephemeral });
         return;
       }
@@ -1582,12 +1587,17 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
+      await prisma.item.upsert({
+        where:  { id: itemId },
+        update: {},
+        create: { id: itemId, name: itemDef.name, description: itemDef.description },
+      });
       await prisma.inventoryItem.upsert({
         where:  { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
         update: { quantity: { increment: quantity } },
         create: { character_id: chars[0].id, item_id: itemId, quantity },
       });
-      await interaction.reply({ content: `Gave ${quantity}× **${item.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `Gave ${quantity}× **${itemDef.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
     if (sub === 'giveprofession') {
       const target     = interaction.options.getUser('user', true);
