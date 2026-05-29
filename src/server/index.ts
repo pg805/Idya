@@ -1163,8 +1163,8 @@ function buildNationalitySelect(): { content: string; components: ActionRowBuild
     .setCustomId('NationalitySelect')
     .setPlaceholder('Select your nationality...')
     .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Chaevul').setValue('Chaevul'),
-      new StringSelectMenuOptionBuilder().setLabel('Ketuvul').setValue('Ketuvul'),
+      new StringSelectMenuOptionBuilder().setLabel('Chae').setValue('Chae'),
+      new StringSelectMenuOptionBuilder().setLabel('Ketulvu').setValue('Ketulvu'),
     );
   return {
     content: 'Where are you from?',
