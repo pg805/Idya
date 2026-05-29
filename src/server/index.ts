@@ -1753,6 +1753,10 @@ if (discordToken) {
     console.log(`Discord bot ready: ${c.user.tag}`);
   });
 
+  discord.on('error', (err) => {
+    console.error('Discord client error (non-fatal):', err.message);
+  });
+
   discord.login(discordToken);
 } else {
   console.log('No Discord token found — running web server only.');
