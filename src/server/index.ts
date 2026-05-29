@@ -1158,6 +1158,21 @@ function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBui
   };
 }
 
+function buildNationalitySelect(): { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[]; flags: typeof MessageFlags.Ephemeral } {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('NationalitySelect')
+    .setPlaceholder('Select your nationality...')
+    .addOptions(
+      new StringSelectMenuOptionBuilder().setLabel('Chaevul').setValue('Chaevul'),
+      new StringSelectMenuOptionBuilder().setLabel('Ketuvul').setValue('Ketuvul'),
+    );
+  return {
+    content: 'Where are you from?',
+    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
+    flags: MessageFlags.Ephemeral,
+  };
+}
+
 function buildCharModal(): ModalBuilder {
   const modal = new ModalBuilder().setCustomId('CreateCharModal').setTitle('Create Your Character');
   modal.addComponents(
@@ -1170,15 +1185,6 @@ function buildCharModal(): ModalBuilder {
         .setMaxLength(32)
         .setPlaceholder("Enter your character's name...")
         .setRequired(true)
-    ),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('CreateCharNationalityInput')
-        .setLabel('Nationality')
-        .setStyle(TextInputStyle.Short)
-        .setMaxLength(64)
-        .setPlaceholder('Where are you from?')
-        .setRequired(false)
     ),
     new ActionRowBuilder<TextInputBuilder>().addComponents(
       new TextInputBuilder()
@@ -1371,14 +1377,23 @@ if (discordToken) {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
-      const name        = interaction.fields.getTextInputValue('CreateCharNameInput');
-      const nationality = interaction.fields.getTextInputValue('CreateCharNationalityInput').trim() || undefined;
-      const bio         = interaction.fields.getTextInputValue('CreateCharBioInput').trim()         || undefined;
-      pendingCharCreation.set(interaction.user.id, { name, nationality, bio });
-      await interaction.reply({
+      const name = interaction.fields.getTextInputValue('CreateCharNameInput');
+      const bio  = interaction.fields.getTextInputValue('CreateCharBioInput').trim() || undefined;
+      pendingCharCreation.set(interaction.user.id, { name, bio });
+      await interaction.reply(buildNationalitySelect());
+      return;
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'NationalitySelect') {
+      const pending = pendingCharCreation.get(interaction.user.id);
+      if (!pending) {
+        await interaction.update({ content: 'Session expired. Run /createcharacter again.', components: [] });
+        return;
+      }
+      pending.nationality = interaction.values[0];
+      await interaction.update({
         ...buildSpritePicker(),
-        content: `Welcome to Sulku'it, **${name}**! Choose a sprite to represent you in battle.`,
-        flags: MessageFlags.Ephemeral,
+        content: `Welcome to Sulku'it, **${pending.name}**! Choose a sprite to represent you in battle.`,
       });
       return;
     }
