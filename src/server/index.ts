@@ -1163,11 +1163,11 @@ function buildNationalitySelect(): { content: string; components: ActionRowBuild
     .setCustomId('NationalitySelect')
     .setPlaceholder('Select your nationality...')
     .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Chae').setValue('Chae'),
-      new StringSelectMenuOptionBuilder().setLabel('Ketulvu').setValue('Ketulvu'),
+      new StringSelectMenuOptionBuilder().setLabel('Chae').setValue('Chae').setDescription('Empire citizen'),
+      new StringSelectMenuOptionBuilder().setLabel('Ketulvu').setValue('Ketulvu').setDescription('Frontier local'),
     );
   return {
-    content: 'Where are you from?',
+    content: 'What nationality are you?',
     components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
     flags: MessageFlags.Ephemeral,
   };
