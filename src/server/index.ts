@@ -1429,7 +1429,7 @@ if (discordToken) {
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'admin') return;
-    if (!interaction.member || (!isAdmin(interaction.member) && !isDev(interaction.user.id))) {
+    if (!interaction.member || !isAdmin(interaction.member)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
       return;
     }
