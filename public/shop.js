@@ -73,7 +73,7 @@ function renderTraining() {
     : `Level ${t.level} / ${t.maxLevel} — Next: ${t.nextCost.toLocaleString()} korel`;
   const btn = document.getElementById('training-btn');
   btn.disabled = atMax;
-  btn.textContent = atMax ? 'Mastered' : 'Train';
+  btn.textContent = atMax ? 'Mastered' : `Train ${t.label}`;
 }
 
 async function doTrain() {

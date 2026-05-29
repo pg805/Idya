@@ -1238,7 +1238,7 @@ function levelCost(combinedLevel: number): number | null {
 
 const SHOP_TO_PROFESSION: Partial<Record<string, ProfessionKey>> = {
   blacksmith:      'blacksmith',
-  general_store:   'lumberjack',
+  lumberjack:      'lumberjack',
   enchanting_shop: 'enchanter',
 };
 
