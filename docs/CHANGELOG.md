@@ -35,3 +35,65 @@
 - **Deploy reliability** — replaced `git pull` with `git fetch + git reset --hard` so local file differences never block deployment; added `flock` to serialize concurrent webhook deploys
 - **Prod deploy pipeline** — `deploy-prod.sh` is now called from the prod repo (`Idya-prod`) so the prod pipeline is independent of the dev repo; both scripts are invoked with `bash` so the execute bit is never required
 - **Webhook concurrent deploys** — changed from non-blocking `flock -n` (dropped deploys silently) to blocking `flock` (queues and runs all pushes in order)
+
+---
+
+## 0.0.1 — Alpha
+
+> Initial Alpha release. Shipped as version Alpha-1.0 internally.
+
+### Combat System
+- **Spatial grid combat** — turn-based battles on a tile grid with movement, collision, and line-of-sight; browser UI served via Express + Socket.io
+- **Action types** — Strike, Block, Buff, Debuff, Heal, DOT, Reflect, Shield; aimed (player selects target tile) and reactive (fires without targeting)
+- **Crit system** — `attack_crit` fires when the attacker uses Attack and the target is using Special the same turn
+- **Damage types & resistances** — Physical / Arcane / Elemental with subtypes; enemy resistances shift the damage roll mode (Hd4 weakness, Ld2 resist, 1d neutral)
+- **Resource costs** — actions consume and restore stamina/resource; AI and player both governed by the same rules
+- **AI pattern engine** — enemies follow repeating pattern sequences (Defend / Attack / Special); reroutes around blocked tiles
+- **Telegraph system** — shows the enemy's intent each turn based on their pattern and position
+
+### Enemies
+- 5 enemies: **Lithkem Swallow**, **Sulfolk**, **Talwyrm**, **Daefen Deer**, **Maetoad** — each with unique weapons, patterns, resistances, and loot tables
+
+### Weapons
+- **Starter:** Branch
+- **Lumberjack:** Quarterstaff, Bow, Sword (wood), Axe (wood), Shovel (wood), and hardwood variants of each
+- **Blacksmith:** Dagger, Mace, Wand (talamite), and talamite/alloy variants
+- **Enchanter:** Kustaff, Spellbook, Deck of Cards, Mental Cage
+- **Special:** Honor
+- All weapons have 6 action sets (Defend, Defend Crit, Attack, Attack Crit, Special, Special Crit)
+
+### Discord Integration
+- **`/hunt`** — start a battle from a bait item in your inventory; links to the browser UI
+- **`/createcharacter`** — modal flow: name → bio → nationality (text input) → sprite picker
+- **`/profile`** — shows HP, korel, equipped and owned weapons, inventory
+- **`/weapon`** — equip a weapon you own
+- **`/shop`** — opens the web shop UI for the channel you're in
+- **`/craft`** — opens the crafting/upgrade web UI
+- **`/ping`** — pong
+- **Tutorial** — scripted first battle against a weakened Lithkem Swallow with Fendalok; unlocks the forest on completion
+- **Welcome flow** — ephemeral join embed with a button to post publicly to town square
+- **Battle result pings** — forest channel post on win (loot summary) or loss (healing fee)
+- **Admin commands** — `/admin givekorel`, `giveitem`, `giveprofession`, `giveweapon`, `resetcharacter`, `joinsim`, `setprofession`
+
+### Economy
+- **Shops** — General Store, Blacksmith, Lumberjack, Temple, Enchanting Shop; each with an NPC and greeting
+- **Dynamic pricing** — logistic map price model; prices shift with buy/sell volume and stock levels
+- **Professions** — Lumberjack, Blacksmith, Enchanter; each levels 1–10, combined cap of 30; trained at their respective shops
+- **Crafting** — recipe trees for all three professions; material intermediates (sulwood, talamite, hiruos) and weapon assembly
+- **Weapon upgrades** — Craft/Upgrade tab; per-action field and value upgrades; budget unlocks at level 4, scales to level 10; upgrade costs in tier-2/tier-3 materials
+- **Enchanting** — minor enchants (subtype only) and major enchants (type + subtype); 3 slots per weapon; applied via `/api/enchant`
+- **Korel** — currency with full ledger; earned from battles, spent at shops and on upgrades; 10% healing fee on defeat
+- **Inventory** — items persist per character; shop stock tracked per shop
+
+### Characters & World
+- **Character persistence** — PostgreSQL via Prisma; one character per user
+- **Sprites** — Asterius, Penni, Trenton Steelhammer, Lone Climber, and others; render on the battle grid token
+- **Nationality** — Chae / Ketulvu (lore-backed)
+- **NPCs** — Fendalok (Padev), Dolan (General Store), Kethalis (Blacksmith), Vetha (Lumberjack), Lithona (Temple), Lomis (Enchanter); each with character lore
+- **World config** — dev/prod split; guild IDs, channel IDs, admin roles, NPC definitions in `world.json`
+
+### Infrastructure
+- **Deploy webhook** — GitHub webhook triggers `deploy.sh` / `deploy-prod.sh` via pm2; dev and prod run as separate pm2 processes on the same host
+- **Cloudflare tunnel** — `idya.slowb.rodeo` routes to prod (port 3001); dev accessible on local network (port 3000)
+- **Dev/prod config split** — `NODE_ENV=production` selects prod guild, channels, and bot token
+- **Audit logs** — `KorelLedger`, `BattleLog`, `EventLog` tables track all economy and combat events
