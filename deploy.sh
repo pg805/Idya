@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+exec 9>/tmp/idya-dev-deploy.lock
+flock -n 9 || { echo "Deploy already in progress, skipping."; exit 0; }
 cd /home/mac-admin/Idya
 git pull origin dev
 npm install --include=dev
