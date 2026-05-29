@@ -5,7 +5,7 @@ export interface SpriteInfo {
 
 export const SPRITES: SpriteInfo[] = [
     { key: 'asterius',      name: 'Asterius'              },
-    { key: 'penni',         name: 'Penni'                 },
+    { key: 'penni-cold',    name: 'Penni'                 },
     { key: 'trenton',       name: 'Trenton Steelhammer'   },
     { key: 'loneclimber',   name: 'Lone Climber'          },
     { key: 'francesco',     name: 'Francesco'             },
