@@ -206,6 +206,21 @@ function validShop(key: string): boolean {
   return fs.existsSync(join(SHOP_DIR, `${key}.yaml`));
 }
 
+async function pingChannel(channelId: string | undefined, msg: string): Promise<void> {
+  if (!discord || !channelId) return;
+  try {
+    const ch = await discord.channels.fetch(channelId);
+    if (ch?.isTextBased() && 'send' in ch)
+      await (ch as import('discord.js').TextChannel).send(msg);
+  } catch (err) { console.error('Ping failed:', err); }
+}
+
+const PROFESSION_CHANNEL: Partial<Record<string, string>> = {
+  lumberjack: worldConfig.channels.lumberjack,
+  blacksmith:  worldConfig.channels.blacksmith,
+  enchanter:   worldConfig.channels.enchanting_shop,
+};
+
 app.get('/shop/:shopKey', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/shop.html'));
 });
@@ -336,7 +351,14 @@ app.post('/api/shop/:shopKey/buy', async (req: Request, res: Response) => {
   const prices = await getPrices(shopKey, config);
   const item   = prices.find(p => p.id === itemId);
   if (!item || item.buy == null) { res.status(400).json({ error: 'Item not available' }); return; }
-  res.json(await buyItem(shopKey, item, chars[0].id, discordId, quantity));
+  const buyResult = await buyItem(shopKey, item, chars[0].id, discordId, quantity);
+  res.json(buyResult);
+  if (buyResult.success) {
+    void pingChannel(
+      (worldConfig.channels as Record<string, string>)[shopKey],
+      `<@${discordId}> bought **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** from ${config.npc}.`,
+    );
+  }
 });
 
 app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
@@ -354,7 +376,14 @@ app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
   const prices = await getPrices(shopKey, config);
   const item   = prices.find(p => p.id === itemId);
   if (!item || item.sell == null) { res.status(400).json({ error: 'Item not available' }); return; }
-  res.json(await sellItem(shopKey, item, chars[0].id, discordId, quantity));
+  const sellResult = await sellItem(shopKey, item, chars[0].id, discordId, quantity);
+  res.json(sellResult);
+  if (sellResult.success) {
+    void pingChannel(
+      (worldConfig.channels as Record<string, string>)[shopKey],
+      `<@${discordId}> sold **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+    );
+  }
 });
 
 app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
@@ -374,7 +403,14 @@ app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
     where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
   });
   if (!inv || inv.quantity === 0) { res.json({ success: false, message: "You don't have any." }); return; }
-  res.json(await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity));
+  const sellAllResult = await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity);
+  res.json(sellAllResult);
+  if (sellAllResult.success) {
+    void pingChannel(
+      (worldConfig.channels as Record<string, string>)[shopKey],
+      `<@${discordId}> sold their **${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+    );
+  }
 });
 
 // ---- Craft routes ----
@@ -527,6 +563,12 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   });
 
   res.json(result);
+  if (result.success) {
+    void pingChannel(
+      PROFESSION_CHANNEL[recipe.profession],
+      `<@${discordId}> crafted a **${recipe.name}**!`,
+    );
+  }
 });
 
 // ---- Upgrade endpoints ----
