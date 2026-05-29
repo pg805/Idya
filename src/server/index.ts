@@ -1599,6 +1599,7 @@ if (discordToken) {
     const char = chars[0];
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
 
+    const professions = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
     const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
     const weaponsText = ownedWeapons.length > 0
       ? ownedWeapons.map(cw => {
@@ -1615,15 +1616,24 @@ if (discordToken) {
       ? inventory.map(i => `${i.quantity}x ${i.item.name}`).join('\n')
       : 'Empty';
 
+    const profMap: Record<string, string> = { lumberjack: 'Lumberjack', blacksmith: 'Blacksmith', enchanter: 'Enchanter' };
+    const profText = Object.entries(profMap)
+      .map(([key, label]) => {
+        const lvl = professions.find(p => p.profession === key)?.level ?? 0;
+        return `${label}: ${lvl}`;
+      })
+      .join('\n');
+
     const embed = new EmbedBuilder()
       .setColor(0x1a1a2e)
       .setTitle(char.name)
       .addFields(
-        { name: 'HP',        value: `${char.health} / ${char.max_health}`, inline: true },
-        { name: 'Korel',     value: `${dbUser?.korel ?? 0}`,              inline: true },
-        { name: '​',    value: '​',                              inline: true },
-        { name: 'Weapons',   value: weaponsText,                           inline: false },
-        { name: 'Inventory', value: invText,                               inline: false },
+        { name: 'HP',          value: `${char.health} / ${char.max_health}`, inline: true },
+        { name: 'Korel',       value: `${dbUser?.korel ?? 0}`,              inline: true },
+        { name: '​',      value: '​',                              inline: true },
+        { name: 'Professions', value: profText,                              inline: false },
+        { name: 'Weapons',     value: weaponsText,                           inline: false },
+        { name: 'Inventory',   value: invText,                               inline: false },
       );
 
     if (char.sprite_token) {
