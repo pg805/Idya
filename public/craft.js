@@ -254,12 +254,16 @@ function renderUpgradePanel() {
     return;
   }
 
+  const atCap    = w.weapon_total >= w.weapon_cap;
+  const nextProf = w.upgrade_professions.find(p => !p.at_cap);
+  const nextCost = nextProf?.next_cost ?? null;
+
   const budgetHtml = `
     <div class="upgrade-budget">
-      <span class="budget-used">${w.upgrades_used} / ${w.budget} upgrades used</span>
-      ${w.at_cap
-        ? '<span class="budget-cap">Budget full — level up Lumberjack</span>'
-        : `<span class="budget-next">Next: <b>${w.next_cost.quantity}</b> ${esc(w.next_cost.material)}</span>`}
+      <span class="budget-used">${w.weapon_total} / ${w.weapon_cap} upgrades used</span>
+      ${atCap
+        ? '<span class="budget-cap">Budget full — level up to expand</span>'
+        : nextCost ? `<span class="budget-next">Next: <b>${nextCost.quantity}</b> ${esc(nextCost.material)}</span>` : ''}
     </div>`;
 
   let sectionsHtml = '';
@@ -267,7 +271,7 @@ function renderUpgradePanel() {
     const actions = w.actions.filter(a => a.category === cat);
     if (actions.length === 0) continue;
     sectionsHtml += `<div class="upgrade-section"><p class="upg-cat-label">${CAT_LABELS[cat]}</p>`;
-    for (const a of actions) sectionsHtml += renderActionRow(a, w);
+    for (const a of actions) sectionsHtml += renderActionRow(a, w, atCap);
     sectionsHtml += '</div>';
   }
 
@@ -276,7 +280,7 @@ function renderUpgradePanel() {
   if (pendingDelta) renderFieldEditor();
 }
 
-function renderActionRow(a, w) {
+function renderActionRow(a, w, atCap) {
   if (!a.upgradeable) {
     return `<div class="upg-action dim">
       <span class="upg-name">${esc(a.name)}</span>
@@ -289,7 +293,7 @@ function renderActionRow(a, w) {
   if (a.type === 'value') {
     const totalBonus = a.base_bonus + a.player_bonus;
     const bonusTag   = totalBonus > 0 ? `<span class="bonus-tag">+${totalBonus}</span>` : '';
-    const btn = (!w.at_cap && !pendingDelta)
+    const btn = (!atCap && !pendingDelta)
       ? `<button class="upg-btn" onclick="upgradeValue('${esc(a.name)}')">+1</button>` : '';
     return `<div class="upg-action">
       <span class="upg-name">${esc(a.name)}</span>
@@ -304,7 +308,7 @@ function renderActionRow(a, w) {
   const totalBonus  = playerTotal + baseTotal;
   const bonusTag    = totalBonus > 0 ? `<span class="bonus-tag">+${totalBonus}</span>` : '';
   const statText    = fieldSummary(a.effective);
-  const btn = (!w.at_cap && !pendingDelta && !editingThis)
+  const btn = (!atCap && !pendingDelta && !editingThis)
     ? `<button class="upg-btn" onclick="startFieldEdit('${esc(a.name)}', ${a.field_len})">Upgrade</button>` : '';
 
   return `<div class="upg-action" id="upg-action-${safeId(a.name)}">
