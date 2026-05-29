@@ -790,6 +790,12 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
   });
 
   res.json(result);
+  if (result.success) {
+    void pingChannel(
+      PROFESSION_CHANNEL[profession],
+      `<@${discordId}> upgraded **${raw.Name}** — ${action}!`,
+    );
+  }
 });
 
 // ---- Enchant endpoint ----
