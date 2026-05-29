@@ -10,6 +10,7 @@ export function xToMultiplier(x: number): number {
 }
 
 export function currentR(item: ShopItemListing, recentVolume: number): number {
+  if (item.volume_sensitivity === 0) return item.r;
   return Math.min(item.r + (recentVolume / item.volume_sensitivity) * 0.01, item.r_max);
 }
 
