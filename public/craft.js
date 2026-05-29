@@ -249,7 +249,7 @@ function renderUpgradePanel() {
   if (!selectedWeapon) { panel.innerHTML = ''; return; }
   const w = selectedWeapon;
 
-  if (w.budget === 0) {
+  if (w.weapon_cap === 0) {
     panel.innerHTML = '<p class="upgrade-locked">Reach level 4 in a profession to unlock weapon upgrades.</p>';
     return;
   }
