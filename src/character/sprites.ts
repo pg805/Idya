@@ -6,6 +6,7 @@ export interface SpriteInfo {
 export const SPRITES: SpriteInfo[] = [
     { key: 'asterius',      name: 'Asterius'              },
     { key: 'penni',         name: 'Penni'                 },
+    { key: 'trenton',       name: 'Trenton Steelhammer'   },
     { key: 'loneclimber',   name: 'Lone Climber'          },
     { key: 'francesco',     name: 'Francesco'             },
     { key: 'carina',        name: 'Carina'                },
@@ -13,7 +14,6 @@ export const SPRITES: SpriteInfo[] = [
     { key: 'thokk',         name: 'Thokk'                 },
     { key: 'drachedandion', name: 'Drachedandion Rhogar'  },
     { key: 'brennen',       name: 'Brennen Rueskam'       },
-    { key: 'trenton',       name: 'Trenton Steelhammer'   },
     { key: 'flint',         name: 'Flint Smithson'        },
     { key: 'xolgren',       name: 'Xolgren'               },
     { key: 'decodra',       name: 'DeCoDra'               },
