@@ -6,7 +6,6 @@ export interface SpriteInfo {
 export const SPRITES: SpriteInfo[] = [
     { key: 'asterius',      name: 'Asterius'              },
     { key: 'penni',         name: 'Penni'                 },
-    { key: 'dazzle',        name: 'Dazzle'                },
     { key: 'loneclimber',   name: 'Lone Climber'          },
     { key: 'francesco',     name: 'Francesco'             },
     { key: 'carina',        name: 'Carina'                },
