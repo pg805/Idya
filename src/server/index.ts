@@ -1747,6 +1747,7 @@ if (discordToken) {
   const CHANNEL_TO_SHOP: Record<string, string> = {
     [worldConfig.channels.blacksmith]:      'blacksmith',
     [worldConfig.channels.general_store]:   'general_store',
+    [worldConfig.channels.lumberjack]:      'lumberjack',
     [worldConfig.channels.temple]:          'temple',
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
