@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.3 — Unreleased
+## 0.0.3 — 2026-05-29
 
 ### Features
 - **Batch crafting** — quantity input on craft button (1–99), runs in a single transaction with one Discord ping
