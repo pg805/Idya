@@ -1286,6 +1286,22 @@ const SHOP_TO_PROFESSION: Partial<Record<string, ProfessionKey>> = {
 
 let discord: import('discord.js').Client | null = null;
 let discordToken: string | null = null;
+
+async function notifyBotLog(title: string, color: number, fields: { name: string; value: string }[] = []): Promise<void> {
+  const channelId = worldConfig.channels.bot_log;
+  if (!discord || !channelId) return;
+  try {
+    const ch = await discord.channels.fetch(channelId).catch(() => null);
+    if (ch?.isTextBased() && 'send' in ch) {
+      const embed = new EmbedBuilder()
+        .setColor(color)
+        .setTitle(title)
+        .setTimestamp()
+        .addFields(fields.map(f => ({ ...f, value: String(f.value).slice(0, 1024) })));
+      await (ch as import('discord.js').TextChannel).send({ embeds: [embed] });
+    }
+  } catch (_) {}
+}
 try {
   discordToken = JSON.parse(
     fs.readFileSync(join(__dirname, '../../database/config.json'), 'utf-8')
@@ -1821,31 +1837,51 @@ if (discordToken) {
     await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
   });
 
-  discord.once(Events.ClientReady, async (c) => {
-    console.log(`Discord bot ready: ${c.user.tag}`);
-    if (!worldConfig.channels.bot_log) return;
+  discord.once(Events.ClientReady, async () => {
+    console.log(`Discord bot ready`);
+    let commitLine = 'unknown';
     try {
-      let commitLine = 'unknown';
-      try {
-        const { execSync } = await import('child_process');
-        commitLine = execSync('git log -1 --format="%h %s"', { cwd: join(__dirname, '../..') }).toString().trim();
-      } catch (_) {}
-      const env   = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
-      const embed = new EmbedBuilder()
-        .setColor(env === 'prod' ? 0x2ecc71 : 0x3498db)
-        .setTitle(`🟢 Bot restarted (${env})`)
-        .addFields(
-          { name: 'Commit', value: commitLine,               inline: false },
-          { name: 'Time',   value: new Date().toISOString(), inline: false },
-        );
-      const ch = await c.channels.fetch(worldConfig.channels.bot_log);
-      if (ch?.isTextBased() && 'send' in ch)
-        await (ch as import('discord.js').TextChannel).send({ embeds: [embed] });
-    } catch (err) { console.error('Bot log notification failed:', err); }
+      const { execSync } = await import('child_process');
+      commitLine = execSync('git log -1 --format="%h %s"', { cwd: join(__dirname, '../..') }).toString().trim();
+    } catch (_) {}
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+    await notifyBotLog(
+      `🟢 Bot online (${env})`,
+      env === 'prod' ? 0x2ecc71 : 0x3498db,
+      [{ name: 'Commit', value: commitLine }],
+    );
   });
 
   discord.on('error', (err) => {
-    console.error('Discord client error (non-fatal):', err.message);
+    console.error('Discord client error:', err.message);
+    void notifyBotLog('⚠️ Discord client error', 0xe67e22, [{ name: 'Error', value: err.message }]);
+  });
+
+  // ---- Lifecycle notifications ----
+
+  const shutdown = async (signal: string) => {
+    console.log(`Shutting down (${signal})`);
+    await notifyBotLog(`🔴 Bot going offline (${signal})`, 0xe74c3c);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => { shutdown('SIGTERM').catch(() => process.exit(0)); });
+  process.on('SIGINT',  () => { shutdown('SIGINT').catch(() => process.exit(0)); });
+
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught exception:', err);
+    const note = notifyBotLog('🔴 Bot crashed (uncaught exception)', 0xe74c3c, [
+      { name: 'Error', value: err.message || String(err) },
+      { name: 'Stack', value: err.stack ?? 'no stack' },
+    ]);
+    Promise.race([note, new Promise(r => setTimeout(r, 4000))]).finally(() => process.exit(1));
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled rejection:', reason);
+    void notifyBotLog('⚠️ Unhandled promise rejection', 0xe67e22, [
+      { name: 'Reason', value: String(reason) },
+    ]);
   });
 
   discord.login(discordToken);
