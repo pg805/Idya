@@ -249,6 +249,11 @@ function renderUpgradePanel() {
   if (!selectedWeapon) { panel.innerHTML = ''; return; }
   const w = selectedWeapon;
 
+  if (w.budget === 0) {
+    panel.innerHTML = '<p class="upgrade-locked">Reach level 4 in a profession to unlock weapon upgrades.</p>';
+    return;
+  }
+
   const budgetHtml = `
     <div class="upgrade-budget">
       <span class="budget-used">${w.upgrades_used} / ${w.budget} upgrades used</span>

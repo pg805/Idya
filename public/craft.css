@@ -222,6 +222,8 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
 
 .empty { padding: 28px 20px; color: #252e3a; font-style: italic; font-size: 0.78rem; }
 
+.upgrade-locked { padding: 28px 20px; color: #445; font-style: italic; font-size: 0.82rem; }
+
 /* ---- Page tabs (Craft / Upgrade) ---- */
 #page-tabs {
   display: flex;
