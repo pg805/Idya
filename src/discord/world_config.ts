@@ -26,6 +26,7 @@ export interface WorldConfig {
     enchanting_shop: string;
     lumberjack:     string;
     ooc:            string;
+    bot_log?:       string;
   };
   npcs: {
     mayor:         NpcDef;

@@ -1821,8 +1821,27 @@ if (discordToken) {
     await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
   });
 
-  discord.once(Events.ClientReady, (c) => {
+  discord.once(Events.ClientReady, async (c) => {
     console.log(`Discord bot ready: ${c.user.tag}`);
+    if (!worldConfig.channels.bot_log) return;
+    try {
+      let commitLine = 'unknown';
+      try {
+        const { execSync } = await import('child_process');
+        commitLine = execSync('git log -1 --format="%h %s"', { cwd: join(__dirname, '../..') }).toString().trim();
+      } catch (_) {}
+      const env   = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+      const embed = new EmbedBuilder()
+        .setColor(env === 'prod' ? 0x2ecc71 : 0x3498db)
+        .setTitle(`🟢 Bot restarted (${env})`)
+        .addFields(
+          { name: 'Commit', value: commitLine,               inline: false },
+          { name: 'Time',   value: new Date().toISOString(), inline: false },
+        );
+      const ch = await c.channels.fetch(worldConfig.channels.bot_log);
+      if (ch?.isTextBased() && 'send' in ch)
+        await (ch as import('discord.js').TextChannel).send({ embeds: [embed] });
+    } catch (err) { console.error('Bot log notification failed:', err); }
   });
 
   discord.on('error', (err) => {
