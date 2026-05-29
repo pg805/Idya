@@ -148,7 +148,10 @@ function renderRecipes() {
               </div>
             </div>
           </div>
-          <button class="craft-btn" onclick="doCraft('${r.id}')" ${r.available ? '' : 'disabled'}>Craft</button>
+          <div class="craft-row">
+            <input class="craft-qty" id="qty-${r.id}" type="number" min="1" max="99" value="1" ${r.available ? '' : 'disabled'}>
+            <button class="craft-btn" onclick="doCraft('${r.id}')" ${r.available ? '' : 'disabled'}>Craft</button>
+          </div>
         </div>` : ''}
     `;
     list.appendChild(card);
@@ -176,9 +179,10 @@ function filterRecipes(prof) {
 // ---- Craft action ----
 
 async function doCraft(recipeId) {
+  const quantity = parseInt(document.getElementById(`qty-${recipeId}`)?.value ?? '1', 10) || 1;
   const res = await fetch(`/api/craft/${recipeId}`, {
     method: 'POST', headers: authHeaders(true),
-    body: JSON.stringify({}),
+    body: JSON.stringify({ quantity }),
   });
   const r = await res.json();
   toast(r.message ?? r.error, r.success !== false);

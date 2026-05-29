@@ -206,6 +206,20 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
 .ingredient .have     { color: #50987a; }
 .ingredient .missing  { color: #905040; }
 
+.craft-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+
+.craft-qty {
+  width: 52px;
+  background: #0e1520;
+  border: 1px solid #2a3a50;
+  border-radius: 4px;
+  color: #c0c8d8;
+  font-size: 0.8rem;
+  padding: 5px 6px;
+  text-align: center;
+}
+.craft-qty:disabled { opacity: 0.35; }
+
 .craft-btn {
   align-self: flex-start;
   background: #162814;

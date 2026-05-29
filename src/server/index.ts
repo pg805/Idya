@@ -490,6 +490,8 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
     res.json({ success: false, message: `Requires ${PROFESSION_NAMES[recipe.profession as ProfessionKey] ?? recipe.profession} level ${recipe.required_level}.` }); return;
   }
 
+  const qty = Math.max(1, Math.min(99, Math.floor(Number((req.body as { quantity?: unknown }).quantity) || 1)));
+
   const result = await prisma.$transaction(async tx => {
     for (const ing of recipe.ingredients) {
       if (ing.weapon_id) {
@@ -504,24 +506,26 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
           where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
         });
       } else if (ing.item_id) {
+        const needed = ing.quantity * qty;
         const inv = await tx.inventoryItem.findUnique({
           where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
         });
-        if (!inv || inv.quantity < ing.quantity) {
-          return { success: false, message: `Not enough ${ing.item_id}.` };
+        if (!inv || inv.quantity < needed) {
+          return { success: false, message: `Not enough ${ing.item_id} — need ${needed}, have ${inv?.quantity ?? 0}.` };
         }
-        if (inv.quantity === ing.quantity) {
+        if (inv.quantity === needed) {
           await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } } });
         } else {
           await tx.inventoryItem.update({
             where: { character_id_item_id: { character_id: chars[0].id, item_id: ing.item_id } },
-            data:  { quantity: { decrement: ing.quantity } },
+            data:  { quantity: { decrement: needed } },
           });
         }
       }
     }
 
-    const outputId = recipe.output.id!;
+    const outputId  = recipe.output.id!;
+    const outQty    = (recipe.output.quantity ?? 1) * qty;
     if (recipe.output.type === 'item') {
       await tx.item.upsert({
         where:  { id: outputId },
@@ -530,8 +534,8 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
       });
       await tx.inventoryItem.upsert({
         where:  { character_id_item_id: { character_id: chars[0].id, item_id: outputId } },
-        update: { quantity: { increment: recipe.output.quantity ?? 1 } },
-        create: { character_id: chars[0].id, item_id: outputId, quantity: recipe.output.quantity ?? 1 },
+        update: { quantity: { increment: outQty } },
+        create: { character_id: chars[0].id, item_id: outputId, quantity: outQty },
       });
     } else {
       const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(outputId, __dirname) : null;
@@ -568,15 +572,15 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
       payload: { recipe_id: recipe.id, output: recipe.output as unknown as object },
     }}).catch(() => {});
 
-    return { success: true, message: `Crafted ${recipe.name}.` };
+    return { success: true, message: qty > 1 ? `Crafted ${qty}× ${recipe.name}.` : `Crafted ${recipe.name}.` };
   });
 
   res.json(result);
   if (result.success) {
-    void pingChannel(
-      PROFESSION_CHANNEL[recipe.profession],
-      `<@${discordId}> crafted a **${recipe.name}**!`,
-    );
+    const pingMsg = qty > 1
+      ? `<@${discordId}> crafted **${qty}× ${recipe.name}**!`
+      : `<@${discordId}> crafted a **${recipe.name}**!`;
+    void pingChannel(PROFESSION_CHANNEL[recipe.profession], pingMsg);
   }
 });
 
