@@ -20,6 +20,8 @@ model Character {
   discord_id   String
   name         String
   sprite_token String?
+  nationality  String?
+  bio          String?
   health       Int
   max_health   Int
   weapon_key   String

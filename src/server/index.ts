@@ -55,7 +55,7 @@ const io = new Server(httpServer);
 const sessions = new Map<string, CombatSession>();
 const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date }>();
 const charRepo = new CharacterRepository();
-const pendingCharCreation = new Map<string, { name: string }>();
+const pendingCharCreation = new Map<string, { name: string; nationality?: string; bio?: string }>();
 
 interface AuthToken { discordUserId: string; }
 const authTokens = new Map<string, AuthToken>(); // token → user
@@ -1170,6 +1170,24 @@ function buildCharModal(): ModalBuilder {
         .setMaxLength(32)
         .setPlaceholder("Enter your character's name...")
         .setRequired(true)
+    ),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId('CreateCharNationalityInput')
+        .setLabel('Nationality')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(64)
+        .setPlaceholder('Where are you from?')
+        .setRequired(false)
+    ),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId('CreateCharBioInput')
+        .setLabel('About Your Character')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(300)
+        .setPlaceholder('Anything else you want others to know...')
+        .setRequired(false)
     )
   );
   return modal;
@@ -1353,8 +1371,10 @@ if (discordToken) {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
-      const name = interaction.fields.getTextInputValue('CreateCharNameInput');
-      pendingCharCreation.set(interaction.user.id, { name });
+      const name        = interaction.fields.getTextInputValue('CreateCharNameInput');
+      const nationality = interaction.fields.getTextInputValue('CreateCharNationalityInput').trim() || undefined;
+      const bio         = interaction.fields.getTextInputValue('CreateCharBioInput').trim()         || undefined;
+      pendingCharCreation.set(interaction.user.id, { name, nationality, bio });
       await interaction.reply({
         ...buildSpritePicker(),
         content: `Welcome to Sulku'it, **${name}**! Choose a sprite to represent you in battle.`,
@@ -1372,7 +1392,7 @@ if (discordToken) {
       }
       pendingCharCreation.delete(interaction.user.id);
       const sprite = SPRITES.find(s => s.key === spriteKey);
-      const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey);
+      const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey, pending.nationality, pending.bio);
       const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);

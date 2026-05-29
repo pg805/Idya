@@ -15,7 +15,7 @@ export default class CharacterRepository {
         return prisma.character.findFirst({ where: { id: character_id, discord_id } });
     }
 
-    async create(discord_id: string, name: string, weapon_key: string, sprite_token?: string): Promise<Character> {
+    async create(discord_id: string, name: string, weapon_key: string, sprite_token?: string, nationality?: string, bio?: string): Promise<Character> {
         await prisma.user.upsert({
             where:  { discord_id },
             update: {},
@@ -29,9 +29,11 @@ export default class CharacterRepository {
                 discord_id,
                 name,
                 weapon_key,
-                sprite_token: sprite_token ?? null,
-                health:       hp,
-                max_health:   hp,
+                sprite_token:  sprite_token  ?? null,
+                nationality:   nationality   ?? null,
+                bio:           bio           ?? null,
+                health:        hp,
+                max_health:    hp,
             }
         });
         await prisma.characterWeapon.create({ data: { character_id: character.id, weapon_key } });
