@@ -1137,7 +1137,7 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
   };
 }
 
-const DEFAULT_SPRITE_KEYS = ['asterius', 'penni', 'dazzle', 'thokk'];
+const DEFAULT_SPRITE_KEYS = ['asterius', 'penni', 'trenton', 'thokk'];
 
 function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
   const options = SPRITES.filter(s => DEFAULT_SPRITE_KEYS.includes(s.key));
