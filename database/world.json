@@ -1,6 +1,6 @@
 {
   "shared": {
-    "sprite_cdn": "https://idya.slowb.rodeo/sprites",
+    "sprite_cdn": "https://idya.slowb.rodeo/cdn/sprites",
     "dev": ["210917143028563969"],
     "npcs": {
       "mayor":         { "name": "Fendalok", "title": "Padev"         },

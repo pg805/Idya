@@ -190,6 +190,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
 // ---- Web server ----
 
 app.use(express.static(join(__dirname, '../../public')));
+app.use('/cdn', express.static(join(__dirname, '../../public')));
 app.use(express.json());
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
@@ -1146,7 +1147,7 @@ function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBui
       new EmbedBuilder()
         .setColor(0x1a1a2e)
         .setTitle(s.name)
-        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png?v=1`)
+        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png`)
     ),
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1608,7 +1609,7 @@ if (discordToken) {
       );
 
     if (char.sprite_token) {
-      embed.setThumbnail(`${worldConfig.sprite_cdn}/${char.sprite_token}.png?v=1`);
+      embed.setThumbnail(`${worldConfig.sprite_cdn}/${char.sprite_token}.png`);
     }
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
