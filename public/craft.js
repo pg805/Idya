@@ -134,7 +134,7 @@ function renderRecipes() {
                   const have = data.inventory[i.item_id] ?? 0;
                   const ok   = have >= i.quantity;
                   return `<span class="ingredient">
-                    <span>${esc(i.item_id)}</span>
+                    <span>${esc(i.name)}</span>
                     <span class="${ok ? 'have' : 'missing'}">${have} / ${i.quantity}</span>
                   </span>`;
                 }).join('')}

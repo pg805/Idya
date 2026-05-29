@@ -452,6 +452,10 @@ app.get('/api/craft', async (req: Request, res: Response) => {
     levelMet:       (profLevels[r.profession] ?? 0) >= r.required_level,
     ingredientsMet: r.ingredients.every(ingredientMet),
     available:      (profLevels[r.profession] ?? 0) >= r.required_level && r.ingredients.every(ingredientMet),
+    ingredients: r.ingredients.map(i => ({
+      ...i,
+      name: i.item_id ? (ITEMS[i.item_id]?.name ?? i.item_id) : (i.weapon_id ?? ''),
+    })),
   }));
 
   res.json({
