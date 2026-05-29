@@ -1010,8 +1010,10 @@ io.on('connection', (socket: Socket) => {
                 ? `<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`
                 : `<@${meta.discordUserId}> returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
               await (ch as import('discord.js').TextChannel).send(msg);
+            } else {
+              console.warn('Battle win ping: forest channel not found or not text-based', worldConfig.channels.forest);
             }
-          } catch (_) {}
+          } catch (err) { console.error('Battle win ping failed:', err); }
         }
       }
 
@@ -1048,8 +1050,10 @@ io.on('connection', (socket: Socket) => {
                 ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
                 : `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
               await (ch as import('discord.js').TextChannel).send(msg);
+            } else {
+              console.warn('Battle loss ping: forest channel not found or not text-based', worldConfig.channels.forest);
             }
-          } catch (_) {}
+          } catch (err) { console.error('Battle loss ping failed:', err); }
         }
       }
 
