@@ -1146,7 +1146,7 @@ function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBui
       new EmbedBuilder()
         .setColor(0x1a1a2e)
         .setTitle(s.name)
-        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png`)
+        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png?v=1`)
     ),
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1608,7 +1608,7 @@ if (discordToken) {
       );
 
     if (char.sprite_token) {
-      embed.setThumbnail(`${worldConfig.sprite_cdn}/${char.sprite_token}.png`);
+      embed.setThumbnail(`${worldConfig.sprite_cdn}/${char.sprite_token}.png?v=1`);
     }
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
