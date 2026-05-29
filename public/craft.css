@@ -35,6 +35,8 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
 
 #char-name { font-size: 0.75rem; color: #445; text-transform: uppercase; letter-spacing: 0.1em; }
 
+.korel-display { font-size: 0.8rem; color: #c0a060; margin-left: auto; padding-left: 16px; }
+
 /* ---- Profession cards ---- */
 #professions {
   display: grid;
@@ -87,7 +89,22 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
   transition: width 0.4s;
 }
 
-.prof-meta { font-size: 0.7rem; color: #334; }
+.prof-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }
+
+.prof-meta { font-size: 0.7rem; color: #556; }
+
+.train-btn {
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  background: #1a2e1a;
+  color: #6f6;
+  border: 1px solid #2a4a2a;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.train-btn:hover:not(:disabled) { background: #243c24; }
+.train-btn:disabled { opacity: 0.35; cursor: default; }
 
 /* ---- Recipe section ---- */
 #recipes-section {

@@ -425,7 +425,10 @@ app.get('/api/craft', async (req: Request, res: Response) => {
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
 
-  const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
+  const [dbUser, profRows] = await Promise.all([
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
+    prisma.characterProfession.findMany({ where: { character_id: chars[0].id } }),
+  ]);
   const profLevels: Record<string, number> = {};
   for (const p of profRows) profLevels[p.profession] = p.level;
   const combined = profRows.reduce((sum, p) => sum + p.level, 0);
@@ -463,6 +466,7 @@ app.get('/api/craft', async (req: Request, res: Response) => {
     ),
     recipes,
     inventory: invMap,
+    korel: dbUser?.korel ?? 0,
   });
 });
 

@@ -55,8 +55,11 @@ function showTab(tab) {
 
 // ---- Craft render ----
 
+const PROF_SHOP = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchanter: 'enchanting_shop' };
+
 function render() {
   document.getElementById('char-name').textContent = data.characterName;
+  document.getElementById('korel-val').textContent = `${data.korel.toLocaleString()} korel`;
   renderProfessions();
   renderRecipes();
 }
@@ -65,18 +68,35 @@ function renderProfessions() {
   const container = document.getElementById('professions');
   container.innerHTML = '';
   for (const [key, prof] of Object.entries(data.professions)) {
-    const pct = prof.level / prof.maxLevel * 100;
-    const atMax = prof.level >= prof.maxLevel;
-    const nextCost = prof.nextCost != null ? prof.nextCost.toLocaleString() : null;
+    const pct    = prof.level / prof.maxLevel * 100;
+    const atMax  = prof.level >= prof.maxLevel;
+    const canAfford = prof.nextCost != null && data.korel >= prof.nextCost;
+    const costLabel = prof.nextCost != null ? prof.nextCost.toLocaleString() : null;
     const card = document.createElement('div');
     card.className = 'prof-card';
     card.innerHTML = `
       <p class="prof-name">${esc(prof.label)}</p>
       <p class="prof-level">${prof.level}<span> / ${prof.maxLevel}</span></p>
       <div class="prof-bar-bg"><div class="prof-bar" style="width:${pct}%"></div></div>
-      <p class="prof-meta">${atMax ? 'Mastered' : nextCost != null ? `Next level: ${nextCost} korel` : 'Cap reached'}</p>
+      <div class="prof-footer">
+        <p class="prof-meta">${atMax ? 'Mastered' : costLabel != null ? `Next: ${costLabel} korel` : 'Cap reached'}</p>
+        ${!atMax && costLabel != null
+          ? `<button class="train-btn" onclick="doTrain('${PROF_SHOP[key]}')" ${canAfford ? '' : 'disabled'}>Train ${esc(prof.label)}</button>`
+          : ''}
+      </div>
     `;
     container.appendChild(card);
+  }
+}
+
+async function doTrain(shopKey) {
+  const res  = await fetch(`/api/shop/${shopKey}/train`, { method: 'POST', headers: authHeaders(true), body: JSON.stringify({}) });
+  const body = await res.json();
+  showToast(body.message ?? (body.error || 'Error'));
+  if (body.success) {
+    const refreshed = await fetch('/api/craft', { headers: authHeaders() });
+    data = await refreshed.json();
+    render();
   }
 }
 
