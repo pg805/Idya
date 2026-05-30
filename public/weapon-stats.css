@@ -79,6 +79,7 @@ body {
   border-collapse: collapse;
   font-size: 0.8rem;
   margin-top: 8px;
+  border: 1px solid #1c2438;
 }
 
 .action-table th {
@@ -87,34 +88,37 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #445;
-  padding: 4px 12px 4px 0;
-  border-bottom: 1px solid #1c2438;
+  color: #8899aa;
+  background: #0e1520;
+  padding: 6px 12px;
+  border: 1px solid #1c2438;
 }
 
 .action-table td {
-  padding: 6px 12px 6px 0;
-  border-bottom: 1px solid #161e30;
+  padding: 6px 12px;
+  border: 1px solid #1c2438;
   vertical-align: middle;
 }
 
-.action-table tr:last-child td { border-bottom: none; }
+.action-table tbody tr:hover td { background: #131b2e; }
 
 .set-divider td {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #445;
-  padding: 12px 0 4px;
-  border-bottom: 1px solid #1c2438;
+  color: #667;
+  background: #0e1520;
+  padding: 5px 12px;
+  border: 1px solid #1c2438;
+  font-weight: 600;
 }
 
 .td-name  { color: #c0d0e0; min-width: 160px; }
 .td-type  { color: #667; min-width: 70px; }
 .td-stat  { color: #a0c890; font-family: monospace; font-size: 0.78rem; min-width: 180px; }
-.td-cost  { color: #8899aa; min-width: 46px; }
+.td-cost  { color: #8899aa; min-width: 46px; text-align: center; }
 .td-mode  { color: #667; min-width: 80px; }
-.td-range { color: #667; min-width: 50px; }
+.td-range { color: #667; min-width: 50px; text-align: center; }
 .td-dmg   { color: #556; }
 
 @media (max-width: 600px) {
