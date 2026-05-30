@@ -212,7 +212,7 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   const allRecipes  = loadAllRecipes(RECIPES_DIR);
   const craftedBy: Record<string, string[]> = {};
   for (const r of allRecipes) {
-    if (r.output.type === 'weapon' && r.output.id) {
+    if (r.output.type === 'weapon' && r.output.id && !r.output.base_bonus) {
       (craftedBy[r.output.id] ??= []).push(PROF_NAMES[r.profession] ?? r.profession);
     }
   }
