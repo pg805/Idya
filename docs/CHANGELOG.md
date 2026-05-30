@@ -9,6 +9,9 @@
 - **Weapon stats grid** — single unified table with set column using rowspan, visible cell borders, crafting profession shown per weapon
 - **Ingredient display names** — craft page now shows "Treated Sulwood" instead of `treated_sulwood`
 - **Sprite CDN fix** — prod now pulls sprites from the `main` branch instead of `dev`
+- **Battle round logging** — every turn's full action log is stored in `BattleRoundLog`, linked to the `BattleLog` entry; includes movement, actions, rolls, damage, and HP changes
+- **Upgrade event tracking** — `EventLog` records every weapon upgrade with weapon, action, and profession
+- **Trade event tracking** — `EventLog` records completed trades for both parties, including what was given and received
 
 ---
 
