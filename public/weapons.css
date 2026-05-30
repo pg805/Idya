@@ -1,0 +1,145 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+.splash {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; color: #556; font-size: 0.9rem;
+}
+
+/* ---- Layout ---- */
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: #12192e;
+  border-right: 2px solid #1c2438;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#sidebar h2 {
+  font-size: 0.75rem;
+  color: #c0a060;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid #1c2438;
+}
+
+#weapon-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.weapon-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #161e30;
+  color: #8899aa;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+
+.weapon-btn:hover { background: #161e30; color: #c0d0e0; }
+.weapon-btn.active { background: #1c2a40; color: #c0a060; }
+
+.wname { flex: 1; }
+.wlevel { font-size: 0.7rem; color: #445; }
+.weapon-btn.active .wlevel { color: #806040; }
+
+/* ---- Detail panel ---- */
+
+#detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.hint { color: #334; font-style: italic; margin-top: 40px; text-align: center; }
+
+.weapon-header { margin-bottom: 24px; }
+
+.weapon-header h2 { font-size: 1.3rem; color: #c0a060; margin-bottom: 8px; }
+
+.weapon-meta { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+
+.meta-chip {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  background: #12192e;
+  border: 1px solid #2b3a50;
+  border-radius: 10px;
+  color: #8899aa;
+}
+
+.wdesc { font-size: 0.8rem; color: #556; font-style: italic; max-width: 600px; }
+
+/* ---- Action sets ---- */
+
+.action-sets { display: flex; flex-direction: column; gap: 20px; }
+
+.action-set { }
+
+.set-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #445;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #1c2438;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #161e30;
+  flex-wrap: wrap;
+}
+
+.aname { font-size: 0.85rem; color: #c0d0e0; min-width: 160px; }
+
+.atype { font-size: 0.72rem; color: #556; min-width: 60px; }
+
+.stat { font-size: 0.85rem; color: #a0c890; min-width: 90px; }
+.avg  { font-size: 0.72rem; color: #556; }
+
+.tag {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: #12192e;
+  border: 1px solid #2b3a50;
+  color: #667;
+  white-space: nowrap;
+}
+
+.cost { color: #8899aa; }
+.dmgtype { color: #667; }
+
+@media (max-width: 600px) {
+  #sidebar { width: 140px; min-width: 140px; }
+  #detail { padding: 16px; }
+  .aname { min-width: 120px; }
+}

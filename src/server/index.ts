@@ -196,6 +196,45 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
+app.get('/weapons', (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/weapons.html'));
+});
+
+app.get('/api/weapons', (_req: Request, res: Response) => {
+  const weaponsDir = join(__dirname, '../../database/weapons');
+  const files = fs.readdirSync(weaponsDir).filter(f => f.endsWith('.yaml'));
+  const SET_KEYS = ['Defend', 'Defend Crit', 'Attack', 'Attack Crit', 'Special', 'Special Crit'] as const;
+
+  const weapons = files.map(file => {
+    const raw = yaml.load(fs.readFileSync(join(weaponsDir, file), 'utf-8')) as Record<string, unknown>;
+    const res = raw['Resource'] as Record<string, unknown> | undefined;
+    return {
+      key:         file.replace('.yaml', ''),
+      name:        raw['Name']        as string,
+      description: raw['Description'] as string ?? '',
+      level:       raw['Level']       as number ?? 0,
+      hp:          raw['HP']          as number ?? 0,
+      resource:    res ? { name: res['Name'] as string, max: res['Max'] as number } : null,
+      sets: SET_KEYS.map(label => ({
+        label,
+        actions: ((raw[label] as Record<string, unknown>[]) ?? []).map(a => ({
+          name:           a['Name']           as string,
+          type_name:      a['Type_Name']      as string,
+          damage_type:    a['Damage_Type']    as string,
+          damage_subtype: a['Damage_Subtype'] as string,
+          field:          a['Field']          as number[] | undefined,
+          value:          a['Value']          as number | undefined,
+          cost:           a['Cost']           as number,
+          aimed:          a['Aimed']          as boolean ?? false,
+          range:          a['Range']          as number | undefined,
+        })),
+      })).filter(s => s.actions.length > 0),
+    };
+  }).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+
+  res.json({ weapons });
+});
+
 function resolveAuth(req: Request): string | null {
   const header = req.headers['authorization'];
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
@@ -1847,6 +1886,13 @@ if (discordToken) {
       content: `${HOST}/craft?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
+  });
+
+  // ---- Weapons reference ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapons') return;
+    await interaction.reply({ content: `${HOST}/weapons`, flags: MessageFlags.Ephemeral });
   });
 
   // ---- Ping ----
