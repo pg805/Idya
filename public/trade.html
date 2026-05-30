@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trade</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/trade.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <div id="loading" class="splash">Connecting...</div>
+  <div id="auth-error" class="splash" style="display:none">
+    <p>Not authenticated.</p>
+    <p class="hint">Use <code>/trade</code> in Discord to get your link.</p>
+  </div>
+  <div id="error-screen" class="splash" style="display:none">
+    <p id="error-msg"></p>
+  </div>
+
+  <div id="app" style="display:none">
+    <header>
+      <h1>Trade</h1>
+      <span id="status-line"></span>
+    </header>
+
+    <div id="panels">
+      <section class="panel" id="your-panel">
+        <h2>Your Offer <span id="your-name"></span></h2>
+        <div id="your-inventory"></div>
+      </section>
+
+      <div id="divider">
+        <button id="lock-btn" onclick="doLock()">Lock In</button>
+        <button id="confirm-btn" onclick="doConfirm()" style="display:none">Confirm Trade</button>
+        <button id="cancel-btn" onclick="doCancel()">Cancel</button>
+      </div>
+
+      <section class="panel" id="their-panel">
+        <h2>Their Offer <span id="their-name"></span></h2>
+        <div id="their-offer"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/trade.js"></script>
+</body>
+</html>

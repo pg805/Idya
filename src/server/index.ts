@@ -61,6 +61,33 @@ interface AuthToken { discordUserId: string; }
 const authTokens = new Map<string, AuthToken>(); // token → user
 const userTokens = new Map<string, string>();    // discordUserId → token (reuse across visits)
 
+// ---- Trade sessions ----
+
+interface TradeOffer { itemId: string; quantity: number; }
+interface TradePlayer { discordId: string; charName: string; offer: TradeOffer[]; locked: boolean; confirmed: boolean; }
+interface TradeSession { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
+
+const tradeSessions = new Map<string, TradeSession>();
+
+function tradeSessionView(session: TradeSession, viewerId: string) {
+  return {
+    tradeId: session.tradeId,
+    status:  session.status,
+    you:   session.players.find(p => p.discordId === viewerId),
+    them:  session.players.find(p => p.discordId !== viewerId),
+  };
+}
+
+function getOrCreateToken(discordId: string): string {
+  let token = userTokens.get(discordId);
+  if (!token) {
+    token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    authTokens.set(token, { discordUserId: discordId });
+    userTokens.set(discordId, token);
+  }
+  return token;
+}
+
 // ---- Telegraph ----
 
 const TELEGRAPH: Record<string, Record<string, string>> = {
@@ -198,6 +225,10 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
 
 app.get('/weapon-stats', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/weapon-stats.html'));
+});
+
+app.get('/trade/:tradeId', (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/trade.html'));
 });
 
 app.get('/api/weapons', (_req: Request, res: Response) => {
@@ -1213,6 +1244,88 @@ io.on('connection', (socket: Socket) => {
   socket.on('disconnect', () => {
     console.log('client disconnected:', socket.id);
   });
+
+  // ---- Trade Socket.io ----
+
+  socket.on('join_trade', async ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+    const session = tradeSessions.get(tradeId);
+    const discordId = authTokens.get(auth)?.discordUserId;
+    if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) return;
+    socket.join(`trade-${tradeId}`);
+    if (session.status === 'waiting' && session.players.every(p =>
+      io.sockets.adapter.rooms.get(`trade-${tradeId}`)?.size ?? 0 >= 1
+    )) session.status = 'active';
+    io.to(`trade-${tradeId}`).emit('trade_state', session);
+  });
+
+  socket.on('trade_offer', ({ tradeId, auth, offer }: { tradeId: string; auth: string; offer: TradeOffer[] }) => {
+    const session = tradeSessions.get(tradeId);
+    const discordId = authTokens.get(auth)?.discordUserId;
+    const player = session?.players.find(p => p.discordId === discordId);
+    if (!player || player.locked) return;
+    player.offer = offer.filter(o => o.quantity > 0);
+    io.to(`trade-${tradeId}`).emit('trade_state', session);
+  });
+
+  socket.on('trade_lock', ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+    const session = tradeSessions.get(tradeId);
+    const discordId = authTokens.get(auth)?.discordUserId;
+    const player = session?.players.find(p => p.discordId === discordId);
+    if (!player) return;
+    player.locked = !player.locked;
+    if (!player.locked) player.confirmed = false;
+    io.to(`trade-${tradeId}`).emit('trade_state', session);
+  });
+
+  socket.on('trade_confirm', async ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+    const session = tradeSessions.get(tradeId);
+    const discordId = authTokens.get(auth)?.discordUserId;
+    const player = session?.players.find(p => p.discordId === discordId);
+    if (!player || !player.locked) return;
+    player.confirmed = true;
+    io.to(`trade-${tradeId}`).emit('trade_state', session);
+
+    if (session!.players.every(p => p.confirmed)) {
+      session!.status = 'complete';
+      const [a, b] = session!.players;
+      try {
+        await prisma.$transaction(async tx => {
+          for (const { itemId, quantity } of a.offer) {
+            const charA = (await charRepo.list(a.discordId))[0];
+            const charB = (await charRepo.list(b.discordId))[0];
+            if (!charA || !charB) throw new Error('Character not found');
+            const invA = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } } });
+            if (!invA || invA.quantity < quantity) throw new Error(`${a.charName} doesn't have enough ${itemId}`);
+            await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
+            await tx.inventoryItem.upsert({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } }, update: { quantity: { increment: quantity } }, create: { character_id: charB.id, item_id: itemId, quantity } });
+          }
+          for (const { itemId, quantity } of b.offer) {
+            const charA = (await charRepo.list(a.discordId))[0];
+            const charB = (await charRepo.list(b.discordId))[0];
+            if (!charA || !charB) throw new Error('Character not found');
+            const invB = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } } });
+            if (!invB || invB.quantity < quantity) throw new Error(`${b.charName} doesn't have enough ${itemId}`);
+            await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
+            await tx.inventoryItem.upsert({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } }, update: { quantity: { increment: quantity } }, create: { character_id: charA.id, item_id: itemId, quantity } });
+          }
+        });
+        io.to(`trade-${tradeId}`).emit('trade_complete', { message: 'Trade complete!' });
+      } catch (err: unknown) {
+        session!.status = 'cancelled';
+        io.to(`trade-${tradeId}`).emit('trade_error', { message: err instanceof Error ? err.message : 'Trade failed.' });
+      }
+      setTimeout(() => tradeSessions.delete(tradeId), 60_000);
+    }
+  });
+
+  socket.on('trade_cancel', ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+    const session = tradeSessions.get(tradeId);
+    const discordId = authTokens.get(auth)?.discordUserId;
+    if (!session || !session.players.find(p => p.discordId === discordId)) return;
+    session.status = 'cancelled';
+    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    setTimeout(() => tradeSessions.delete(tradeId), 60_000);
+  });
 });
 
 const PORT = process.env.PORT ?? 3000;
@@ -1900,6 +2013,62 @@ if (discordToken) {
       content: `${HOST}/craft?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
+  });
+
+  // ---- Trade ----
+
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'trade') return;
+
+    const target = interaction.options.getUser('user', true);
+    if (target.id === interaction.user.id) {
+      await interaction.reply({ content: "You can't trade with yourself.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (target.bot) {
+      await interaction.reply({ content: "You can't trade with a bot.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const initiatorChars = await charRepo.list(interaction.user.id);
+    const targetChars    = await charRepo.list(target.id);
+    if (initiatorChars.length === 0) {
+      await interaction.reply({ content: "You don't have a character yet.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (targetChars.length === 0) {
+      await interaction.reply({ content: `${target.username} doesn't have a character yet.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const tradeId   = Math.random().toString(36).slice(2, 9);
+    const tokenA    = getOrCreateToken(interaction.user.id);
+    const tokenB    = getOrCreateToken(target.id);
+
+    const session: TradeSession = {
+      tradeId,
+      status: 'waiting',
+      players: [
+        { discordId: interaction.user.id, charName: initiatorChars[0].name, offer: [], locked: false, confirmed: false },
+        { discordId: target.id,           charName: targetChars[0].name,    offer: [], locked: false, confirmed: false },
+      ],
+    };
+    tradeSessions.set(tradeId, session);
+    setTimeout(() => tradeSessions.delete(tradeId), 10 * 60_000);
+
+    await interaction.reply({
+      content: `**Trade with ${target.username}**\n${HOST}/trade/${tradeId}?auth=${tokenA}`,
+      flags: MessageFlags.Ephemeral,
+    });
+
+    try {
+      await target.send(`**${interaction.user.username}** wants to trade with you!\n${HOST}/trade/${tradeId}?auth=${tokenB}`);
+    } catch (_) {
+      await interaction.followUp({
+        content: `Could not DM ${target.username} — they may have DMs disabled. Share this link with them: ${HOST}/trade/${tradeId}?auth=${tokenB}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   });
 
   // ---- Weapons reference ----
