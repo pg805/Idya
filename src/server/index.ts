@@ -196,8 +196,8 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-app.get('/weapons', (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/weapons.html'));
+app.get('/weapon-stats', (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/weapon-stats.html'));
 });
 
 app.get('/api/weapons', (_req: Request, res: Response) => {
@@ -1891,8 +1891,8 @@ if (discordToken) {
   // ---- Weapons reference ----
 
   discord.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapons') return;
-    await interaction.reply({ content: `${HOST}/weapons`, flags: MessageFlags.Ephemeral });
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon-stats') return;
+    await interaction.reply({ content: `${HOST}/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
 
   // ---- Ping ----
