@@ -36,13 +36,17 @@ function selectWeapon(key) {
 
   let rows = '';
   for (const set of w.sets) {
-    rows += `<tr class="set-divider"><td colspan="7">${esc(set.label)}</td></tr>`;
-    for (const a of set.actions) {
+    for (let i = 0; i < set.actions.length; i++) {
+      const a         = set.actions[i];
       const stat      = a.field ? `[${a.field.join(', ')}]` : `${a.value ?? 0}`;
       const costLabel = a.cost > 0 ? `−${a.cost}` : a.cost < 0 ? `+${Math.abs(a.cost)}` : '0';
       const mode      = a.field ? (a.aimed ? 'Aimed' : 'Reactive') : '—';
       const range     = a.range != null ? `${a.range}` : '—';
+      const setCell   = i === 0
+        ? `<td class="td-set" rowspan="${set.actions.length}">${esc(set.label)}</td>`
+        : '';
       rows += `<tr>
+        ${setCell}
         <td class="td-name">${esc(a.name)}</td>
         <td class="td-type">${esc(a.type_name)}</td>
         <td class="td-stat">${esc(stat)}</td>
@@ -62,7 +66,7 @@ function selectWeapon(key) {
     </div>
     <table class="action-table">
       <thead><tr>
-        <th>Name</th><th>Type</th><th>Field / Value</th>
+        <th>Set</th><th>Name</th><th>Type</th><th>Field / Value</th>
         <th>Cost</th><th>Mode</th><th>Range</th><th>Damage</th>
       </tr></thead>
       <tbody>${rows}</tbody>

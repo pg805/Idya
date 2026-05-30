@@ -102,15 +102,16 @@ body {
 
 .action-table tbody tr:hover td { background: #131b2e; }
 
-.set-divider td {
+.td-set {
   font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: #667;
   background: #0e1520;
-  padding: 5px 12px;
-  border: 1px solid #1c2438;
   font-weight: 600;
+  white-space: nowrap;
+  vertical-align: top;
+  padding-top: 8px;
 }
 
 .td-name  { color: #c0d0e0; min-width: 160px; }
