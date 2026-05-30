@@ -5,18 +5,10 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function fieldSummary(field) {
-  const min = Math.min(...field);
-  const max = Math.max(...field);
-  const avg = (field.reduce((a, b) => a + b, 0) / field.length).toFixed(1);
-  if (min === max) return `${min}`;
-  return `${min}–${max} <span class="avg">avg ${avg}</span>`;
-}
-
 async function load() {
-  const res = await fetch('/api/weapons');
+  const res  = await fetch('/api/weapons');
   const data = await res.json();
-  weapons = data.weapons;
+  weapons = data.weapons.filter(w => w.key !== 'honor');
 
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
@@ -44,39 +36,39 @@ function selectWeapon(key) {
 
   let setsHtml = '';
   for (const set of w.sets) {
-    setsHtml += `<div class="action-set"><p class="set-label">${esc(set.label)}</p>`;
+    let rows = '';
     for (const a of set.actions) {
-      const statHtml = a.field
-        ? `<span class="stat">${fieldSummary(a.field)}</span>`
-        : `<span class="stat">${a.value ?? 0}</span>`;
+      const stat      = a.field ? `[${a.field.join(', ')}]` : `${a.value ?? 0}`;
       const costLabel = a.cost > 0 ? `−${a.cost}` : a.cost < 0 ? `+${Math.abs(a.cost)}` : '0';
-      const modeTag = a.field
-        ? `<span class="tag">${a.aimed ? 'Aimed' : 'Reactive'}</span>`
-        : '';
-      const rangeTag = a.range != null
-        ? `<span class="tag">Range ${a.range}</span>`
-        : '';
-      setsHtml += `
-        <div class="action-row">
-          <span class="aname">${esc(a.name)}</span>
-          <span class="atype">${esc(a.type_name)}</span>
-          ${statHtml}
-          <span class="cost tag">${costLabel}</span>
-          ${modeTag}${rangeTag}
-          <span class="dmgtype tag">${esc(a.damage_subtype)}</span>
-        </div>`;
+      const mode      = a.field ? (a.aimed ? 'Aimed' : 'Reactive') : '—';
+      const range     = a.range != null ? `${a.range}` : '—';
+      rows += `<tr>
+        <td class="td-name">${esc(a.name)}</td>
+        <td class="td-type">${esc(a.type_name)}</td>
+        <td class="td-stat">${esc(stat)}</td>
+        <td class="td-cost">${costLabel}</td>
+        <td class="td-mode">${mode}</td>
+        <td class="td-range">${range}</td>
+        <td class="td-dmg">${esc(a.damage_subtype)}</td>
+      </tr>`;
     }
-    setsHtml += `</div>`;
+    setsHtml += `
+      <div class="action-set">
+        <p class="set-label">${esc(set.label)}</p>
+        <table class="action-table">
+          <thead><tr>
+            <th>Name</th><th>Type</th><th>Field / Value</th>
+            <th>Cost</th><th>Mode</th><th>Range</th><th>Damage</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
   document.getElementById('detail').innerHTML = `
     <div class="weapon-header">
       <h2>${esc(w.name)}</h2>
-      <div class="weapon-meta">
-        <span class="meta-chip">Lv ${w.level}</span>
-        <span class="meta-chip">${w.hp} HP</span>
-        <span class="meta-chip">${resourceLine}</span>
-      </div>
+      <p class="weapon-meta">Lv ${w.level} &nbsp;·&nbsp; ${w.hp} HP &nbsp;·&nbsp; ${resourceLine}</p>
       <p class="wdesc">${esc(w.description)}</p>
     </div>
     <div class="action-sets">${setsHtml}</div>
