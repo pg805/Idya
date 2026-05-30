@@ -13,6 +13,9 @@
 - **Upgrade event tracking** — `EventLog` records every weapon upgrade with weapon, action, and profession
 - **Trade event tracking** — `EventLog` records completed trades for both parties, including what was given and received
 
+### Fixes
+- **Webhook reload race condition** — `deploy.sh` now only reloads the webhook process when `webhook/index.js` actually changes; previously every dev deploy reloaded it, which opened a window where main push events could be handled by the old webhook process with stale code (causing prod deploys to silently fail with `Permission denied`)
+
 ---
 
 ## 0.0.3 — 2026-05-29
