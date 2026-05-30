@@ -2109,7 +2109,7 @@ if (discordToken) {
 
   discord.on(Events.GuildMemberAdd, async (member) => {
     if (member.guild.id !== worldConfig.guild_id) return;
-    const channel = member.guild.channels.cache.get(worldConfig.channels.town_square);
+    const channel = member.guild.channels.cache.get(worldConfig.channels.welcome);
     if (!channel?.isTextBased()) return;
     await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
   });
