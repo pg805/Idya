@@ -72,22 +72,13 @@ body {
 
 .wdesc { font-size: 0.8rem; color: #556; font-style: italic; max-width: 680px; }
 
-/* ---- Action sets ---- */
-
-.action-sets { display: flex; flex-direction: column; gap: 24px; }
-
-.set-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #445;
-  margin-bottom: 6px;
-}
+/* ---- Action table ---- */
 
 .action-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
+  margin-top: 8px;
 }
 
 .action-table th {
@@ -97,17 +88,26 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #445;
-  padding: 4px 10px 4px 0;
+  padding: 4px 12px 4px 0;
   border-bottom: 1px solid #1c2438;
 }
 
 .action-table td {
-  padding: 6px 10px 6px 0;
+  padding: 6px 12px 6px 0;
   border-bottom: 1px solid #161e30;
   vertical-align: middle;
 }
 
 .action-table tr:last-child td { border-bottom: none; }
+
+.set-divider td {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #445;
+  padding: 12px 0 4px;
+  border-bottom: 1px solid #1c2438;
+}
 
 .td-name  { color: #c0d0e0; min-width: 160px; }
 .td-type  { color: #667; min-width: 70px; }

@@ -34,9 +34,9 @@ function selectWeapon(key) {
   const w = selected;
   const resourceLine = w.resource ? `${w.resource.name} ${w.resource.max}` : '—';
 
-  let setsHtml = '';
+  let rows = '';
   for (const set of w.sets) {
-    let rows = '';
+    rows += `<tr class="set-divider"><td colspan="7">${esc(set.label)}</td></tr>`;
     for (const a of set.actions) {
       const stat      = a.field ? `[${a.field.join(', ')}]` : `${a.value ?? 0}`;
       const costLabel = a.cost > 0 ? `−${a.cost}` : a.cost < 0 ? `+${Math.abs(a.cost)}` : '0';
@@ -52,17 +52,6 @@ function selectWeapon(key) {
         <td class="td-dmg">${esc(a.damage_subtype)}</td>
       </tr>`;
     }
-    setsHtml += `
-      <div class="action-set">
-        <p class="set-label">${esc(set.label)}</p>
-        <table class="action-table">
-          <thead><tr>
-            <th>Name</th><th>Type</th><th>Field / Value</th>
-            <th>Cost</th><th>Mode</th><th>Range</th><th>Damage</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
   }
 
   document.getElementById('detail').innerHTML = `
@@ -71,7 +60,13 @@ function selectWeapon(key) {
       <p class="weapon-meta">Lv ${w.level} &nbsp;·&nbsp; ${w.hp} HP &nbsp;·&nbsp; ${resourceLine}</p>
       <p class="wdesc">${esc(w.description)}</p>
     </div>
-    <div class="action-sets">${setsHtml}</div>
+    <table class="action-table">
+      <thead><tr>
+        <th>Name</th><th>Type</th><th>Field / Value</th>
+        <th>Cost</th><th>Mode</th><th>Range</th><th>Damage</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
   `;
 }
 
