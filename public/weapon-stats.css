@@ -70,6 +70,8 @@ body {
 
 .weapon-meta { font-size: 0.8rem; color: #667; margin-bottom: 8px; }
 
+.weapon-prof { font-size: 0.75rem; color: #6a8a6a; margin-bottom: 6px; }
+
 .wdesc { font-size: 0.8rem; color: #556; font-style: italic; max-width: 680px; }
 
 /* ---- Action table ---- */

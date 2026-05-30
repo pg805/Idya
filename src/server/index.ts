@@ -202,19 +202,33 @@ app.get('/weapon-stats', (_req: Request, res: Response) => {
 
 app.get('/api/weapons', (_req: Request, res: Response) => {
   const weaponsDir = join(__dirname, '../../database/weapons');
-  const files = fs.readdirSync(weaponsDir).filter(f => f.endsWith('.yaml'));
-  const SET_KEYS = ['Defend', 'Defend Crit', 'Attack', 'Attack Crit', 'Special', 'Special Crit'] as const;
+  const files      = fs.readdirSync(weaponsDir).filter(f => f.endsWith('.yaml'));
+  const SET_KEYS   = ['Defend', 'Defend Crit', 'Attack', 'Attack Crit', 'Special', 'Special Crit'] as const;
+
+  const PROF_NAMES: Record<string, string> = {
+    lumberjack: 'Lumberjack', blacksmith: 'Blacksmith', enchanter: 'Enchanter',
+  };
+
+  const allRecipes  = loadAllRecipes(RECIPES_DIR);
+  const craftedBy: Record<string, string[]> = {};
+  for (const r of allRecipes) {
+    if (r.output.type === 'weapon' && r.output.id) {
+      (craftedBy[r.output.id] ??= []).push(PROF_NAMES[r.profession] ?? r.profession);
+    }
+  }
 
   const weapons = files.map(file => {
     const raw = yaml.load(fs.readFileSync(join(weaponsDir, file), 'utf-8')) as Record<string, unknown>;
-    const res = raw['Resource'] as Record<string, unknown> | undefined;
+    const r   = raw['Resource'] as Record<string, unknown> | undefined;
+    const key = file.replace('.yaml', '');
     return {
-      key:         file.replace('.yaml', ''),
+      key,
       name:        raw['Name']        as string,
       description: raw['Description'] as string ?? '',
       level:       raw['Level']       as number ?? 0,
       hp:          raw['HP']          as number ?? 0,
-      resource:    res ? { name: res['Name'] as string, max: res['Max'] as number } : null,
+      resource:    r ? { name: r['Name'] as string, max: r['Max'] as number } : null,
+      professions: craftedBy[key] ?? [],
       sets: SET_KEYS.map(label => ({
         label,
         actions: ((raw[label] as Record<string, unknown>[]) ?? []).map(a => ({

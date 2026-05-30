@@ -62,6 +62,7 @@ function selectWeapon(key) {
     <div class="weapon-header">
       <h2>${esc(w.name)}</h2>
       <p class="weapon-meta">Lv ${w.level} &nbsp;·&nbsp; ${w.hp} HP &nbsp;·&nbsp; ${resourceLine}</p>
+      ${w.professions.length ? `<p class="weapon-prof">Crafted by: ${w.professions.join(', ')}</p>` : ''}
       <p class="wdesc">${esc(w.description)}</p>
     </div>
     <table class="action-table">
