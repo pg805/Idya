@@ -10,5 +10,5 @@ npx prisma migrate deploy
 npx prisma generate
 npm run build
 pm2 restart idya-dev
-pm2 reload webhook
+git diff HEAD@{1} HEAD -- webhook/index.js | grep -q . && pm2 reload webhook || true
 pm2 save
