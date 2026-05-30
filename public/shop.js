@@ -95,8 +95,10 @@ function renderBuy() {
   }
   list.innerHTML = '';
   for (const item of forSale) {
-    const oos    = item.stock === 0;
+    const oos    = !item.infinite && item.stock === 0;
     const isOpen = openBuy === item.id;
+    const stockText = item.infinite ? 'Always in stock' : `${item.stock} in stock`;
+    const maxQty    = item.infinite ? 9999 : item.stock;
     const el     = document.createElement('div');
     el.className = 'item';
     el.innerHTML = `
@@ -107,13 +109,13 @@ function renderBuy() {
       ${isOpen ? `
         <div class="item-detail">
           <p class="item-desc">${esc(item.description)}</p>
-          <p class="stock-line">${item.stock} in stock</p>
+          <p class="stock-line">${stockText}</p>
           ${oos ? '<p class="unavailable">Check back when restocked.</p>' : `
             <div class="controls">
               <div class="qty-wrap">
-                <button class="qty-step" onclick="adj('b${item.id}', -1, ${item.stock})">−</button>
-                <input  type="number" id="qty-b${item.id}" class="qty-input" value="1" min="1" max="${item.stock}">
-                <button class="qty-step" onclick="adj('b${item.id}', 1, ${item.stock})">+</button>
+                <button class="qty-step" onclick="adj('b${item.id}', -1, ${maxQty})">−</button>
+                <input  type="number" id="qty-b${item.id}" class="qty-input" value="1" min="1" max="${maxQty}">
+                <button class="qty-step" onclick="adj('b${item.id}', 1, ${maxQty})">+</button>
               </div>
               <button class="btn btn-buy" onclick="doBuy('${item.id}')">Buy</button>
             </div>`}

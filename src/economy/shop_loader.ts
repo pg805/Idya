@@ -5,6 +5,7 @@ export interface ShopItemListing {
   id: string;
   base_buy?: number;
   base_sell?: number;
+  infinite?: boolean;
   r: number;
   r_max: number;
   volume_sensitivity: number;
@@ -33,6 +34,7 @@ export function loadShop(shopKey: string, shopsDir: string): ShopConfig {
       id:                    i['id']                    as string,
       base_buy:              i['Base_Buy']              as number | undefined,
       base_sell:             i['Base_Sell']             as number | undefined,
+      infinite:              i['Infinite']              as boolean | undefined,
       r:                     i['R']                     as number,
       r_max:                 i['R_Max']                 as number,
       volume_sensitivity:    i['Volume_Sensitivity']    as number,

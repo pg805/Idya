@@ -7,6 +7,7 @@ Items:
   - id: swallow_bait
     Base_Buy: 0
     Base_Sell: null
+    Infinite: true
     R: 1.0
     R_Max: 1.0
     Volume_Sensitivity: 0

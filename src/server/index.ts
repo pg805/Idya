@@ -357,6 +357,7 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
       sell:        p.sell ?? null,
       stock:       p.current_stock,
       stock_max:   p.stock_max,
+      infinite:    p.infinite ?? false,
     })),
     inventory: inventory.map(i => ({
       item_id:     i.item_id,

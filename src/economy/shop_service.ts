@@ -103,11 +103,13 @@ export async function buyItem(
 ): Promise<{ success: boolean; message: string }> {
   if (item.buy == null) return { success: false, message: 'Not for sale.' };
 
-  const state = await prisma.shopItemState.findUniqueOrThrow({
-    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-  });
-  if (state.stock < quantity) {
-    return { success: false, message: `Only ${state.stock} in stock.` };
+  if (!item.infinite) {
+    const state = await prisma.shopItemState.findUniqueOrThrow({
+      where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    });
+    if (state.stock < quantity) {
+      return { success: false, message: `Only ${state.stock} in stock.` };
+    }
   }
 
   const total = item.buy * quantity;
@@ -129,9 +131,12 @@ export async function buyItem(
       update: { quantity: { increment: quantity } },
       create: { character_id: characterId, item_id: item.id, quantity },
     });
+    const stockUpdate = item.infinite
+      ? { cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } }
+      : { stock: { decrement: quantity }, cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } };
     await tx.shopItemState.update({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-      data:  { stock: { decrement: quantity }, cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } },
+      data:  stockUpdate,
     });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: item.id, type: 'buy', quantity, discord_id: discordId },
