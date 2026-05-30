@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const pendingCharCreation = new Map<string, { name: string; nationality?: string; bio?: string }>();
 
@@ -874,6 +874,11 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
       data: { upgrades: { base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
     });
 
+    await tx.eventLog.create({ data: {
+      discord_id: discordId, event_type: 'weapon_upgraded',
+      payload: { weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
+    }}).catch(() => {});
+
     return { success: true, message: `Upgraded ${action} via ${profession}.` };
   });
 
@@ -1068,6 +1073,7 @@ io.on('connection', (socket: Socket) => {
     io.to(sessionId).emit('turn_result', { log: result.log });
 
     const tutMeta = sessionMeta.get(sessionId);
+    if (tutMeta) tutMeta.rounds.push({ turn: session.turn, log: result.log });
     if (tutMeta?.isTutorial && !result.winner) {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
@@ -1131,12 +1137,15 @@ io.on('connection', (socket: Socket) => {
           const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
           korelEarned = rewards?.currency ?? 0;
-          await prisma.battleLog.create({ data: {
+          const winLog = await prisma.battleLog.create({ data: {
             discord_id: meta.discordUserId, character_id: char.id,
             enemy: meta.enemyName, outcome: 'win',
             korel_delta: korelEarned, loot: rewardSummary,
             started_at: meta.startedAt,
-          }}).catch(() => {});
+          }}).catch(() => null);
+          if (winLog && meta.rounds.length > 0) {
+            await prisma.battleRoundLog.create({ data: { battle_id: winLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
+          }
         }
         if (meta.isTutorial) {
           await prisma.user.update({
@@ -1183,11 +1192,14 @@ io.on('connection', (socket: Socket) => {
           }}).catch(() => {});
         }
         if (char) {
-          await prisma.battleLog.create({ data: {
+          const lossLog = await prisma.battleLog.create({ data: {
             discord_id: meta.discordUserId, character_id: char.id,
             enemy: meta.enemyName, outcome: 'loss',
             korel_delta: -fee, started_at: meta.startedAt,
-          }}).catch(() => {});
+          }}).catch(() => null);
+          if (lossLog && meta.rounds.length > 0) {
+            await prisma.battleRoundLog.create({ data: { battle_id: lossLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
+          }
         }
         const feeMsg = fee > 0 ? `Healing fee: −${fee} Korel` : 'No healing fee.';
         io.to(sessionId).emit('reward_result', { summary: feeMsg });
@@ -1235,7 +1247,7 @@ io.on('connection', (socket: Socket) => {
     const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
-      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date() });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date(), rounds: [] });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -1309,6 +1321,14 @@ io.on('connection', (socket: Socket) => {
             await tx.inventoryItem.upsert({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } }, update: { quantity: { increment: quantity } }, create: { character_id: charA.id, item_id: itemId, quantity } });
           }
         });
+        await prisma.eventLog.create({ data: {
+          discord_id: a.discordId, event_type: 'trade_completed',
+          payload: { trade_id: tradeId, with: b.discordId, gave: a.offer, received: b.offer } as unknown as Prisma.InputJsonValue,
+        }}).catch(() => {});
+        await prisma.eventLog.create({ data: {
+          discord_id: b.discordId, event_type: 'trade_completed',
+          payload: { trade_id: tradeId, with: a.discordId, gave: b.offer, received: a.offer } as unknown as Prisma.InputJsonValue,
+        }}).catch(() => {});
         io.to(`trade-${tradeId}`).emit('trade_complete', { message: 'Trade complete!' });
       } catch (err: unknown) {
         session!.status = 'cancelled';
@@ -1595,7 +1615,7 @@ if (discordToken) {
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, char.weapon_key);
       sessions.set(sessionId, huntSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date() });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
 
       await interaction.update({
         content: `**Into the forest!**\n${HOST}/battle/${sessionId}`,
@@ -1663,7 +1683,7 @@ if (discordToken) {
       const sessionId = Math.random().toString(36).slice(2, 10);
       const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
       sessions.set(sessionId, charSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date() });
+      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
       await interaction.update({
         content: '',
         embeds: [

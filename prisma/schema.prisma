@@ -69,7 +69,7 @@ model KorelLedger {
 }
 
 model BattleLog {
-  id           String   @id @default(uuid())
+  id           String          @id @default(uuid())
   discord_id   String
   character_id String
   enemy        String
@@ -77,7 +77,15 @@ model BattleLog {
   korel_delta  Int
   loot         String?
   started_at   DateTime
-  ended_at     DateTime @default(now())
+  ended_at     DateTime        @default(now())
+  rounds       BattleRoundLog?
+}
+
+model BattleRoundLog {
+  id        String   @id @default(uuid())
+  battle_id String   @unique
+  battle    BattleLog @relation(fields: [battle_id], references: [id])
+  rounds    Json
 }
 
 model EventLog {
