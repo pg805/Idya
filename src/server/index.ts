@@ -427,8 +427,8 @@ app.post('/api/shop/:shopKey/buy', async (req: Request, res: Response) => {
   const shopKey = String(req.params.shopKey);
   if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
   const { itemId, quantity } = req.body as { itemId: string; quantity: number };
-  if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
-    res.status(400).json({ error: 'Invalid request' }); return;
+  if (!itemId || !Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
+    res.status(400).json({ error: 'Invalid request: quantity must be 1–9999.' }); return;
   }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
@@ -452,8 +452,8 @@ app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
   const shopKey = String(req.params.shopKey);
   if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
   const { itemId, quantity } = req.body as { itemId: string; quantity: number };
-  if (!itemId || !Number.isInteger(quantity) || quantity < 1) {
-    res.status(400).json({ error: 'Invalid request' }); return;
+  if (!itemId || !Number.isInteger(quantity) || quantity < 1 || quantity > 9999) {
+    res.status(400).json({ error: 'Invalid request: quantity must be 1–9999.' }); return;
   }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
