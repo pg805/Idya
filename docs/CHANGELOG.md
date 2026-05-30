@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.4 — 2026-05-30
+
+### Features
+- **`/trade` command** — propose a trade with another player; both get a unique link to a shared trade page. Target receives a Discord DM with their link (falls back to a followUp if DMs are off)
+- **Trade page** — real-time two-panel UI via Socket.io: select items and quantities from your inventory, see the other player's offer update live, lock in, and confirm. Swap executes atomically — both sides are validated in a single transaction
+- **`/weapon-stats` command** — opens a public reference page (no auth required) listing all weapons with a full stat grid: action set, name, type, field array, cost, aimed/reactive, range, and damage subtype
+- **Weapon stats grid** — single unified table with set column using rowspan, visible cell borders, crafting profession shown per weapon
+- **Ingredient display names** — craft page now shows "Treated Sulwood" instead of `treated_sulwood`
+- **Sprite CDN fix** — prod now pulls sprites from the `main` branch instead of `dev`
+
+---
+
 ## 0.0.3 — 2026-05-29
 
 ### Features
