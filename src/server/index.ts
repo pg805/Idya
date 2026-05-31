@@ -280,6 +280,38 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+app.get('/api/layout', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.json({ authenticated: false }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.json({ authenticated: false }); return; }
+  const char = chars[0];
+
+  const [dbUser, profRows] = await Promise.all([
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
+    prisma.characterProfession.findMany({ where: { character_id: char.id } }),
+  ]);
+  const profLevels: Record<string, number> = {};
+  for (const p of profRows) profLevels[p.profession] = p.level;
+  const combined = profRows.reduce((sum, p) => sum + p.level, 0);
+
+  res.json({
+    authenticated: true,
+    characterName: char.name,
+    spriteToken:   char.sprite_token,
+    spriteCdn:     worldConfig.sprite_cdn,
+    korel:         dbUser?.korel ?? 0,
+    professions: Object.fromEntries(
+      PROFESSIONS.map(p => [p, {
+        label:    PROFESSION_NAMES[p],
+        level:    profLevels[p] ?? 0,
+        maxLevel: PROFESSION_MAX_LEVEL,
+        nextCost: (profLevels[p] ?? 0) < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
+      }])
+    ),
+  });
+});
+
 function resolveAuth(req: Request): string | null {
   const header = req.headers['authorization'];
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;

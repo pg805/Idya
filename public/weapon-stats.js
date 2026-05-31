@@ -11,7 +11,8 @@ async function load() {
   weapons = data.weapons.filter(w => w.key !== 'honor');
 
   document.getElementById('loading').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
+  document.getElementById('app').style.display = 'block';
+  await mountLayout({ title: 'Weapons' });
 
   const list = document.getElementById('weapon-list');
   list.innerHTML = '';

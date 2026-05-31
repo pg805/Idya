@@ -22,50 +22,19 @@ body {
 .hint { color: #445; font-size: 0.8rem; }
 code { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a060; }
 
-/* ---- Header ---- */
-header {
+/* ---- Shop sub-header ---- */
+#shop-subhead {
+  padding: 10px 24px 14px;
   background: #12192e;
-  border-bottom: 2px solid #2b1d0e;
-  padding: 18px 24px 12px;
+  border-bottom: 1px solid #1c2438;
 }
 
-.header-main {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-h1 {
-  font-size: 1.1rem;
-  color: #c0a060;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  margin-bottom: 3px;
-}
-
-#npc-line {
+#shop-name-line {
   font-size: 0.7rem;
-  color: #445;
+  color: #8899aa;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-}
-
-.korel-box { text-align: right; line-height: 1.2; }
-
-.korel-label {
-  display: block;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #445;
-  margin-bottom: 1px;
-}
-
-#korel-val {
-  font-size: 1.15rem;
-  color: #c0a060;
-  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 #greeting {
@@ -74,40 +43,6 @@ h1 {
   font-style: italic;
   line-height: 1.5;
 }
-
-/* ---- Training bar ---- */
-#training-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 20px;
-  background: #0f1825;
-  border-bottom: 1px solid #1c2838;
-  font-size: 0.8rem;
-}
-
-#training-label {
-  color: #c0a060;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-}
-
-#training-level { color: #556; }
-
-#training-bar button {
-  margin-left: auto;
-  background: #1a2e1a;
-  border: 1px solid #2a4a2a;
-  border-radius: 4px;
-  color: #70a870;
-  padding: 4px 16px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-#training-bar button:hover { background: #243c24; }
-#training-bar button:disabled { opacity: 0.4; cursor: default; }
 
 /* ---- Two-panel layout ---- */
 .panels {

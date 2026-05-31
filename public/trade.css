@@ -15,16 +15,11 @@ body {
 .hint { color: #445; font-size: 0.8rem; }
 code { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a060; }
 
-header {
+#trade-subhead {
   background: #12192e;
-  border-bottom: 2px solid #2b1d0e;
-  padding: 14px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  border-bottom: 1px solid #1c2438;
+  padding: 8px 24px;
 }
-
-h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; }
 
 #status-line { font-size: 0.78rem; color: #556; }
 

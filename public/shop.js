@@ -43,48 +43,32 @@ async function load() {
     return;
   }
   data = await res.json();
-  document.title = data.shopName;
+  document.title = data.shopName + (location.port === '3000' ? ' — Dev' : '');
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  render();
+  await render();
 }
 
 // ---- Render ----
 
-function render() {
-  document.getElementById('shop-name').textContent = data.shopName;
-  document.getElementById('npc-line').textContent  = `${data.npc} · ${data.title}`;
-  document.getElementById('korel-val').textContent  = data.korel.toLocaleString();
-  document.getElementById('greeting').textContent   = `"${data.greeting}"`;
-  renderTraining();
+async function render() {
+  await mountLayout({ title: data.shopName });
+  document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
+  document.getElementById('greeting').textContent       = `"${data.greeting}"`;
   renderBuy();
   renderSell();
 }
 
-function renderTraining() {
-  const bar = document.getElementById('training-bar');
-  const t   = data.training;
-  if (!t) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  document.getElementById('training-label').textContent = t.label;
-  const atMax = t.level >= t.maxLevel;
-  document.getElementById('training-level').textContent = atMax
-    ? `Level ${t.level} / ${t.maxLevel} — Mastered`
-    : `Level ${t.level} / ${t.maxLevel} — Next: ${t.nextCost.toLocaleString()} korel`;
-  const btn = document.getElementById('training-btn');
-  btn.disabled = atMax;
-  btn.textContent = atMax ? 'Mastered' : `Train ${t.label}`;
+window.onLayoutChange = async () => { await loadData(); };
+
+async function loadData() {
+  const res = await fetch(`/api/shop/${shopKey}`, { headers: authHeaders() });
+  if (!res.ok) return;
+  data = await res.json();
+  await render();
 }
 
-async function doTrain() {
-  const res = await fetch(`/api/shop/${shopKey}/train`, {
-    method: 'POST', headers: authHeaders(true),
-    body: JSON.stringify({}),
-  });
-  const r = await res.json();
-  toast(r.message ?? r.error, r.success !== false);
-  if (r.success) await refresh();
-}
+window.showToast = (msg) => toast(msg, true);
 
 function renderBuy() {
   const forSale = data.items.filter(i => i.buy != null);

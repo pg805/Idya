@@ -41,7 +41,7 @@ async function load() {
   data = await res.json();
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  render();
+  await render();
 }
 
 // ---- Tabs ----
@@ -59,50 +59,21 @@ function showTab(tab) {
 
 const PROF_SHOP = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchanter: 'enchanting_shop' };
 
-function render() {
-  document.getElementById('char-name').textContent = data.characterName;
-  document.getElementById('korel-val').textContent = `${data.korel.toLocaleString()} korel`;
+async function render() {
+  await mountLayout({ title: 'Crafting Bench' });
   initProfFilter();
-  renderProfessions();
   renderRecipeFilter();
   renderRecipes();
 }
 
-function renderProfessions() {
-  const container = document.getElementById('professions');
-  container.innerHTML = '';
-  for (const [key, prof] of Object.entries(data.professions)) {
-    const pct    = prof.level / prof.maxLevel * 100;
-    const atMax  = prof.level >= prof.maxLevel;
-    const canAfford = prof.nextCost != null && data.korel >= prof.nextCost;
-    const costLabel = prof.nextCost != null ? prof.nextCost.toLocaleString() : null;
-    const card = document.createElement('div');
-    card.className = 'prof-card';
-    card.innerHTML = `
-      <p class="prof-name">${esc(prof.label)}</p>
-      <p class="prof-level">${prof.level}<span> / ${prof.maxLevel}</span></p>
-      <div class="prof-bar-bg"><div class="prof-bar" style="width:${pct}%"></div></div>
-      <div class="prof-footer">
-        <p class="prof-meta">${atMax ? 'Mastered' : costLabel != null ? `Next: ${costLabel} korel` : 'Cap reached'}</p>
-        ${!atMax && costLabel != null
-          ? `<button class="train-btn" onclick="doTrain('${PROF_SHOP[key]}')" ${canAfford ? '' : 'disabled'}>Train ${esc(prof.label)}</button>`
-          : ''}
-      </div>
-    `;
-    container.appendChild(card);
-  }
+window.onLayoutChange = async () => { await refreshAll(); };
+
+async function refreshAll() {
+  const res = await fetch('/api/craft', { headers: authHeaders() });
+  if (res.ok) { data = await res.json(); await render(); }
 }
 
-async function doTrain(shopKey) {
-  const res  = await fetch(`/api/shop/${shopKey}/train`, { method: 'POST', headers: authHeaders(true), body: JSON.stringify({}) });
-  const body = await res.json();
-  showToast(body.message ?? (body.error || 'Error'));
-  if (body.success) {
-    const refreshed = await fetch('/api/craft', { headers: authHeaders() });
-    data = await refreshed.json();
-    render();
-  }
-}
+window.showToast = (msg) => toast(msg, true);
 
 function renderRecipes() {
   const list = document.getElementById('recipe-list');
@@ -212,8 +183,7 @@ async function doCraft(recipeId) {
   toast(r.message ?? r.error, r.success !== false);
   if (r.success) {
     openRecipe = null;
-    const fresh = await fetch('/api/craft', { headers: authHeaders() });
-    if (fresh.ok) { data = await fresh.json(); render(); }
+    await refreshAll();
   }
 }
 

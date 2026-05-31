@@ -14,7 +14,9 @@ body {
 
 /* ---- Layout ---- */
 
-#app { display: flex; height: 100vh; }
+#app { height: 100vh; display: flex; flex-direction: column; }
+
+#weapon-stats-body { display: flex; flex: 1; min-height: 0; }
 
 #sidebar {
   width: 200px;
