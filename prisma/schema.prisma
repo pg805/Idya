@@ -16,20 +16,21 @@ model User {
 }
 
 model Character {
-  id           String          @id @default(uuid())
-  discord_id   String
-  name         String
-  sprite_token String?
-  nationality  String?
-  bio          String?
-  health       Int
-  max_health   Int
-  weapon_key   String
+  id                  String   @id @default(uuid())
+  discord_id          String
+  name                String
+  sprite_token        String?
+  nationality         String?
+  bio                 String?
+  health              Int
+  max_health          Int
+  equipped_weapon_id  String?
 
-  user         User                  @relation(fields: [discord_id], references: [discord_id])
-  inventory    InventoryItem[]
-  weapons      CharacterWeapon[]
-  professions  CharacterProfession[]
+  user                User                  @relation(fields: [discord_id], references: [discord_id])
+  equipped_weapon     CharacterWeapon?      @relation("EquippedWeapon", fields: [equipped_weapon_id], references: [id])
+  inventory           InventoryItem[]
+  weapons             CharacterWeapon[]     @relation("OwnedWeapons")
+  professions         CharacterProfession[]
 }
 
 model CharacterProfession {
@@ -50,13 +51,16 @@ model Item {
 }
 
 model CharacterWeapon {
+  id            String     @id @default(uuid())
   character_id  String
   weapon_key    String
-  upgrades      Json   @default("{}")
+  upgrades      Json       @default("{}")
+  created_at    DateTime   @default(now())
 
-  character     Character @relation(fields: [character_id], references: [id])
+  character     Character  @relation("OwnedWeapons", fields: [character_id], references: [id])
+  equipped_by   Character[] @relation("EquippedWeapon")
 
-  @@id([character_id, weapon_key])
+  @@index([character_id, weapon_key])
 }
 
 model KorelLedger {

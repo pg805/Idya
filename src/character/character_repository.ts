@@ -28,7 +28,6 @@ export default class CharacterRepository {
             data: {
                 discord_id,
                 name,
-                weapon_key,
                 sprite_token:  sprite_token  ?? null,
                 nationality:   nationality   ?? null,
                 bio:           bio           ?? null,
@@ -36,20 +35,33 @@ export default class CharacterRepository {
                 max_health:    hp,
             }
         });
-        await prisma.characterWeapon.create({ data: { character_id: character.id, weapon_key } });
+        const starterWeapon = await prisma.characterWeapon.create({
+            data: { character_id: character.id, weapon_key }
+        });
+        const updated = await prisma.character.update({
+            where: { id: character.id },
+            data:  { equipped_weapon_id: starterWeapon.id },
+        });
         await prisma.eventLog.create({ data: {
             discord_id,
             event_type: 'character_created',
             payload: { name, weapon_key, sprite_token: sprite_token ?? null },
         }});
-        return character;
+        return updated;
     }
 
-    to_player_character(data: Character): Player_Character {
-        const weapon = Weapon.from_file(`./database/weapons/${data.weapon_key}.yaml`);
+    async to_player_character(data: Character): Promise<Player_Character> {
+        const weaponKey = await this.equippedWeaponKey(data);
+        const weapon = Weapon.from_file(`./database/weapons/${weaponKey}.yaml`);
         const image = data.sprite_token
             ? `${process.env.HOST_URL ?? 'http://localhost:3001'}/sprites/${data.sprite_token}.png`
             : '';
         return new Player_Character(data.name, data.health, weapon, image);
+    }
+
+    async equippedWeaponKey(data: Character): Promise<string> {
+        if (!data.equipped_weapon_id) return 'branch';
+        const w = await prisma.characterWeapon.findUnique({ where: { id: data.equipped_weapon_id } });
+        return w?.weapon_key ?? 'branch';
     }
 }

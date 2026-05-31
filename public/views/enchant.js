@@ -58,19 +58,20 @@
     }
     for (const w of enchantData.weapons) {
       const opt = document.createElement('option');
-      opt.value = w.weapon_key;
-      opt.textContent = `${w.name}${w.equipped ? ' (equipped)' : ''} — ${w.enchants_used}/${w.enchant_slots} enchants`;
+      opt.value = w.id;
+      const bonus = w.bonus_count > 0 ? ` +${w.bonus_count}` : '';
+      opt.textContent = `${w.name}${bonus}${w.equipped ? ' (equipped)' : ''} — ${w.enchants_used}/${w.enchant_slots} enchants`;
       picker.appendChild(opt);
     }
-    const prevKey = enchantWeapon?.weapon_key;
-    enchantWeapon = enchantData.weapons.find(w => w.weapon_key === prevKey) ?? enchantData.weapons[0];
-    picker.value = enchantWeapon.weapon_key;
+    const prevId = enchantWeapon?.id;
+    enchantWeapon = enchantData.weapons.find(w => w.id === prevId) ?? enchantData.weapons[0];
+    picker.value = enchantWeapon.id;
     enchantPending = null;
     renderEnchantPanel();
   }
 
-  function pickWeapon(key) {
-    enchantWeapon = enchantData?.weapons.find(w => w.weapon_key === key) ?? null;
+  function pickWeapon(id) {
+    enchantWeapon = enchantData?.weapons.find(w => w.id === id) ?? null;
     enchantPending = null;
     renderEnchantPanel();
   }
@@ -269,7 +270,7 @@
 
   async function confirm() {
     if (!enchantPending || !enchantWeapon) return;
-    const res = await fetch(`/api/enchant/${enchantWeapon.weapon_key}`, {
+    const res = await fetch(`/api/enchant/${enchantWeapon.id}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: enchantPending.actionName,

@@ -38,7 +38,7 @@
   function layoutChangedHandler() { if (upgradeData) loadUpgrade(); }
 
   async function loadUpgrade() {
-    const prevKey = selectedWeapon?.weapon_key;
+    const prevId = selectedWeapon?.id;
     const res = await fetch('/api/upgrade');
     if (!res.ok) { document.getElementById('upgrade-panel').innerHTML = '<p class="empty">Could not load weapons.</p>'; return; }
     upgradeData = await res.json();
@@ -52,17 +52,18 @@
     }
     for (const w of upgradeData.weapons) {
       const opt = document.createElement('option');
-      opt.value = w.weapon_key;
-      opt.textContent = w.name + (w.equipped ? ' (equipped)' : '');
+      opt.value = w.id;
+      const bonus = w.bonus_count > 0 ? ` +${w.bonus_count}` : '';
+      opt.textContent = w.name + bonus + (w.equipped ? ' (equipped)' : '');
       picker.appendChild(opt);
     }
-    selectedWeapon = upgradeData.weapons.find(w => w.weapon_key === prevKey) ?? upgradeData.weapons[0];
-    picker.value = selectedWeapon.weapon_key;
+    selectedWeapon = upgradeData.weapons.find(w => w.id === prevId) ?? upgradeData.weapons[0];
+    picker.value = selectedWeapon.id;
     renderUpgradePanel();
   }
 
-  function pickWeapon(key) {
-    selectedWeapon = upgradeData?.weapons.find(w => w.weapon_key === key) ?? null;
+  function pickWeapon(id) {
+    selectedWeapon = upgradeData?.weapons.find(w => w.id === id) ?? null;
     pendingDelta = null;
     renderUpgradePanel();
   }
@@ -194,7 +195,7 @@
 
   async function confirmFieldEdit() {
     if (!pendingDelta || !selectedWeapon) return;
-    const res = await fetch(`/api/upgrade/${selectedWeapon.weapon_key}`, {
+    const res = await fetch(`/api/upgrade/${selectedWeapon.id}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: pendingDelta.actionName, delta: pendingDelta.delta }),
     });
@@ -205,7 +206,7 @@
 
   async function upgradeValue(actionName) {
     if (!selectedWeapon) return;
-    const res = await fetch(`/api/upgrade/${selectedWeapon.weapon_key}`, {
+    const res = await fetch(`/api/upgrade/${selectedWeapon.id}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: actionName, delta: 1 }),
     });

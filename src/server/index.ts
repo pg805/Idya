@@ -294,6 +294,13 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+// Get the weapon_key of the character's equipped weapon (null if none).
+async function equippedWeaponKey(char: { equipped_weapon_id: string | null }): Promise<string | null> {
+  if (!char.equipped_weapon_id) return null;
+  const w = await prisma.characterWeapon.findUnique({ where: { id: char.equipped_weapon_id } });
+  return w?.weapon_key ?? null;
+}
+
 // Count total bonuses on a weapon (base + player + enchants) for display as "+N"
 function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
   const raw = loadWeaponYaml(weaponKey, __dirname);
@@ -390,16 +397,20 @@ app.get('/api/character', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+  const weapons = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
     return {
+      id:          w.id,
       weapon_key:  w.weapon_key,
       name:        (raw?.['Name']        as string | undefined) ?? w.weapon_key,
       description: (raw?.['Description'] as string | undefined) ?? '',
       hp:          (raw?.['HP']          as number | undefined) ?? 0,
       level:       (raw?.['Level']       as number | undefined) ?? 0,
-      equipped:    w.weapon_key === char.weapon_key,
+      equipped:    w.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
     };
   }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
@@ -413,7 +424,7 @@ app.get('/api/character', async (req: Request, res: Response) => {
     sprite_cdn:   worldConfig.sprite_cdn,
     health:       char.health,
     max_health:   char.max_health,
-    equipped_weapon_key: char.weapon_key,
+    equipped_weapon_id: char.equipped_weapon_id,
     weapons:      weaponList,
   });
 });
@@ -421,25 +432,26 @@ app.get('/api/character', async (req: Request, res: Response) => {
 app.post('/api/character/equip', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-  const { weapon_key } = req.body as { weapon_key?: string };
-  if (!weapon_key) { res.status(400).json({ error: 'weapon_key required' }); return; }
+  const { weapon_id } = req.body as { weapon_id?: string };
+  if (!weapon_id) { res.status(400).json({ error: 'weapon_id required' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
-  const owned = await prisma.characterWeapon.findUnique({
-    where: { character_id_weapon_key: { character_id: char.id, weapon_key } },
-  });
-  if (!owned) { res.json({ success: false, message: "You don't own that weapon." }); return; }
-  const raw = loadWeaponYaml(weapon_key, __dirname) as Record<string, unknown> | null;
+  const owned = await prisma.characterWeapon.findUnique({ where: { id: weapon_id } });
+  if (!owned || owned.character_id !== char.id) {
+    res.json({ success: false, message: "You don't own that weapon." });
+    return;
+  }
+  const raw = loadWeaponYaml(owned.weapon_key, __dirname) as Record<string, unknown> | null;
   const maxHp = (raw?.['HP'] as number | undefined) ?? char.max_health;
   await prisma.character.update({
     where: { id: char.id },
-    data:  { weapon_key, max_health: maxHp, health: maxHp },
+    data:  { equipped_weapon_id: weapon_id, max_health: maxHp, health: maxHp },
   });
-  const weaponName = (raw?.['Name'] as string | undefined) ?? weapon_key;
+  const weaponName = (raw?.['Name'] as string | undefined) ?? owned.weapon_key;
   await prisma.eventLog.create({ data: {
     discord_id: discordId, event_type: 'weapon_equipped',
-    payload: { weapon_key, weapon_name: weaponName },
+    payload: { weapon_id, weapon_key: owned.weapon_key, weapon_name: weaponName },
   }}).catch(() => {});
   res.json({ success: true, message: `Equipped ${weaponName}.` });
 });
@@ -453,7 +465,7 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
 
   const [items, weapons] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { character_id: char.id }, include: { item: true } }),
-    prisma.characterWeapon.findMany({ where: { character_id: char.id } }),
+    prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
   ]);
 
   const itemList = items.map(i => ({
@@ -467,16 +479,17 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
     return {
+      id:          w.id,
       weapon_key:  w.weapon_key,
       name:        (raw?.['Name'] as string | undefined) ?? w.weapon_key,
-      equipped:    w.weapon_key === char.weapon_key,
+      equipped:    w.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
     };
   });
 
   res.json({
     characterName: char.name,
-    equipped_weapon_key: char.weapon_key,
+    equipped_weapon_id: char.equipped_weapon_id,
     items:   itemList,
     weapons: weaponList,
   });
@@ -789,14 +802,20 @@ app.get('/api/craft', async (req: Request, res: Response) => {
 
   const [inventory, ownedWeapons] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } }),
-    prisma.characterWeapon.findMany({ where: { character_id: chars[0].id }, select: { weapon_key: true } }),
+    prisma.characterWeapon.findMany({ where: { character_id: chars[0].id }, select: { id: true, weapon_key: true } }),
   ]);
   const invMap: Record<string, number> = {};
   for (const inv of inventory) invMap[inv.item_id] = inv.quantity;
-  const ownedWeaponKeys = new Set(ownedWeapons.map(w => w.weapon_key));
+
+  const equippedId = chars[0].equipped_weapon_id;
+  const unEquippedKeyCounts: Record<string, number> = {};
+  for (const w of ownedWeapons) {
+    if (w.id === equippedId) continue;
+    unEquippedKeyCounts[w.weapon_key] = (unEquippedKeyCounts[w.weapon_key] ?? 0) + 1;
+  }
 
   const ingredientMet = (i: { item_id?: string; weapon_id?: string; quantity: number }): boolean => {
-    if (i.weapon_id) return ownedWeaponKeys.has(i.weapon_id) && i.weapon_id !== chars[0].weapon_key;
+    if (i.weapon_id) return (unEquippedKeyCounts[i.weapon_id] ?? 0) >= 1;
     return (invMap[i.item_id ?? ''] ?? 0) >= i.quantity;
   };
 
@@ -853,16 +872,17 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   const result = await prisma.$transaction(async tx => {
     for (const ing of recipe.ingredients) {
       if (ing.weapon_id) {
-        if (chars[0].weapon_key === ing.weapon_id) {
-          return { success: false, message: `Unequip your ${ing.weapon_id} before using it in a recipe.` };
-        }
-        const wep = await tx.characterWeapon.findUnique({
-          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
+        // Find oldest unequipped instance of this weapon_key to consume.
+        const wep = await tx.characterWeapon.findFirst({
+          where: {
+            character_id: chars[0].id,
+            weapon_key:   ing.weapon_id,
+            NOT: chars[0].equipped_weapon_id ? { id: chars[0].equipped_weapon_id } : undefined,
+          },
+          orderBy: { created_at: 'asc' },
         });
-        if (!wep) return { success: false, message: `Requires a ${ing.weapon_id}.` };
-        await tx.characterWeapon.delete({
-          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
-        });
+        if (!wep) return { success: false, message: `Requires an unequipped ${ing.weapon_id}.` };
+        await tx.characterWeapon.delete({ where: { id: wep.id } });
       } else if (ing.item_id) {
         const needed = ing.quantity * qty;
         const inv = await tx.inventoryItem.findUnique({
@@ -896,25 +916,14 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
         create: { character_id: chars[0].id, item_id: outputId, quantity: outQty },
       });
     } else {
+      // Always create a new weapon instance — weapons are unique.
       const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(outputId, __dirname) : null;
       const baseUpgrades = rawWeapon && recipe.output.base_bonus
         ? computeBaseUpgrades(rawWeapon, recipe.output.base_bonus)
         : {};
       const hasBase = Object.keys(baseUpgrades).length > 0;
 
-      const existingWeapon = await tx.characterWeapon.findUnique({
-        where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
-      });
-
-      if (existingWeapon) {
-        if (hasBase) {
-          const prev = (existingWeapon.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
-          await tx.characterWeapon.update({
-            where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
-            data:  { upgrades: { ...prev, base: { ...(prev.base ?? {}), ...baseUpgrades } } as Prisma.InputJsonValue },
-          });
-        }
-      } else {
+      for (let i = 0; i < qty; i++) {
         await tx.characterWeapon.create({
           data: {
             character_id: chars[0].id,
@@ -985,7 +994,10 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   const profRows    = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
   const profLevelOf = (p: string) => profRows.find(r => r.profession === p)?.level ?? 0;
 
-  const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+  const weaponRows = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
 
   const CAT_LABELS: Record<string, string> = {
     defend: 'Defend', defend_crit: 'Defend Crit',
@@ -1035,9 +1047,11 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     });
 
     weapons.push({
+      id: row.id,
       weapon_key: row.weapon_key,
       name: raw.Name,
-      equipped: row.weapon_key === char.weapon_key,
+      equipped: row.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       weapon_total: weaponTotal,
       weapon_cap: weaponCap,
       upgrade_professions: professionInfo,
@@ -1048,18 +1062,24 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   res.json({ characterName: char.name, lj_level: profLevelOf('lumberjack'), weapons });
 });
 
-app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
+app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weaponKey = String(req.params['weaponKey']);
+  const weaponId = String(req.params['weaponId']);
   const { action, delta, profession: requestedProfession } = req.body as {
     action: string; delta: number | number[]; profession?: string;
   };
 
+  const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+  if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
+    res.status(404).json({ error: 'Weapon not found' });
+    return;
+  }
+  const weaponKey = weaponRowEarly.weapon_key;
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
 
@@ -1089,10 +1109,10 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
   const fieldLens = buildFieldLenMap(raw);
 
   const result = await prisma.$transaction(async tx => {
-    const weaponRow = await tx.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
-    });
-    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+    const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!weaponRow || weaponRow.character_id !== char.id) {
+      return { success: false, message: 'You do not own this weapon.' };
+    }
 
     const profRows = await tx.characterProfession.findMany({
       where: { character_id: char.id, profession: { in: validProfessions } },
@@ -1140,13 +1160,13 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
 
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
+      where: { id: weaponId },
       data: { upgrades: { base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId, event_type: 'weapon_upgraded',
-      payload: { weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
     }}).catch(() => {});
 
     return { success: true, message: `Upgraded ${action} via ${profession}.` };
@@ -1175,7 +1195,10 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
   });
   const encLvl = encProfRow?.level ?? 0;
 
-  const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+  const weaponRows = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
 
   const CAT_LABELS: Record<string, string> = {
     defend: 'Defend', defend_crit: 'Defend Crit',
@@ -1225,9 +1248,11 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
     });
 
     return {
+      id: row.id,
       weapon_key: row.weapon_key,
       name: raw.Name,
-      equipped: row.weapon_key === char.weapon_key,
+      equipped: row.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       enchant_slots: ENCHANT_SLOTS,
       enchants_used: Object.keys(enchants).length,
       actions,
@@ -1254,14 +1279,20 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
+app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weaponKey = String(req.params['weaponKey']);
+  const weaponId = String(req.params['weaponId']);
+  const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+  if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
+    res.status(404).json({ error: 'Weapon not found' });
+    return;
+  }
+  const weaponKey = weaponRowEarly.weapon_key;
   const { action: actionName, kind, category, subtype, delta } = req.body as {
     action: string; kind: string; category: string; subtype: string; delta: number | number[];
   };
@@ -1334,10 +1365,10 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
       }
     }
 
-    const weaponRow = await tx.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
-    });
-    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+    const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!weaponRow || weaponRow.character_id !== char.id) {
+      return { success: false, message: 'You do not own this weapon.' };
+    }
 
     const upgrades = (weaponRow.upgrades ?? {}) as {
       base?: Record<string, unknown>;
@@ -1358,7 +1389,7 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
     };
 
     await tx.characterWeapon.update({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
+      where: { id: weaponId },
       data: {
         upgrades: {
           ...upgrades,
@@ -1370,7 +1401,7 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
     await tx.eventLog.create({ data: {
       discord_id: discordId,
       event_type: 'weapon_enchanted',
-      payload: { weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
     }}).catch(() => {});
 
     return { success: true, message: `${actionName} enchanted with ${enchantCategory} (${subtype}).` };
@@ -1610,7 +1641,10 @@ io.on('connection', (socket: Socket) => {
     const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
     if (oldMeta) {
       const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
-      if (chars[0]) { playerName = chars[0].name; playerWeaponKey = chars[0].weapon_key; }
+      if (chars[0]) {
+        playerName = chars[0].name;
+        playerWeaponKey = (await equippedWeaponKey(chars[0])) ?? 'branch';
+      }
     }
 
     const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
@@ -1982,7 +2016,8 @@ if (discordToken) {
 
       const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, char.weapon_key);
+      const charWeaponKey = (await equippedWeaponKey(char)) ?? 'branch';
+      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, charWeaponKey);
       sessions.set(sessionId, huntSession);
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
 
@@ -2111,10 +2146,8 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
-      await prisma.characterWeapon.upsert({
-        where:  { character_id_weapon_key: { character_id: chars[0].id, weapon_key: weaponKey } },
-        update: {},
-        create: { character_id: chars[0].id, weapon_key: weaponKey },
+      await prisma.characterWeapon.create({
+        data: { character_id: chars[0].id, weapon_key: weaponKey },
       });
       const w = Weapon.from_file(weaponPath);
       await prisma.eventLog.create({ data: {
@@ -2241,11 +2274,17 @@ if (discordToken) {
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
 
     const professions = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
-    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    const ownedWeapons = await prisma.characterWeapon.findMany({
+      where: { character_id: char.id },
+      orderBy: { created_at: 'asc' },
+    });
     const weaponsText = ownedWeapons.length > 0
       ? ownedWeapons.map(cw => {
           const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
-          return cw.weapon_key === char.weapon_key ? `**${w.name}** (equipped)` : w.name;
+          const bonus = weaponBonusCount(cw.weapon_key, cw.upgrades);
+          const bonusStr = bonus > 0 ? ` +${bonus}` : '';
+          const isEquipped = cw.id === char.equipped_weapon_id;
+          return isEquipped ? `**${w.name}${bonusStr}** (equipped)` : `${w.name}${bonusStr}`;
         }).join('\n')
       : 'None';
 
@@ -2295,7 +2334,10 @@ if (discordToken) {
       return;
     }
     const char = chars[0];
-    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    const ownedWeapons = await prisma.characterWeapon.findMany({
+      where: { character_id: char.id },
+      orderBy: { created_at: 'asc' },
+    });
     if (ownedWeapons.length === 0) {
       await interaction.reply({ content: 'You have no weapons in your inventory.', flags: MessageFlags.Ephemeral });
       return;
@@ -2303,11 +2345,13 @@ if (discordToken) {
 
     const options = ownedWeapons.map(cw => {
       const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
+      const bonus = weaponBonusCount(cw.weapon_key, cw.upgrades);
+      const label = bonus > 0 ? `${w.name} +${bonus}` : w.name;
       return new StringSelectMenuOptionBuilder()
-        .setLabel(w.name)
+        .setLabel(label)
         .setDescription(w.description || cw.weapon_key)
-        .setValue(cw.weapon_key)
-        .setDefault(cw.weapon_key === char.weapon_key);
+        .setValue(cw.id)
+        .setDefault(cw.id === char.equipped_weapon_id);
     });
 
     const select = new StringSelectMenuBuilder()
@@ -2326,17 +2370,18 @@ if (discordToken) {
     if (chars.length === 0) { await interaction.update({ content: 'No character found.', components: [] }); return; }
     const char = chars[0];
 
-    const weaponKey = interaction.values[0];
-    const owned = await prisma.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
-    });
-    if (!owned) { await interaction.update({ content: "You don't own that weapon.", components: [] }); return; }
+    const weaponId = interaction.values[0];
+    const owned = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!owned || owned.character_id !== char.id) {
+      await interaction.update({ content: "You don't own that weapon.", components: [] });
+      return;
+    }
 
-    await prisma.character.update({ where: { id: char.id }, data: { weapon_key: weaponKey } });
-    const w = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+    await prisma.character.update({ where: { id: char.id }, data: { equipped_weapon_id: weaponId } });
+    const w = Weapon.from_file(join(__dirname, `../../database/weapons/${owned.weapon_key}.yaml`));
     await prisma.eventLog.create({ data: {
       discord_id: interaction.user.id, event_type: 'weapon_equipped',
-      payload: { weapon_key: weaponKey, weapon_name: w.name },
+      payload: { weapon_id: weaponId, weapon_key: owned.weapon_key, weapon_name: w.name },
     }}).catch(() => {});
     await interaction.update({ content: `**${w.name}** equipped.`, components: [] });
   });

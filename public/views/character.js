@@ -38,7 +38,7 @@
         <td class="char-w-action">
           ${w.equipped
             ? '<span class="char-w-tag">Equipped</span>'
-            : `<button class="char-equip-btn" onclick="Views.character.equip('${esc(w.weapon_key)}')">Equip</button>`}
+            : `<button class="char-equip-btn" onclick="Views.character.equip('${esc(w.id)}')">Equip</button>`}
         </td>
       </tr>
     `).join('');
@@ -73,11 +73,11 @@
     `;
   }
 
-  async function equip(weaponKey) {
+  async function equip(weaponId) {
     const res = await fetch('/api/character/equip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weapon_key: weaponKey }),
+      body: JSON.stringify({ weapon_id: weaponId }),
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
