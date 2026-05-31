@@ -8,8 +8,8 @@
   }
 
   async function mount(root) {
+    setLayoutTitle('Weapons');
     root.innerHTML = `
-      <div id="layout-root"></div>
       <div class="ws-body">
         <aside class="ws-sidebar">
           <h2>Weapons</h2>
@@ -20,7 +20,6 @@
         </main>
       </div>
     `;
-    await mountLayout({ title: 'Weapons' });
 
     const res = await fetch('/api/weapons');
     const data = await res.json();

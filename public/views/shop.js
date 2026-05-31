@@ -14,8 +14,8 @@
     rootEl  = root;
     shopKey = params.shopKey;
     openBuy = openSell = null;
+    setLayoutTitle('Shop');
     root.innerHTML = `
-      <div id="layout-root"></div>
       <div id="shop-subhead">
         <p id="shop-name-line"></p>
         <p id="shop-greeting"></p>
@@ -32,8 +32,11 @@
       </main>
       <div id="shop-toast"></div>
     `;
+    window.addEventListener('layout-changed', layoutChangedHandler);
     await loadData();
   }
+
+  function layoutChangedHandler() { if (data) loadData(); }
 
   async function loadData() {
     const res = await fetch(`/api/shop/${shopKey}`);
@@ -46,7 +49,7 @@
   }
 
   async function render() {
-    await mountLayout({ title: data.shopName });
+    setLayoutTitle(data.shopName);
     document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
     document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
     renderBuy();
@@ -159,7 +162,7 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openBuy = null; await loadData(); }
+    if (r.success) { openBuy = null; await mountLayout(); }
   }
 
   async function doSell(itemId) {
@@ -170,7 +173,7 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openSell = null; await loadData(); }
+    if (r.success) { openSell = null; await mountLayout(); }
   }
 
   async function doSellAll(itemId) {
@@ -180,18 +183,22 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openSell = null; await loadData(); }
+    if (r.success) { openSell = null; await mountLayout(); }
   }
 
   function unmount() {
+    window.removeEventListener('layout-changed', layoutChangedHandler);
     data = null; openBuy = null; openSell = null; rootEl = null;
+  }
+
+  // After buy/sell, refresh layout (korel changed) — triggers layout-changed event → re-renders shop
+  async function refreshAfterMutation() {
+    await mountLayout();
   }
 
   // expose handlers for inline onclick
   window.Views = window.Views ?? {};
   window.Views.shop = { mount, unmount, toggleBuy, toggleSell, adj, doBuy, doSell, doSellAll };
 
-  // Train button in shared layout triggers this when train succeeds
-  window.onLayoutChange = async () => { if (data) await loadData(); };
   window.showToast = (msg) => toast(msg, true);
 })();

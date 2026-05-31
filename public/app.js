@@ -2,18 +2,20 @@
 
 const content    = document.getElementById('app-content');
 const navLinks   = Array.from(document.querySelectorAll('.nav-link'));
-const DEFAULT_PATH = '/craft';
+const DEFAULT_PATH = '/character';
 
 let activeView = null;
 
 // Map URL path → { viewName, params }
 function routeFromPath(path) {
-  if (path === '/' || path === '') return { viewName: 'craft', params: {} };
-  if (path === '/craft') return { viewName: 'craft', params: {} };
-  if (path === '/weapon-stats') return { viewName: 'weapons', params: {} };
+  if (path === '/' || path === '')      return { viewName: 'character', params: {} };
+  if (path === '/character')            return { viewName: 'character', params: {} };
+  if (path === '/inventory')            return { viewName: 'inventory', params: {} };
+  if (path === '/craft')                return { viewName: 'craft', params: {} };
+  if (path === '/weapon-stats')         return { viewName: 'weapons', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
-  return { viewName: 'craft', params: {} };
+  return { viewName: 'character', params: {} };
 }
 
 function viewPathFromUrl() {
@@ -37,7 +39,6 @@ async function navigate(viewPath, { push = true } = {}) {
   if (activeView && activeView.unmount) {
     try { activeView.unmount(); } catch (_) {}
   }
-  window.onLayoutChange = null;
   activeView = view;
   content.innerHTML = '';
   await view.mount(content, params);
@@ -56,5 +57,6 @@ window.addEventListener('popstate', () => {
 
 (async function init() {
   await claimAuthFromUrl();
+  await mountLayout({ title: 'Idya' });
   await navigate(viewPathFromUrl(), { push: false });
 })();

@@ -7,25 +7,32 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/views/character.css">
+  <link rel="stylesheet" href="/views/inventory.css">
   <link rel="stylesheet" href="/views/weapons.css">
   <link rel="stylesheet" href="/views/shop.css">
   <link rel="stylesheet" href="/views/craft.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
 <body>
+  <div id="layout-root"></div>
   <div id="app-shell">
     <nav id="app-sidebar">
+      <div class="nav-group">
+        <a class="nav-link" data-path="/character">Character</a>
+        <a class="nav-link" data-path="/inventory">Inventory</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Bench</p>
+        <a class="nav-link" data-path="/craft">Crafting</a>
+        <a class="nav-link" data-path="/weapon-stats">Weapon Stats</a>
+      </div>
       <div class="nav-group">
         <p class="nav-label">Town</p>
         <a class="nav-link" data-path="/shop/general_store">General Store</a>
         <a class="nav-link" data-path="/shop/blacksmith">Blacksmith</a>
         <a class="nav-link" data-path="/shop/lumberjack">Lumberjack</a>
         <a class="nav-link" data-path="/shop/enchanting_shop">Enchanting Shop</a>
-      </div>
-      <div class="nav-group">
-        <p class="nav-label">Bench</p>
-        <a class="nav-link" data-path="/craft">Crafting</a>
-        <a class="nav-link" data-path="/weapon-stats">Weapons</a>
       </div>
     </nav>
 
@@ -34,6 +41,8 @@
 
   <script src="/auth.js"></script>
   <script src="/layout.js"></script>
+  <script src="/views/character.js"></script>
+  <script src="/views/inventory.js"></script>
   <script src="/views/weapons.js"></script>
   <script src="/views/shop.js"></script>
   <script src="/views/craft.js"></script>

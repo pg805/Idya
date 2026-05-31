@@ -1,0 +1,48 @@
+/* View: Inventory */
+
+#inv-body {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inv-section { }
+
+.inv-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #c0a060;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #1c2438;
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.inv-card {
+  background: #12192e;
+  border: 1px solid #1c2438;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+}
+.inv-card:hover { background: #182240; }
+.inv-card.equipped { border-color: #c0a060; background: #1a1c20; }
+
+.inv-card-name { font-size: 0.82rem; color: #c0d0e0; }
+.inv-card-qty  { font-size: 0.78rem; color: #a0c890; font-family: monospace; }
+.inv-card-meta { font-size: 0.7rem; color: #667; }
+.inv-card.equipped .inv-card-meta { color: #c0a060; }
+
+.inv-empty { padding: 40px 20px; color: #334; font-style: italic; text-align: center; }

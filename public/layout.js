@@ -1,4 +1,4 @@
-// Shared header layout — mountLayout({ title }) injects the top bar into #layout-root.
+// Shared header layout — persistent across navigation.
 
 const PROF_SHOP_LAYOUT = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchanter: 'enchanting_shop' };
 
@@ -6,32 +6,47 @@ function layoutEsc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-async function mountLayout({ title }) {
-  const root = document.getElementById('layout-root');
-  if (!root) return null;
+let layoutTitle = '';
+let layoutData  = null;
 
-  let data = null;
+// Update just the title bar text (no fetch).
+function setLayoutTitle(title) {
+  layoutTitle = title;
+  const el = document.querySelector('.layout-title');
+  if (el) el.textContent = title;
+}
+
+// Fetch fresh data and re-render the header.
+async function mountLayout({ title } = {}) {
+  if (title !== undefined) layoutTitle = title;
   try {
     const res = await fetch('/api/layout');
-    if (res.ok) data = await res.json();
+    if (res.ok) layoutData = await res.json();
   } catch (_) {}
+  renderLayout();
+  window.dispatchEvent(new CustomEvent('layout-changed'));
+}
 
-  if (!data?.authenticated) {
+function renderLayout() {
+  const root = document.getElementById('layout-root');
+  if (!root) return;
+
+  if (!layoutData?.authenticated) {
     root.innerHTML = `
       <header class="layout-header">
         <div class="layout-title-bar">
-          <h1 class="layout-title">${layoutEsc(title)}</h1>
+          <h1 class="layout-title">${layoutEsc(layoutTitle)}</h1>
         </div>
       </header>`;
-    return null;
+    return;
   }
 
-  const spriteUrl = data.spriteToken ? `${data.spriteCdn}/${data.spriteToken}.png` : null;
+  const spriteUrl = layoutData.spriteToken ? `${layoutData.spriteCdn}/${layoutData.spriteToken}.png` : null;
 
-  const profCards = Object.entries(data.professions).map(([key, p]) => {
+  const profCards = Object.entries(layoutData.professions).map(([key, p]) => {
     const pct       = (p.level / p.maxLevel) * 100;
     const atMax     = p.level >= p.maxLevel;
-    const canAfford = p.nextCost != null && data.korel >= p.nextCost;
+    const canAfford = p.nextCost != null && layoutData.korel >= p.nextCost;
     const cost      = p.nextCost != null ? p.nextCost.toLocaleString() : null;
     return `<div class="layout-prof">
       <p class="layout-prof-name">${layoutEsc(p.label)}</p>
@@ -49,19 +64,17 @@ async function mountLayout({ title }) {
   root.innerHTML = `
     <header class="layout-header">
       <div class="layout-title-bar">
-        <h1 class="layout-title">${layoutEsc(title)}</h1>
-        <span class="layout-char-name">${layoutEsc(data.characterName)}</span>
-        <span class="layout-korel">${data.korel.toLocaleString()} korel</span>
+        <h1 class="layout-title">${layoutEsc(layoutTitle)}</h1>
+        <span class="layout-char-name">${layoutEsc(layoutData.characterName)}</span>
+        <span class="layout-korel">${layoutData.korel.toLocaleString()} korel</span>
       </div>
       <div class="layout-prof-row">
         <div class="layout-sprite">
-          ${spriteUrl ? `<img src="${spriteUrl}" alt="${layoutEsc(data.characterName)}">` : ''}
+          ${spriteUrl ? `<img src="${spriteUrl}" alt="${layoutEsc(layoutData.characterName)}">` : ''}
         </div>
         <div class="layout-prof-cards">${profCards}</div>
       </div>
     </header>`;
-
-  return data;
 }
 
 async function layoutTrain(shopKey) {
@@ -73,8 +86,5 @@ async function layoutTrain(shopKey) {
   const body = await res.json();
   if (window.showToast) window.showToast(body.message ?? body.error ?? 'Error');
   else alert(body.message ?? body.error ?? 'Error');
-  if (body.success) {
-    if (window.onLayoutChange) await window.onLayoutChange();
-    else await mountLayout({ title: document.querySelector('.layout-title')?.textContent ?? '' });
-  }
+  if (body.success) await mountLayout();
 }

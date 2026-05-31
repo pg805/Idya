@@ -35,8 +35,8 @@
   }
 
   async function mount(root) {
+    setLayoutTitle('Crafting Bench');
     root.innerHTML = `
-      <div id="layout-root"></div>
       <div id="page-tabs">
         <button class="page-tab" data-tab="craft"   onclick="Views.craft.showTab('craft')">Craft</button>
         <button class="page-tab" data-tab="upgrade" onclick="Views.craft.showTab('upgrade')">Upgrade</button>
@@ -61,15 +61,22 @@
       </section>
       <div id="craft-toast"></div>
     `;
+    window.addEventListener('layout-changed', layoutChangedHandler);
     await refreshAll();
     showTab(activeInnerTab);
+  }
+
+  function layoutChangedHandler() {
+    if (!data) return;
+    refreshAll();
+    if (upgradeData) refreshUpgrade();
+    if (enchantData) loadEnchant();
   }
 
   async function refreshAll() {
     const res = await fetch('/api/craft');
     if (!res.ok) return;
     data = await res.json();
-    await mountLayout({ title: 'Crafting Bench' });
     initProfFilter();
     renderRecipeFilter();
     renderRecipes();
@@ -187,7 +194,7 @@
     toast(r.message ?? r.error, r.success !== false);
     if (r.success) {
       openRecipe = null;
-      await refreshAll();
+      await mountLayout();
     }
   }
 
@@ -374,7 +381,7 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { pendingDelta = null; await refreshUpgrade(); }
+    if (r.success) { pendingDelta = null; await mountLayout(); }
   }
 
   async function upgradeValue(actionName) {
@@ -385,7 +392,7 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) await refreshUpgrade();
+    if (r.success) await mountLayout();
   }
 
   // ---- Enchant ----
@@ -635,7 +642,7 @@
     toast(r.message ?? r.error, r.success !== false);
     if (r.success) {
       enchantPending = null;
-      await loadEnchant();
+      await mountLayout();
     }
   }
 
@@ -651,6 +658,7 @@
   }
 
   function unmount() {
+    window.removeEventListener('layout-changed', layoutChangedHandler);
     data = activeProfs = openRecipe = null;
     upgradeData = selectedWeapon = pendingDelta = null;
     enchantData = enchantWeapon = enchantPending = null;
@@ -666,6 +674,5 @@
     setEnchantKind, setEnchantCategory, setEnchantSubtype, adjEnchantDelta,
   };
 
-  window.onLayoutChange = async () => { await refreshAll(); };
   window.showToast = (msg) => toast(msg, true);
 })();

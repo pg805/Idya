@@ -294,6 +294,103 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+app.get('/api/character', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const weapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+  const weaponList = weapons.map(w => {
+    const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name']        as string | undefined) ?? w.weapon_key,
+      description: (raw?.['Description'] as string | undefined) ?? '',
+      hp:          (raw?.['HP']          as number | undefined) ?? 0,
+      level:       (raw?.['Level']       as number | undefined) ?? 0,
+      equipped:    w.weapon_key === char.weapon_key,
+    };
+  }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
+
+  res.json({
+    id:           char.id,
+    name:         char.name,
+    nationality:  char.nationality,
+    bio:          char.bio,
+    sprite_token: char.sprite_token,
+    sprite_cdn:   worldConfig.sprite_cdn,
+    health:       char.health,
+    max_health:   char.max_health,
+    equipped_weapon_key: char.weapon_key,
+    weapons:      weaponList,
+  });
+});
+
+app.post('/api/character/equip', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { weapon_key } = req.body as { weapon_key?: string };
+  if (!weapon_key) { res.status(400).json({ error: 'weapon_key required' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const owned = await prisma.characterWeapon.findUnique({
+    where: { character_id_weapon_key: { character_id: char.id, weapon_key } },
+  });
+  if (!owned) { res.json({ success: false, message: "You don't own that weapon." }); return; }
+  const raw = loadWeaponYaml(weapon_key, __dirname) as Record<string, unknown> | null;
+  const maxHp = (raw?.['HP'] as number | undefined) ?? char.max_health;
+  await prisma.character.update({
+    where: { id: char.id },
+    data:  { weapon_key, max_health: maxHp, health: maxHp },
+  });
+  const weaponName = (raw?.['Name'] as string | undefined) ?? weapon_key;
+  await prisma.eventLog.create({ data: {
+    discord_id: discordId, event_type: 'weapon_equipped',
+    payload: { weapon_key, weapon_name: weaponName },
+  }}).catch(() => {});
+  res.json({ success: true, message: `Equipped ${weaponName}.` });
+});
+
+app.get('/api/inventory', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const [items, weapons] = await Promise.all([
+    prisma.inventoryItem.findMany({ where: { character_id: char.id }, include: { item: true } }),
+    prisma.characterWeapon.findMany({ where: { character_id: char.id } }),
+  ]);
+
+  const itemList = items.map(i => ({
+    item_id:     i.item_id,
+    name:        ITEMS[i.item_id]?.name        ?? i.item.name,
+    description: ITEMS[i.item_id]?.description ?? i.item.description,
+    type:        ITEMS[i.item_id]?.type        ?? 'material',
+    quantity:    i.quantity,
+  }));
+
+  const weaponList = weapons.map(w => {
+    const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      weapon_key: w.weapon_key,
+      name:       (raw?.['Name'] as string | undefined) ?? w.weapon_key,
+      equipped:   w.weapon_key === char.weapon_key,
+    };
+  });
+
+  res.json({
+    characterName: char.name,
+    equipped_weapon_key: char.weapon_key,
+    items:   itemList,
+    weapons: weaponList,
+  });
+});
+
 app.get('/api/layout', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.json({ authenticated: false }); return; }
