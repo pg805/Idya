@@ -334,10 +334,6 @@ function resolveAuth(req: Request): string | null {
   if (cookieToken && authTokens.has(cookieToken)) {
     return authTokens.get(cookieToken)?.discordUserId ?? null;
   }
-  const header = req.headers['authorization'];
-  if (typeof header === 'string' && header.startsWith('Bearer ')) {
-    return authTokens.get(header.slice(7))?.discordUserId ?? null;
-  }
   return null;
 }
 

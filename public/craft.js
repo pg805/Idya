@@ -8,31 +8,15 @@ let pendingDelta     = null;  // { actionName, delta: number[] } for field edito
 
 // ---- Auth ----
 
-function getToken() { return localStorage.getItem('shop_auth') ?? ''; }
-
 function authHeaders(json = false) {
-  const h = { 'Authorization': `Bearer ${getToken()}` };
-  if (json) h['Content-Type'] = 'application/json';
-  return h;
+  return json ? { 'Content-Type': 'application/json' } : {};
 }
-
-(function initAuth() {
-  const auth = new URLSearchParams(location.search).get('auth');
-  if (auth) {
-    localStorage.setItem('shop_auth', auth);
-    history.replaceState(null, '', location.pathname);
-  }
-})();
 
 // ---- Load ----
 
 async function load() {
-  if (!getToken()) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('auth-error').style.display = 'flex';
-    return;
-  }
-  const res = await fetch('/api/craft', { headers: authHeaders() });
+  await claimAuthFromUrl();
+  const res = await fetch('/api/craft');
   if (res.status === 401) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('auth-error').style.display = 'flex';

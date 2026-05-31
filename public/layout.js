@@ -6,18 +6,13 @@ function layoutEsc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function layoutGetToken() {
-  return localStorage.getItem('shop_auth') ?? '';
-}
-
 async function mountLayout({ title }) {
   const root = document.getElementById('layout-root');
   if (!root) return null;
 
-  const token = layoutGetToken();
   let data = null;
   try {
-    const res = await fetch('/api/layout', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const res = await fetch('/api/layout');
     if (res.ok) data = await res.json();
   } catch (_) {}
 
@@ -70,10 +65,9 @@ async function mountLayout({ title }) {
 }
 
 async function layoutTrain(shopKey) {
-  const token = layoutGetToken();
   const res = await fetch(`/api/shop/${shopKey}/train`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   });
   const body = await res.json();

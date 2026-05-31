@@ -3,35 +3,15 @@ let data     = null;
 let openBuy  = null;
 let openSell = null;
 
-// ---- Auth ----
-
-function getToken() { return localStorage.getItem('shop_auth') ?? ''; }
-
 function authHeaders(json = false) {
-  const h = { 'Authorization': `Bearer ${getToken()}` };
-  if (json) h['Content-Type'] = 'application/json';
-  return h;
+  return json ? { 'Content-Type': 'application/json' } : {};
 }
-
-// On first visit via Discord link, persist the token and clean the URL
-(function initAuth() {
-  const params = new URLSearchParams(location.search);
-  const auth   = params.get('auth');
-  if (auth) {
-    localStorage.setItem('shop_auth', auth);
-    history.replaceState(null, '', location.pathname);
-  }
-})();
 
 // ---- Load ----
 
 async function load() {
-  if (!getToken()) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('auth-error').style.display = 'flex';
-    return;
-  }
-  const res = await fetch(`/api/shop/${shopKey}`, { headers: authHeaders() });
+  await claimAuthFromUrl();
+  const res = await fetch(`/api/shop/${shopKey}`, { credentials: 'same-origin' });
   if (res.status === 401) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('auth-error').style.display = 'flex';

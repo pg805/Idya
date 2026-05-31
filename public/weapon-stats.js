@@ -6,6 +6,7 @@ function esc(s) {
 }
 
 async function load() {
+  await claimAuthFromUrl();
   const res  = await fetch('/api/weapons');
   const data = await res.json();
   weapons = data.weapons.filter(w => w.key !== 'honor');
