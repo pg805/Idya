@@ -395,6 +395,102 @@ app.get('/api/info/enemies', (_req: Request, res: Response) => {
   res.json({ enemies });
 });
 
+// ---- Hunt ----
+
+function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {
+  const path = join(__dirname, `../../database/enemies/${enemyKey}.yaml`);
+  if (!fs.existsSync(path)) return null;
+  const raw = yaml.load(fs.readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  const loot = (raw['Loot'] as { Items?: Array<{ id: string; type: string; Field: number[] }> } | undefined)?.Items ?? [];
+  const drops = loot.map(d => ({
+    item_id: d.id,
+    name:    ITEMS[d.id]?.name ?? d.id,
+    type:    d.type,
+    field:   d.Field ?? [],
+  }));
+  return { name: raw['Name'] as string, health: raw['Health'] as number, drops };
+}
+
+app.get('/api/hunt', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  const tutorialComplete = !!dbUser?.tutorial_complete;
+
+  const baitRows = await prisma.inventoryItem.findMany({
+    where: { character_id: char.id, item_id: { in: BAIT_ITEM_IDS } },
+  });
+  const owned = baitRows.filter(r => r.quantity > 0);
+
+  const baits = owned.map(r => {
+    const enemyKey = BAIT_TO_ENEMY[r.item_id];
+    const enemy    = loadEnemySummary(enemyKey);
+    return {
+      bait_id:   r.item_id,
+      bait_name: ITEMS[r.item_id]?.name ?? r.item_id,
+      quantity:  r.quantity,
+      enemy_key:    enemyKey,
+      enemy_name:   enemy?.name ?? enemyKey,
+      enemy_health: enemy?.health ?? 0,
+      enemy_sprite: `${HOST}/sprites/${enemyKey}.png`,
+      drops:        enemy?.drops ?? [],
+    };
+  }).sort((a, b) => a.enemy_health - b.enemy_health);
+
+  res.json({ baits, tutorial_complete: tutorialComplete });
+});
+
+app.post('/api/hunt/start', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { bait_id } = req.body ?? {};
+  if (typeof bait_id !== 'string' || !(bait_id in BAIT_TO_ENEMY)) {
+    res.status(400).json({ error: 'Invalid bait' });
+    return;
+  }
+  const enemyKey = BAIT_TO_ENEMY[bait_id];
+
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  if (!dbUser?.tutorial_complete) {
+    res.status(403).json({ error: 'Finish the tutorial first — use /battle to talk to Fendalok.' });
+    return;
+  }
+
+  const consumed = await prisma.$transaction(async tx => {
+    const inv = await tx.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
+    });
+    if (!inv || inv.quantity < 1) return false;
+    if (inv.quantity === 1) {
+      await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: bait_id } } });
+    } else {
+      await tx.inventoryItem.update({
+        where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
+        data: { quantity: { decrement: 1 } },
+      });
+    }
+    return true;
+  });
+  if (!consumed) { res.status(400).json({ error: "You don't have that bait." }); return; }
+
+  const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
+  const sessionId    = Math.random().toString(36).slice(2, 10);
+  const weaponKey    = (await equippedWeaponKey(char)) ?? 'branch';
+  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey);
+  sessions.set(sessionId, huntSession);
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+
+  res.json({ session_url: `/battle/${sessionId}` });
+});
+
 app.get('/api/character', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -2349,95 +2445,10 @@ if (discordToken) {
         await interaction.reply({ content: "You can only hunt in the forest.", flags: MessageFlags.Ephemeral });
         return;
       }
-
-      const chars = await charRepo.list(interaction.user.id);
-      if (chars.length === 0) {
-        await interaction.reply({ content: "You don't have a character yet. Use the button in welcome to get started.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-      if (!dbUser?.tutorial_complete) {
-        await interaction.reply({ content: "Talk to Fendalok first — use `/battle` to start the tutorial.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const baitRows = await prisma.inventoryItem.findMany({
-        where: { character_id: chars[0].id, item_id: { in: BAIT_ITEM_IDS } },
-      });
-      const availableBait = baitRows.filter(r => r.quantity > 0);
-
-      if (availableBait.length === 0) {
-        await interaction.reply({ content: "You don't have any bait. Visit the General Store to pick some up.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const baitButtons = availableBait.map(r =>
-        new ButtonBuilder()
-          .setCustomId(`Hunt_${r.item_id}`)
-          .setLabel(`${ITEMS[r.item_id]?.name ?? r.item_id} (${r.quantity})`)
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-      for (let i = 0; i < baitButtons.length; i += 5) {
-        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(baitButtons.slice(i, i + 5)));
-      }
-
+      const token = getOrCreateToken(interaction.user.id);
       await interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x1a1a2e)
-            .setTitle('Sulkupa Forest')
-            .setDescription('The trees are dense this far out. Choose your bait and head in.'),
-        ],
-        components: rows,
+        content: `Sulkupa Forest awaits. ${HOST}/app/hunt?auth=${token}`,
         flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId.startsWith('Hunt_')) {
-      const baitId = interaction.customId.replace('Hunt_', '');
-      const enemyKey = BAIT_TO_ENEMY[baitId];
-      if (!enemyKey) return;
-
-      const chars = await charRepo.list(interaction.user.id);
-      if (chars.length === 0) return;
-      const char = chars[0];
-
-      const consumed = await prisma.$transaction(async tx => {
-        const inv = await tx.inventoryItem.findUnique({
-          where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
-        });
-        if (!inv || inv.quantity < 1) return false;
-        if (inv.quantity === 1) {
-          await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: baitId } } });
-        } else {
-          await tx.inventoryItem.update({
-            where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
-            data: { quantity: { decrement: 1 } },
-          });
-        }
-        return true;
-      });
-
-      if (!consumed) {
-        await interaction.update({ content: "You don't have that bait anymore.", embeds: [], components: [] });
-        return;
-      }
-
-      const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
-      const sessionId = Math.random().toString(36).slice(2, 10);
-      const charWeaponKey = (await equippedWeaponKey(char)) ?? 'branch';
-      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, charWeaponKey);
-      sessions.set(sessionId, huntSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
-
-      await interaction.update({
-        content: `**Into the forest!**\n${HOST}/battle/${sessionId}`,
-        embeds: [],
-        components: [],
       });
       return;
     }

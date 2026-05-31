@@ -284,11 +284,11 @@ function renderActionPanel() {
   if (ui.phase === 'ended') {
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
     if (!isTutorial) {
-      const hint = document.createElement('div');
-      hint.className = 'action-title';
-      hint.style.marginTop = '8px';
-      hint.textContent = 'Return to Discord to start another battle.';
-      actionPanelEl.appendChild(hint);
+      const again = document.createElement('a');
+      again.href = '/app/hunt';
+      again.className = 'battle-again-btn';
+      again.textContent = 'Hunt Again →';
+      actionPanelEl.appendChild(again);
     }
     return;
   }
