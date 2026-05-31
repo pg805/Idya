@@ -48,14 +48,12 @@
 
     const e = selected;
     const dropRows = e.drops.length === 0
-      ? `<tr><td colspan="5" class="en-no-drops">No drops</td></tr>`
+      ? `<tr><td colspan="3" class="en-no-drops">No drops</td></tr>`
       : e.drops.map(d => `
           <tr>
             <td class="en-drop-name">${esc(d.name)}</td>
             <td class="en-drop-type">${esc(d.type)}</td>
             <td class="en-drop-field">[${d.field.join(', ')}]</td>
-            <td class="en-drop-range">${d.min}–${d.max}</td>
-            <td class="en-drop-avg">${d.avg}</td>
           </tr>
         `).join('');
 
@@ -66,11 +64,11 @@
       </div>
       <table class="en-drops">
         <thead><tr>
-          <th>Drop</th><th>Type</th><th>Field (roll table)</th><th>Range</th><th>Avg</th>
+          <th>Drop</th><th>Type</th><th>Field (roll table)</th>
         </tr></thead>
         <tbody>${dropRows}</tbody>
       </table>
-      <p class="en-note">Each turn drops are rolled by picking a random value from the field array. The roll = items dropped that turn.</p>
+      <p class="en-note">On victory, one value is rolled from each item's field array — that's how many drop.</p>
     `;
   }
 
