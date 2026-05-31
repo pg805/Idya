@@ -486,48 +486,51 @@ function renderEnchantPanel() {
 
   const slotsFull = w.enchants_used >= w.enchant_slots;
 
-  // Determine which categories/kinds the player can do
-  const availableKinds = {};
-  for (const cat of enchantData.categories) {
-    const kinds = [];
-    for (const kind of ['minor', 'major']) {
-      if (lvl >= enchantData.level_required[cat][kind]) kinds.push(kind);
-    }
-    if (kinds.length > 0) availableKinds[cat] = kinds;
-  }
-
-  let rowsHtml = '';
-  for (const a of w.actions) {
-    if (!a.upgradeable) continue;
-    const enchanted = a.enchant;
-    const editing   = enchantPending?.actionName === a.name;
-    let detailHtml  = '';
-
-    if (enchanted) {
-      const deltaTxt = Array.isArray(enchanted.delta)
-        ? `[${enchanted.delta.join(', ')}]`
-        : `+${enchanted.delta}`;
-      detailHtml = `<span class="enchant-tag">${esc(enchanted.category)} ${esc(enchanted.subtype)} ${enchanted.kind === 'major' ? '(major)' : ''} ${deltaTxt}</span>`;
-    } else if (!slotsFull) {
-      detailHtml = editing
-        ? renderEnchantEditor(a)
-        : `<button class="upg-btn" onclick="startEnchant('${esc(a.name)}')">Enchant</button>`;
-    }
-
-    rowsHtml += `<div class="upg-action${enchanted ? ' dim' : ''}">
-      <span class="upg-name">${esc(a.name)}</span>
-      <span class="upg-stat">${esc(a.damage_type)} ${esc(a.damage_subtype)}</span>
-      ${detailHtml}
-    </div>`;
-  }
-
-  panel.innerHTML = `
+  const budgetHtml = `
     <div class="upgrade-budget">
       <span class="budget-used">${w.enchants_used} / ${w.enchant_slots} enchants used</span>
       ${slotsFull ? '<span class="budget-cap">Slots full</span>' : ''}
-    </div>
-    ${rowsHtml}
-  `;
+    </div>`;
+
+  let sectionsHtml = '';
+  for (const cat of CAT_ORDER) {
+    const actions = w.actions.filter(a => a.category === cat);
+    if (actions.length === 0) continue;
+    sectionsHtml += `<div class="upgrade-section"><p class="upg-cat-label">${CAT_LABELS[cat]}</p>`;
+    for (const a of actions) sectionsHtml += renderEnchantRow(a, slotsFull);
+    sectionsHtml += '</div>';
+  }
+
+  panel.innerHTML = budgetHtml + sectionsHtml;
+}
+
+function renderEnchantRow(a, slotsFull) {
+  if (!a.upgradeable) {
+    return `<div class="upg-action dim">
+      <span class="upg-name">${esc(a.name)}</span>
+      <span class="cannot-upg">Cannot be enchanted</span>
+    </div>`;
+  }
+
+  const editing   = enchantPending?.actionName === a.name;
+  const enchanted = a.enchant;
+  const statText  = a.type === 'field' ? fieldSummary(a.effective) : `${a.effective}`;
+
+  let extraHtml = '';
+  if (enchanted) {
+    const deltaTxt = Array.isArray(enchanted.delta) ? `[${enchanted.delta.join(', ')}]` : `+${enchanted.delta}`;
+    extraHtml = `<span class="enchant-tag">${esc(enchanted.category)} ${esc(enchanted.subtype)} ${enchanted.kind === 'major' ? '(major)' : ''} ${deltaTxt}</span>`;
+  } else if (!slotsFull && !editing && !enchantPending) {
+    extraHtml = `<button class="upg-btn" onclick="startEnchant('${esc(a.name)}')">Enchant</button>`;
+  }
+
+  return `<div class="upg-action${enchanted ? ' dim' : ''}">
+    <span class="upg-name">${esc(a.name)}</span>
+    <span class="upg-stat">${statText}</span>
+    <span class="upg-subtype">${esc(a.damage_type)} ${esc(a.damage_subtype)}</span>
+    ${extraHtml}
+    ${editing ? renderEnchantEditor(a) : ''}
+  </div>`;
 }
 
 function startEnchant(actionName) {
@@ -563,43 +566,42 @@ function renderEnchantEditor(a) {
   const perCell = p.kind === 'minor' ? 1 : 3;
   const targetDelta = a.type === 'field' ? perCell * a.field_len : perCell;
 
-  // Available categories for the chosen kind
-  const cats = enchantData.categories.filter(c => lvl >= enchantData.level_required[c][p.kind]);
-
-  // Kinds available
   const kinds = ['minor', 'major'].filter(k =>
     enchantData.categories.some(c => lvl >= enchantData.level_required[c][k])
   );
-
+  const cats = enchantData.categories.filter(c => lvl >= enchantData.level_required[c][p.kind]);
   const subs = enchantData.subtypes[p.category];
   const cost = p.kind === 'minor' ? enchantData.minor_cost : enchantData.major_cost;
   const canAfford = Object.entries(cost).every(([m, q]) => (enchantData.materials[m] ?? 0) >= q);
   const costStr = Object.entries(cost).map(([m, q]) => `${q} ${m}`).join(', ');
 
-  let fieldHtml = '';
+  let entriesHtml = '';
+  let remHtml     = '';
+  let sumOk       = true;
   if (a.type === 'field') {
     const spent = p.delta.reduce((s, v) => s + v, 0);
     const rem   = targetDelta - spent;
-    let cells = '';
+    sumOk = rem === 0;
     for (let i = 0; i < p.delta.length; i++) {
-      cells += `<div class="field-cell">
-        <button class="field-btn" onclick="adjEnchantDelta(${i}, -1)" ${p.delta[i] <= 0 ? 'disabled' : ''}>−</button>
-        <span class="field-val">+${p.delta[i]}</span>
-        <button class="field-btn" onclick="adjEnchantDelta(${i}, 1)" ${rem <= 0 ? 'disabled' : ''}>+</button>
+      const effective = a.effective[i] + p.delta[i];
+      const canMinus  = p.delta[i] > 0;
+      const canPlus   = rem > 0;
+      entriesHtml += `<div class="fe-entry">
+        <span class="fe-val">${effective}</span>
+        <div class="fe-btns">
+          <button onclick="adjEnchantDelta(${i}, -1)" ${canMinus ? '' : 'disabled'}>−</button>
+          <button onclick="adjEnchantDelta(${i},  1)" ${canPlus  ? '' : 'disabled'}>+</button>
+        </div>
       </div>`;
     }
-    fieldHtml = `<div class="enchant-field">
-      <p class="enchant-distribute">Distribute +${targetDelta} (${rem} remaining)</p>
-      <div class="field-cells">${cells}</div>
-    </div>`;
+    remHtml = `<p class="fe-budget">${rem} point${rem !== 1 ? 's' : ''} to place</p>`;
+  } else {
+    entriesHtml = `<div class="fe-entry"><span class="fe-val">${a.effective + p.delta}</span></div>`;
+    remHtml = `<p class="fe-budget">+${perCell} to value</p>`;
   }
 
-  const sumOk = a.type === 'field'
-    ? p.delta.reduce((s, v) => s + v, 0) === targetDelta
-    : true;
-
-  return `<div class="enchant-editor">
-    <div class="enchant-row">
+  return `<div class="field-editor">
+    <div class="enchant-dropdowns">
       <label>Kind:</label>
       <select onchange="setEnchantKind(this.value)">
         ${kinds.map(k => `<option value="${k}" ${k === p.kind ? 'selected' : ''}>${k}</option>`).join('')}
@@ -613,11 +615,12 @@ function renderEnchantEditor(a) {
         ${subs.map(s => `<option value="${s}" ${s === p.subtype ? 'selected' : ''}>${s}</option>`).join('')}
       </select>
     </div>
-    ${fieldHtml}
+    ${remHtml}
+    <div class="fe-entries">${entriesHtml}</div>
     <p class="enchant-cost ${canAfford ? '' : 'cant-afford'}">Cost: ${costStr}</p>
-    <div class="enchant-actions">
-      <button class="upg-btn" onclick="confirmEnchant()" ${(!canAfford || !sumOk) ? 'disabled' : ''}>Apply Enchant</button>
-      <button class="upg-btn-cancel" onclick="cancelEnchant()">Cancel</button>
+    <div class="fe-controls">
+      <button onclick="cancelEnchant()">Cancel</button>
+      <button class="upg-btn" onclick="confirmEnchant()" ${(!canAfford || !sumOk) ? 'disabled' : ''}>Confirm</button>
     </div>
   </div>`;
 }

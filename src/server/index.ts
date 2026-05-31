@@ -917,18 +917,34 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
   const weapons = weaponRows.map(row => {
     const raw = loadWeaponYaml(row.weapon_key, __dirname);
     if (!raw) return null;
-    const upgrades = (row.upgrades ?? {}) as { enchants?: WeaponEnchants };
+    const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: WeaponEnchants };
     const enchants = upgrades.enchants ?? {};
+    const baseDeltas      = (upgrades.base ?? {}) as Record<string, number | number[]>;
+    const professions     = weaponUpgradeProfessions(row.weapon_key);
+    const playerUpgrades  = normalizePlayerUpgrades(upgrades.player, professions[0]);
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
       const existing = enchants[a.Name];
       const ar = a as unknown as Record<string, unknown>;
+      let effective: number | number[] = 0;
+      if (kind === 'field') {
+        const base    = a.Field!;
+        const baseB   = (baseDeltas[a.Name] as number[] | undefined) ?? base.map(() => 0);
+        const playerB = summedFieldBonus(playerUpgrades, professions, a.Name, base.length);
+        effective = base.map((v, i) => v + (baseB[i] ?? 0) + playerB[i]);
+      } else if (kind === 'value') {
+        const base    = a.Value!;
+        const baseB   = (baseDeltas[a.Name] as number | undefined) ?? 0;
+        const playerB = summedValueBonus(playerUpgrades, professions, a.Name);
+        effective = base + baseB + playerB;
+      }
       return {
         name: a.Name, category, label: CAT_LABELS[category],
         upgradeable: !!kind,
         field_len: kind === 'field' ? (a.Field?.length ?? 0) : 0,
         type: kind,
+        effective,
         damage_type:    (ar['Damage_Type']    ?? '') as string,
         damage_subtype: (ar['Damage_Subtype'] ?? '') as string,
         enchant: existing ? {

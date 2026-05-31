@@ -381,17 +381,17 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
   color: #c080f0;
 }
 
-.enchant-editor {
-  background: #0e1828;
-  border: 1px solid #1c2e48;
-  border-radius: 4px;
-  padding: 10px;
-  margin-top: 8px;
-  width: 100%;
+.enchant-dropdowns {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1c2e48;
 }
-.enchant-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.enchant-row label { font-size: 0.72rem; color: #556; }
-.enchant-row select {
+.enchant-dropdowns label { font-size: 0.72rem; color: #556; }
+.enchant-dropdowns select {
   background: #0e1520;
   border: 1px solid #2b3a50;
   color: #c0d0e0;
@@ -399,32 +399,9 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
   border-radius: 3px;
   font-size: 0.78rem;
 }
-.enchant-field { margin-top: 10px; }
-.enchant-distribute { font-size: 0.75rem; color: #556; margin-bottom: 6px; }
-.field-cells { display: flex; gap: 4px; flex-wrap: wrap; }
-.field-cell {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: #12192e;
-  padding: 3px 6px;
-  border-radius: 3px;
-}
-.field-btn {
-  width: 20px; height: 20px;
-  background: #1c2a40;
-  border: 1px solid #2b3a50;
-  border-radius: 2px;
-  color: #8899aa;
-  font-size: 0.8rem;
-  cursor: pointer;
-  line-height: 1;
-}
-.field-btn:disabled { opacity: 0.3; cursor: default; }
-.field-val { min-width: 24px; text-align: center; font-size: 0.78rem; color: #a0c890; }
 .enchant-cost { font-size: 0.78rem; color: #c0a060; margin-top: 8px; }
 .enchant-cost.cant-afford { color: #c06060; }
-.enchant-actions { margin-top: 8px; display: flex; gap: 4px; }
+.upg-subtype { font-size: 0.7rem; color: #667; }
 
 /* ---- Field editor ---- */
 #field-editor { width: 100%; margin-top: 8px; }
