@@ -231,6 +231,10 @@ app.get('/trade/:tradeId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/trade.html'));
 });
 
+app.get(/^\/app(\/.*)?$/, (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/app.html'));
+});
+
 app.get('/api/weapons', (_req: Request, res: Response) => {
   const weaponsDir = join(__dirname, '../../database/weapons');
   const files      = fs.readdirSync(weaponsDir).filter(f => f.endsWith('.yaml'));
@@ -2110,7 +2114,6 @@ if (discordToken) {
     [worldConfig.channels.blacksmith]:      'blacksmith',
     [worldConfig.channels.general_store]:   'general_store',
     [worldConfig.channels.lumberjack]:      'lumberjack',
-    [worldConfig.channels.temple]:          'temple',
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
 
@@ -2138,7 +2141,7 @@ if (discordToken) {
 
     const config = loadShop(shopKey, SHOP_DIR);
     await interaction.reply({
-      content: `**${config.name}**\n${HOST}/shop/${shopKey}?auth=${token}`,
+      content: `**${config.name}**\n${HOST}/app/shop/${shopKey}?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
@@ -2162,7 +2165,7 @@ if (discordToken) {
     }
 
     await interaction.reply({
-      content: `${HOST}/craft?auth=${token}`,
+      content: `${HOST}/app/craft?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
@@ -2227,7 +2230,7 @@ if (discordToken) {
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon-stats') return;
-    await interaction.reply({ content: `${HOST}/weapon-stats`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `${HOST}/app/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
 
   // ---- Ping ----

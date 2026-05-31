@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idya</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/app.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <div id="app-shell">
+    <nav id="app-sidebar">
+      <div class="nav-group">
+        <p class="nav-label">Town</p>
+        <a class="nav-link" data-path="/shop/general_store">General Store</a>
+        <a class="nav-link" data-path="/shop/blacksmith">Blacksmith</a>
+        <a class="nav-link" data-path="/shop/lumberjack">Lumberjack</a>
+        <a class="nav-link" data-path="/shop/enchanting_shop">Enchanting Shop</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Bench</p>
+        <a class="nav-link" data-path="/craft">Crafting</a>
+        <a class="nav-link" data-path="/weapon-stats">Weapons</a>
+      </div>
+    </nav>
+
+    <main id="app-content">
+      <iframe id="view-frame" name="view-frame" src="about:blank"></iframe>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
