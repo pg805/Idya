@@ -1,12 +1,22 @@
 // App shell: sidebar navigation, deep-linkable URLs, iframe-loaded views.
 
-(function initAuth() {
+async function claimAuth() {
   const auth = new URLSearchParams(location.search).get('auth');
-  if (auth) {
-    localStorage.setItem('shop_auth', auth);
-    history.replaceState(null, '', location.pathname);
-  }
-})();
+  if (!auth) return;
+  try {
+    const res = await fetch('/api/auth/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ token: auth }),
+    });
+    if (res.ok) {
+      // Keep localStorage in sync for legacy iframe pages that still read Bearer.
+      localStorage.setItem('shop_auth', auth);
+    }
+  } catch (_) {}
+  history.replaceState(null, '', location.pathname);
+}
 
 const frame      = document.getElementById('view-frame');
 const navLinks   = Array.from(document.querySelectorAll('.nav-link'));
@@ -41,4 +51,7 @@ window.addEventListener('popstate', () => {
   navigate(viewPathFromUrl(), { push: false });
 });
 
-navigate(viewPathFromUrl(), { push: false });
+(async function init() {
+  await claimAuth();
+  navigate(viewPathFromUrl(), { push: false });
+})();

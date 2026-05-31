@@ -316,11 +316,50 @@ app.get('/api/layout', async (req: Request, res: Response) => {
   });
 });
 
-function resolveAuth(req: Request): string | null {
-  const header = req.headers['authorization'];
-  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
-  return authTokens.get(header.slice(7))?.discordUserId ?? null;
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const k = part.slice(0, eq).trim();
+    const v = part.slice(eq + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
 }
+
+function resolveAuth(req: Request): string | null {
+  const cookieToken = parseCookies(req.headers.cookie)['idya_session'];
+  if (cookieToken && authTokens.has(cookieToken)) {
+    return authTokens.get(cookieToken)?.discordUserId ?? null;
+  }
+  const header = req.headers['authorization'];
+  if (typeof header === 'string' && header.startsWith('Bearer ')) {
+    return authTokens.get(header.slice(7))?.discordUserId ?? null;
+  }
+  return null;
+}
+
+app.post('/api/auth/claim', (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  if (!token || !authTokens.has(token)) {
+    res.status(401).json({ error: 'Invalid token' });
+    return;
+  }
+  const secure = process.env.NODE_ENV === 'production';
+  const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+  const parts = [
+    `idya_session=${encodeURIComponent(token)}`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ];
+  if (secure) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+  res.json({ ok: true });
+});
 
 function validShop(key: string): boolean {
   return fs.existsSync(join(SHOP_DIR, `${key}.yaml`));
