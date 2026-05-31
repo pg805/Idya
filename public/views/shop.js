@@ -1,19 +1,30 @@
-// View: Shop — buy/sell at a specific shop.
+// View: Shop — cart-based buy/sell.
 (function() {
   let shopKey  = null;
   let data     = null;
-  let openBuy  = null;
-  let openSell = null;
+  let cart     = { buys: {}, sells: {} };  // { itemId: quantity }
   let rootEl   = null;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function getCartQty(side, itemId)     { return cart[side][itemId] ?? 0; }
+  function setCartQty(side, itemId, q) {
+    if (q <= 0) delete cart[side][itemId];
+    else cart[side][itemId] = q;
+    renderBuy(); renderSell(); renderCart();
+  }
+  function adjCart(side, itemId, delta, max) {
+    const cur = getCartQty(side, itemId);
+    const next = Math.max(0, Math.min(max, cur + delta));
+    setCartQty(side, itemId, next);
+  }
+
   async function mount(root, params) {
     rootEl  = root;
     shopKey = params.shopKey;
-    openBuy = openSell = null;
+    cart    = { buys: {}, sells: {} };
     setLayoutTitle('Shop');
     root.innerHTML = `
       <div id="shop-subhead">
@@ -32,6 +43,7 @@
           <div id="shop-sell-list"></div>
         </section>
       </main>
+      <div id="shop-cart"></div>
       <div id="shop-toast"></div>
     `;
     window.addEventListener('layout-changed', layoutChangedHandler);
@@ -56,6 +68,7 @@
     document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
     renderBuy();
     renderSell();
+    renderCart();
   }
 
   function renderBuy() {
@@ -68,30 +81,24 @@
     list.innerHTML = '';
     for (const item of forSale) {
       const oos       = !item.infinite && item.stock === 0;
-      const isOpen    = openBuy === item.id;
       const stockText = item.infinite ? 'Always in stock' : `${item.stock} in stock`;
       const maxQty    = item.infinite ? 9999 : item.stock;
+      const qty       = getCartQty('buys', item.id);
       const el = document.createElement('div');
       el.className = 'shop-item';
       el.innerHTML = `
-        <div class="shop-item-row${isOpen ? ' open' : ''}" onclick="Views.shop.toggleBuy('${item.id}')">
-          <span class="shop-item-name${oos ? ' dim' : ''}">${esc(item.name)}</span>
-          <span class="shop-item-price ${oos ? 'price-dim' : 'price-buy'}">${oos ? 'out of stock' : `${item.buy} korel`}</span>
+        <div class="shop-item-row" title="${esc(item.description)}">
+          <div class="shop-item-info">
+            <span class="shop-item-name${oos ? ' dim' : ''}">${esc(item.name)}</span>
+            <span class="shop-item-sub">${oos ? 'out of stock' : `${item.buy} korel · ${stockText}`}</span>
+          </div>
+          ${oos ? '' : `
+            <div class="shop-cart-ctrl">
+              <button class="shop-step" onclick="Views.shop.adjCart('buys', '${item.id}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
+              <span class="shop-step-val">${qty}</span>
+              <button class="shop-step" onclick="Views.shop.adjCart('buys', '${item.id}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
+            </div>`}
         </div>
-        ${isOpen ? `
-          <div class="shop-item-detail">
-            <p class="shop-item-desc">${esc(item.description)}</p>
-            <p class="shop-stock-line">${stockText}</p>
-            ${oos ? '<p class="shop-unavailable">Check back when restocked.</p>' : `
-              <div class="shop-controls">
-                <div class="shop-qty-wrap">
-                  <button class="shop-qty-step" onclick="Views.shop.adj('b${item.id}', -1, ${maxQty})">−</button>
-                  <input  type="number" id="qty-b${item.id}" class="shop-qty-input" value="1" min="1" max="${maxQty}">
-                  <button class="shop-qty-step" onclick="Views.shop.adj('b${item.id}', 1, ${maxQty})">+</button>
-                </div>
-                <button class="shop-btn shop-btn-buy" onclick="Views.shop.doBuy('${item.id}')">Buy</button>
-              </div>`}
-          </div>` : ''}
       `;
       list.appendChild(el);
     }
@@ -109,42 +116,104 @@
     }
     list.innerHTML = '';
     for (const inv of sellable) {
-      const si     = data.items.find(i => i.id === inv.item_id);
-      const full   = si.stock >= si.stock_max;
-      const isOpen = openSell === inv.item_id;
+      const si    = data.items.find(i => i.id === inv.item_id);
+      const room  = Math.max(0, si.stock_max - si.stock);
+      const maxQty = Math.min(inv.quantity, room);
+      const qty   = getCartQty('sells', inv.item_id);
+      const note  = room === 0
+        ? 'shop is fully stocked'
+        : `${si.sell} korel · own ${inv.quantity}`;
       const el = document.createElement('div');
       el.className = 'shop-item';
       el.innerHTML = `
-        <div class="shop-item-row${isOpen ? ' open' : ''}" onclick="Views.shop.toggleSell('${inv.item_id}')">
-          <span class="shop-item-name${full ? ' dim' : ''}">${esc(inv.name)}<span class="shop-qty-tag">×${inv.quantity}</span></span>
-          <span class="shop-item-price ${full ? 'price-dim' : 'price-sell'}">${full ? 'not buying' : `${si.sell} korel`}</span>
+        <div class="shop-item-row" title="${esc(inv.description)}">
+          <div class="shop-item-info">
+            <span class="shop-item-name${room === 0 ? ' dim' : ''}">${esc(inv.name)}</span>
+            <span class="shop-item-sub">${esc(note)}</span>
+          </div>
+          ${room === 0 ? '' : `
+            <div class="shop-cart-ctrl">
+              <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
+              <span class="shop-step-val">${qty}</span>
+              <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
+            </div>`}
         </div>
-        ${isOpen ? `
-          <div class="shop-item-detail">
-            <p class="shop-item-desc">${esc(inv.description)}</p>
-            ${full ? '<p class="shop-unavailable">Shop is fully stocked.</p>' : `
-              <div class="shop-controls">
-                <div class="shop-qty-wrap">
-                  <button class="shop-qty-step" onclick="Views.shop.adj('s${inv.item_id}', -1, ${inv.quantity})">−</button>
-                  <input  type="number" id="qty-s${inv.item_id}" class="shop-qty-input" value="1" min="1" max="${inv.quantity}">
-                  <button class="shop-qty-step" onclick="Views.shop.adj('s${inv.item_id}', 1, ${inv.quantity})">+</button>
-                </div>
-                <button class="shop-btn shop-btn-sell" onclick="Views.shop.doSell('${inv.item_id}')">Sell</button>
-                <button class="shop-btn shop-btn-all"  onclick="Views.shop.doSellAll('${inv.item_id}')">All</button>
-              </div>`}
-          </div>` : ''}
       `;
       list.appendChild(el);
     }
   }
 
-  function toggleBuy(id)  { openBuy  = openBuy  === id ? null : id; renderBuy();  }
-  function toggleSell(id) { openSell = openSell === id ? null : id; renderSell(); }
+  function cartSummary() {
+    let cost = 0, revenue = 0;
+    const buyLines  = [];
+    const sellLines = [];
+    for (const [id, qty] of Object.entries(cart.buys)) {
+      const item = data.items.find(i => i.id === id);
+      if (!item) continue;
+      const sub = item.buy * qty;
+      cost += sub;
+      buyLines.push({ id, name: item.name, qty, subtotal: sub, unit: item.buy });
+    }
+    for (const [id, qty] of Object.entries(cart.sells)) {
+      const item = data.items.find(i => i.id === id);
+      if (!item) continue;
+      const sub = item.sell * qty;
+      revenue += sub;
+      sellLines.push({ id, name: item.name, qty, subtotal: sub, unit: item.sell });
+    }
+    return { cost, revenue, net: revenue - cost, buyLines, sellLines, empty: buyLines.length === 0 && sellLines.length === 0 };
+  }
 
-  function adj(id, delta, max) {
-    const el  = document.getElementById(`qty-${id}`);
-    const val = Math.max(1, Math.min(max, (parseInt(el.value, 10) || 1) + delta));
-    el.value  = val;
+  function renderCart() {
+    const el = document.getElementById('shop-cart');
+    const s = cartSummary();
+    if (s.empty) { el.innerHTML = ''; el.classList.remove('show'); return; }
+    el.classList.add('show');
+
+    const cartKorel = (data.korel ?? 0) + s.net;
+    const cantAfford = cartKorel < 0;
+
+    const lineHtml = (line, side, sign) => `
+      <div class="cart-line">
+        <span class="cart-line-name">${esc(line.name)}</span>
+        <span class="cart-line-qty">×${line.qty}</span>
+        <span class="cart-line-sub">${sign}${line.subtotal} korel</span>
+        <button class="cart-remove" onclick="Views.shop.setCartQty('${side}', '${line.id}', 0)" title="Remove">×</button>
+      </div>`;
+
+    el.innerHTML = `
+      <div class="cart-lines">
+        ${s.buyLines.map(l => lineHtml(l, 'buys', '−')).join('')}
+        ${s.sellLines.map(l => lineHtml(l, 'sells', '+')).join('')}
+      </div>
+      <div class="cart-foot">
+        <span class="cart-net ${s.net >= 0 ? 'pos' : 'neg'}">Net: ${s.net >= 0 ? '+' : ''}${s.net} korel</span>
+        <span class="cart-balance">After: ${cartKorel.toLocaleString()} korel</span>
+        <button class="cart-clear" onclick="Views.shop.clearCart()">Clear</button>
+        <button class="cart-checkout" onclick="Views.shop.checkout()" ${cantAfford ? 'disabled' : ''}>Checkout</button>
+      </div>
+    `;
+  }
+
+  function clearCart() {
+    cart = { buys: {}, sells: {} };
+    renderBuy(); renderSell(); renderCart();
+  }
+
+  async function checkout() {
+    const buys  = Object.entries(cart.buys).map(([itemId, quantity]) => ({ itemId, quantity }));
+    const sells = Object.entries(cart.sells).map(([itemId, quantity]) => ({ itemId, quantity }));
+    if (buys.length === 0 && sells.length === 0) return;
+    const res = await fetch(`/api/shop/${shopKey}/checkout`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buys, sells }),
+    });
+    const r = await res.json();
+    toast(r.message ?? r.error, r.success !== false);
+    if (r.success) {
+      clearCart();
+      await mountLayout();
+    }
   }
 
   function toast(msg, ok) {
@@ -156,51 +225,12 @@
     el._t = setTimeout(() => { el.className = ''; }, 4500);
   }
 
-  async function doBuy(itemId) {
-    const qty = parseInt(document.getElementById(`qty-b${itemId}`).value, 10) || 1;
-    const res = await fetch(`/api/shop/${shopKey}/buy`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, quantity: qty }),
-    });
-    const r = await res.json();
-    toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openBuy = null; await mountLayout(); }
-  }
-
-  async function doSell(itemId) {
-    const qty = parseInt(document.getElementById(`qty-s${itemId}`).value, 10) || 1;
-    const res = await fetch(`/api/shop/${shopKey}/sell`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, quantity: qty }),
-    });
-    const r = await res.json();
-    toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openSell = null; await mountLayout(); }
-  }
-
-  async function doSellAll(itemId) {
-    const res = await fetch(`/api/shop/${shopKey}/sell-all`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId }),
-    });
-    const r = await res.json();
-    toast(r.message ?? r.error, r.success !== false);
-    if (r.success) { openSell = null; await mountLayout(); }
-  }
-
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
-    data = null; openBuy = null; openSell = null; rootEl = null;
+    data = null; cart = { buys: {}, sells: {} }; rootEl = null;
   }
 
-  // After buy/sell, refresh layout (korel changed) — triggers layout-changed event → re-renders shop
-  async function refreshAfterMutation() {
-    await mountLayout();
-  }
-
-  // expose handlers for inline onclick
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, toggleBuy, toggleSell, adj, doBuy, doSell, doSellAll };
-
+  window.Views.shop = { mount, unmount, adjCart, setCartQty, clearCart, checkout };
   window.showToast = (msg) => toast(msg, true);
 })();
