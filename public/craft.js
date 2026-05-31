@@ -569,17 +569,9 @@ function startEnchant(actionName) {
     kind: 'minor',
     category: 'physical',
     subtype: enchantData.subtypes.physical[0],
-    delta: a.type === 'field' ? distributeEvenly(a.field_len, perCell * a.field_len) : perCell,
+    delta: a.type === 'field' ? new Array(a.field_len).fill(0) : perCell,
   };
   renderEnchantPanel();
-}
-
-function distributeEvenly(cells, total) {
-  const base = Math.floor(total / cells);
-  const extra = total - base * cells;
-  const arr = new Array(cells).fill(base);
-  for (let i = 0; i < extra; i++) arr[i] += 1;
-  return arr;
 }
 
 function cancelEnchant() {
@@ -658,7 +650,7 @@ function setEnchantKind(k) {
   const a = enchantWeapon.actions.find(x => x.name === enchantPending.actionName);
   const perCell = k === 'minor' ? 1 : 3;
   if (a.type === 'field') {
-    enchantPending.delta = distributeEvenly(a.field_len, perCell * a.field_len);
+    enchantPending.delta = new Array(a.field_len).fill(0);
   } else {
     enchantPending.delta = perCell;
   }
