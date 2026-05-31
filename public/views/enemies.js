@@ -1,75 +1,83 @@
-// View: Enemies — info page listing enemies and their drops.
+// View: Enemies — sidebar + detail; full drop info per enemy.
 (function() {
-  let data = null;
+  let enemies = [];
+  let selected = null;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function dropChance(field) {
-    // Field is the roll array; non-zero entries / total entries = chance of any drop
-    const nonZero = field.filter(v => v > 0).length;
-    if (field.length === 0) return '—';
-    const pct = Math.round((nonZero / field.length) * 100);
-    return `${pct}%`;
-  }
-
   async function mount(root) {
     setLayoutTitle('Enemies');
-    root.innerHTML = `<div id="enemy-body"></div>`;
-    if (!data) {
-      const res = await fetch('/api/info/enemies');
-      if (!res.ok) {
-        document.getElementById('enemy-body').innerHTML = `<p class="enemy-empty">Could not load enemy data.</p>`;
-        return;
-      }
-      data = await res.json();
-    }
-    render();
-  }
+    root.innerHTML = `
+      <div class="en-body">
+        <aside class="en-sidebar">
+          <h2>Enemies</h2>
+          <div class="en-list" id="en-list"></div>
+        </aside>
+        <main class="en-detail" id="en-detail">
+          <p class="en-hint">Select an enemy to view drops.</p>
+        </main>
+      </div>
+    `;
 
-  function render() {
-    const body = document.getElementById('enemy-body');
-    if (data.enemies.length === 0) {
-      body.innerHTML = `<p class="enemy-empty">No enemies defined.</p>`;
+    const res = await fetch('/api/info/enemies');
+    if (!res.ok) {
+      document.getElementById('en-detail').innerHTML = `<p class="en-hint">Could not load enemy data.</p>`;
       return;
     }
+    const data = await res.json();
+    enemies = data.enemies;
 
-    body.innerHTML = data.enemies.map(e => `
-      <section class="enemy-card">
-        <header class="enemy-header">
-          <h2 class="enemy-name">${esc(e.name)}</h2>
-          <div class="enemy-stats">
-            <span class="enemy-stat-chip">Lv ${e.level}</span>
-            <span class="enemy-stat-chip">${e.health} HP</span>
-          </div>
-        </header>
-        <table class="enemy-drops">
-          <thead><tr>
-            <th>Drop</th>
-            <th>Type</th>
-            <th>Chance</th>
-            <th>Range</th>
-            <th>Avg</th>
-          </tr></thead>
-          <tbody>
-            ${e.drops.length === 0 ? `<tr><td colspan="5" class="enemy-no-drops">No drops</td></tr>` :
-              e.drops.map(d => `
-                <tr>
-                  <td class="enemy-drop-name">${esc(d.name)}</td>
-                  <td class="enemy-drop-type">${esc(d.type)}</td>
-                  <td class="enemy-drop-chance">${dropChance(d.field)}</td>
-                  <td class="enemy-drop-range">${d.min}–${d.max}</td>
-                  <td class="enemy-drop-avg">${d.avg}</td>
-                </tr>
-              `).join('')}
-          </tbody>
-        </table>
-      </section>
-    `).join('');
+    const list = document.getElementById('en-list');
+    list.innerHTML = '';
+    for (const e of enemies) {
+      const btn = document.createElement('button');
+      btn.className = 'en-btn';
+      btn.dataset.key = e.key;
+      btn.innerHTML = `<span class="en-bname">${esc(e.name)}</span><span class="en-blevel">Lv ${e.level}</span>`;
+      btn.onclick = () => select(e.key);
+      list.appendChild(btn);
+    }
   }
 
-  function unmount() {}
+  function select(key) {
+    selected = enemies.find(e => e.key === key);
+    if (!selected) return;
+    document.querySelectorAll('.en-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+
+    const e = selected;
+    const dropRows = e.drops.length === 0
+      ? `<tr><td colspan="5" class="en-no-drops">No drops</td></tr>`
+      : e.drops.map(d => `
+          <tr>
+            <td class="en-drop-name">${esc(d.name)}</td>
+            <td class="en-drop-type">${esc(d.type)}</td>
+            <td class="en-drop-field">[${d.field.join(', ')}]</td>
+            <td class="en-drop-range">${d.min}–${d.max}</td>
+            <td class="en-drop-avg">${d.avg}</td>
+          </tr>
+        `).join('');
+
+    document.getElementById('en-detail').innerHTML = `
+      <div class="en-header">
+        <h2>${esc(e.name)}</h2>
+        <p class="en-meta">Lv ${e.level} &nbsp;·&nbsp; ${e.health} HP</p>
+      </div>
+      <table class="en-drops">
+        <thead><tr>
+          <th>Drop</th><th>Type</th><th>Field (roll table)</th><th>Range</th><th>Avg</th>
+        </tr></thead>
+        <tbody>${dropRows}</tbody>
+      </table>
+      <p class="en-note">Each turn drops are rolled by picking a random value from the field array. The roll = items dropped that turn.</p>
+    `;
+  }
+
+  function unmount() {
+    enemies = [];
+    selected = null;
+  }
 
   window.Views = window.Views ?? {};
   window.Views.enemies = { mount, unmount };
