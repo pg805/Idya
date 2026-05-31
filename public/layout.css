@@ -1,6 +1,60 @@
+:root {
+  /* Brand palette */
+  --c-bg-base:    #1c3041;   /* Deep Space Blue   — main background */
+  --c-steel:      #88a09e;   /* Cool Steel        — secondary text / borders */
+  --c-gold:       #e6af2e;   /* Sunflower Gold    — titles, currency */
+  --c-teal:       #558b6e;   /* Jungle Teal       — success / positive */
+  --c-amaranth:   #89043d;   /* Dark Amaranth     — danger / negative */
+  --c-white:      #fcfffc;   /* Near-white        — primary text */
+
+  /* Background shades (lighter → darker) */
+  --bg-hover:     #2a4257;
+  --bg:           #1c3041;   /* base */
+  --bg-surface:   #16263a;   /* panels, cards */
+  --bg-deep:      #0e1a25;   /* sidebar, deep inset */
+  --bg-darkest:   #08121b;   /* shadows / extra deep */
+
+  /* Text shades */
+  --text:         #fcfffc;
+  --text-2:       #c8d4d3;
+  --text-muted:   #88a09e;   /* steel */
+  --text-faint:   #5a6e6c;
+  --text-dim:     #3a4848;
+  --text-vdim:    #28323a;
+
+  /* Borders */
+  --border:        #2a3e52;
+  --border-soft:   #1f2f3f;
+  --border-strong: #3a536b;
+
+  /* Gold (titles / currency) */
+  --gold:          #e6af2e;
+  --gold-bright:   #f5c14a;
+  --gold-dim:      #8a6b1c;
+  --gold-bg:       #2a2018;
+
+  /* Teal — sells, gains, positive states */
+  --teal:          #6aa884;
+  --teal-bright:   #88c4a2;
+  --teal-dim:      #3d5e4d;
+  --teal-bg:       #1a2e22;
+
+  /* Amaranth — warnings, errors, can't-afford, destructive */
+  --warn:          #c2425f;
+  --warn-bright:   #e26384;
+  --warn-dim:      #5a1224;
+  --warn-bg:       #2e1820;
+
+  /* Buy / cost actions — steel-tinted blue */
+  --buy:           #88b0c8;
+  --buy-bright:    #a8c8dc;
+  --buy-dim:       #3a5870;
+  --buy-bg:        #1a2a3a;
+}
+
 .layout-header {
-  background: #12192e;
-  border-bottom: 2px solid #2b1d0e;
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--bg-darkest);
 }
 
 .layout-title-bar {
@@ -13,7 +67,7 @@
 
 .layout-title {
   font-size: 1.1rem;
-  color: #c0a060;
+  color: var(--gold);
   letter-spacing: 0.08em;
   font-weight: 600;
   text-align: left;
@@ -21,7 +75,7 @@
 
 .layout-char-name {
   font-size: 0.78rem;
-  color: #8899aa;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   text-align: center;
@@ -29,15 +83,15 @@
 
 .layout-korel {
   font-size: 0.85rem;
-  color: #c0a060;
+  color: var(--gold);
   text-align: right;
 }
 
 .layout-prof-row {
   display: flex;
   align-items: stretch;
-  background: #0f1520;
-  border-top: 1px solid #1c2438;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
   max-width: 960px;
   margin: 0 auto;
   width: 100%;
@@ -49,8 +103,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0f1c;
-  border-right: 1px solid #1c2438;
+  background: var(--bg-darkest);
+  border-right: 1px solid var(--border);
 }
 .layout-sprite img {
   width: 64px;
@@ -63,11 +117,11 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: #1c2438;
+  background: var(--border);
 }
 
 .layout-prof {
-  background: #12192e;
+  background: var(--bg-surface);
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
@@ -76,31 +130,31 @@
 
 .layout-prof-name {
   font-size: 0.7rem;
-  color: #8899aa;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .layout-prof-level {
   font-size: 1.1rem;
-  color: #c0a060;
+  color: var(--gold);
   font-weight: 600;
 }
 .layout-prof-level span {
   font-size: 0.7rem;
-  color: #445;
+  color: var(--text-faint);
   font-weight: normal;
 }
 
 .layout-prof-bar-bg {
   height: 4px;
-  background: #1c2438;
+  background: var(--bg-darkest);
   border-radius: 2px;
   overflow: hidden;
 }
 .layout-prof-bar {
   height: 100%;
-  background: linear-gradient(90deg, #c0a060, #e0c080);
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
   transition: width 0.4s;
 }
 
@@ -112,19 +166,19 @@
   margin-top: 2px;
 }
 
-.layout-prof-meta { font-size: 0.68rem; color: #556; }
+.layout-prof-meta { font-size: 0.68rem; color: var(--text-faint); }
 
 .layout-train-btn {
   font-size: 0.65rem;
   padding: 3px 8px;
-  background: #1a2e1a;
-  color: #6f6;
-  border: 1px solid #2a4a2a;
+  background: var(--teal-bg);
+  color: var(--teal-bright);
+  border: 1px solid var(--teal-dim);
   border-radius: 3px;
   cursor: pointer;
   white-space: nowrap;
 }
-.layout-train-btn:hover:not(:disabled) { background: #243c24; }
+.layout-train-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
 .layout-train-btn:disabled { opacity: 0.35; cursor: default; }
 
 @media (max-width: 640px) {

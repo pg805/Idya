@@ -16,10 +16,10 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #c0a060;
+  color: var(--gold);
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #1c2438;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .inv-list {
@@ -34,15 +34,15 @@
   align-items: center;
   padding: 8px 12px;
   gap: 10px;
-  background: #12192e;
-  border: 1px solid #1c2438;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
   border-radius: 3px;
   min-height: 32px;
 }
 
 .inv-name {
   font-size: 0.82rem;
-  color: #b8c8d8;
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -50,29 +50,29 @@
 }
 .inv-qty {
   font-size: 0.78rem;
-  color: #a0c890;
+  color: var(--teal-bright);
   font-family: monospace;
   flex-shrink: 0;
 }
 .inv-meta {
   font-size: 0.68rem;
-  color: #667;
+  color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   flex-shrink: 0;
 }
 .inv-row.equipped {
-  border-color: #4a3a1a;
-  background: #1a1a20;
+  border-color: var(--gold-dim);
+  background: var(--gold-bg);
 }
-.inv-row.equipped .inv-name { color: #c0a060; }
-.inv-row.equipped .inv-meta { color: #c0a060; }
+.inv-row.equipped .inv-name { color: var(--gold); }
+.inv-row.equipped .inv-meta { color: var(--gold); }
 
 .inv-bonus {
-  color: #a0c890;
+  color: var(--teal-bright);
   font-family: monospace;
   font-weight: 600;
   margin-left: 4px;
 }
 
-.inv-empty { padding: 40px 20px; color: #334; font-style: italic; text-align: center; }
+.inv-empty { padding: 40px 20px; color: var(--text-faint); font-style: italic; text-align: center; }

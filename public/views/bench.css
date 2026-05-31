@@ -1,12 +1,5 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  background: #1a1a2e;
-  color: #e0e0e0;
-  font-family: 'Segoe UI', sans-serif;
-  min-height: 100vh;
-}
-
 .splash {
   display: flex;
   flex-direction: column;
@@ -14,12 +7,12 @@ body {
   justify-content: center;
   min-height: 100vh;
   gap: 10px;
-  color: #556;
+  color: var(--text-faint);
   font-size: 0.9rem;
   text-align: center;
 }
-.hint { color: #445; font-size: 0.8rem; }
-code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a060; }
+.hint { color: var(--text-faint); font-size: 0.8rem; }
+code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; color: var(--gold); }
 
 /* ---- Bench section widths (consistent across crafting/upgrade/enchant) ---- */
 #craft-tab,
@@ -35,8 +28,8 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 #recipe-filter {
   display: flex;
   gap: 16px;
-  background: #0f1520;
-  border-bottom: 1px solid #1c2438;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border-soft);
   padding: 10px 16px;
   flex-wrap: wrap;
 }
@@ -45,17 +38,17 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #7a8a9a;
+  color: var(--text-muted);
   font-size: 0.78rem;
   cursor: pointer;
   user-select: none;
 }
-.filter-check input { accent-color: #c0a060; cursor: pointer; }
-.filter-check:hover { color: #c0d0e0; }
+.filter-check input { accent-color: var(--gold); cursor: pointer; }
+.filter-check:hover { color: var(--text-2); }
 
 /* ---- Recipe list ---- */
 .recipe-card {
-  border-bottom: 1px solid #181f30;
+  border-bottom: 1px solid var(--border-soft);
   overflow: hidden;
 }
 
@@ -69,12 +62,12 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   user-select: none;
   transition: background 0.1s;
 }
-.recipe-row:hover, .recipe-row.open { background: #14203a; }
+.recipe-row:hover, .recipe-row.open { background: var(--bg-hover); }
 
-.recipe-name { font-size: 0.86rem; color: #b8c8d8; transition: color 0.1s; }
+.recipe-name { font-size: 0.86rem; color: var(--text-2); transition: color 0.1s; }
 .recipe-row:hover .recipe-name:not(.dim),
-.recipe-row.open  .recipe-name:not(.dim) { color: #d8c090; }
-.recipe-name.dim { color: #2e3848; }
+.recipe-row.open  .recipe-name:not(.dim) { color: var(--gold-bright); }
+.recipe-name.dim { color: var(--text-vdim); }
 
 .recipe-badge {
   font-size: 0.68rem;
@@ -83,19 +76,19 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   white-space: nowrap;
   flex-shrink: 0;
 }
-.badge-available { background: #162814; color: #50a850; border: 1px solid #1e4020; }
-.badge-locked    { background: #141420; color: #445;    border: 1px solid #20203a; }
-.badge-materials { background: #281810; color: #a07040; border: 1px solid #3a2010; }
+.badge-available { background: var(--teal-bg);  color: var(--teal-bright); border: 1px solid var(--teal-dim); }
+.badge-locked    { background: var(--bg-darkest); color: var(--text-faint); border: 1px solid var(--border-soft); }
+.badge-materials { background: var(--gold-bg);  color: var(--gold);        border: 1px solid var(--gold-dim); }
 
 .recipe-detail {
   padding: 4px 20px 16px;
-  background: #14203a;
+  background: var(--bg-hover);
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.recipe-desc { font-size: 0.76rem; color: #4a6070; line-height: 1.5; }
+.recipe-desc { font-size: 0.76rem; color: var(--text-faint); line-height: 1.5; }
 
 .recipe-meta {
   display: grid;
@@ -108,7 +101,7 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #334050;
+  color: var(--text-faint);
   margin-bottom: 4px;
 }
 
@@ -116,21 +109,21 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   display: flex;
   flex-direction: column;
   gap: 3px;
-  color: #7a8a9a;
+  color: var(--text-muted);
 }
 
 .ingredient { display: flex; justify-content: space-between; }
-.ingredient .have     { color: #50987a; }
-.ingredient .missing  { color: #905040; }
+.ingredient .have     { color: var(--teal-bright); }
+.ingredient .missing  { color: var(--warn-bright); }
 
 .craft-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 
 .craft-qty {
   width: 52px;
-  background: #0e1520;
-  border: 1px solid #2a3a50;
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #c0c8d8;
+  color: var(--text);
   font-size: 0.8rem;
   padding: 5px 6px;
   text-align: center;
@@ -139,35 +132,35 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 
 .craft-btn {
   align-self: flex-start;
-  background: #162814;
-  border: 1px solid #2a4820;
+  background: var(--teal-bg);
+  border: 1px solid var(--teal-dim);
   border-radius: 4px;
-  color: #60b060;
+  color: var(--teal-bright);
   padding: 6px 20px;
   font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.1s;
 }
-.craft-btn:hover { background: #1e3820; }
+.craft-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
 .craft-btn:disabled { opacity: 0.35; cursor: default; }
 
-.empty { padding: 28px 20px; color: #252e3a; font-style: italic; font-size: 0.78rem; }
+.empty { padding: 28px 20px; color: var(--text-vdim); font-style: italic; font-size: 0.78rem; }
 
-.upgrade-locked { padding: 28px 20px; color: #445; font-style: italic; font-size: 0.82rem; }
+.upgrade-locked { padding: 28px 20px; color: var(--text-faint); font-style: italic; font-size: 0.82rem; }
 
 /* ---- Upgrade tab ---- */
 
 #upgrade-header {
   padding: 14px 20px;
-  background: #0f1520;
-  border-bottom: 1px solid #1c2438;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border-soft);
 }
 
 #weapon-picker {
-  background: #12192e;
-  border: 1px solid #2a3a5a;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #b8c8d8;
+  color: var(--text-2);
   font-size: 0.85rem;
   padding: 6px 10px;
   width: 100%;
@@ -179,20 +172,20 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   align-items: center;
   gap: 18px;
   padding: 12px 20px;
-  border-bottom: 1px solid #181f30;
+  border-bottom: 1px solid var(--border-soft);
   font-size: 0.78rem;
 }
-.budget-used  { color: #7a8a9a; }
-.budget-next  { color: #a07040; }
-.budget-cap   { color: #905040; }
+.budget-used  { color: var(--text-muted); }
+.budget-next  { color: var(--gold); }
+.budget-cap   { color: var(--warn-bright); }
 
-.upgrade-section { border-bottom: 1px solid #181f30; }
+.upgrade-section { border-bottom: 1px solid var(--border-soft); }
 
 .upg-cat-label {
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #2e3848;
+  color: var(--text-faint);
   padding: 8px 20px 4px;
 }
 
@@ -204,40 +197,40 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   flex-wrap: wrap;
 }
 .upg-action.dim { opacity: 0.4; }
-.upg-action + .upg-action { border-top: 1px solid #111820; }
+.upg-action + .upg-action { border-top: 1px solid var(--border-soft); }
 
-.upg-name  { font-size: 0.84rem; color: #b8c8d8; flex: 1; min-width: 100px; }
-.upg-stat  { font-size: 0.78rem; color: #7a8a9a; }
-.field-avg { font-size: 0.7rem; color: #445; }
-.field-rolls { font-family: monospace; font-size: 0.78rem; color: #a0c890; }
-.bonus-tag { font-size: 0.7rem; color: #50987a; background: #0d2018; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
-.cannot-upg { font-size: 0.72rem; color: #2e3848; font-style: italic; }
+.upg-name  { font-size: 0.84rem; color: var(--text-2); flex: 1; min-width: 100px; }
+.upg-stat  { font-size: 0.78rem; color: var(--text-muted); }
+.field-avg { font-size: 0.7rem; color: var(--text-faint); }
+.field-rolls { font-family: monospace; font-size: 0.78rem; color: var(--teal-bright); }
+.bonus-tag { font-size: 0.7rem; color: var(--teal-bright); background: var(--teal-bg); border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
+.cannot-upg { font-size: 0.72rem; color: var(--text-vdim); font-style: italic; }
 
 .upg-btn {
-  background: #162814;
-  border: 1px solid #2a4820;
+  background: var(--teal-bg);
+  border: 1px solid var(--teal-dim);
   border-radius: 4px;
-  color: #60b060;
+  color: var(--teal-bright);
   padding: 4px 14px;
   font-size: 0.76rem;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
 }
-.upg-btn:hover:not(:disabled) { background: #1e3820; }
+.upg-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
 .upg-btn:disabled { opacity: 0.3; cursor: default; }
 
 .upg-btn-cancel {
-  background: #2a1818;
-  color: #c06060;
-  border: 1px solid #4a2020;
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-dim);
   border-radius: 4px;
   padding: 4px 12px;
   font-size: 0.75rem;
   cursor: pointer;
   margin-left: 8px;
 }
-.upg-btn-cancel:hover { background: #3a2020; }
+.upg-btn-cancel:hover { background: var(--warn-dim); color: var(--text); }
 
 /* ---- Enchant tab ---- */
 #enchant-header {
@@ -245,27 +238,27 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   align-items: center;
   gap: 16px;
   padding: 14px 20px;
-  background: #0f1520;
-  border-bottom: 1px solid #1c2438;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border-soft);
 }
 #enchant-weapon-picker {
-  background: #12192e;
-  border: 1px solid #2a3a5a;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #b8c8d8;
+  color: var(--text-2);
   font-size: 0.85rem;
   padding: 6px 10px;
   flex: 1;
 }
-#enchant-materials { font-size: 0.78rem; color: #c0a060; white-space: nowrap; }
+#enchant-materials { font-size: 0.78rem; color: var(--gold); white-space: nowrap; }
 
 .enchant-tag {
   font-size: 0.72rem;
   padding: 3px 8px;
   border-radius: 10px;
-  background: #2a1a3a;
-  border: 1px solid #4a2a6a;
-  color: #c080f0;
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-bright);
 }
 
 .enchant-dropdowns {
@@ -275,27 +268,27 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   flex-wrap: wrap;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #1c2e48;
+  border-bottom: 1px solid var(--border-soft);
 }
-.enchant-dropdowns label { font-size: 0.72rem; color: #556; }
+.enchant-dropdowns label { font-size: 0.72rem; color: var(--text-faint); }
 .enchant-dropdowns select {
-  background: #0e1520;
-  border: 1px solid #2b3a50;
-  color: #c0d0e0;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   padding: 4px 8px;
   border-radius: 3px;
   font-size: 0.78rem;
 }
-.enchant-cost { font-size: 0.78rem; color: #c0a060; margin-top: 8px; }
-.enchant-cost.cant-afford { color: #c06060; }
-.upg-subtype { font-size: 0.7rem; color: #667; }
+.enchant-cost { font-size: 0.78rem; color: var(--gold); margin-top: 8px; }
+.enchant-cost.cant-afford { color: var(--warn-bright); }
+.upg-subtype { font-size: 0.7rem; color: var(--text-faint); }
 
 /* ---- Field editor ---- */
 #field-editor, #enchant-editor { width: 100%; margin-top: 8px; }
 
 .field-editor {
-  background: #0e1828;
-  border: 1px solid #1c2e48;
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 12px 14px;
   display: flex;
@@ -305,7 +298,7 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 
 .fe-budget {
   font-size: 0.72rem;
-  color: #c0a060;
+  color: var(--gold);
   letter-spacing: 0.04em;
 }
 
@@ -325,7 +318,7 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 
 .fe-val {
   font-size: 0.88rem;
-  color: #b8c8d8;
+  color: var(--text-2);
   font-weight: 600;
 }
 
@@ -333,16 +326,16 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 .fe-btns button {
   width: 20px;
   height: 20px;
-  background: #12192e;
-  border: 1px solid #2a3a5a;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  color: #7a8a9a;
+  color: var(--text-muted);
   font-size: 0.75rem;
   cursor: pointer;
   padding: 0;
   line-height: 1;
 }
-.fe-btns button:hover:not(:disabled) { background: #1a2a44; color: #c0a060; }
+.fe-btns button:hover:not(:disabled) { background: var(--bg-hover); color: var(--gold); }
 .fe-btns button:disabled { opacity: 0.3; cursor: default; }
 
 .fe-controls {
@@ -350,15 +343,15 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   gap: 8px;
 }
 .fe-controls button {
-  background: #12192e;
-  border: 1px solid #2a3a5a;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #7a8a9a;
+  color: var(--text-muted);
   padding: 5px 14px;
   font-size: 0.76rem;
   cursor: pointer;
 }
-.fe-controls button:hover { background: #1a2a44; }
+.fe-controls button:hover { background: var(--bg-hover); }
 
 /* ---- Toast ---- */
 #craft-toast {
@@ -366,8 +359,8 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: #0e141f;
-  border: 1px solid #2a3a5a;
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 22px;
   font-size: 0.8rem;
@@ -378,5 +371,5 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   white-space: nowrap;
 }
 #craft-toast.show     { opacity: 1; }
-#craft-toast.show.ok  { border-color: #1e4a30; color: #60c880; }
-#craft-toast.show.err { border-color: #4a1e1e; color: #c86060; }
+#craft-toast.show.ok  { border-color: var(--teal-dim); color: var(--teal-bright); }
+#craft-toast.show.err { border-color: var(--warn-dim); color: var(--warn-bright); }

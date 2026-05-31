@@ -1,8 +1,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Segoe UI', sans-serif;
   height: 100vh;
   overflow: hidden;
@@ -21,8 +21,8 @@ body {
 #app-sidebar {
   width: 200px;
   min-width: 200px;
-  background: #0e1520;
-  border-right: 1px solid #1c2438;
+  background: var(--bg-deep);
+  border-right: 1px solid var(--border-soft);
   padding: 16px 0;
   display: flex;
   flex-direction: column;
@@ -38,7 +38,7 @@ body {
 
 .nav-label {
   font-size: 0.65rem;
-  color: #445;
+  color: var(--text-faint);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 4px 18px;
@@ -49,23 +49,23 @@ body {
   display: block;
   padding: 8px 18px;
   font-size: 0.82rem;
-  color: #8899aa;
+  color: var(--text-muted);
   text-decoration: none;
   cursor: pointer;
   border-left: 2px solid transparent;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
-.nav-link:hover { background: #161e30; color: #c0d0e0; }
+.nav-link:hover { background: var(--bg-surface); color: var(--text-2); }
 .nav-link.active {
-  color: #c0a060;
-  background: #161e30;
-  border-left-color: #c0a060;
+  color: var(--gold);
+  background: var(--bg-surface);
+  border-left-color: var(--gold);
 }
 
 #app-content {
   flex: 1;
   overflow-y: auto;
-  background: #1a1a2e;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
 }
@@ -76,7 +76,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 50vh;
-  color: #556;
+  color: var(--text-faint);
   font-size: 0.9rem;
   text-align: center;
 }

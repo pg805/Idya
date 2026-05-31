@@ -10,8 +10,8 @@
 .ws-sidebar {
   width: 200px;
   min-width: 200px;
-  background: #12192e;
-  border-right: 2px solid #1c2438;
+  background: var(--bg-surface);
+  border-right: 2px solid var(--border-soft);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -19,11 +19,11 @@
 
 .ws-sidebar h2 {
   font-size: 0.75rem;
-  color: #c0a060;
+  color: var(--gold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 16px 16px 10px;
-  border-bottom: 1px solid #1c2438;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .ws-list {
@@ -39,18 +39,18 @@
   padding: 10px 14px;
   background: none;
   border: none;
-  border-bottom: 1px solid #161e30;
-  color: #8899aa;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-muted);
   font-size: 0.8rem;
   cursor: pointer;
   text-align: left;
   gap: 8px;
 }
-.ws-weapon-btn:hover { background: #161e30; color: #c0d0e0; }
-.ws-weapon-btn.active { background: #1c2a40; color: #c0a060; }
+.ws-weapon-btn:hover { background: var(--bg-hover); color: var(--text-2); }
+.ws-weapon-btn.active { background: var(--bg-hover); color: var(--gold); }
 .ws-wname { flex: 1; }
-.ws-wlevel { font-size: 0.7rem; color: #445; }
-.ws-weapon-btn.active .ws-wlevel { color: #806040; }
+.ws-wlevel { font-size: 0.7rem; color: var(--text-faint); }
+.ws-weapon-btn.active .ws-wlevel { color: var(--gold-dim); }
 
 .ws-detail {
   flex: 1;
@@ -58,20 +58,20 @@
   padding: 28px 32px;
 }
 
-.ws-hint { color: #334; font-style: italic; margin-top: 40px; text-align: center; }
+.ws-hint { color: var(--text-faint); font-style: italic; margin-top: 40px; text-align: center; }
 
 .ws-weapon-header { margin-bottom: 24px; }
-.ws-weapon-header h2 { font-size: 1.3rem; color: #c0a060; margin-bottom: 6px; }
-.ws-weapon-meta { font-size: 0.8rem; color: #667; margin-bottom: 8px; }
-.ws-weapon-prof { font-size: 0.75rem; color: #6a8a6a; margin-bottom: 6px; }
-.ws-wdesc { font-size: 0.8rem; color: #556; font-style: italic; max-width: 680px; }
+.ws-weapon-header h2 { font-size: 1.3rem; color: var(--gold); margin-bottom: 6px; }
+.ws-weapon-meta { font-size: 0.8rem; color: var(--text-faint); margin-bottom: 8px; }
+.ws-weapon-prof { font-size: 0.75rem; color: var(--teal-bright); margin-bottom: 6px; }
+.ws-wdesc { font-size: 0.8rem; color: var(--text-faint); font-style: italic; max-width: 680px; }
 
 .ws-action-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
   margin-top: 8px;
-  border: 1px solid #1c2438;
+  border: 1px solid var(--border-soft);
 }
 
 .ws-action-table th {
@@ -80,39 +80,39 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8899aa;
-  background: #0e1520;
+  color: var(--text-muted);
+  background: var(--bg-deep);
   padding: 6px 12px;
-  border: 1px solid #1c2438;
+  border: 1px solid var(--border-soft);
 }
 
 .ws-action-table td {
   padding: 6px 12px;
-  border: 1px solid #1c2438;
+  border: 1px solid var(--border-soft);
   vertical-align: middle;
 }
 
-.ws-action-table tbody tr:hover td { background: #131b2e; }
+.ws-action-table tbody tr:hover td { background: var(--bg-hover); }
 
 .ws-td-set {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #667;
-  background: #0e1520;
+  color: var(--text-faint);
+  background: var(--bg-deep);
   font-weight: 600;
   white-space: nowrap;
   vertical-align: top;
   padding-top: 8px;
 }
 
-.ws-td-name  { color: #c0d0e0; min-width: 160px; }
-.ws-td-type  { color: #667; min-width: 70px; }
-.ws-td-stat  { color: #a0c890; font-family: monospace; font-size: 0.78rem; min-width: 180px; }
-.ws-td-cost  { color: #8899aa; min-width: 46px; text-align: center; }
-.ws-td-mode  { color: #667; min-width: 80px; }
-.ws-td-range { color: #667; min-width: 50px; text-align: center; }
-.ws-td-dmg   { color: #556; }
+.ws-td-name  { color: var(--text-2); min-width: 160px; }
+.ws-td-type  { color: var(--text-faint); min-width: 70px; }
+.ws-td-stat  { color: var(--teal-bright); font-family: monospace; font-size: 0.78rem; min-width: 180px; }
+.ws-td-cost  { color: var(--text-muted); min-width: 46px; text-align: center; }
+.ws-td-mode  { color: var(--text-faint); min-width: 80px; }
+.ws-td-range { color: var(--text-faint); min-width: 50px; text-align: center; }
+.ws-td-dmg   { color: var(--text-faint); }
 
 @media (max-width: 600px) {
   .ws-sidebar { width: 140px; min-width: 140px; }
