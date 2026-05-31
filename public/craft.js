@@ -529,7 +529,6 @@ function renderEnchantRow(a, slotsFull) {
   return `<div class="upg-action${enchanted ? ' dim' : ''}">
     <span class="upg-name">${esc(a.name)}</span>
     <span class="upg-stat">${statText}</span>
-    <span class="upg-subtype">${esc(a.damage_type)} ${esc(a.damage_subtype)}</span>
     ${extraHtml}
     ${editing ? renderEnchantEditor(a) : ''}
   </div>`;
