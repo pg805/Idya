@@ -76,9 +76,9 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
   white-space: nowrap;
   flex-shrink: 0;
 }
-.badge-available { background: var(--teal-bg);  color: var(--teal-bright); border: 1px solid var(--teal-dim); }
-.badge-locked    { background: var(--bg-darkest); color: var(--text-faint); border: 1px solid var(--border-soft); }
-.badge-materials { background: var(--gold-bg);  color: var(--gold);        border: 1px solid var(--gold-dim); }
+.badge-available { background: var(--teal-bg);   color: var(--teal-bright);  border: 1px solid var(--teal-dim); }
+.badge-locked    { background: var(--bg-darkest); color: var(--text-faint);  border: 1px solid var(--border-soft); }
+.badge-materials { background: var(--warn-bg);   color: var(--warn-bright); border: 1px solid var(--warn-dim); }
 
 .recipe-detail {
   padding: 4px 20px 16px;
