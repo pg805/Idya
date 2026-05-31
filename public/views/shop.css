@@ -125,9 +125,9 @@
 }
 #shop-cart.show { display: flex; }
 
-/* Reserve scroll room under the cart when shown so the last shop item isn't hidden.
-   --cart-h is set by shop.js to the cart's measured height. */
-body.cart-open .shop-panels { padding-bottom: calc(var(--cart-h, 220px) + 24px); }
+/* Reserve scroll room under the cart so the last shop item is reachable above it.
+   --cart-h is set by shop.js to the cart's measured height; we add 100px breathing room. */
+body.cart-open .shop-panels { padding-bottom: calc(var(--cart-h, 240px) + 100px); }
 
 /* Sidebar collapses to 140px below 640px */
 @media (max-width: 640px) {
