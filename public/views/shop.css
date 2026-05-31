@@ -118,6 +118,13 @@
   margin-top: 4px;
 }
 
+.shop-item.shop-equipped {
+  border-left: 3px solid var(--gold);
+  background: var(--bg-hover);
+}
+.shop-item.shop-equipped .shop-item-name { color: var(--gold); }
+.shop-item.shop-equipped .shop-item-sub  { color: var(--gold-dim); }
+
 .shop-w-bonus {
   color: var(--teal-bright);
   font-family: monospace;

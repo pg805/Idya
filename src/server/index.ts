@@ -653,6 +653,20 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     };
   });
 
+  // Weapon listings the shop sells (each buy creates a new instance).
+  const weaponListings = weaponPrices.map(p => {
+    const raw = loadWeaponYaml(p.id, __dirname) as Record<string, unknown> | null;
+    return {
+      weapon_key: p.id,
+      name:       (raw?.['Name'] as string | undefined) ?? p.id,
+      buy:        p.buy  ?? null,
+      sell:       p.sell ?? null,
+      stock:      p.current_stock,
+      stock_max:  p.stock_max,
+      infinite:   p.infinite ?? false,
+    };
+  });
+
   res.json({
     shopName: config.name,
     npc:      config.npc,
@@ -676,8 +690,8 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
       description: i.item.description,
       quantity:    i.quantity,
     })),
-    weapons:        sellableWeapons,
-    weapon_buys:    weaponPrices.map(p => ({ weapon_key: p.id, buy: p.buy ?? null, sell: p.sell ?? null })),
+    weapons:          sellableWeapons,
+    weapon_listings:  weaponListings,
   });
 });
 
@@ -818,20 +832,24 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   const shopKey = String(req.params.shopKey);
   if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
 
-  const { buys = [], sells = [], sellWeapons = [] } = req.body as {
+  const { buys = [], sells = [], buyWeapons = [], sellWeapons = [] } = req.body as {
     buys?:        Array<{ itemId: string; quantity: number }>,
     sells?:       Array<{ itemId: string; quantity: number }>,
+    buyWeapons?:  Array<{ weaponKey: string; quantity: number }>,
     sellWeapons?: string[],
   };
 
   const validEntry = (e: { itemId?: unknown; quantity?: unknown }) =>
     typeof e.itemId === 'string' && Number.isInteger(e.quantity) && (e.quantity as number) >= 1 && (e.quantity as number) <= 9999;
-  if (!Array.isArray(buys) || !Array.isArray(sells) || !Array.isArray(sellWeapons)
+  const validBuyWeapon = (e: { weaponKey?: unknown; quantity?: unknown }) =>
+    typeof e.weaponKey === 'string' && Number.isInteger(e.quantity) && (e.quantity as number) >= 1 && (e.quantity as number) <= 99;
+  if (!Array.isArray(buys) || !Array.isArray(sells) || !Array.isArray(sellWeapons) || !Array.isArray(buyWeapons)
       || !buys.every(validEntry) || !sells.every(validEntry)
+      || !buyWeapons.every(validBuyWeapon)
       || !sellWeapons.every(id => typeof id === 'string')) {
     res.status(400).json({ error: 'Invalid cart' }); return;
   }
-  if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0) {
+  if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0 && buyWeapons.length === 0) {
     res.json({ success: false, message: 'Cart is empty.' }); return;
   }
 
@@ -855,6 +873,22 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
     if (!item || item.buy == null) { res.json({ success: false, message: `${b.itemId} is not for sale.` }); return; }
     totalCost += item.buy * b.quantity;
     buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: b.quantity, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
+  }
+
+  // Weapon buys — each unit creates a new CharacterWeapon instance.
+  const weaponBuyLines: Array<{ weapon_key: string; name: string; quantity: number; unitPrice: number; infinite: boolean }> = [];
+  for (const b of buyWeapons) {
+    const item = findItem(b.weaponKey);
+    if (!item || item.buy == null) { res.json({ success: false, message: `${b.weaponKey} is not for sale.` }); return; }
+    totalCost += item.buy * b.quantity;
+    const raw = loadWeaponYaml(b.weaponKey, __dirname) as Record<string, unknown> | null;
+    weaponBuyLines.push({
+      weapon_key: b.weaponKey,
+      name:       (raw?.['Name'] as string | undefined) ?? b.weaponKey,
+      quantity:   b.quantity,
+      unitPrice:  item.buy,
+      infinite:   item.infinite ?? false,
+    });
   }
   for (const s of sells) {
     const item = findItem(s.itemId);
@@ -959,6 +993,30 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       adjustedSells.push({ ...s, quantity: actual });
     }
 
+    // Apply weapon BUYS: each unit creates a new CharacterWeapon row.
+    for (const wb of weaponBuyLines) {
+      if (!wb.infinite) {
+        const state = await tx.shopItemState.findUnique({
+          where: { shop_id_item_id: { shop_id: shopKey, item_id: wb.weapon_key } },
+        });
+        if (!state || state.stock < wb.quantity) {
+          return { success: false, message: `Only ${state?.stock ?? 0} ${wb.name} in stock.` };
+        }
+      }
+      for (let i = 0; i < wb.quantity; i++) {
+        await tx.characterWeapon.create({
+          data: { character_id: charId, weapon_key: wb.weapon_key },
+        });
+      }
+      const stockUpdate = wb.infinite
+        ? { cumulative_volume: { increment: wb.quantity }, recent_volume: { increment: wb.quantity } }
+        : { stock: { decrement: wb.quantity }, cumulative_volume: { increment: wb.quantity }, recent_volume: { increment: wb.quantity } };
+      await tx.shopItemState.update({ where: { shop_id_item_id: { shop_id: shopKey, item_id: wb.weapon_key } }, data: stockUpdate });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: wb.weapon_key, type: 'buy', quantity: wb.quantity, discord_id: discordId },
+      });
+    }
+
     // Apply weapon sells: re-check ownership/equipped within the txn, then delete.
     for (const w of weaponSellLines) {
       const row = await tx.characterWeapon.findUnique({ where: { id: w.id } });
@@ -1005,7 +1063,8 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       net: actualNet,
       buys: buyLines,
       sells: adjustedSells,
-      weapons: weaponSellLines,
+      buyWeapons: weaponBuyLines,
+      sellWeapons: weaponSellLines,
     };
   });
 
@@ -1013,7 +1072,8 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
 
   if (result.success) {
     const ping = formatCartPing(discordId, config.npc, (result as unknown as {
-      buys: typeof buyLines; sells: typeof sellLines; weapons: typeof weaponSellLines;
+      buys: typeof buyLines; sells: typeof sellLines;
+      buyWeapons: typeof weaponBuyLines; sellWeapons: typeof weaponSellLines;
     }));
     void pingChannel((worldConfig.channels as Record<string, string>)[shopKey], ping);
   }
@@ -1023,15 +1083,17 @@ function formatCartPing(
   discordId: string,
   npc: string,
   result: {
-    buys:    Array<{ name: string; quantity: number }>;
-    sells:   Array<{ name: string; quantity: number }>;
-    weapons: Array<{ name: string; bonus_count: number }>;
+    buys:        Array<{ name: string; quantity: number }>;
+    sells:       Array<{ name: string; quantity: number }>;
+    buyWeapons:  Array<{ name: string; quantity: number }>;
+    sellWeapons: Array<{ name: string; bonus_count: number }>;
   },
 ): string {
   const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
-  for (const b of result.buys)    lines.push(`- bought ${b.quantity}× ${b.name}`);
-  for (const s of result.sells)   lines.push(`- sold ${s.quantity}× ${s.name}`);
-  for (const w of result.weapons) lines.push(`- sold ${w.name}${w.bonus_count > 0 ? ` +${w.bonus_count}` : ''}`);
+  for (const b of result.buys)        lines.push(`- bought ${b.quantity}× ${b.name}`);
+  for (const w of result.buyWeapons)  lines.push(`- bought ${w.quantity > 1 ? `${w.quantity}× ` : ''}${w.name}`);
+  for (const s of result.sells)       lines.push(`- sold ${s.quantity}× ${s.name}`);
+  for (const w of result.sellWeapons) lines.push(`- sold ${w.name}${w.bonus_count > 0 ? ` +${w.bonus_count}` : ''}`);
   return lines.join('\n');
 }
 
@@ -2610,13 +2672,24 @@ if (discordToken) {
       return;
     }
 
-    const options = ownedWeapons.map(cw => {
+    // Discord StringSelectMenu has a hard cap of 25 options. Prioritize equipped + highest bonus.
+    const DISCORD_SELECT_MAX = 25;
+    const ranked = ownedWeapons
+      .map(cw => ({ cw, bonus: weaponBonusCount(cw.weapon_key, cw.upgrades) }))
+      .sort((a, b) => {
+        if (a.cw.id === char.equipped_weapon_id) return -1;
+        if (b.cw.id === char.equipped_weapon_id) return 1;
+        return b.bonus - a.bonus;
+      });
+    const shown = ranked.slice(0, DISCORD_SELECT_MAX);
+    const omitted = ownedWeapons.length - shown.length;
+
+    const options = shown.map(({ cw, bonus }) => {
       const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
-      const bonus = weaponBonusCount(cw.weapon_key, cw.upgrades);
       const label = bonus > 0 ? `${w.name} +${bonus}` : w.name;
       return new StringSelectMenuOptionBuilder()
-        .setLabel(label)
-        .setDescription(w.description || cw.weapon_key)
+        .setLabel(label.slice(0, 100))
+        .setDescription((w.description || cw.weapon_key).slice(0, 100))
         .setValue(cw.id)
         .setDefault(cw.id === char.equipped_weapon_id);
     });
@@ -2627,7 +2700,10 @@ if (discordToken) {
       .addOptions(options);
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-    await interaction.reply({ content: 'Choose a weapon to equip:', components: [row], flags: MessageFlags.Ephemeral });
+    const note = omitted > 0
+      ? `Choose a weapon to equip (showing top ${DISCORD_SELECT_MAX}; ${omitted} more — use \`/character\` for the full list):`
+      : 'Choose a weapon to equip:';
+    await interaction.reply({ content: note, components: [row], flags: MessageFlags.Ephemeral });
   });
 
   discord.on(Events.InteractionCreate, async (interaction) => {

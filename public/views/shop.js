@@ -2,7 +2,7 @@
 (function() {
   let shopKey  = null;
   let data     = null;
-  let cart     = { buys: {}, sells: {}, weapons: new Set() };  // weapons holds weapon instance IDs
+  let cart     = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };  // buyWeapons: {weaponKey: qty}, weapons: Set of instance IDs
   let rootEl   = null;
 
   function esc(s) {
@@ -21,10 +21,19 @@
     setCartQty(side, itemId, next);
   }
 
+  function getBuyWeaponQty(weaponKey) { return cart.buyWeapons[weaponKey] ?? 0; }
+  function adjBuyWeapon(weaponKey, delta, max) {
+    const cur = getBuyWeaponQty(weaponKey);
+    const next = Math.max(0, Math.min(max, cur + delta));
+    if (next <= 0) delete cart.buyWeapons[weaponKey];
+    else cart.buyWeapons[weaponKey] = next;
+    renderBuy(); renderCart();
+  }
+
   async function mount(root, params) {
     rootEl  = root;
     shopKey = params.shopKey;
-    cart    = { buys: {}, sells: {}, weapons: new Set() };
+    cart    = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };
     setLayoutTitle('Shop');
     root.innerHTML = `
       <div id="shop-subhead">
@@ -73,12 +82,15 @@
 
   function renderBuy() {
     const forSale = data.items.filter(i => i.buy != null);
+    const weaponListings = (data.weapon_listings ?? []).filter(w => w.buy != null);
     const list = document.getElementById('shop-buy-list');
-    if (forSale.length === 0) {
+
+    if (forSale.length === 0 && weaponListings.length === 0) {
       list.innerHTML = '<p class="shop-empty">Nothing for sale right now.</p>';
       return;
     }
     list.innerHTML = '';
+
     for (const item of forSale) {
       const oos       = !item.infinite && item.stock === 0;
       const stockText = item.infinite ? 'Always in stock' : `${item.stock} in stock`;
@@ -101,6 +113,37 @@
         </div>
       `;
       list.appendChild(el);
+    }
+
+    if (weaponListings.length > 0) {
+      const divider = document.createElement('div');
+      divider.className = 'shop-divider';
+      divider.textContent = 'Weapons';
+      list.appendChild(divider);
+
+      for (const w of weaponListings) {
+        const oos       = !w.infinite && w.stock === 0;
+        const stockText = w.infinite ? 'Always in stock' : `${w.stock} in stock`;
+        const maxQty    = w.infinite ? 99 : Math.min(99, w.stock);
+        const qty       = getBuyWeaponQty(w.weapon_key);
+        const el = document.createElement('div');
+        el.className = 'shop-item';
+        el.innerHTML = `
+          <div class="shop-item-row">
+            <div class="shop-item-info">
+              <span class="shop-item-name${oos ? ' dim' : ''}">${esc(w.name)}</span>
+              <span class="shop-item-sub">${oos ? 'out of stock' : `${w.buy} korel · ${stockText}`}</span>
+            </div>
+            ${oos ? '' : `
+              <div class="shop-cart-ctrl">
+                <button class="shop-step" onclick="Views.shop.adjBuyWeapon('${w.weapon_key}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
+                <span class="shop-step-val">${qty}</span>
+                <button class="shop-step" onclick="Views.shop.adjBuyWeapon('${w.weapon_key}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
+              </div>`}
+          </div>
+        `;
+        list.appendChild(el);
+      }
     }
   }
 
@@ -157,11 +200,11 @@
         const subPart = w.equipped ? 'equipped — unequip to sell' : `${w.sell} korel`;
         const bonusTag = w.bonus_count > 0 ? ` <span class="shop-w-bonus">+${w.bonus_count}</span>` : '';
         const el = document.createElement('div');
-        el.className = 'shop-item';
+        el.className = 'shop-item' + (w.equipped ? ' shop-equipped' : '');
         el.innerHTML = `
           <div class="shop-item-row">
             <div class="shop-item-info">
-              <span class="shop-item-name${w.equipped ? ' dim' : ''}">${esc(w.name)}${bonusTag}</span>
+              <span class="shop-item-name">${esc(w.name)}${bonusTag}</span>
               <span class="shop-item-sub">${esc(subPart)}</span>
             </div>
             ${w.equipped ? '' : `
@@ -186,15 +229,23 @@
 
   function cartSummary() {
     let cost = 0, revenue = 0;
-    const buyLines    = [];
-    const sellLines   = [];
-    const weaponLines = [];
+    const buyLines       = [];
+    const sellLines      = [];
+    const buyWeaponLines = [];
+    const sellWeaponLines = [];
     for (const [id, qty] of Object.entries(cart.buys)) {
       const item = data.items.find(i => i.id === id);
       if (!item) continue;
       const sub = item.buy * qty;
       cost += sub;
       buyLines.push({ id, name: item.name, qty, subtotal: sub, unit: item.buy });
+    }
+    for (const [key, qty] of Object.entries(cart.buyWeapons)) {
+      const w = (data.weapon_listings ?? []).find(x => x.weapon_key === key);
+      if (!w) continue;
+      const sub = w.buy * qty;
+      cost += sub;
+      buyWeaponLines.push({ key, name: w.name, qty, subtotal: sub });
     }
     for (const [id, qty] of Object.entries(cart.sells)) {
       const item = data.items.find(i => i.id === id);
@@ -207,12 +258,12 @@
       const w = (data.weapons ?? []).find(x => x.id === wid);
       if (!w || w.sell == null) continue;
       revenue += w.sell;
-      weaponLines.push({ id: w.id, name: w.name, bonus_count: w.bonus_count, subtotal: w.sell });
+      sellWeaponLines.push({ id: w.id, name: w.name, bonus_count: w.bonus_count, subtotal: w.sell });
     }
     return {
       cost, revenue, net: revenue - cost,
-      buyLines, sellLines, weaponLines,
-      empty: buyLines.length === 0 && sellLines.length === 0 && weaponLines.length === 0,
+      buyLines, sellLines, buyWeaponLines, sellWeaponLines,
+      empty: buyLines.length === 0 && sellLines.length === 0 && buyWeaponLines.length === 0 && sellWeaponLines.length === 0,
     };
   }
 
@@ -240,12 +291,20 @@
         <button class="cart-remove" onclick="Views.shop.setCartQty('${side}', '${line.id}', 0)" title="Remove">×</button>
       </div>`;
 
-    const weaponLineHtml = (line) => `
+    const sellWeaponLineHtml = (line) => `
       <div class="cart-line">
         <span class="cart-line-name">${esc(line.name)}${line.bonus_count > 0 ? ` <span class="shop-w-bonus">+${line.bonus_count}</span>` : ''}</span>
         <span class="cart-line-qty">weapon</span>
         <span class="cart-line-sub">+${line.subtotal} korel</span>
         <button class="cart-remove" onclick="Views.shop.toggleWeapon('${line.id}')" title="Remove">×</button>
+      </div>`;
+
+    const buyWeaponLineHtml = (line) => `
+      <div class="cart-line">
+        <span class="cart-line-name">${esc(line.name)} <span class="shop-w-bonus">weapon</span></span>
+        <span class="cart-line-qty">×${line.qty}</span>
+        <span class="cart-line-sub">−${line.subtotal} korel</span>
+        <button class="cart-remove" onclick="Views.shop.adjBuyWeapon('${line.key}', -${line.qty}, 0)" title="Remove">×</button>
       </div>`;
 
     el.innerHTML = `
@@ -256,8 +315,9 @@
       </div>
       <div class="cart-lines">
         ${s.buyLines.map(l => lineHtml(l, 'buys', '−')).join('')}
+        ${s.buyWeaponLines.map(buyWeaponLineHtml).join('')}
         ${s.sellLines.map(l => lineHtml(l, 'sells', '+')).join('')}
-        ${s.weaponLines.map(weaponLineHtml).join('')}
+        ${s.sellWeaponLines.map(sellWeaponLineHtml).join('')}
       </div>
     `;
 
@@ -274,10 +334,10 @@
   async function checkout() {
     const buys        = Object.entries(cart.buys).map(([itemId, quantity]) => ({ itemId, quantity }));
     const sells       = Object.entries(cart.sells).map(([itemId, quantity]) => ({ itemId, quantity }));
+    const buyWeapons  = Object.entries(cart.buyWeapons).map(([weaponKey, quantity]) => ({ weaponKey, quantity }));
     const sellWeapons = Array.from(cart.weapons);
-    if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0) return;
+    if (buys.length === 0 && sells.length === 0 && buyWeapons.length === 0 && sellWeapons.length === 0) return;
 
-    // Confirm modal when selling weapons (permanent)
     if (sellWeapons.length > 0) {
       const ok = await confirmModal(sellWeapons);
       if (!ok) return;
@@ -285,7 +345,7 @@
 
     const res = await fetch(`/api/shop/${shopKey}/checkout`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buys, sells, sellWeapons }),
+      body: JSON.stringify({ buys, sells, buyWeapons, sellWeapons }),
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
@@ -343,6 +403,6 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, adjCart, setCartQty, toggleWeapon, clearCart, checkout };
+  window.Views.shop = { mount, unmount, adjCart, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout };
   window.showToast = (msg) => toast(msg, true);
 })();
