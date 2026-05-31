@@ -2291,7 +2291,11 @@ async function maybeAnnounceVersion(): Promise<void> {
       const embed = new EmbedBuilder().setColor(gold).setDescription(chunks[i]);
       if (i === 0) embed.setTitle(`Idya ${version}`);
       if (i === chunks.length - 1) embed.setFooter({ text: `Deployed to ${env}` }).setTimestamp();
-      await text.send({ embeds: [embed] });
+      await text.send({
+        content: i === 0 ? '@everyone' : undefined,
+        embeds: [embed],
+        allowedMentions: { parse: i === 0 ? ['everyone'] : [] },
+      });
     }
     await prisma.eventLog.create({
       data: { discord_id: 'system', event_type: eventType, payload: { version, env } },
