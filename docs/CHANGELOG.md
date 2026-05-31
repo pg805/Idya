@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0 — In Progress
+
+First post-demo iteration. Tracking feedback from the 2026-05-30 demo
+(see `docs/demo.md` for the full list).
+
+### Features
+- **Intermediate materials in profession shops** — each profession's shop now buys and sells its tier-2 (200/40 korel) and tier-3 (400/80 korel) materials:
+  - Lumberjack: treated_sulwood, hardwood
+  - Blacksmith: talamite, alloy
+  - Enchanter: hiruos, nodol
+- **Enchanting tab on craft page** — full UI for applying enchants to weapons. Pick weapon → action → kind (minor/major) → category (physical/arcane/elemental) → subtype → distribute delta. Cost preview, material check, posts to enchanting channel on success
+- **Demo wrap-up doc** (`docs/demo.md`) — captures the 2026-05-30 demo session: player stats, economic curves, and full feedback list
+
+### Fixes
+- **Enchanter upgrade materials** — `enchanting_reagent` / `refined_enchanting_reagent` placeholders replaced with actual items (`hiruos` and `nodol`) so enchanter weapon upgrades work
+
+---
+
 ## 0.0.4 — 2026-05-30
 
 ### Features
