@@ -2387,7 +2387,13 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'joinsim') {
       const target = interaction.options.getUser('user', true);
-      await interaction.reply({ ...buildWelcomeEmbed(`<@${target.id}>`), flags: MessageFlags.Ephemeral });
+      const welcomeChannel = await interaction.guild?.channels.fetch(worldConfig.channels.welcome).catch(() => null);
+      if (!welcomeChannel?.isTextBased() || !('send' in welcomeChannel)) {
+        await interaction.reply({ content: 'Welcome channel not configured.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await (welcomeChannel as import('discord.js').TextChannel).send(buildWelcomeEmbed(`<@${target.id}>`));
+      await interaction.reply({ content: `Posted welcome for ${target.username} in #welcome.`, flags: MessageFlags.Ephemeral });
     }
     if (sub === 'giveweapon') {
       const target = interaction.options.getUser('user', true);
