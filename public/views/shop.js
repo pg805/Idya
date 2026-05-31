@@ -27,23 +27,27 @@
     cart    = { buys: {}, sells: {} };
     setLayoutTitle('Shop');
     root.innerHTML = `
-      <div id="shop-subhead">
-        <div id="shop-subhead-inner">
-          <p id="shop-name-line"></p>
-          <p id="shop-greeting"></p>
+      <div id="shop-view">
+        <div id="shop-subhead">
+          <div id="shop-subhead-inner">
+            <p id="shop-name-line"></p>
+            <p id="shop-greeting"></p>
+          </div>
         </div>
+        <div id="shop-scroll">
+          <main class="shop-panels">
+            <section class="shop-panel">
+              <div class="shop-panel-label">For Sale</div>
+              <div id="shop-buy-list"></div>
+            </section>
+            <section class="shop-panel">
+              <div class="shop-panel-label">Your Inventory</div>
+              <div id="shop-sell-list"></div>
+            </section>
+          </main>
+        </div>
+        <div id="shop-cart"></div>
       </div>
-      <main class="shop-panels">
-        <section class="shop-panel">
-          <div class="shop-panel-label">For Sale</div>
-          <div id="shop-buy-list"></div>
-        </section>
-        <section class="shop-panel">
-          <div class="shop-panel-label">Your Inventory</div>
-          <div id="shop-sell-list"></div>
-        </section>
-      </main>
-      <div id="shop-cart"></div>
       <div id="shop-toast"></div>
     `;
     window.addEventListener('layout-changed', layoutChangedHandler);

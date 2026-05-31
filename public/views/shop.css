@@ -1,9 +1,25 @@
 /* View: Shop */
 
+#shop-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
+}
+
 #shop-subhead {
+  flex-shrink: 0;
   padding: 10px 24px 14px;
   background: #12192e;
   border-bottom: 1px solid #1c2438;
+}
+
+#shop-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 #shop-subhead-inner { }
 
@@ -110,8 +126,7 @@
 /* ---- Cart ---- */
 
 #shop-cart {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   background: #0e141f;
   border-top: 2px solid #2a3a5a;
   padding: 12px 20px;
