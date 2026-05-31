@@ -2530,7 +2530,7 @@ if (discordToken) {
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
               .setLabel('Follow Fendalok')
-              .setURL(`${HOST}/battle/${sessionId}`)
+              .setURL(`${HOST}/battle/${sessionId}?auth=${getOrCreateToken(interaction.user.id)}`)
               .setStyle(ButtonStyle.Link)
           ),
         ],
