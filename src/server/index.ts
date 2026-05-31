@@ -2698,6 +2698,28 @@ if (discordToken) {
     await interaction.reply({ content: `${HOST}/app/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
 
+  // ---- App page shortcuts ----
+
+  const APP_PAGE_LINKS: Array<{ command: string; path: string }> = [
+    { command: 'character',   path: '/character'   },
+    { command: 'inventory',   path: '/inventory'   },
+    { command: 'upgrading',   path: '/upgrade'     },
+    { command: 'enchanting',  path: '/enchant'     },
+    { command: 'professions', path: '/professions' },
+    { command: 'enemies',     path: '/enemies'     },
+  ];
+
+  for (const { command, path } of APP_PAGE_LINKS) {
+    discord.on(Events.InteractionCreate, async (interaction) => {
+      if (!interaction.isChatInputCommand() || interaction.commandName !== command) return;
+      const token = getOrCreateToken(interaction.user.id);
+      await interaction.reply({
+        content: `${HOST}/app${path}?auth=${token}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    });
+  }
+
   // ---- Ping ----
 
   discord.on(Events.InteractionCreate, async (interaction) => {
