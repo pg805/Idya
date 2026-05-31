@@ -1,0 +1,111 @@
+/* View: Enemies — sidebar + detail layout */
+
+.en-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.en-sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: var(--bg-surface);
+  border-right: 2px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.en-sidebar h2 {
+  font-size: 0.75rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.en-list { overflow-y: auto; flex: 1; }
+
+.en-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+.en-btn:hover { background: var(--bg-hover); color: var(--text-2); }
+.en-btn.active { background: var(--bg-hover); color: var(--gold); }
+.en-bname { flex: 1; }
+.en-blevel { font-size: 0.7rem; color: var(--text-faint); }
+.en-btn.active .en-blevel { color: var(--gold-dim); }
+
+.en-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.en-hint { color: var(--text-faint); font-style: italic; margin-top: 40px; text-align: center; }
+
+.en-header { margin-bottom: 24px; }
+.en-header h2 { font-size: 1.3rem; color: var(--gold); margin-bottom: 6px; }
+.en-meta { font-size: 0.8rem; color: var(--text-faint); }
+
+.en-drops {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  border: 1px solid var(--border-soft);
+}
+
+.en-drops th {
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-deep);
+  padding: 6px 12px;
+  border: 1px solid var(--border-soft);
+}
+
+.en-drops td {
+  padding: 7px 12px;
+  border: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.en-drops tbody tr:hover td { background: var(--bg-hover); }
+
+.en-drop-name   { color: var(--text-2); min-width: 160px; }
+.en-drop-type   { color: var(--text-faint); font-size: 0.75rem; text-transform: capitalize; min-width: 80px; }
+.en-drop-field  { color: var(--teal-bright); font-family: monospace; font-size: 0.78rem; min-width: 180px; }
+.en-drop-range  { color: var(--text-muted); font-family: monospace; min-width: 60px; text-align: center; }
+.en-drop-avg    { color: var(--teal-bright); font-family: monospace; min-width: 50px; text-align: center; }
+
+.en-no-drops { padding: 14px; text-align: center; color: var(--text-faint); font-style: italic; }
+
+.en-note {
+  margin-top: 16px;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-style: italic;
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .en-sidebar { width: 140px; min-width: 140px; }
+  .en-detail { padding: 16px; }
+}

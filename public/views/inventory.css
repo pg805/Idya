@@ -1,0 +1,78 @@
+/* View: Inventory — clean, dense, non-interactive listing */
+
+#inv-body {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inv-section { }
+
+.inv-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.inv-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.inv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  min-height: 32px;
+}
+
+.inv-name {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.inv-qty {
+  font-size: 0.78rem;
+  color: var(--teal-bright);
+  font-family: monospace;
+  flex-shrink: 0;
+}
+.inv-meta {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.inv-row.equipped {
+  border-color: var(--gold);
+  background: var(--bg-hover);
+}
+.inv-row.equipped .inv-name { color: var(--gold); }
+.inv-row.equipped .inv-meta { color: var(--gold); }
+
+.inv-bonus {
+  color: var(--teal-bright);
+  font-family: monospace;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.inv-empty { padding: 40px 20px; color: var(--text-faint); font-style: italic; text-align: center; }

@@ -15,6 +15,29 @@ Items:
     Stock_Influence: 0.2
     Restock_Field: [5, 10, 10, 15, 0]
 
+  # Intermediate materials
+  - id: hiruos
+    Base_Buy: 200
+    Base_Sell: 40
+    R: 2.0
+    R_Max: 3.0
+    Volume_Sensitivity: 100
+    Transaction_Threshold: 10
+    Stock_Max: 200
+    Stock_Influence: 0.2
+    Restock_Field: [2, 4, 5, 6, 0]
+
+  - id: nodol
+    Base_Buy: 400
+    Base_Sell: 80
+    R: 2.2
+    R_Max: 3.2
+    Volume_Sensitivity: 50
+    Transaction_Threshold: 6
+    Stock_Max: 80
+    Stock_Influence: 0.25
+    Restock_Field: [1, 2, 2, 3, 0]
+
   - id: crystal_tooth
     Base_Buy: 100
     Base_Sell: 25

@@ -146,11 +146,17 @@ async function init() {
     socket.emit('join_trade', { tradeId, auth });
   });
 
-  socket.on('trade_state', (s) => {
+  socket.on('trade_state', async (s) => {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    if (!window._layoutMounted) {
+      await mountLayout({ title: 'Trade' });
+      window._layoutMounted = true;
+    }
     applyState(s);
   });
+
+  window.onLayoutChange = async () => { await mountLayout({ title: 'Trade' }); };
 
   socket.on('trade_complete', ({ message }) => {
     showToast(message);

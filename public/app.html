@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idya</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/views/character.css">
+  <link rel="stylesheet" href="/views/inventory.css">
+  <link rel="stylesheet" href="/views/weapons.css">
+  <link rel="stylesheet" href="/views/shop.css">
+  <link rel="stylesheet" href="/views/bench.css">
+  <link rel="stylesheet" href="/views/professions.css">
+  <link rel="stylesheet" href="/views/enemies.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <div id="layout-root"></div>
+  <div id="app-shell">
+    <nav id="app-sidebar">
+      <div class="nav-group">
+        <a class="nav-link" data-path="/character">Character</a>
+        <a class="nav-link" data-path="/inventory">Inventory</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Bench</p>
+        <a class="nav-link" data-path="/crafting">Crafting</a>
+        <a class="nav-link" data-path="/upgrade">Upgrading</a>
+        <a class="nav-link" data-path="/enchant">Enchanting</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Town</p>
+        <a class="nav-link" data-path="/shop/general_store">General Store</a>
+        <a class="nav-link" data-path="/shop/blacksmith">Blacksmith</a>
+        <a class="nav-link" data-path="/shop/lumberjack">Lumberjack</a>
+        <a class="nav-link" data-path="/shop/enchanting_shop">Enchanting Shop</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">Info</p>
+        <a class="nav-link" data-path="/professions">Professions</a>
+        <a class="nav-link" data-path="/enemies">Enemies</a>
+        <a class="nav-link" data-path="/weapon-stats">Weapon Stats</a>
+      </div>
+    </nav>
+
+    <main id="app-content"></main>
+  </div>
+
+  <script src="/auth.js"></script>
+  <script src="/layout.js"></script>
+  <script src="/views/character.js"></script>
+  <script src="/views/inventory.js"></script>
+  <script src="/views/weapons.js"></script>
+  <script src="/views/shop.js"></script>
+  <script src="/views/crafting.js"></script>
+  <script src="/views/upgrade.js"></script>
+  <script src="/views/enchant.js"></script>
+  <script src="/views/professions.js"></script>
+  <script src="/views/enemies.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

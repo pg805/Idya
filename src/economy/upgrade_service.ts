@@ -9,13 +9,13 @@ export type Profession = 'lumberjack' | 'blacksmith' | 'enchanter';
 const TIER2: Record<Profession, string> = {
     lumberjack: 'treated_sulwood',
     blacksmith: 'talamite',
-    enchanter:  'enchanting_reagent',    // TBD
+    enchanter:  'hiruos',
 };
 
 const TIER3: Record<Profession, string> = {
     lumberjack: 'hardwood',
     blacksmith: 'alloy',
-    enchanter:  'refined_enchanting_reagent',  // TBD
+    enchanter:  'nodol',
 };
 
 // Hybrid weapons have a wood handle (LJ) and metal head (BS) — both professions can upgrade them.
@@ -218,6 +218,7 @@ export type EnchantKind = 'minor' | 'major';
 
 export interface Enchant {
     kind:     EnchantKind;
+    category?: string;  // physical/arcane/elemental
     subtype:  string;
     type?:    string;  // only set for major enchants
     delta:    number | number[];

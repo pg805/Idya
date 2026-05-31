@@ -223,12 +223,26 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-app.get('/weapon-stats', (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/weapon-stats.html'));
-});
-
 app.get('/trade/:tradeId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/trade.html'));
+});
+
+app.get(/^\/app(\/.*)?$/, (_req: Request, res: Response) => {
+  res.sendFile(join(__dirname, '../../public/app.html'));
+});
+
+// Redirect legacy standalone URLs to the /app equivalent (preserve ?auth=).
+app.get('/shop/:shopKey', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/shop/${req.params.shopKey}${qs}`);
+});
+app.get('/craft', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/crafting${qs}`);
+});
+app.get('/weapon-stats', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/weapon-stats${qs}`);
 });
 
 app.get('/api/weapons', (_req: Request, res: Response) => {
@@ -280,11 +294,284 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
-function resolveAuth(req: Request): string | null {
-  const header = req.headers['authorization'];
-  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
-  return authTokens.get(header.slice(7))?.discordUserId ?? null;
+// True if the id matches a weapon YAML file (i.e. it's a weapon, not an item).
+function isWeaponKey(key: string): boolean {
+  return fs.existsSync(join(__dirname, `../../database/weapons/${key}.yaml`));
 }
+
+// Get the weapon_key of the character's equipped weapon (null if none).
+async function equippedWeaponKey(char: { equipped_weapon_id: string | null }): Promise<string | null> {
+  if (!char.equipped_weapon_id) return null;
+  const w = await prisma.characterWeapon.findUnique({ where: { id: char.equipped_weapon_id } });
+  return w?.weapon_key ?? null;
+}
+
+// Count total bonuses on a weapon (base + player + enchants) for display as "+N"
+function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
+  const raw = loadWeaponYaml(weaponKey, __dirname);
+  if (!raw) return 0;
+  const upgrades = (upgradesJson ?? {}) as {
+    base?: Record<string, number | number[]>;
+    player?: unknown;
+    enchants?: Record<string, unknown>;
+  };
+  const fieldLens = buildFieldLenMap(raw);
+  const professions = weaponUpgradeProfessions(weaponKey);
+  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
+
+  const playerCount = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+  const baseCount   = totalUpgradesUsed((upgrades.base ?? {}) as Record<string, number | number[]>, fieldLens);
+  const enchantCount = upgrades.enchants ? Object.keys(upgrades.enchants).length : 0;
+
+  return playerCount + baseCount + enchantCount;
+}
+
+app.get('/api/info/professions', (_req: Request, res: Response) => {
+  const allRecipes = loadAllRecipes(RECIPES_DIR);
+  const PROFS: Array<{ key: 'lumberjack' | 'blacksmith' | 'enchanter'; label: string }> = [
+    { key: 'lumberjack', label: 'Lumberjack' },
+    { key: 'blacksmith', label: 'Blacksmith' },
+    { key: 'enchanter',  label: 'Enchanter'  },
+  ];
+
+  const result: Record<string, unknown> = {};
+  for (const { key, label } of PROFS) {
+    const levels = [];
+    for (let lvl = 1; lvl <= PROFESSION_MAX_LEVEL; lvl++) {
+      const recipes = allRecipes
+        .filter(r => r.profession === key && r.required_level === lvl)
+        .map(r => ({
+          id:          r.id,
+          name:        r.name,
+          description: r.description,
+          output_type: r.output.type,
+        }));
+      const budget       = budgetForLevel(lvl);
+      const prevBudget   = lvl > 0 ? budgetForLevel(lvl - 1) : 0;
+      const budgetAdded  = budget - prevBudget;
+      levels.push({
+        level: lvl,
+        recipes,
+        budget,
+        budget_added: budgetAdded,
+      });
+    }
+    result[key] = { label, levels };
+  }
+
+  res.json({ professions: result });
+});
+
+app.get('/api/info/enemies', (_req: Request, res: Response) => {
+  const dir = join(__dirname, '../../database/enemies');
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.yaml') && !f.startsWith('tutorial_'));
+  const enemies = files.map(file => {
+    const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+    const loot = (raw['Loot'] as { Items?: Array<{ id: string; type: string; Field: number[] }> } | undefined)?.Items ?? [];
+    const drops = loot.map(d => {
+      const field = d.Field ?? [];
+      const min = field.length ? Math.min(...field) : 0;
+      const max = field.length ? Math.max(...field) : 0;
+      const avg = field.length ? field.reduce((a, b) => a + b, 0) / field.length : 0;
+      return {
+        item_id:  d.id,
+        name:     ITEMS[d.id]?.name ?? d.id,
+        type:     d.type,
+        field,
+        min,
+        max,
+        avg:      Math.round(avg * 100) / 100,
+      };
+    });
+    return {
+      key:    file.replace('.yaml', ''),
+      name:   raw['Name']   as string,
+      health: raw['Health'] as number,
+      level:  raw['Level']  as number ?? 0,
+      drops,
+    };
+  }).sort((a, b) => (a.level - b.level) || a.name.localeCompare(b.name));
+
+  res.json({ enemies });
+});
+
+app.get('/api/character', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const weapons = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
+  const weaponList = weapons.map(w => {
+    const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      id:          w.id,
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name']        as string | undefined) ?? w.weapon_key,
+      description: (raw?.['Description'] as string | undefined) ?? '',
+      hp:          (raw?.['HP']          as number | undefined) ?? 0,
+      level:       (raw?.['Level']       as number | undefined) ?? 0,
+      equipped:    w.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
+    };
+  }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
+
+  res.json({
+    id:           char.id,
+    name:         char.name,
+    nationality:  char.nationality,
+    bio:          char.bio,
+    sprite_token: char.sprite_token,
+    sprite_cdn:   worldConfig.sprite_cdn,
+    health:       char.health,
+    max_health:   char.max_health,
+    equipped_weapon_id: char.equipped_weapon_id,
+    weapons:      weaponList,
+  });
+});
+
+app.post('/api/character/equip', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { weapon_id } = req.body as { weapon_id?: string };
+  if (!weapon_id) { res.status(400).json({ error: 'weapon_id required' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const owned = await prisma.characterWeapon.findUnique({ where: { id: weapon_id } });
+  if (!owned || owned.character_id !== char.id) {
+    res.json({ success: false, message: "You don't own that weapon." });
+    return;
+  }
+  const raw = loadWeaponYaml(owned.weapon_key, __dirname) as Record<string, unknown> | null;
+  const maxHp = (raw?.['HP'] as number | undefined) ?? char.max_health;
+  await prisma.character.update({
+    where: { id: char.id },
+    data:  { equipped_weapon_id: weapon_id, max_health: maxHp, health: maxHp },
+  });
+  const weaponName = (raw?.['Name'] as string | undefined) ?? owned.weapon_key;
+  await prisma.eventLog.create({ data: {
+    discord_id: discordId, event_type: 'weapon_equipped',
+    payload: { weapon_id, weapon_key: owned.weapon_key, weapon_name: weaponName },
+  }}).catch(() => {});
+  res.json({ success: true, message: `Equipped ${weaponName}.` });
+});
+
+app.get('/api/inventory', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const [items, weapons] = await Promise.all([
+    prisma.inventoryItem.findMany({ where: { character_id: char.id }, include: { item: true } }),
+    prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
+  ]);
+
+  const itemList = items.map(i => ({
+    item_id:     i.item_id,
+    name:        ITEMS[i.item_id]?.name        ?? i.item.name,
+    description: ITEMS[i.item_id]?.description ?? i.item.description,
+    type:        ITEMS[i.item_id]?.type        ?? 'material',
+    quantity:    i.quantity,
+  }));
+
+  const weaponList = weapons.map(w => {
+    const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      id:          w.id,
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name'] as string | undefined) ?? w.weapon_key,
+      equipped:    w.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
+    };
+  });
+
+  res.json({
+    characterName: char.name,
+    equipped_weapon_id: char.equipped_weapon_id,
+    items:   itemList,
+    weapons: weaponList,
+  });
+});
+
+app.get('/api/layout', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.json({ authenticated: false }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.json({ authenticated: false }); return; }
+  const char = chars[0];
+
+  const [dbUser, profRows] = await Promise.all([
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
+    prisma.characterProfession.findMany({ where: { character_id: char.id } }),
+  ]);
+  const profLevels: Record<string, number> = {};
+  for (const p of profRows) profLevels[p.profession] = p.level;
+  const combined = profRows.reduce((sum, p) => sum + p.level, 0);
+
+  res.json({
+    authenticated: true,
+    characterName: char.name,
+    spriteToken:   char.sprite_token,
+    spriteCdn:     worldConfig.sprite_cdn,
+    korel:         dbUser?.korel ?? 0,
+    professions: Object.fromEntries(
+      PROFESSIONS.map(p => [p, {
+        label:    PROFESSION_NAMES[p],
+        level:    profLevels[p] ?? 0,
+        maxLevel: PROFESSION_MAX_LEVEL,
+        nextCost: (profLevels[p] ?? 0) < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
+      }])
+    ),
+  });
+});
+
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const k = part.slice(0, eq).trim();
+    const v = part.slice(eq + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function resolveAuth(req: Request): string | null {
+  const cookieToken = parseCookies(req.headers.cookie)['idya_session'];
+  if (cookieToken && authTokens.has(cookieToken)) {
+    return authTokens.get(cookieToken)?.discordUserId ?? null;
+  }
+  return null;
+}
+
+app.post('/api/auth/claim', (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  if (!token || !authTokens.has(token)) {
+    res.status(401).json({ error: 'Invalid token' });
+    return;
+  }
+  const secure = process.env.NODE_ENV === 'production';
+  const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+  const parts = [
+    `idya_session=${encodeURIComponent(token)}`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ];
+  if (secure) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+  res.json({ ok: true });
+});
 
 function validShop(key: string): boolean {
   return fs.existsSync(join(SHOP_DIR, `${key}.yaml`));
@@ -342,6 +629,44 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     };
   }
 
+  // Split shop entries: items have shop stock; weapons are unique instances we look up.
+  const itemPrices   = prices.filter(p => !isWeaponKey(p.id));
+  const weaponPrices = prices.filter(p =>  isWeaponKey(p.id));
+
+  // For weapons the shop accepts, find the player's owned matching instances.
+  const acceptedWeaponKeys = weaponPrices.map(p => p.id);
+  const ownedWeapons = acceptedWeaponKeys.length === 0 ? [] : await prisma.characterWeapon.findMany({
+    where: { character_id: chars[0].id, weapon_key: { in: acceptedWeaponKeys } },
+    orderBy: { created_at: 'asc' },
+  });
+
+  const sellableWeapons = ownedWeapons.map(w => {
+    const price = weaponPrices.find(p => p.id === w.weapon_key);
+    const raw   = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      id:          w.id,
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name'] as string | undefined) ?? w.weapon_key,
+      sell:        price?.sell ?? null,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
+      equipped:    w.id === chars[0].equipped_weapon_id,
+    };
+  });
+
+  // Weapon listings the shop sells (each buy creates a new instance).
+  const weaponListings = weaponPrices.map(p => {
+    const raw = loadWeaponYaml(p.id, __dirname) as Record<string, unknown> | null;
+    return {
+      weapon_key: p.id,
+      name:       (raw?.['Name'] as string | undefined) ?? p.id,
+      buy:        p.buy  ?? null,
+      sell:       p.sell ?? null,
+      stock:      p.current_stock,
+      stock_max:  p.stock_max,
+      infinite:   p.infinite ?? false,
+    };
+  });
+
   res.json({
     shopName: config.name,
     npc:      config.npc,
@@ -349,7 +674,7 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     greeting: config.greeting,
     korel:    dbUser?.korel ?? 0,
     training,
-    items: prices.map(p => ({
+    items: itemPrices.map(p => ({
       id:          p.id,
       name:        ITEMS[p.id]?.name        ?? dbItems.find(i => i.id === p.id)?.name        ?? p.id,
       description: ITEMS[p.id]?.description ?? dbItems.find(i => i.id === p.id)?.description ?? '',
@@ -365,6 +690,8 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
       description: i.item.description,
       quantity:    i.quantity,
     })),
+    weapons:          sellableWeapons,
+    weapon_listings:  weaponListings,
   });
 });
 
@@ -498,6 +825,284 @@ app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
   }
 });
 
+// Batch checkout: process a cart of buys+sells in a single transaction.
+app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const shopKey = String(req.params.shopKey);
+  if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
+
+  const { buys = [], sells = [], buyWeapons = [], sellWeapons = [] } = req.body as {
+    buys?:        Array<{ itemId: string; quantity: number }>,
+    sells?:       Array<{ itemId: string; quantity: number }>,
+    buyWeapons?:  Array<{ weaponKey: string; quantity: number }>,
+    sellWeapons?: string[],
+  };
+
+  const validEntry = (e: { itemId?: unknown; quantity?: unknown }) =>
+    typeof e.itemId === 'string' && Number.isInteger(e.quantity) && (e.quantity as number) >= 1 && (e.quantity as number) <= 9999;
+  const validBuyWeapon = (e: { weaponKey?: unknown; quantity?: unknown }) =>
+    typeof e.weaponKey === 'string' && Number.isInteger(e.quantity) && (e.quantity as number) >= 1 && (e.quantity as number) <= 99;
+  if (!Array.isArray(buys) || !Array.isArray(sells) || !Array.isArray(sellWeapons) || !Array.isArray(buyWeapons)
+      || !buys.every(validEntry) || !sells.every(validEntry)
+      || !buyWeapons.every(validBuyWeapon)
+      || !sellWeapons.every(id => typeof id === 'string')) {
+    res.status(400).json({ error: 'Invalid cart' }); return;
+  }
+  if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0 && buyWeapons.length === 0) {
+    res.json({ success: false, message: 'Cart is empty.' }); return;
+  }
+
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const charId        = chars[0].id;
+  const equippedId    = chars[0].equipped_weapon_id;
+
+  const config = loadShop(shopKey, SHOP_DIR);
+  const prices = await getPrices(shopKey, config);
+  const findItem = (id: string) => prices.find(p => p.id === id);
+
+  // Resolve cost / revenue per line.
+  let totalCost = 0, totalRevenue = 0;
+  const buyLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; infinite: boolean; stockMax: number }> = [];
+  const sellLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; stockMax: number }> = [];
+  const weaponSellLines: Array<{ id: string; weapon_key: string; name: string; unitPrice: number; bonus_count: number }> = [];
+
+  for (const b of buys) {
+    const item = findItem(b.itemId);
+    if (!item || item.buy == null) { res.json({ success: false, message: `${b.itemId} is not for sale.` }); return; }
+    totalCost += item.buy * b.quantity;
+    buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: b.quantity, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
+  }
+
+  // Weapon buys — each unit creates a new CharacterWeapon instance.
+  const weaponBuyLines: Array<{ weapon_key: string; name: string; quantity: number; unitPrice: number; infinite: boolean }> = [];
+  for (const b of buyWeapons) {
+    const item = findItem(b.weaponKey);
+    if (!item || item.buy == null) { res.json({ success: false, message: `${b.weaponKey} is not for sale.` }); return; }
+    totalCost += item.buy * b.quantity;
+    const raw = loadWeaponYaml(b.weaponKey, __dirname) as Record<string, unknown> | null;
+    weaponBuyLines.push({
+      weapon_key: b.weaponKey,
+      name:       (raw?.['Name'] as string | undefined) ?? b.weaponKey,
+      quantity:   b.quantity,
+      unitPrice:  item.buy,
+      infinite:   item.infinite ?? false,
+    });
+  }
+  for (const s of sells) {
+    const item = findItem(s.itemId);
+    if (!item || item.sell == null) { res.json({ success: false, message: `Shop doesn't buy ${s.itemId}.` }); return; }
+    totalRevenue += item.sell * s.quantity;
+    sellLines.push({ id: s.itemId, name: ITEMS[s.itemId]?.name ?? s.itemId, quantity: s.quantity, unitPrice: item.sell, stockMax: item.stock_max });
+  }
+
+  // Validate each weapon: must be owned, not equipped, and shop must accept its key.
+  for (const wid of sellWeapons) {
+    const row = await prisma.characterWeapon.findUnique({ where: { id: wid } });
+    if (!row || row.character_id !== charId) {
+      res.json({ success: false, message: `You don't own one of the weapons in your cart.` }); return;
+    }
+    if (row.id === equippedId) {
+      res.json({ success: false, message: `Unequip a weapon before selling it.` }); return;
+    }
+    const price = findItem(row.weapon_key);
+    if (!price || price.sell == null) {
+      res.json({ success: false, message: `Shop doesn't buy ${row.weapon_key}.` }); return;
+    }
+    const raw = loadWeaponYaml(row.weapon_key, __dirname) as Record<string, unknown> | null;
+    totalRevenue += price.sell;
+    weaponSellLines.push({
+      id: row.id,
+      weapon_key: row.weapon_key,
+      name: (raw?.['Name'] as string | undefined) ?? row.weapon_key,
+      unitPrice: price.sell,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
+    });
+  }
+
+  const result = await prisma.$transaction(async tx => {
+    const user = await tx.user.findUnique({ where: { discord_id: discordId } });
+    const currentKorel = user?.korel ?? 0;
+    const net = totalRevenue - totalCost;
+    if (currentKorel + net < 0) {
+      return { success: false, message: `Not enough korel — net ${net}, have ${currentKorel}.` };
+    }
+
+    // Apply buys
+    for (const b of buyLines) {
+      if (!b.infinite) {
+        const state = await tx.shopItemState.findUnique({
+          where: { shop_id_item_id: { shop_id: shopKey, item_id: b.id } },
+        });
+        if (!state || state.stock < b.quantity) {
+          return { success: false, message: `Only ${state?.stock ?? 0} ${b.name} in stock.` };
+        }
+      }
+      await tx.item.upsert({
+        where:  { id: b.id },
+        update: {},
+        create: { id: b.id, name: b.name, description: ITEMS[b.id]?.description ?? '' },
+      });
+      await tx.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: charId, item_id: b.id } },
+        update: { quantity: { increment: b.quantity } },
+        create: { character_id: charId, item_id: b.id, quantity: b.quantity },
+      });
+      const stockUpdate = b.infinite
+        ? { cumulative_volume: { increment: b.quantity }, recent_volume: { increment: b.quantity } }
+        : { stock: { decrement: b.quantity }, cumulative_volume: { increment: b.quantity }, recent_volume: { increment: b.quantity } };
+      await tx.shopItemState.update({ where: { shop_id_item_id: { shop_id: shopKey, item_id: b.id } }, data: stockUpdate });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: b.id, type: 'buy', quantity: b.quantity, discord_id: discordId },
+      });
+    }
+
+    // Apply sells (with shop fullness clamping per item)
+    const adjustedSells: typeof sellLines = [];
+    for (const s of sellLines) {
+      const inv = await tx.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: charId, item_id: s.id } },
+      });
+      if (!inv || inv.quantity < s.quantity) {
+        return { success: false, message: `You only have ${inv?.quantity ?? 0} ${s.name}.` };
+      }
+      const state = await tx.shopItemState.findUnique({
+        where: { shop_id_item_id: { shop_id: shopKey, item_id: s.id } },
+      });
+      const room  = Math.max(0, s.stockMax - (state?.stock ?? 0));
+      const actual = Math.min(s.quantity, room);
+      if (actual === 0) {
+        return { success: false, message: `${s.name}: shop is fully stocked.` };
+      }
+      if (inv.quantity === actual) {
+        await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: charId, item_id: s.id } } });
+      } else {
+        await tx.inventoryItem.update({
+          where: { character_id_item_id: { character_id: charId, item_id: s.id } },
+          data:  { quantity: { decrement: actual } },
+        });
+      }
+      await tx.shopItemState.update({
+        where: { shop_id_item_id: { shop_id: shopKey, item_id: s.id } },
+        data:  { stock: { increment: actual }, cumulative_volume: { increment: actual }, recent_volume: { increment: actual } },
+      });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: s.id, type: 'sell', quantity: actual, discord_id: discordId },
+      });
+      adjustedSells.push({ ...s, quantity: actual });
+    }
+
+    // Apply weapon BUYS: each unit creates a new CharacterWeapon row.
+    for (const wb of weaponBuyLines) {
+      if (!wb.infinite) {
+        const state = await tx.shopItemState.findUnique({
+          where: { shop_id_item_id: { shop_id: shopKey, item_id: wb.weapon_key } },
+        });
+        if (!state || state.stock < wb.quantity) {
+          return { success: false, message: `Only ${state?.stock ?? 0} ${wb.name} in stock.` };
+        }
+      }
+      for (let i = 0; i < wb.quantity; i++) {
+        await tx.characterWeapon.create({
+          data: { character_id: charId, weapon_key: wb.weapon_key },
+        });
+      }
+      const stockUpdate = wb.infinite
+        ? { cumulative_volume: { increment: wb.quantity }, recent_volume: { increment: wb.quantity } }
+        : { stock: { decrement: wb.quantity }, cumulative_volume: { increment: wb.quantity }, recent_volume: { increment: wb.quantity } };
+      await tx.shopItemState.update({ where: { shop_id_item_id: { shop_id: shopKey, item_id: wb.weapon_key } }, data: stockUpdate });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: wb.weapon_key, type: 'buy', quantity: wb.quantity, discord_id: discordId },
+      });
+    }
+
+    // Apply weapon sells: re-check ownership/equipped within the txn, then delete.
+    for (const w of weaponSellLines) {
+      const row = await tx.characterWeapon.findUnique({ where: { id: w.id } });
+      if (!row || row.character_id !== charId) {
+        return { success: false, message: `Weapon no longer owned.` };
+      }
+      if (row.id === equippedId) {
+        return { success: false, message: `Unequip ${w.name} before selling.` };
+      }
+      await tx.characterWeapon.delete({ where: { id: w.id } });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: w.weapon_key, type: 'sell', quantity: 1, discord_id: discordId },
+      });
+    }
+
+    // Recompute net based on adjustedSells (in case any were clamped) + weapon sells
+    const actualRevenue = adjustedSells.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
+                        + weaponSellLines.reduce((sum, l) => sum + l.unitPrice, 0);
+    const actualNet = actualRevenue - totalCost;
+
+    // Apply net korel + ledger
+    if (actualNet !== 0) {
+      const noteParts: string[] = [];
+      if (buyLines.length > 0)        noteParts.push(`${buyLines.length} buy`);
+      if (adjustedSells.length > 0)   noteParts.push(`${adjustedSells.length} sell`);
+      if (weaponSellLines.length > 0) noteParts.push(`${weaponSellLines.length} weapon`);
+      await tx.user.update({
+        where: { discord_id: discordId },
+        data:  { korel: { increment: actualNet } },
+      });
+      await tx.korelLedger.create({
+        data: {
+          discord_id: discordId,
+          amount: actualNet,
+          reason: 'shop_cart',
+          note: `${noteParts.join(', ')} @ ${shopKey}`,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      message: actualNet >= 0 ? `Checkout complete (+${actualNet} korel).` : `Checkout complete (${actualNet} korel).`,
+      net: actualNet,
+      buys: buyLines,
+      sells: adjustedSells,
+      buyWeapons: weaponBuyLines,
+      sellWeapons: weaponSellLines,
+    };
+  });
+
+  res.json(result);
+
+  if (result.success) {
+    const ping = formatCartPing(discordId, config.npc, (result as unknown as {
+      buys: typeof buyLines; sells: typeof sellLines;
+      buyWeapons: typeof weaponBuyLines; sellWeapons: typeof weaponSellLines;
+    }));
+    void pingChannel((worldConfig.channels as Record<string, string>)[shopKey], ping);
+  }
+});
+
+function formatCartPing(
+  discordId: string,
+  npc: string,
+  result: {
+    buys:        Array<{ name: string; quantity: number }>;
+    sells:       Array<{ name: string; quantity: number }>;
+    buyWeapons:  Array<{ name: string; quantity: number }>;
+    sellWeapons: Array<{ name: string; bonus_count: number }>;
+  },
+): string {
+  const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
+  for (const b of result.buys)        lines.push(`- bought ${b.quantity}× ${b.name}`);
+  for (const w of result.buyWeapons)  lines.push(`- bought ${w.quantity > 1 ? `${w.quantity}× ` : ''}${w.name}`);
+  for (const s of result.sells)       lines.push(`- sold ${s.quantity}× ${s.name}`);
+  for (const w of result.sellWeapons) lines.push(`- sold ${w.name}${w.bonus_count > 0 ? ` +${w.bonus_count}` : ''}`);
+  return lines.join('\n');
+}
+
+// Helper to apply transaction shock — duplicated from shop_service.ts since we already imported the others
+async function applyTransactionShockHelper(_shopKey: string, _item: { id: string }, _qty: number, _isBuy: boolean): Promise<void> {
+  // Shock is computed inside shop_service.applyTransactionShock — but that's not exported.
+  // For now skip; price drift can be handled by next maybeTickDaily. TODO: export applyTransactionShock.
+}
+
 // ---- Craft routes ----
 
 app.get('/craft', (_req: Request, res: Response) => {
@@ -520,14 +1125,20 @@ app.get('/api/craft', async (req: Request, res: Response) => {
 
   const [inventory, ownedWeapons] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { character_id: chars[0].id } }),
-    prisma.characterWeapon.findMany({ where: { character_id: chars[0].id }, select: { weapon_key: true } }),
+    prisma.characterWeapon.findMany({ where: { character_id: chars[0].id }, select: { id: true, weapon_key: true } }),
   ]);
   const invMap: Record<string, number> = {};
   for (const inv of inventory) invMap[inv.item_id] = inv.quantity;
-  const ownedWeaponKeys = new Set(ownedWeapons.map(w => w.weapon_key));
+
+  const equippedId = chars[0].equipped_weapon_id;
+  const unEquippedKeyCounts: Record<string, number> = {};
+  for (const w of ownedWeapons) {
+    if (w.id === equippedId) continue;
+    unEquippedKeyCounts[w.weapon_key] = (unEquippedKeyCounts[w.weapon_key] ?? 0) + 1;
+  }
 
   const ingredientMet = (i: { item_id?: string; weapon_id?: string; quantity: number }): boolean => {
-    if (i.weapon_id) return ownedWeaponKeys.has(i.weapon_id) && i.weapon_id !== chars[0].weapon_key;
+    if (i.weapon_id) return (unEquippedKeyCounts[i.weapon_id] ?? 0) >= 1;
     return (invMap[i.item_id ?? ''] ?? 0) >= i.quantity;
   };
 
@@ -584,16 +1195,17 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   const result = await prisma.$transaction(async tx => {
     for (const ing of recipe.ingredients) {
       if (ing.weapon_id) {
-        if (chars[0].weapon_key === ing.weapon_id) {
-          return { success: false, message: `Unequip your ${ing.weapon_id} before using it in a recipe.` };
-        }
-        const wep = await tx.characterWeapon.findUnique({
-          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
+        // Find oldest unequipped instance of this weapon_key to consume.
+        const wep = await tx.characterWeapon.findFirst({
+          where: {
+            character_id: chars[0].id,
+            weapon_key:   ing.weapon_id,
+            NOT: chars[0].equipped_weapon_id ? { id: chars[0].equipped_weapon_id } : undefined,
+          },
+          orderBy: { created_at: 'asc' },
         });
-        if (!wep) return { success: false, message: `Requires a ${ing.weapon_id}.` };
-        await tx.characterWeapon.delete({
-          where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: ing.weapon_id } },
-        });
+        if (!wep) return { success: false, message: `Requires an unequipped ${ing.weapon_id}.` };
+        await tx.characterWeapon.delete({ where: { id: wep.id } });
       } else if (ing.item_id) {
         const needed = ing.quantity * qty;
         const inv = await tx.inventoryItem.findUnique({
@@ -627,25 +1239,14 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
         create: { character_id: chars[0].id, item_id: outputId, quantity: outQty },
       });
     } else {
+      // Always create a new weapon instance — weapons are unique.
       const rawWeapon   = recipe.output.base_bonus ? loadWeaponYaml(outputId, __dirname) : null;
       const baseUpgrades = rawWeapon && recipe.output.base_bonus
         ? computeBaseUpgrades(rawWeapon, recipe.output.base_bonus)
         : {};
       const hasBase = Object.keys(baseUpgrades).length > 0;
 
-      const existingWeapon = await tx.characterWeapon.findUnique({
-        where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
-      });
-
-      if (existingWeapon) {
-        if (hasBase) {
-          const prev = (existingWeapon.upgrades ?? {}) as { base?: Record<string, unknown>; player?: Record<string, unknown> };
-          await tx.characterWeapon.update({
-            where: { character_id_weapon_key: { character_id: chars[0].id, weapon_key: outputId } },
-            data:  { upgrades: { ...prev, base: { ...(prev.base ?? {}), ...baseUpgrades } } as Prisma.InputJsonValue },
-          });
-        }
-      } else {
+      for (let i = 0; i < qty; i++) {
         await tx.characterWeapon.create({
           data: {
             character_id: chars[0].id,
@@ -716,7 +1317,10 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   const profRows    = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
   const profLevelOf = (p: string) => profRows.find(r => r.profession === p)?.level ?? 0;
 
-  const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+  const weaponRows = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
 
   const CAT_LABELS: Record<string, string> = {
     defend: 'Defend', defend_crit: 'Defend Crit',
@@ -766,9 +1370,11 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     });
 
     weapons.push({
+      id: row.id,
       weapon_key: row.weapon_key,
       name: raw.Name,
-      equipped: row.weapon_key === char.weapon_key,
+      equipped: row.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       weapon_total: weaponTotal,
       weapon_cap: weaponCap,
       upgrade_professions: professionInfo,
@@ -779,18 +1385,24 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
   res.json({ characterName: char.name, lj_level: profLevelOf('lumberjack'), weapons });
 });
 
-app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
+app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weaponKey = String(req.params['weaponKey']);
+  const weaponId = String(req.params['weaponId']);
   const { action, delta, profession: requestedProfession } = req.body as {
     action: string; delta: number | number[]; profession?: string;
   };
 
+  const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+  if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
+    res.status(404).json({ error: 'Weapon not found' });
+    return;
+  }
+  const weaponKey = weaponRowEarly.weapon_key;
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
 
@@ -820,10 +1432,10 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
   const fieldLens = buildFieldLenMap(raw);
 
   const result = await prisma.$transaction(async tx => {
-    const weaponRow = await tx.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
-    });
-    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+    const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!weaponRow || weaponRow.character_id !== char.id) {
+      return { success: false, message: 'You do not own this weapon.' };
+    }
 
     const profRows = await tx.characterProfession.findMany({
       where: { character_id: char.id, profession: { in: validProfessions } },
@@ -871,13 +1483,13 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
 
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: String(weaponKey) } },
+      where: { id: weaponId },
       data: { upgrades: { base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId, event_type: 'weapon_upgraded',
-      payload: { weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
     }}).catch(() => {});
 
     return { success: true, message: `Upgraded ${action} via ${profession}.` };
@@ -894,14 +1506,116 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
 
 // ---- Enchant endpoint ----
 
-app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
+app.get('/api/enchant', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weaponKey = String(req.params['weaponKey']);
+  const encProfRow = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
+  });
+  const encLvl = encProfRow?.level ?? 0;
+
+  const weaponRows = await prisma.characterWeapon.findMany({
+    where: { character_id: char.id },
+    orderBy: { created_at: 'asc' },
+  });
+
+  const CAT_LABELS: Record<string, string> = {
+    defend: 'Defend', defend_crit: 'Defend Crit',
+    attack: 'Attack', attack_crit: 'Attack Crit',
+    special: 'Special', special_crit: 'Special Crit',
+  };
+
+  const weapons = weaponRows.map(row => {
+    const raw = loadWeaponYaml(row.weapon_key, __dirname);
+    if (!raw) return null;
+    const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: WeaponEnchants };
+    const enchants = upgrades.enchants ?? {};
+    const baseDeltas      = (upgrades.base ?? {}) as Record<string, number | number[]>;
+    const professions     = weaponUpgradeProfessions(row.weapon_key);
+    const playerUpgrades  = normalizePlayerUpgrades(upgrades.player, professions[0]);
+
+    const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
+      const kind = upgradeKind(a);
+      const existing = enchants[a.Name];
+      const ar = a as unknown as Record<string, unknown>;
+      let effective: number | number[] = 0;
+      if (kind === 'field') {
+        const base    = a.Field!;
+        const baseB   = (baseDeltas[a.Name] as number[] | undefined) ?? base.map(() => 0);
+        const playerB = summedFieldBonus(playerUpgrades, professions, a.Name, base.length);
+        effective = base.map((v, i) => v + (baseB[i] ?? 0) + playerB[i]);
+      } else if (kind === 'value') {
+        const base    = a.Value!;
+        const baseB   = (baseDeltas[a.Name] as number | undefined) ?? 0;
+        const playerB = summedValueBonus(playerUpgrades, professions, a.Name);
+        effective = base + baseB + playerB;
+      }
+      return {
+        name: a.Name, category, label: CAT_LABELS[category],
+        upgradeable: !!kind,
+        field_len: kind === 'field' ? (a.Field?.length ?? 0) : 0,
+        type: kind,
+        effective,
+        damage_type:    (ar['Damage_Type']    ?? '') as string,
+        damage_subtype: (ar['Damage_Subtype'] ?? '') as string,
+        enchant: existing ? {
+          kind: existing.kind, category: existing.category,
+          subtype: existing.subtype, delta: existing.delta,
+          ...(existing.type ? { type: existing.type } : {}),
+        } : null,
+      };
+    });
+
+    return {
+      id: row.id,
+      weapon_key: row.weapon_key,
+      name: raw.Name,
+      equipped: row.id === char.equipped_weapon_id,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
+      enchant_slots: ENCHANT_SLOTS,
+      enchants_used: Object.keys(enchants).length,
+      actions,
+    };
+  }).filter(Boolean);
+
+  const inv = await prisma.inventoryItem.findMany({
+    where: { character_id: char.id, item_id: { in: ['thuvel', 'hiruos', 'nodol'] } },
+  });
+  const materials: Record<string, number> = { thuvel: 0, hiruos: 0, nodol: 0 };
+  for (const i of inv) materials[i.item_id] = i.quantity;
+
+  res.json({
+    characterName: char.name,
+    enchanter_level: encLvl,
+    materials,
+    minor_cost: ENCHANT_MINOR_COST,
+    major_cost: ENCHANT_MAJOR_COST,
+    categories: ENCHANT_CATEGORIES,
+    subtypes: ENCHANT_SUBTYPES,
+    damage_types: ENCHANT_DAMAGE_TYPE,
+    level_required: ENCHANT_LEVEL_REQUIRED,
+    weapons,
+  });
+});
+
+app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const weaponId = String(req.params['weaponId']);
+  const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+  if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
+    res.status(404).json({ error: 'Weapon not found' });
+    return;
+  }
+  const weaponKey = weaponRowEarly.weapon_key;
   const { action: actionName, kind, category, subtype, delta } = req.body as {
     action: string; kind: string; category: string; subtype: string; delta: number | number[];
   };
@@ -928,17 +1642,19 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
   const uk = upgradeKind(action);
   if (!uk) { res.json({ success: false, message: 'This action cannot be enchanted.' }); return; }
 
-  const expected = enchantDelta(enchantKind);
+  const perCell = enchantDelta(enchantKind);
   if (uk === 'field') {
-    if (!Array.isArray(delta) || delta.length !== (action.Field?.length ?? 0)) {
+    const fieldLen = action.Field?.length ?? 0;
+    if (!Array.isArray(delta) || delta.length !== fieldLen) {
       res.json({ success: false, message: 'Delta must be an array matching action field length.' }); return;
     }
+    const expected = perCell * fieldLen;
     if ((delta as number[]).reduce((a, b) => a + b, 0) !== expected) {
       res.json({ success: false, message: `Delta must sum to ${expected} for a ${enchantKind} enchant.` }); return;
     }
   } else {
-    if (delta !== expected) {
-      res.json({ success: false, message: `Delta must be ${expected} for a ${enchantKind} enchant.` }); return;
+    if (delta !== perCell) {
+      res.json({ success: false, message: `Delta must be ${perCell} for a ${enchantKind} enchant.` }); return;
     }
   }
 
@@ -972,10 +1688,10 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
       }
     }
 
-    const weaponRow = await tx.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
-    });
-    if (!weaponRow) return { success: false, message: 'You do not own this weapon.' };
+    const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!weaponRow || weaponRow.character_id !== char.id) {
+      return { success: false, message: 'You do not own this weapon.' };
+    }
 
     const upgrades = (weaponRow.upgrades ?? {}) as {
       base?: Record<string, unknown>;
@@ -996,7 +1712,7 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
     };
 
     await tx.characterWeapon.update({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
+      where: { id: weaponId },
       data: {
         upgrades: {
           ...upgrades,
@@ -1008,13 +1724,19 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
     await tx.eventLog.create({ data: {
       discord_id: discordId,
       event_type: 'weapon_enchanted',
-      payload: { weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
     }}).catch(() => {});
 
     return { success: true, message: `${actionName} enchanted with ${enchantCategory} (${subtype}).` };
   });
 
   res.json(result);
+  if (result.success) {
+    void pingChannel(
+      PROFESSION_CHANNEL.enchanter,
+      `<@${discordId}> enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
+    );
+  }
 });
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);
@@ -1242,7 +1964,10 @@ io.on('connection', (socket: Socket) => {
     const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
     if (oldMeta) {
       const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
-      if (chars[0]) { playerName = chars[0].name; playerWeaponKey = chars[0].weapon_key; }
+      if (chars[0]) {
+        playerName = chars[0].name;
+        playerWeaponKey = (await equippedWeaponKey(chars[0])) ?? 'branch';
+      }
     }
 
     const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
@@ -1512,6 +2237,96 @@ async function notifyBotLog(title: string, color: number, fields: { name: string
     }
   } catch (_) {}
 }
+
+// Extract a single version's section from CHANGELOG.md. Returns null if not found.
+function extractChangelogSection(version: string): string | null {
+  const path = join(__dirname, '../../docs/CHANGELOG.md');
+  if (!fs.existsSync(path)) return null;
+  const md = fs.readFileSync(path, 'utf-8');
+  // Split on '## ' h2 headings so each section starts with "VERSION ..." then body.
+  const sections = md.split(/^## /m);
+  for (const sec of sections) {
+    if (!sec.startsWith(`${version} `) && !sec.startsWith(`${version}\n`)) continue;
+    // Strip trailing '---' divider that separates from the next entry.
+    return ('## ' + sec).replace(/\n---\s*\n[\s\S]*$/, '').trim();
+  }
+  return null;
+}
+
+// Read current version from package.json
+function currentVersion(): string | null {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
+    return pkg.version ?? null;
+  } catch (_) { return null; }
+}
+
+// On startup: post the changelog for the current version to #updates, once.
+async function maybeAnnounceVersion(): Promise<void> {
+  const channelId = worldConfig.channels.updates;
+  if (!discord || !channelId) return;
+  const version = currentVersion();
+  if (!version) return;
+
+  const eventType = 'version_announced';
+  const already = await prisma.eventLog.findFirst({
+    where: { event_type: eventType, payload: { path: ['version'], equals: version } },
+  }).catch(() => null);
+  if (already) return;
+
+  const section = extractChangelogSection(version);
+  if (!section) return;
+
+  try {
+    const ch = await discord.channels.fetch(channelId).catch(() => null);
+    if (!ch?.isTextBased() || !('send' in ch)) return;
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+    // Strip the leading "## VERSION — DATE" since it becomes the embed title.
+    const body = section.replace(/^##\s+[^\n]*\n+/, '').trim();
+    // Split into ~3800-char chunks on ### subheadings so each fits in an embed.
+    const chunks = chunkByHeading(body, 3800);
+    const gold = 0xe6af2e;
+    const text = ch as import('discord.js').TextChannel;
+    for (let i = 0; i < chunks.length; i++) {
+      const embed = new EmbedBuilder().setColor(gold).setDescription(chunks[i]);
+      if (i === 0) embed.setTitle(`Idya ${version}`);
+      if (i === chunks.length - 1) embed.setFooter({ text: `Deployed to ${env}` }).setTimestamp();
+      await text.send({
+        content: i === 0 ? '@everyone' : undefined,
+        embeds: [embed],
+        allowedMentions: { parse: i === 0 ? ['everyone'] : [] },
+      });
+    }
+    await prisma.eventLog.create({
+      data: { discord_id: 'system', event_type: eventType, payload: { version, env } },
+    });
+  } catch (err) {
+    console.error('Version announce failed:', err);
+  }
+}
+
+// Split a markdown body into chunks <= maxLen, breaking on '### ' subheadings
+// when possible so each chunk is self-contained.
+function chunkByHeading(body: string, maxLen: number): string[] {
+  if (body.length <= maxLen) return [body];
+  const parts = body.split(/(?=^### )/m);
+  const out: string[] = [];
+  let buf = '';
+  for (const part of parts) {
+    if (buf && buf.length + part.length > maxLen) {
+      out.push(buf.trim());
+      buf = '';
+    }
+    if (part.length > maxLen) {
+      if (buf) { out.push(buf.trim()); buf = ''; }
+      for (let i = 0; i < part.length; i += maxLen) out.push(part.slice(i, i + maxLen));
+    } else {
+      buf += part;
+    }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
 try {
   discordToken = JSON.parse(
     fs.readFileSync(join(__dirname, '../../database/config.json'), 'utf-8')
@@ -1614,7 +2429,8 @@ if (discordToken) {
 
       const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
       const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, char.weapon_key);
+      const charWeaponKey = (await equippedWeaponKey(char)) ?? 'branch';
+      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, charWeaponKey);
       sessions.set(sessionId, huntSession);
       sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
 
@@ -1723,7 +2539,13 @@ if (discordToken) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'joinsim') {
       const target = interaction.options.getUser('user', true);
-      await interaction.reply({ ...buildWelcomeEmbed(`<@${target.id}>`), flags: MessageFlags.Ephemeral });
+      const welcomeChannel = await interaction.guild?.channels.fetch(worldConfig.channels.welcome).catch(() => null);
+      if (!welcomeChannel?.isTextBased() || !('send' in welcomeChannel)) {
+        await interaction.reply({ content: 'Welcome channel not configured.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await (welcomeChannel as import('discord.js').TextChannel).send(buildWelcomeEmbed(`<@${target.id}>`));
+      await interaction.reply({ content: `Posted welcome for ${target.username} in #welcome.`, flags: MessageFlags.Ephemeral });
     }
     if (sub === 'giveweapon') {
       const target = interaction.options.getUser('user', true);
@@ -1743,10 +2565,8 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
-      await prisma.characterWeapon.upsert({
-        where:  { character_id_weapon_key: { character_id: chars[0].id, weapon_key: weaponKey } },
-        update: {},
-        create: { character_id: chars[0].id, weapon_key: weaponKey },
+      await prisma.characterWeapon.create({
+        data: { character_id: chars[0].id, weapon_key: weaponKey },
       });
       const w = Weapon.from_file(weaponPath);
       await prisma.eventLog.create({ data: {
@@ -1873,11 +2693,17 @@ if (discordToken) {
     const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
 
     const professions = await prisma.characterProfession.findMany({ where: { character_id: char.id } });
-    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    const ownedWeapons = await prisma.characterWeapon.findMany({
+      where: { character_id: char.id },
+      orderBy: { created_at: 'asc' },
+    });
     const weaponsText = ownedWeapons.length > 0
       ? ownedWeapons.map(cw => {
           const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
-          return cw.weapon_key === char.weapon_key ? `**${w.name}** (equipped)` : w.name;
+          const bonus = weaponBonusCount(cw.weapon_key, cw.upgrades);
+          const bonusStr = bonus > 0 ? ` +${bonus}` : '';
+          const isEquipped = cw.id === char.equipped_weapon_id;
+          return isEquipped ? `**${w.name}${bonusStr}** (equipped)` : `${w.name}${bonusStr}`;
         }).join('\n')
       : 'None';
 
@@ -1927,19 +2753,35 @@ if (discordToken) {
       return;
     }
     const char = chars[0];
-    const ownedWeapons = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+    const ownedWeapons = await prisma.characterWeapon.findMany({
+      where: { character_id: char.id },
+      orderBy: { created_at: 'asc' },
+    });
     if (ownedWeapons.length === 0) {
       await interaction.reply({ content: 'You have no weapons in your inventory.', flags: MessageFlags.Ephemeral });
       return;
     }
 
-    const options = ownedWeapons.map(cw => {
+    // Discord StringSelectMenu has a hard cap of 25 options. Prioritize equipped + highest bonus.
+    const DISCORD_SELECT_MAX = 25;
+    const ranked = ownedWeapons
+      .map(cw => ({ cw, bonus: weaponBonusCount(cw.weapon_key, cw.upgrades) }))
+      .sort((a, b) => {
+        if (a.cw.id === char.equipped_weapon_id) return -1;
+        if (b.cw.id === char.equipped_weapon_id) return 1;
+        return b.bonus - a.bonus;
+      });
+    const shown = ranked.slice(0, DISCORD_SELECT_MAX);
+    const omitted = ownedWeapons.length - shown.length;
+
+    const options = shown.map(({ cw, bonus }) => {
       const w = Weapon.from_file(join(__dirname, `../../database/weapons/${cw.weapon_key}.yaml`));
+      const label = bonus > 0 ? `${w.name} +${bonus}` : w.name;
       return new StringSelectMenuOptionBuilder()
-        .setLabel(w.name)
-        .setDescription(w.description || cw.weapon_key)
-        .setValue(cw.weapon_key)
-        .setDefault(cw.weapon_key === char.weapon_key);
+        .setLabel(label.slice(0, 100))
+        .setDescription((w.description || cw.weapon_key).slice(0, 100))
+        .setValue(cw.id)
+        .setDefault(cw.id === char.equipped_weapon_id);
     });
 
     const select = new StringSelectMenuBuilder()
@@ -1948,7 +2790,10 @@ if (discordToken) {
       .addOptions(options);
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-    await interaction.reply({ content: 'Choose a weapon to equip:', components: [row], flags: MessageFlags.Ephemeral });
+    const note = omitted > 0
+      ? `Choose a weapon to equip (showing top ${DISCORD_SELECT_MAX}; ${omitted} more — use \`/character\` for the full list):`
+      : 'Choose a weapon to equip:';
+    await interaction.reply({ content: note, components: [row], flags: MessageFlags.Ephemeral });
   });
 
   discord.on(Events.InteractionCreate, async (interaction) => {
@@ -1958,17 +2803,18 @@ if (discordToken) {
     if (chars.length === 0) { await interaction.update({ content: 'No character found.', components: [] }); return; }
     const char = chars[0];
 
-    const weaponKey = interaction.values[0];
-    const owned = await prisma.characterWeapon.findUnique({
-      where: { character_id_weapon_key: { character_id: char.id, weapon_key: weaponKey } },
-    });
-    if (!owned) { await interaction.update({ content: "You don't own that weapon.", components: [] }); return; }
+    const weaponId = interaction.values[0];
+    const owned = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
+    if (!owned || owned.character_id !== char.id) {
+      await interaction.update({ content: "You don't own that weapon.", components: [] });
+      return;
+    }
 
-    await prisma.character.update({ where: { id: char.id }, data: { weapon_key: weaponKey } });
-    const w = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+    await prisma.character.update({ where: { id: char.id }, data: { equipped_weapon_id: weaponId } });
+    const w = Weapon.from_file(join(__dirname, `../../database/weapons/${owned.weapon_key}.yaml`));
     await prisma.eventLog.create({ data: {
       discord_id: interaction.user.id, event_type: 'weapon_equipped',
-      payload: { weapon_key: weaponKey, weapon_name: w.name },
+      payload: { weapon_id: weaponId, weapon_key: owned.weapon_key, weapon_name: w.name },
     }}).catch(() => {});
     await interaction.update({ content: `**${w.name}** equipped.`, components: [] });
   });
@@ -1979,7 +2825,6 @@ if (discordToken) {
     [worldConfig.channels.blacksmith]:      'blacksmith',
     [worldConfig.channels.general_store]:   'general_store',
     [worldConfig.channels.lumberjack]:      'lumberjack',
-    [worldConfig.channels.temple]:          'temple',
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
 
@@ -2007,7 +2852,7 @@ if (discordToken) {
 
     const config = loadShop(shopKey, SHOP_DIR);
     await interaction.reply({
-      content: `**${config.name}**\n${HOST}/shop/${shopKey}?auth=${token}`,
+      content: `**${config.name}**\n${HOST}/app/shop/${shopKey}?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
@@ -2031,7 +2876,7 @@ if (discordToken) {
     }
 
     await interaction.reply({
-      content: `${HOST}/craft?auth=${token}`,
+      content: `${HOST}/app/crafting?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
@@ -2096,8 +2941,30 @@ if (discordToken) {
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon-stats') return;
-    await interaction.reply({ content: `${HOST}/weapon-stats`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `${HOST}/app/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
+
+  // ---- App page shortcuts ----
+
+  const APP_PAGE_LINKS: Array<{ command: string; path: string }> = [
+    { command: 'character',   path: '/character'   },
+    { command: 'inventory',   path: '/inventory'   },
+    { command: 'upgrading',   path: '/upgrade'     },
+    { command: 'enchanting',  path: '/enchant'     },
+    { command: 'professions', path: '/professions' },
+    { command: 'enemies',     path: '/enemies'     },
+  ];
+
+  for (const { command, path } of APP_PAGE_LINKS) {
+    discord.on(Events.InteractionCreate, async (interaction) => {
+      if (!interaction.isChatInputCommand() || interaction.commandName !== command) return;
+      const token = getOrCreateToken(interaction.user.id);
+      await interaction.reply({
+        content: `${HOST}/app${path}?auth=${token}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    });
+  }
 
   // ---- Ping ----
 
@@ -2128,6 +2995,7 @@ if (discordToken) {
       env === 'prod' ? 0x2ecc71 : 0x3498db,
       [{ name: 'Commit', value: commitLine }],
     );
+    await maybeAnnounceVersion();
   });
 
   discord.on('error', (err) => {
