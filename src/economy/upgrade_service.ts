@@ -218,6 +218,7 @@ export type EnchantKind = 'minor' | 'major';
 
 export interface Enchant {
     kind:     EnchantKind;
+    category?: string;  // physical/arcane/elemental
     subtype:  string;
     type?:    string;  // only set for major enchants
     delta:    number | number[];

@@ -50,7 +50,9 @@ function showTab(tab) {
   document.querySelectorAll('.page-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('craft-tab').style.display   = tab === 'craft'   ? '' : 'none';
   document.getElementById('upgrade-tab').style.display = tab === 'upgrade' ? '' : 'none';
+  document.getElementById('enchant-tab').style.display = tab === 'enchant' ? '' : 'none';
   if (tab === 'upgrade' && !upgradeData) loadUpgrade();
+  if (tab === 'enchant') loadEnchant();
 }
 
 // ---- Craft render ----
@@ -424,6 +426,255 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ---- Enchant ----
+
+const CAT_LABELS_FULL = { defend: 'Defend', defend_crit: 'Defend Crit', attack: 'Attack', attack_crit: 'Attack Crit', special: 'Special', special_crit: 'Special Crit' };
+
+let enchantData     = null;
+let enchantWeapon   = null;
+let enchantPending  = null; // { actionName, kind, category, subtype, delta }
+
+async function loadEnchant() {
+  const res = await fetch('/api/enchant', { headers: authHeaders() });
+  if (!res.ok) {
+    document.getElementById('enchant-panel').innerHTML = '<p class="empty">Could not load enchant data.</p>';
+    return;
+  }
+  enchantData = await res.json();
+
+  const picker = document.getElementById('enchant-weapon-picker');
+  const matsEl = document.getElementById('enchant-materials');
+  matsEl.textContent = `Thuvel ${enchantData.materials.thuvel} · Hiruos ${enchantData.materials.hiruos} · Nodol ${enchantData.materials.nodol}`;
+
+  picker.innerHTML = '';
+  if (enchantData.weapons.length === 0) {
+    picker.innerHTML = '<option disabled>No weapons owned</option>';
+    document.getElementById('enchant-panel').innerHTML = '<p class="empty">Craft a weapon first.</p>';
+    return;
+  }
+  for (const w of enchantData.weapons) {
+    const opt = document.createElement('option');
+    opt.value = w.weapon_key;
+    opt.textContent = `${w.name}${w.equipped ? ' (equipped)' : ''} — ${w.enchants_used}/${w.enchant_slots} enchants`;
+    picker.appendChild(opt);
+  }
+  const prevKey = enchantWeapon?.weapon_key;
+  enchantWeapon = enchantData.weapons.find(w => w.weapon_key === prevKey) ?? enchantData.weapons[0];
+  picker.value = enchantWeapon.weapon_key;
+  enchantPending = null;
+  renderEnchantPanel();
+}
+
+function pickEnchantWeapon(key) {
+  enchantWeapon = enchantData?.weapons.find(w => w.weapon_key === key) ?? null;
+  enchantPending = null;
+  renderEnchantPanel();
+}
+
+function renderEnchantPanel() {
+  const panel = document.getElementById('enchant-panel');
+  if (!enchantWeapon) { panel.innerHTML = ''; return; }
+  const w   = enchantWeapon;
+  const lvl = enchantData.enchanter_level;
+
+  if (lvl < 4) {
+    panel.innerHTML = '<p class="upgrade-locked">Reach Enchanter level 4 to apply enchants.</p>';
+    return;
+  }
+
+  const slotsFull = w.enchants_used >= w.enchant_slots;
+
+  // Determine which categories/kinds the player can do
+  const availableKinds = {};
+  for (const cat of enchantData.categories) {
+    const kinds = [];
+    for (const kind of ['minor', 'major']) {
+      if (lvl >= enchantData.level_required[cat][kind]) kinds.push(kind);
+    }
+    if (kinds.length > 0) availableKinds[cat] = kinds;
+  }
+
+  let rowsHtml = '';
+  for (const a of w.actions) {
+    if (!a.upgradeable) continue;
+    const enchanted = a.enchant;
+    const editing   = enchantPending?.actionName === a.name;
+    let detailHtml  = '';
+
+    if (enchanted) {
+      const deltaTxt = Array.isArray(enchanted.delta)
+        ? `[${enchanted.delta.join(', ')}]`
+        : `+${enchanted.delta}`;
+      detailHtml = `<span class="enchant-tag">${esc(enchanted.category)} ${esc(enchanted.subtype)} ${enchanted.kind === 'major' ? '(major)' : ''} ${deltaTxt}</span>`;
+    } else if (!slotsFull) {
+      detailHtml = editing
+        ? renderEnchantEditor(a)
+        : `<button class="upg-btn" onclick="startEnchant('${esc(a.name)}')">Enchant</button>`;
+    }
+
+    rowsHtml += `<div class="upg-action${enchanted ? ' dim' : ''}">
+      <span class="upg-name">${esc(a.name)}</span>
+      <span class="upg-stat">${esc(a.damage_type)} ${esc(a.damage_subtype)}</span>
+      ${detailHtml}
+    </div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="upgrade-budget">
+      <span class="budget-used">${w.enchants_used} / ${w.enchant_slots} enchants used</span>
+      ${slotsFull ? '<span class="budget-cap">Slots full</span>' : ''}
+    </div>
+    ${rowsHtml}
+  `;
+}
+
+function startEnchant(actionName) {
+  const a = enchantWeapon.actions.find(x => x.name === actionName);
+  if (!a) return;
+  enchantPending = {
+    actionName,
+    kind: 'minor',
+    category: 'physical',
+    subtype: enchantData.subtypes.physical[0],
+    delta: a.type === 'field' ? new Array(a.field_len).fill(0) : 1,
+  };
+  // For minor field actions, distribute 1 by default to first cell
+  if (a.type === 'field') enchantPending.delta[0] = 1;
+  renderEnchantPanel();
+}
+
+function cancelEnchant() {
+  enchantPending = null;
+  renderEnchantPanel();
+}
+
+function renderEnchantEditor(a) {
+  const lvl = enchantData.enchanter_level;
+  const p   = enchantPending;
+  const targetDelta = p.kind === 'minor' ? 1 : 3;
+
+  // Available categories for the chosen kind
+  const cats = enchantData.categories.filter(c => lvl >= enchantData.level_required[c][p.kind]);
+
+  // Kinds available
+  const kinds = ['minor', 'major'].filter(k =>
+    enchantData.categories.some(c => lvl >= enchantData.level_required[c][k])
+  );
+
+  const subs = enchantData.subtypes[p.category];
+  const cost = p.kind === 'minor' ? enchantData.minor_cost : enchantData.major_cost;
+  const canAfford = Object.entries(cost).every(([m, q]) => (enchantData.materials[m] ?? 0) >= q);
+  const costStr = Object.entries(cost).map(([m, q]) => `${q} ${m}`).join(', ');
+
+  let fieldHtml = '';
+  if (a.type === 'field') {
+    const spent = p.delta.reduce((s, v) => s + v, 0);
+    const rem   = targetDelta - spent;
+    let cells = '';
+    for (let i = 0; i < p.delta.length; i++) {
+      cells += `<div class="field-cell">
+        <button class="field-btn" onclick="adjEnchantDelta(${i}, -1)" ${p.delta[i] <= 0 ? 'disabled' : ''}>−</button>
+        <span class="field-val">+${p.delta[i]}</span>
+        <button class="field-btn" onclick="adjEnchantDelta(${i}, 1)" ${rem <= 0 ? 'disabled' : ''}>+</button>
+      </div>`;
+    }
+    fieldHtml = `<div class="enchant-field">
+      <p class="enchant-distribute">Distribute +${targetDelta} (${rem} remaining)</p>
+      <div class="field-cells">${cells}</div>
+    </div>`;
+  }
+
+  const sumOk = a.type === 'field'
+    ? p.delta.reduce((s, v) => s + v, 0) === targetDelta
+    : true;
+
+  return `<div class="enchant-editor">
+    <div class="enchant-row">
+      <label>Kind:</label>
+      <select onchange="setEnchantKind(this.value)">
+        ${kinds.map(k => `<option value="${k}" ${k === p.kind ? 'selected' : ''}>${k}</option>`).join('')}
+      </select>
+      <label>Category:</label>
+      <select onchange="setEnchantCategory(this.value)">
+        ${cats.map(c => `<option value="${c}" ${c === p.category ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+      <label>Subtype:</label>
+      <select onchange="setEnchantSubtype(this.value)">
+        ${subs.map(s => `<option value="${s}" ${s === p.subtype ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    ${fieldHtml}
+    <p class="enchant-cost ${canAfford ? '' : 'cant-afford'}">Cost: ${costStr}</p>
+    <div class="enchant-actions">
+      <button class="upg-btn" onclick="confirmEnchant()" ${(!canAfford || !sumOk) ? 'disabled' : ''}>Apply Enchant</button>
+      <button class="upg-btn-cancel" onclick="cancelEnchant()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function setEnchantKind(k) {
+  if (!enchantPending) return;
+  enchantPending.kind = k;
+  const a = enchantWeapon.actions.find(x => x.name === enchantPending.actionName);
+  const target = k === 'minor' ? 1 : 3;
+  if (a.type === 'field') {
+    enchantPending.delta = new Array(a.field_len).fill(0);
+    enchantPending.delta[0] = target;
+  } else {
+    enchantPending.delta = target;
+  }
+  // Ensure category still valid
+  const lvl = enchantData.enchanter_level;
+  if (lvl < enchantData.level_required[enchantPending.category][k]) {
+    enchantPending.category = enchantData.categories.find(c => lvl >= enchantData.level_required[c][k]) ?? enchantPending.category;
+    enchantPending.subtype  = enchantData.subtypes[enchantPending.category][0];
+  }
+  renderEnchantPanel();
+}
+
+function setEnchantCategory(c) {
+  if (!enchantPending) return;
+  enchantPending.category = c;
+  enchantPending.subtype  = enchantData.subtypes[c][0];
+  renderEnchantPanel();
+}
+
+function setEnchantSubtype(s) {
+  if (!enchantPending) return;
+  enchantPending.subtype = s;
+  renderEnchantPanel();
+}
+
+function adjEnchantDelta(i, dir) {
+  if (!enchantPending || !Array.isArray(enchantPending.delta)) return;
+  const target = enchantPending.kind === 'minor' ? 1 : 3;
+  const spent  = enchantPending.delta.reduce((s, v) => s + v, 0);
+  if (dir > 0 && spent >= target) return;
+  if (dir < 0 && enchantPending.delta[i] <= 0) return;
+  enchantPending.delta[i] += dir;
+  renderEnchantPanel();
+}
+
+async function confirmEnchant() {
+  if (!enchantPending || !enchantWeapon) return;
+  const res = await fetch(`/api/enchant/${enchantWeapon.weapon_key}`, {
+    method: 'POST', headers: authHeaders(true),
+    body: JSON.stringify({
+      action: enchantPending.actionName,
+      kind: enchantPending.kind,
+      category: enchantPending.category,
+      subtype: enchantPending.subtype,
+      delta: enchantPending.delta,
+    }),
+  });
+  const r = await res.json();
+  toast(r.message ?? r.error, r.success !== false);
+  if (r.success) {
+    enchantPending = null;
+    await loadEnchant();
+  }
 }
 
 load();

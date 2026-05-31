@@ -894,6 +894,81 @@ app.post('/api/upgrade/:weaponKey', async (req: Request, res: Response) => {
 
 // ---- Enchant endpoint ----
 
+app.get('/api/enchant', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const encProfRow = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
+  });
+  const encLvl = encProfRow?.level ?? 0;
+
+  const weaponRows = await prisma.characterWeapon.findMany({ where: { character_id: char.id } });
+
+  const CAT_LABELS: Record<string, string> = {
+    defend: 'Defend', defend_crit: 'Defend Crit',
+    attack: 'Attack', attack_crit: 'Attack Crit',
+    special: 'Special', special_crit: 'Special Crit',
+  };
+
+  const weapons = weaponRows.map(row => {
+    const raw = loadWeaponYaml(row.weapon_key, __dirname);
+    if (!raw) return null;
+    const upgrades = (row.upgrades ?? {}) as { enchants?: WeaponEnchants };
+    const enchants = upgrades.enchants ?? {};
+
+    const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
+      const kind = upgradeKind(a);
+      const existing = enchants[a.Name];
+      const ar = a as unknown as Record<string, unknown>;
+      return {
+        name: a.Name, category, label: CAT_LABELS[category],
+        upgradeable: !!kind,
+        field_len: kind === 'field' ? (a.Field?.length ?? 0) : 0,
+        type: kind,
+        damage_type:    (ar['Damage_Type']    ?? '') as string,
+        damage_subtype: (ar['Damage_Subtype'] ?? '') as string,
+        enchant: existing ? {
+          kind: existing.kind, category: existing.category,
+          subtype: existing.subtype, delta: existing.delta,
+          ...(existing.type ? { type: existing.type } : {}),
+        } : null,
+      };
+    });
+
+    return {
+      weapon_key: row.weapon_key,
+      name: raw.Name,
+      equipped: row.weapon_key === char.weapon_key,
+      enchant_slots: ENCHANT_SLOTS,
+      enchants_used: Object.keys(enchants).length,
+      actions,
+    };
+  }).filter(Boolean);
+
+  const inv = await prisma.inventoryItem.findMany({
+    where: { character_id: char.id, item_id: { in: ['thuvel', 'hiruos', 'nodol'] } },
+  });
+  const materials: Record<string, number> = { thuvel: 0, hiruos: 0, nodol: 0 };
+  for (const i of inv) materials[i.item_id] = i.quantity;
+
+  res.json({
+    characterName: char.name,
+    enchanter_level: encLvl,
+    materials,
+    minor_cost: ENCHANT_MINOR_COST,
+    major_cost: ENCHANT_MAJOR_COST,
+    categories: ENCHANT_CATEGORIES,
+    subtypes: ENCHANT_SUBTYPES,
+    damage_types: ENCHANT_DAMAGE_TYPE,
+    level_required: ENCHANT_LEVEL_REQUIRED,
+    weapons,
+  });
+});
+
 app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -1015,6 +1090,12 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
   });
 
   res.json(result);
+  if (result.success) {
+    void pingChannel(
+      PROFESSION_CHANNEL.enchanter,
+      `<@${discordId}> enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
+    );
+  }
 });
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);

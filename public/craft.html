@@ -26,8 +26,9 @@
     <section id="professions"></section>
 
     <div id="page-tabs">
-      <button class="page-tab active" data-tab="craft"   onclick="showTab('craft')">Craft</button>
-      <button class="page-tab"        data-tab="upgrade" onclick="showTab('upgrade')">Upgrade</button>
+      <button class="page-tab active" data-tab="craft"    onclick="showTab('craft')">Craft</button>
+      <button class="page-tab"        data-tab="upgrade"  onclick="showTab('upgrade')">Upgrade</button>
+      <button class="page-tab"        data-tab="enchant"  onclick="showTab('enchant')">Enchant</button>
     </div>
 
     <section id="craft-tab">
@@ -45,6 +46,14 @@
         <select id="weapon-picker" onchange="pickWeapon(this.value)"></select>
       </div>
       <div id="upgrade-panel"></div>
+    </section>
+
+    <section id="enchant-tab" style="display:none">
+      <div id="enchant-header">
+        <select id="enchant-weapon-picker" onchange="pickEnchantWeapon(this.value)"></select>
+        <span id="enchant-materials"></span>
+      </div>
+      <div id="enchant-panel"></div>
     </section>
   </div>
 
