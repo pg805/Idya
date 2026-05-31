@@ -498,10 +498,11 @@ app.get('/api/character', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weapons = await prisma.characterWeapon.findMany({
-    where: { character_id: char.id },
-    orderBy: { created_at: 'asc' },
-  });
+  const [weapons, dbUser, profRows] = await Promise.all([
+    prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
+    prisma.characterProfession.findMany({ where: { character_id: char.id } }),
+  ]);
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
     return {
@@ -516,6 +517,10 @@ app.get('/api/character', async (req: Request, res: Response) => {
     };
   }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
 
+  const profLevels: Record<string, number> = {};
+  for (const p of profRows) profLevels[p.profession] = p.level;
+  const combined = profRows.reduce((sum, p) => sum + p.level, 0);
+
   res.json({
     id:           char.id,
     name:         char.name,
@@ -527,6 +532,15 @@ app.get('/api/character', async (req: Request, res: Response) => {
     max_health:   char.max_health,
     equipped_weapon_id: char.equipped_weapon_id,
     weapons:      weaponList,
+    korel:        dbUser?.korel ?? 0,
+    professions: Object.fromEntries(
+      PROFESSIONS.map(p => [p, {
+        label:    PROFESSION_NAMES[p],
+        level:    profLevels[p] ?? 0,
+        maxLevel: PROFESSION_MAX_LEVEL,
+        nextCost: (profLevels[p] ?? 0) < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
+      }])
+    ),
   });
 });
 

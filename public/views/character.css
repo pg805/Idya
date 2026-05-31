@@ -116,6 +116,37 @@
 }
 .char-equip-btn:hover { background: var(--teal-dim); color: var(--text); }
 
+.char-prof-table { width: 100%; border-collapse: collapse; }
+.char-prof-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.char-prof-name  { font-size: 0.84rem; color: var(--text-2); }
+.char-prof-level {
+  font-size: 0.78rem;
+  color: var(--gold);
+  font-family: monospace;
+}
+.char-prof-level span { color: var(--text-faint); }
+.char-prof-cost  {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+  text-align: right;
+}
+.char-prof-action { text-align: right; width: 80px; }
+.char-train-btn {
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: var(--teal-bg);
+  color: var(--teal-bright);
+  border: 1px solid var(--teal-dim);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.char-train-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
+.char-train-btn:disabled { opacity: 0.35; cursor: default; }
+
 .char-empty { padding: 20px; color: var(--text-faint); font-style: italic; text-align: center; }
 
 #char-toast {
