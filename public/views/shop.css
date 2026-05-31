@@ -123,49 +123,20 @@
 }
 #shop-cart.show { display: flex; }
 
-.cart-lines {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 4px 16px;
-}
-
-.cart-line {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: 8px;
-  align-items: center;
-  padding: 3px 0;
-  font-size: 0.8rem;
-}
-.cart-line-name { color: #c0d0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cart-line-qty  { color: #8899aa; font-family: monospace; }
-.cart-line-sub  { color: #a0c890; font-family: monospace; min-width: 70px; text-align: right; }
-.cart-remove {
-  background: none;
-  border: none;
-  color: #806060;
-  cursor: pointer;
-  font-size: 0.9rem;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
-}
-.cart-remove:hover { background: #2a1818; color: #c06060; }
-
-.cart-foot {
+.cart-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid #1c2438;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1c2438;
 }
+
 .cart-net { font-size: 0.9rem; font-weight: 600; font-family: monospace; }
-.cart-net.pos { color: #6aaa6a; }
-.cart-net.neg { color: #c06060; }
-.cart-balance { font-size: 0.78rem; color: #667; }
+.cart-net.pos     { color: #6aaa6a; }
+.cart-net.neutral { color: #8899aa; }
+.cart-net.neg     { color: #c06060; }
 
 .cart-clear, .cart-checkout {
-  margin-left: auto;
   padding: 6px 16px;
   border-radius: 4px;
   font-size: 0.82rem;
@@ -184,11 +155,41 @@
   background: #1a2e1a;
   border-color: #2a4a2a;
   color: #6aaa6a;
-  margin-left: 8px;
   font-weight: 600;
 }
 .cart-checkout:hover:not(:disabled) { background: #243c24; }
 .cart-checkout:disabled { opacity: 0.35; cursor: default; }
+
+.cart-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 0.8rem;
+}
+.cart-line-name { color: #c0d0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cart-line-qty  { color: #8899aa; font-family: monospace; }
+.cart-line-sub  { color: #a0c890; font-family: monospace; min-width: 80px; text-align: right; }
+.cart-remove {
+  background: none;
+  border: none;
+  color: #806060;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+}
+.cart-remove:hover { background: #2a1818; color: #c06060; }
 
 #shop-toast {
   position: fixed;

@@ -172,6 +172,7 @@
 
     const cartKorel = (data.korel ?? 0) + s.net;
     const cantAfford = cartKorel < 0;
+    const totalClass = cantAfford ? 'neg' : (s.net > 0 ? 'pos' : 'neutral');
 
     const lineHtml = (line, side, sign) => `
       <div class="cart-line">
@@ -182,15 +183,14 @@
       </div>`;
 
     el.innerHTML = `
+      <div class="cart-head">
+        <span class="cart-net ${totalClass}">Total: ${s.net >= 0 ? '+' : ''}${s.net} korel</span>
+        <button class="cart-clear" onclick="Views.shop.clearCart()">Clear</button>
+        <button class="cart-checkout" onclick="Views.shop.checkout()" ${cantAfford ? 'disabled' : ''}>Checkout</button>
+      </div>
       <div class="cart-lines">
         ${s.buyLines.map(l => lineHtml(l, 'buys', '−')).join('')}
         ${s.sellLines.map(l => lineHtml(l, 'sells', '+')).join('')}
-      </div>
-      <div class="cart-foot">
-        <span class="cart-net ${s.net >= 0 ? 'pos' : 'neg'}">Net: ${s.net >= 0 ? '+' : ''}${s.net} korel</span>
-        <span class="cart-balance">After: ${cartKorel.toLocaleString()} korel</span>
-        <button class="cart-clear" onclick="Views.shop.clearCart()">Clear</button>
-        <button class="cart-checkout" onclick="Views.shop.checkout()" ${cantAfford ? 'disabled' : ''}>Checkout</button>
       </div>
     `;
   }
