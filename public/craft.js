@@ -524,6 +524,12 @@ function renderEnchantPanel() {
   }
 
   panel.innerHTML = budgetHtml + sectionsHtml;
+
+  if (enchantPending) {
+    const a = enchantWeapon.actions.find(x => x.name === enchantPending.actionName);
+    const el = document.getElementById('enchant-editor');
+    if (el && a) el.innerHTML = renderEnchantEditor(a);
+  }
 }
 
 function renderEnchantRow(a, slotsFull) {
@@ -546,11 +552,11 @@ function renderEnchantRow(a, slotsFull) {
     extraHtml = `<button class="upg-btn" onclick="startEnchant('${esc(a.name)}')">Enchant</button>`;
   }
 
-  return `<div class="upg-action${enchanted ? ' dim' : ''}">
+  return `<div class="upg-action${enchanted ? ' dim' : ''}" id="ench-action-${safeId(a.name)}">
     <span class="upg-name">${esc(a.name)}</span>
     <span class="upg-stat">${statText}</span>
     ${extraHtml}
-    ${editing ? renderEnchantEditor(a) : ''}
+    ${editing ? '<div id="enchant-editor"></div>' : ''}
   </div>`;
 }
 
