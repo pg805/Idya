@@ -199,6 +199,11 @@
         ${s.sellLines.map(l => lineHtml(l, 'sells', '+')).join('')}
       </div>
     `;
+
+    // Measure cart height after layout settles, set CSS var so content padding matches.
+    requestAnimationFrame(() => {
+      document.documentElement.style.setProperty('--cart-h', `${el.offsetHeight}px`);
+    });
   }
 
   function clearCart() {
