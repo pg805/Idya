@@ -104,7 +104,9 @@ async function doTrain(shopKey) {
 
 function renderRecipes() {
   const list = document.getElementById('recipe-list');
-  const visible = data.recipes.filter(r => activeFilter === 'all' || r.profession === activeFilter);
+  const visible = data.recipes.filter(r =>
+    r.output?.type !== 'enchant' && (activeFilter === 'all' || r.profession === activeFilter)
+  );
 
   if (visible.length === 0) {
     list.innerHTML = '<p class="empty">No recipes here yet.</p>';
