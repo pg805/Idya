@@ -533,16 +533,23 @@ function renderEnchantPanel() {
 function startEnchant(actionName) {
   const a = enchantWeapon.actions.find(x => x.name === actionName);
   if (!a) return;
+  const perCell = 1; // minor
   enchantPending = {
     actionName,
     kind: 'minor',
     category: 'physical',
     subtype: enchantData.subtypes.physical[0],
-    delta: a.type === 'field' ? new Array(a.field_len).fill(0) : 1,
+    delta: a.type === 'field' ? distributeEvenly(a.field_len, perCell * a.field_len) : perCell,
   };
-  // For minor field actions, distribute 1 by default to first cell
-  if (a.type === 'field') enchantPending.delta[0] = 1;
   renderEnchantPanel();
+}
+
+function distributeEvenly(cells, total) {
+  const base = Math.floor(total / cells);
+  const extra = total - base * cells;
+  const arr = new Array(cells).fill(base);
+  for (let i = 0; i < extra; i++) arr[i] += 1;
+  return arr;
 }
 
 function cancelEnchant() {
@@ -553,7 +560,8 @@ function cancelEnchant() {
 function renderEnchantEditor(a) {
   const lvl = enchantData.enchanter_level;
   const p   = enchantPending;
-  const targetDelta = p.kind === 'minor' ? 1 : 3;
+  const perCell = p.kind === 'minor' ? 1 : 3;
+  const targetDelta = a.type === 'field' ? perCell * a.field_len : perCell;
 
   // Available categories for the chosen kind
   const cats = enchantData.categories.filter(c => lvl >= enchantData.level_required[c][p.kind]);
@@ -618,12 +626,11 @@ function setEnchantKind(k) {
   if (!enchantPending) return;
   enchantPending.kind = k;
   const a = enchantWeapon.actions.find(x => x.name === enchantPending.actionName);
-  const target = k === 'minor' ? 1 : 3;
+  const perCell = k === 'minor' ? 1 : 3;
   if (a.type === 'field') {
-    enchantPending.delta = new Array(a.field_len).fill(0);
-    enchantPending.delta[0] = target;
+    enchantPending.delta = distributeEvenly(a.field_len, perCell * a.field_len);
   } else {
-    enchantPending.delta = target;
+    enchantPending.delta = perCell;
   }
   // Ensure category still valid
   const lvl = enchantData.enchanter_level;
@@ -649,7 +656,9 @@ function setEnchantSubtype(s) {
 
 function adjEnchantDelta(i, dir) {
   if (!enchantPending || !Array.isArray(enchantPending.delta)) return;
-  const target = enchantPending.kind === 'minor' ? 1 : 3;
+  const a = enchantWeapon.actions.find(x => x.name === enchantPending.actionName);
+  const perCell = enchantPending.kind === 'minor' ? 1 : 3;
+  const target = perCell * a.field_len;
   const spent  = enchantPending.delta.reduce((s, v) => s + v, 0);
   if (dir > 0 && spent >= target) return;
   if (dir < 0 && enchantPending.delta[i] <= 0) return;

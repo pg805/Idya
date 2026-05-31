@@ -1003,17 +1003,19 @@ app.post('/api/enchant/:weaponKey', async (req: Request, res: Response) => {
   const uk = upgradeKind(action);
   if (!uk) { res.json({ success: false, message: 'This action cannot be enchanted.' }); return; }
 
-  const expected = enchantDelta(enchantKind);
+  const perCell = enchantDelta(enchantKind);
   if (uk === 'field') {
-    if (!Array.isArray(delta) || delta.length !== (action.Field?.length ?? 0)) {
+    const fieldLen = action.Field?.length ?? 0;
+    if (!Array.isArray(delta) || delta.length !== fieldLen) {
       res.json({ success: false, message: 'Delta must be an array matching action field length.' }); return;
     }
+    const expected = perCell * fieldLen;
     if ((delta as number[]).reduce((a, b) => a + b, 0) !== expected) {
       res.json({ success: false, message: `Delta must sum to ${expected} for a ${enchantKind} enchant.` }); return;
     }
   } else {
-    if (delta !== expected) {
-      res.json({ success: false, message: `Delta must be ${expected} for a ${enchantKind} enchant.` }); return;
+    if (delta !== perCell) {
+      res.json({ success: false, message: `Delta must be ${perCell} for a ${enchantKind} enchant.` }); return;
     }
   }
 
