@@ -1,25 +1,9 @@
 /* View: Shop */
 
-#shop-view {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  max-height: 100%;
-  width: 100%;
-}
-
 #shop-subhead {
-  flex-shrink: 0;
   padding: 10px 24px 14px;
   background: #12192e;
   border-bottom: 1px solid #1c2438;
-}
-
-#shop-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
 }
 #shop-subhead-inner { }
 
@@ -126,7 +110,10 @@
 /* ---- Cart ---- */
 
 #shop-cart {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 200px;        /* sidebar width */
+  right: 0;
   background: #0e141f;
   border-top: 2px solid #2a3a5a;
   padding: 12px 20px;
@@ -137,6 +124,14 @@
   z-index: 50;
 }
 #shop-cart.show { display: flex; }
+
+/* Reserve scroll room under the cart when shown so the last shop item isn't hidden */
+body.cart-open .shop-panels { padding-bottom: 220px; }
+
+/* Sidebar collapses to 140px below 640px */
+@media (max-width: 640px) {
+  #shop-cart { left: 140px; }
+}
 
 .cart-head {
   display: flex;

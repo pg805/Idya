@@ -27,27 +27,23 @@
     cart    = { buys: {}, sells: {} };
     setLayoutTitle('Shop');
     root.innerHTML = `
-      <div id="shop-view">
-        <div id="shop-subhead">
-          <div id="shop-subhead-inner">
-            <p id="shop-name-line"></p>
-            <p id="shop-greeting"></p>
-          </div>
+      <div id="shop-subhead">
+        <div id="shop-subhead-inner">
+          <p id="shop-name-line"></p>
+          <p id="shop-greeting"></p>
         </div>
-        <div id="shop-scroll">
-          <main class="shop-panels">
-            <section class="shop-panel">
-              <div class="shop-panel-label">For Sale</div>
-              <div id="shop-buy-list"></div>
-            </section>
-            <section class="shop-panel">
-              <div class="shop-panel-label">Your Inventory</div>
-              <div id="shop-sell-list"></div>
-            </section>
-          </main>
-        </div>
-        <div id="shop-cart"></div>
       </div>
+      <main class="shop-panels">
+        <section class="shop-panel">
+          <div class="shop-panel-label">For Sale</div>
+          <div id="shop-buy-list"></div>
+        </section>
+        <section class="shop-panel">
+          <div class="shop-panel-label">Your Inventory</div>
+          <div id="shop-sell-list"></div>
+        </section>
+      </main>
+      <div id="shop-cart"></div>
       <div id="shop-toast"></div>
     `;
     window.addEventListener('layout-changed', layoutChangedHandler);
@@ -171,8 +167,14 @@
   function renderCart() {
     const el = document.getElementById('shop-cart');
     const s = cartSummary();
-    if (s.empty) { el.innerHTML = ''; el.classList.remove('show'); return; }
+    if (s.empty) {
+      el.innerHTML = '';
+      el.classList.remove('show');
+      document.body.classList.remove('cart-open');
+      return;
+    }
     el.classList.add('show');
+    document.body.classList.add('cart-open');
 
     const cartKorel = (data.korel ?? 0) + s.net;
     const cantAfford = cartKorel < 0;
@@ -231,6 +233,7 @@
 
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
+    document.body.classList.remove('cart-open');
     data = null; cart = { buys: {}, sells: {} }; rootEl = null;
   }
 
