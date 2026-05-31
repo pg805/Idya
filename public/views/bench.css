@@ -209,6 +209,7 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 .upg-name  { font-size: 0.84rem; color: #b8c8d8; flex: 1; min-width: 100px; }
 .upg-stat  { font-size: 0.78rem; color: #7a8a9a; }
 .field-avg { font-size: 0.7rem; color: #445; }
+.field-rolls { font-family: monospace; font-size: 0.78rem; color: #a0c890; }
 .bonus-tag { font-size: 0.7rem; color: #50987a; background: #0d2018; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
 .cannot-upg { font-size: 0.72rem; color: #2e3848; font-style: italic; }
 
