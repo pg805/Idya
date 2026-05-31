@@ -116,25 +116,24 @@ h1 { font-size: 1.1rem; color: #c0a060; letter-spacing: 0.08em; font-weight: 600
 /* ---- Filter bar ---- */
 #recipe-filter {
   display: flex;
+  gap: 16px;
   background: #0f1520;
   border-bottom: 1px solid #1c2438;
+  padding: 10px 16px;
+  flex-wrap: wrap;
 }
 
-.filter-btn {
-  flex: 1;
-  padding: 9px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #3a4a5a;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #7a8a9a;
+  font-size: 0.78rem;
   cursor: pointer;
-  transition: color 0.1s, border-color 0.1s;
+  user-select: none;
 }
-.filter-btn.active { color: #c0a060; border-bottom-color: #c0a060; }
-.filter-btn:hover:not(.active) { color: #7a8a9a; }
+.filter-check input { accent-color: #c0a060; cursor: pointer; }
+.filter-check:hover { color: #c0d0e0; }
 
 /* ---- Recipe list ---- */
 .recipe-card {

@@ -1,5 +1,5 @@
 let data         = null;
-let activeFilter = 'all';
+let activeProfs  = null;  // Set of profession keys to show; null until first render
 let openRecipe   = null;
 
 let upgradeData      = null;
@@ -62,7 +62,9 @@ const PROF_SHOP = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchante
 function render() {
   document.getElementById('char-name').textContent = data.characterName;
   document.getElementById('korel-val').textContent = `${data.korel.toLocaleString()} korel`;
+  initProfFilter();
   renderProfessions();
+  renderRecipeFilter();
   renderRecipes();
 }
 
@@ -105,7 +107,7 @@ async function doTrain(shopKey) {
 function renderRecipes() {
   const list = document.getElementById('recipe-list');
   const visible = data.recipes.filter(r =>
-    r.output?.type !== 'enchant' && (activeFilter === 'all' || r.profession === activeFilter)
+    r.output?.type !== 'enchant' && activeProfs.has(r.profession)
   );
 
   if (visible.length === 0) {
@@ -171,12 +173,30 @@ function toggleRecipe(id) {
   renderRecipes();
 }
 
-function filterRecipes(prof) {
-  activeFilter = prof;
-  openRecipe   = null;
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.prof === prof);
-  });
+const PROF_LABEL = { lumberjack: 'Lumberjack', blacksmith: 'Blacksmith', enchanter: 'Enchanter' };
+
+function initProfFilter() {
+  if (activeProfs !== null) return;
+  const owned = Object.entries(data.professions ?? {})
+    .filter(([, p]) => (p?.level ?? 0) > 0)
+    .map(([key]) => key);
+  activeProfs = new Set(owned.length > 0 ? owned : Object.keys(PROF_LABEL));
+}
+
+function renderRecipeFilter() {
+  const el = document.getElementById('recipe-filter');
+  el.innerHTML = Object.keys(PROF_LABEL).map(key => `
+    <label class="filter-check">
+      <input type="checkbox" ${activeProfs.has(key) ? 'checked' : ''} onchange="toggleProf('${key}')">
+      ${PROF_LABEL[key]}
+    </label>
+  `).join('');
+}
+
+function toggleProf(key) {
+  if (activeProfs.has(key)) activeProfs.delete(key);
+  else activeProfs.add(key);
+  openRecipe = null;
   renderRecipes();
 }
 
