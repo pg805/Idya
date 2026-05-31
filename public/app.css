@@ -6,11 +6,16 @@ body {
   font-family: 'Segoe UI', sans-serif;
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+#layout-root { flex-shrink: 0; }
 
 #app-shell {
   display: flex;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
 }
 
 #app-sidebar {
