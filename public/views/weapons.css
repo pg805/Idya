@@ -26,10 +26,32 @@
   border-bottom: 1px solid var(--border-soft);
 }
 
+.ws-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ws-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+.ws-filter-check input { accent-color: var(--gold); cursor: pointer; }
+.ws-filter-check:hover { color: var(--text-2); }
+
 .ws-list {
   overflow-y: auto;
   flex: 1;
 }
+
+.ws-empty { padding: 20px; color: var(--text-faint); font-style: italic; font-size: 0.78rem; }
 
 .ws-weapon-btn {
   display: flex;

@@ -2,9 +2,17 @@
 (function() {
   let weapons = [];
   let selected = null;
+  let activeProfs = new Set(['Lumberjack', 'Blacksmith', 'Enchanter']);
+
+  const PROF_LABELS = ['Lumberjack', 'Blacksmith', 'Enchanter'];
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function matchesFilter(w) {
+    if (w.professions.length === 0) return true; // weapons with no profession (e.g. branch) always show
+    return w.professions.some(p => activeProfs.has(p));
   }
 
   async function mount(root) {
@@ -13,6 +21,7 @@
       <div class="ws-body">
         <aside class="ws-sidebar">
           <h2>Weapons</h2>
+          <div class="ws-filter" id="ws-filter"></div>
           <div class="ws-list" id="ws-list"></div>
         </aside>
         <main class="ws-detail" id="ws-detail">
@@ -21,20 +30,47 @@
       </div>
     `;
 
+    renderFilter();
+
     const res = await fetch('/api/weapons');
     const data = await res.json();
     weapons = data.weapons.filter(w => w.key !== 'honor');
+    renderList();
+  }
 
+  function renderFilter() {
+    const el = document.getElementById('ws-filter');
+    el.innerHTML = PROF_LABELS.map(p => `
+      <label class="ws-filter-check">
+        <input type="checkbox" ${activeProfs.has(p) ? 'checked' : ''} onchange="Views.weapons.toggleProf('${p}')">
+        ${p}
+      </label>
+    `).join('');
+  }
+
+  function renderList() {
     const list = document.getElementById('ws-list');
     list.innerHTML = '';
-    for (const w of weapons) {
+    const visible = weapons.filter(matchesFilter);
+    if (visible.length === 0) {
+      list.innerHTML = '<p class="ws-empty">No weapons match the filter.</p>';
+      return;
+    }
+    for (const w of visible) {
       const btn = document.createElement('button');
       btn.className = 'ws-weapon-btn';
       btn.dataset.key = w.key;
+      if (selected && selected.key === w.key) btn.classList.add('active');
       btn.innerHTML = `<span class="ws-wname">${esc(w.name)}</span><span class="ws-wlevel">Lv ${w.level}</span>`;
       btn.onclick = () => selectWeapon(w.key);
       list.appendChild(btn);
     }
+  }
+
+  function toggleProf(p) {
+    if (activeProfs.has(p)) activeProfs.delete(p);
+    else activeProfs.add(p);
+    renderList();
   }
 
   function selectWeapon(key) {
@@ -93,5 +129,5 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.weapons = { mount, unmount };
+  window.Views.weapons = { mount, unmount, toggleProf };
 })();
