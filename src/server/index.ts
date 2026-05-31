@@ -294,6 +294,26 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+// Count total bonuses on a weapon (base + player + enchants) for display as "+N"
+function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
+  const raw = loadWeaponYaml(weaponKey, __dirname);
+  if (!raw) return 0;
+  const upgrades = (upgradesJson ?? {}) as {
+    base?: Record<string, number | number[]>;
+    player?: unknown;
+    enchants?: Record<string, unknown>;
+  };
+  const fieldLens = buildFieldLenMap(raw);
+  const professions = weaponUpgradeProfessions(weaponKey);
+  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
+
+  const playerCount = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+  const baseCount   = totalUpgradesUsed((upgrades.base ?? {}) as Record<string, number | number[]>, fieldLens);
+  const enchantCount = upgrades.enchants ? Object.keys(upgrades.enchants).length : 0;
+
+  return playerCount + baseCount + enchantCount;
+}
+
 app.get('/api/info/professions', (_req: Request, res: Response) => {
   const allRecipes = loadAllRecipes(RECIPES_DIR);
   const PROFS: Array<{ key: 'lumberjack' | 'blacksmith' | 'enchanter'; label: string }> = [
@@ -380,6 +400,7 @@ app.get('/api/character', async (req: Request, res: Response) => {
       hp:          (raw?.['HP']          as number | undefined) ?? 0,
       level:       (raw?.['Level']       as number | undefined) ?? 0,
       equipped:    w.weapon_key === char.weapon_key,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
     };
   }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
 
@@ -446,9 +467,10 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
     return {
-      weapon_key: w.weapon_key,
-      name:       (raw?.['Name'] as string | undefined) ?? w.weapon_key,
-      equipped:   w.weapon_key === char.weapon_key,
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name'] as string | undefined) ?? w.weapon_key,
+      equipped:    w.weapon_key === char.weapon_key,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
     };
   });
 

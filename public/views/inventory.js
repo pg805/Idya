@@ -46,7 +46,7 @@
         <div class="inv-list">
           ${sortedWeapons.map(w => `
             <div class="inv-row${w.equipped ? ' equipped' : ''}">
-              <span class="inv-name">${esc(w.name)}</span>
+              <span class="inv-name">${esc(w.name)}${w.bonus_count > 0 ? ` <span class="inv-bonus">+${w.bonus_count}</span>` : ''}</span>
               ${w.equipped ? '<span class="inv-meta">equipped</span>' : ''}
             </div>
           `).join('')}

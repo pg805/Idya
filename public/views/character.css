@@ -92,6 +92,7 @@
 .char-weapon-table tr.equipped td { background: #1a1c20; }
 
 .char-w-name  { font-size: 0.84rem; color: #c0d0e0; }
+.char-w-bonus { color: #a0c890; font-family: monospace; font-weight: 600; margin-left: 4px; }
 .char-w-meta  { font-size: 0.72rem; color: #667; }
 .char-w-action { text-align: right; }
 

@@ -68,4 +68,11 @@
 .inv-row.equipped .inv-name { color: #c0a060; }
 .inv-row.equipped .inv-meta { color: #c0a060; }
 
+.inv-bonus {
+  color: #a0c890;
+  font-family: monospace;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
 .inv-empty { padding: 40px 20px; color: #334; font-style: italic; text-align: center; }

@@ -33,7 +33,7 @@
 
     const weaponRows = c.weapons.map(w => `
       <tr class="${w.equipped ? 'equipped' : ''}">
-        <td class="char-w-name">${esc(w.name)}</td>
+        <td class="char-w-name">${esc(w.name)}${w.bonus_count > 0 ? ` <span class="char-w-bonus">+${w.bonus_count}</span>` : ''}</td>
         <td class="char-w-meta">Lv ${w.level} · ${w.hp} HP</td>
         <td class="char-w-action">
           ${w.equipped
