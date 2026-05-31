@@ -953,13 +953,12 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
 function formatCartPing(
   discordId: string,
   npc: string,
-  result: { buys: Array<{ name: string; quantity: number }>; sells: Array<{ name: string; quantity: number }>; net: number },
+  result: { buys: Array<{ name: string; quantity: number }>; sells: Array<{ name: string; quantity: number }> },
 ): string {
-  const parts: string[] = [];
-  if (result.buys.length > 0)  parts.push('bought ' + result.buys.map(b => `${b.quantity}× ${b.name}`).join(', '));
-  if (result.sells.length > 0) parts.push('sold '   + result.sells.map(s => `${s.quantity}× ${s.name}`).join(', '));
-  const sign = result.net > 0 ? '+' : '';
-  return `<@${discordId}> ${parts.join(' and ')} at ${npc}'s shop (net ${sign}${result.net} korel).`;
+  const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
+  for (const b of result.buys)  lines.push(`- bought ${b.quantity}× ${b.name}`);
+  for (const s of result.sells) lines.push(`- sold ${s.quantity}× ${s.name}`);
+  return lines.join('\n');
 }
 
 // Helper to apply transaction shock — duplicated from shop_service.ts since we already imported the others
