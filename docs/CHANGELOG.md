@@ -1,20 +1,61 @@
 # Changelog
 
-## 0.1.0 — In Progress
+## 0.1.0 — 2026-05-31
 
-First post-demo iteration. Tracking feedback from the 2026-05-30 demo
-(see `docs/demo.md` for the full list).
+First major post-demo iteration. Web app SPA, unique weapon instances,
+shopping cart, weapon selling, palette refresh, new info pages, and a
+slash command per app tab. Driven by feedback from the 2026-05-30 demo
+(see `docs/demo.md`).
 
-### Features
-- **Intermediate materials in profession shops** — each profession's shop now buys and sells its tier-2 (200/40 korel) and tier-3 (400/80 korel) materials:
-  - Lumberjack: treated_sulwood, hardwood
-  - Blacksmith: talamite, alloy
-  - Enchanter: hiruos, nodol
+### Web App
+- **SPA navigation** — Character, Inventory, Shop, Upgrading, Enchanting, Professions, Enemies, and Weapon Stats now load as views inside a single shell. Sidebar selects views without full page reloads
+- **Palette refresh** — new color system (Deep Space Blue background, Sunflower Gold titles, Jungle Teal positive, Cool Steel text, Dark Amaranth warning) wired through CSS variables in `layout.css`
+- **Width consistency** — info/character/inventory pages capped at 1100px; shops expand to full width for side-by-side panels
+- **Inventory page** — compact two-column grid with section headers (weapons / materials / consumables), equipped weapon highlighted with gold border, per-row upgrade badges
+- **Character page** — restructured stats panel; equipped weapon shows `+N` upgrade count alongside the name
+- **Info → Professions** — per-level unlocks listed for each profession (recipes, budget growth, enchant tiers)
+- **Info → Enemies** — sidebar list + detail panel with HP, resistances, pattern, sprite, and raw drop tables
+
+### Weapons as Unique Instances
+- **Schema migration** — `CharacterWeapon` is now keyed by UUID instead of (character_id, weapon_key); `Character.equipped_weapon_id` is an FK with `ON DELETE SET NULL`. Players can own multiple instances of the same weapon
+- **Recipe ingredients** — weapon-consuming recipes (e.g. Quarterstaff (Treated)) consume the oldest unequipped instance first; equipped weapon is never destroyed
+- **Endpoints refactored** — inventory, character, upgrade, enchant, sell, and trade all operate on weapon instance IDs
+- **`/weapon` capped at 25 options** — Discord StringSelectMenu hard limit; list is sorted equipped → bonus count desc, with a note when omitted
+
+### Shopping Cart
+- **Batched checkout** — buys, sells, weapon buys, and weapon sells all queue in a single sticky cart at the bottom of the shop page. One transaction, one Discord ping
+- **Three-state total** — net total shows green (gain), grey (affordable cost), red (can't afford); checkout disables when red
+- **Sticky panel** — cart pins to viewport bottom with sidebar offset; shop content pads automatically based on measured cart height
+- **Weapon buying** — every buy creates a new `CharacterWeapon` instance, so duplicates are allowed
+- **Weapon selling** — sell your weapons through the same cart, separated by a divider in the Sell panel. Confirm modal appears when selling ≥1 weapon. Upgrades and enchants do not raise sell price
+- **Cart Discord ping** — bullet-list format, one item per line
+
+### Slash Commands
+- New slash command per app tab: `/character`, `/inventory`, `/upgrading`, `/enchanting`, `/professions`, `/enemies`. Each opens the user directly to its view in the web app
+- `/weapon-stats` page now has profession filter checkboxes matching the craft page
+
+### Shops
+- **Intermediate materials in profession shops** — each profession's shop now buys and sells its tier-2 and tier-3 materials (Lumberjack: treated_sulwood, hardwood; Blacksmith: talamite, alloy; Enchanter: hiruos, nodol)
+- **Weapon listings restored** — shops sell weapons again; each purchase creates a new instance
+- **Stable item ordering** — shop item list no longer reshuffles when an item is added to the cart
+
+### Enchanting
 - **Enchanting tab on craft page** — full UI for applying enchants to weapons. Pick weapon → action → kind (minor/major) → category (physical/arcane/elemental) → subtype → distribute delta. Cost preview, material check, posts to enchanting channel on success
-- **Demo wrap-up doc** (`docs/demo.md`) — captures the 2026-05-30 demo session: player stats, economic curves, and full feedback list
+- **Actual roll display** — upgrade and enchant previews now show the new Field roll values instead of a generic range
+
+### Infrastructure
+- **Auto-announce on version bump** — when the bot starts on a new `package.json` version it hasn't announced before, it posts the matching changelog section to the `updates` channel and records the announcement in `EventLog` so it never reposts
+- **Updates channel** — added to `world.json` for both prod and dev environments
 
 ### Fixes
+- **`/weapon` failed with "Invalid string length"** — Discord caps `setDescription` at 100 chars; shortened the Wand description and added a defensive 100-char slice to all weapon options
+- **Layout overflow clipping** — body was `overflow: hidden` with `app-shell: 100vh`, clipping content below the viewport. Changed body to a flex column so layout-root and app-shell stack correctly
+- **"Need materials" badge** — looked like a featured item in gold; switched to the warn palette so it reads as a warning
+- **Equipped weapon row invisible in inventory** — gold background tinted too close to dark navy; switched to a gold left-border with hover-tinted background
 - **Enchanter upgrade materials** — `enchanting_reagent` / `refined_enchanting_reagent` placeholders replaced with actual items (`hiruos` and `nodol`) so enchanter weapon upgrades work
+
+### Docs
+- **Demo wrap-up doc** (`docs/demo.md`) — captures the 2026-05-30 demo session: player stats, economic curves, and full feedback list
 
 ---
 

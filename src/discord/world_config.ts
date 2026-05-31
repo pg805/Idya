@@ -27,6 +27,7 @@ export interface WorldConfig {
     lumberjack:     string;
     ooc:            string;
     bot_log?:       string;
+    updates?:       string;
   };
   npcs: {
     mayor:         NpcDef;

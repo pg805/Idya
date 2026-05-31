@@ -2237,6 +2237,92 @@ async function notifyBotLog(title: string, color: number, fields: { name: string
     }
   } catch (_) {}
 }
+
+// Extract a single version's section from CHANGELOG.md. Returns null if not found.
+function extractChangelogSection(version: string): string | null {
+  const path = join(__dirname, '../../docs/CHANGELOG.md');
+  if (!fs.existsSync(path)) return null;
+  const md = fs.readFileSync(path, 'utf-8');
+  // Split on '## ' h2 headings so each section starts with "VERSION ..." then body.
+  const sections = md.split(/^## /m);
+  for (const sec of sections) {
+    if (!sec.startsWith(`${version} `) && !sec.startsWith(`${version}\n`)) continue;
+    // Strip trailing '---' divider that separates from the next entry.
+    return ('## ' + sec).replace(/\n---\s*\n[\s\S]*$/, '').trim();
+  }
+  return null;
+}
+
+// Read current version from package.json
+function currentVersion(): string | null {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
+    return pkg.version ?? null;
+  } catch (_) { return null; }
+}
+
+// On startup: post the changelog for the current version to #updates, once.
+async function maybeAnnounceVersion(): Promise<void> {
+  const channelId = worldConfig.channels.updates;
+  if (!discord || !channelId) return;
+  const version = currentVersion();
+  if (!version) return;
+
+  const eventType = 'version_announced';
+  const already = await prisma.eventLog.findFirst({
+    where: { event_type: eventType, payload: { path: ['version'], equals: version } },
+  }).catch(() => null);
+  if (already) return;
+
+  const section = extractChangelogSection(version);
+  if (!section) return;
+
+  try {
+    const ch = await discord.channels.fetch(channelId).catch(() => null);
+    if (!ch?.isTextBased() || !('send' in ch)) return;
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+    // Strip the leading "## VERSION — DATE" since it becomes the embed title.
+    const body = section.replace(/^##\s+[^\n]*\n+/, '').trim();
+    // Split into ~3800-char chunks on ### subheadings so each fits in an embed.
+    const chunks = chunkByHeading(body, 3800);
+    const gold = 0xe6af2e;
+    const text = ch as import('discord.js').TextChannel;
+    for (let i = 0; i < chunks.length; i++) {
+      const embed = new EmbedBuilder().setColor(gold).setDescription(chunks[i]);
+      if (i === 0) embed.setTitle(`Idya ${version}`);
+      if (i === chunks.length - 1) embed.setFooter({ text: `Deployed to ${env}` }).setTimestamp();
+      await text.send({ embeds: [embed] });
+    }
+    await prisma.eventLog.create({
+      data: { discord_id: 'system', event_type: eventType, payload: { version, env } },
+    });
+  } catch (err) {
+    console.error('Version announce failed:', err);
+  }
+}
+
+// Split a markdown body into chunks <= maxLen, breaking on '### ' subheadings
+// when possible so each chunk is self-contained.
+function chunkByHeading(body: string, maxLen: number): string[] {
+  if (body.length <= maxLen) return [body];
+  const parts = body.split(/(?=^### )/m);
+  const out: string[] = [];
+  let buf = '';
+  for (const part of parts) {
+    if (buf && buf.length + part.length > maxLen) {
+      out.push(buf.trim());
+      buf = '';
+    }
+    if (part.length > maxLen) {
+      if (buf) { out.push(buf.trim()); buf = ''; }
+      for (let i = 0; i < part.length; i += maxLen) out.push(part.slice(i, i + maxLen));
+    } else {
+      buf += part;
+    }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
 try {
   discordToken = JSON.parse(
     fs.readFileSync(join(__dirname, '../../database/config.json'), 'utf-8')
@@ -2905,6 +2991,7 @@ if (discordToken) {
       env === 'prod' ? 0x2ecc71 : 0x3498db,
       [{ name: 'Commit', value: commitLine }],
     );
+    await maybeAnnounceVersion();
   });
 
   discord.on('error', (err) => {
