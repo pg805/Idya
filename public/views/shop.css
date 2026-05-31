@@ -5,6 +5,10 @@
   background: #12192e;
   border-bottom: 1px solid #1c2438;
 }
+#shop-subhead-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
 
 #shop-name-line {
   font-size: 0.7rem;

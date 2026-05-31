@@ -1,9 +1,10 @@
 /* View: Inventory — clean, dense, non-interactive listing */
 
 #inv-body {
-  max-width: 1100px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 20px 24px 32px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 24px;

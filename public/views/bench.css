@@ -21,11 +21,14 @@ body {
 .hint { color: #445; font-size: 0.8rem; }
 code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a060; }
 
-/* ---- Recipe section ---- */
-#recipes-section {
+/* ---- Bench section widths (consistent across crafting/upgrade/enchant) ---- */
+#craft-tab,
+#upgrade-tab,
+#enchant-tab {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 0 32px;
+  width: 100%;
 }
 
 /* ---- Filter bar ---- */
@@ -153,11 +156,6 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 .upgrade-locked { padding: 28px 20px; color: #445; font-style: italic; font-size: 0.82rem; }
 
 /* ---- Upgrade tab ---- */
-#upgrade-tab {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 0 32px;
-}
 
 #upgrade-header {
   padding: 14px 20px;
@@ -241,12 +239,6 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 .upg-btn-cancel:hover { background: #3a2020; }
 
 /* ---- Enchant tab ---- */
-#enchant-tab {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 0 32px;
-}
-
 #enchant-header {
   display: flex;
   align-items: center;

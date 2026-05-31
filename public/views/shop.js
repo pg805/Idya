@@ -17,8 +17,10 @@
     setLayoutTitle('Shop');
     root.innerHTML = `
       <div id="shop-subhead">
-        <p id="shop-name-line"></p>
-        <p id="shop-greeting"></p>
+        <div id="shop-subhead-inner">
+          <p id="shop-name-line"></p>
+          <p id="shop-greeting"></p>
+        </div>
       </div>
       <main class="shop-panels">
         <section class="shop-panel">
