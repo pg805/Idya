@@ -152,33 +152,6 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 
 .upgrade-locked { padding: 28px 20px; color: #445; font-style: italic; font-size: 0.82rem; }
 
-/* ---- Page tabs (Craft / Upgrade) ---- */
-#page-tabs {
-  display: flex;
-  background: #0f1520;
-  border-bottom: 2px solid #1c2438;
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.page-tab {
-  flex: 1;
-  padding: 10px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #3a4a5a;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  margin-bottom: -2px;
-  transition: color 0.1s, border-color 0.1s;
-}
-.page-tab.active { color: #c0a060; border-bottom-color: #c0a060; }
-.page-tab:hover:not(.active) { color: #7a8a9a; }
-
 /* ---- Upgrade tab ---- */
 #upgrade-tab {
   max-width: 960px;

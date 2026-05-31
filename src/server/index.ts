@@ -238,7 +238,7 @@ app.get('/shop/:shopKey', (req: Request, res: Response) => {
 });
 app.get('/craft', (req: Request, res: Response) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-  res.redirect(302, `/app/craft${qs}`);
+  res.redirect(302, `/app/crafting${qs}`);
 });
 app.get('/weapon-stats', (req: Request, res: Response) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -2307,7 +2307,7 @@ if (discordToken) {
     }
 
     await interaction.reply({
-      content: `${HOST}/app/craft?auth=${token}`,
+      content: `${HOST}/app/crafting?auth=${token}`,
       flags: MessageFlags.Ephemeral,
     });
   });
