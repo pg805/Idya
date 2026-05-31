@@ -12,10 +12,7 @@
   }
 
   function fieldSummary(field) {
-    const min = Math.min(...field);
-    const max = Math.max(...field);
-    const avg = (field.reduce((a, b) => a + b, 0) / field.length).toFixed(1);
-    return `${min}–${max} <span class="field-avg">avg ${avg}</span>`;
+    return `<span class="field-rolls">[${field.join(', ')}]</span>`;
   }
 
   function safeId(name) { return name.replace(/[^a-zA-Z0-9]/g, '-'); }
