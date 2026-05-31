@@ -42,10 +42,7 @@
         (a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name)
       );
       sectionsHtml += `<section class="inv-section">
-        <h2 class="inv-section-label">
-          <span>Weapons</span>
-          <span class="inv-section-count">${data.weapons.length} owned</span>
-        </h2>
+        <h2 class="inv-section-label">Weapons</h2>
         <div class="inv-list">
           ${sortedWeapons.map(w => `
             <div class="inv-row${w.equipped ? ' equipped' : ''}">
@@ -61,12 +58,8 @@
       const list = grouped[t].filter(i => i.quantity > 0);
       if (list.length === 0) continue;
       list.sort((a, b) => a.name.localeCompare(b.name));
-      const total = list.reduce((s, i) => s + i.quantity, 0);
       sectionsHtml += `<section class="inv-section">
-        <h2 class="inv-section-label">
-          <span>${TYPE_LABEL[t]}</span>
-          <span class="inv-section-count">${list.length} types · ${total.toLocaleString()} total</span>
-        </h2>
+        <h2 class="inv-section-label">${TYPE_LABEL[t]}</h2>
         <div class="inv-list">
           ${list.map(i => `
             <div class="inv-row" title="${esc(i.description)}">
