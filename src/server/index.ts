@@ -294,6 +294,75 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+app.get('/api/info/professions', (_req: Request, res: Response) => {
+  const allRecipes = loadAllRecipes(RECIPES_DIR);
+  const PROFS: Array<{ key: 'lumberjack' | 'blacksmith' | 'enchanter'; label: string }> = [
+    { key: 'lumberjack', label: 'Lumberjack' },
+    { key: 'blacksmith', label: 'Blacksmith' },
+    { key: 'enchanter',  label: 'Enchanter'  },
+  ];
+
+  const result: Record<string, unknown> = {};
+  for (const { key, label } of PROFS) {
+    const levels = [];
+    for (let lvl = 1; lvl <= PROFESSION_MAX_LEVEL; lvl++) {
+      const recipes = allRecipes
+        .filter(r => r.profession === key && r.required_level === lvl)
+        .map(r => ({
+          id:          r.id,
+          name:        r.name,
+          description: r.description,
+          output_type: r.output.type,
+        }));
+      const budget       = budgetForLevel(lvl);
+      const prevBudget   = lvl > 0 ? budgetForLevel(lvl - 1) : 0;
+      const budgetAdded  = budget - prevBudget;
+      levels.push({
+        level: lvl,
+        recipes,
+        budget,
+        budget_added: budgetAdded,
+      });
+    }
+    result[key] = { label, levels };
+  }
+
+  res.json({ professions: result });
+});
+
+app.get('/api/info/enemies', (_req: Request, res: Response) => {
+  const dir = join(__dirname, '../../database/enemies');
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.yaml') && !f.startsWith('tutorial_'));
+  const enemies = files.map(file => {
+    const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+    const loot = (raw['Loot'] as { Items?: Array<{ id: string; type: string; Field: number[] }> } | undefined)?.Items ?? [];
+    const drops = loot.map(d => {
+      const field = d.Field ?? [];
+      const min = field.length ? Math.min(...field) : 0;
+      const max = field.length ? Math.max(...field) : 0;
+      const avg = field.length ? field.reduce((a, b) => a + b, 0) / field.length : 0;
+      return {
+        item_id:  d.id,
+        name:     ITEMS[d.id]?.name ?? d.id,
+        type:     d.type,
+        field,
+        min,
+        max,
+        avg:      Math.round(avg * 100) / 100,
+      };
+    });
+    return {
+      key:    file.replace('.yaml', ''),
+      name:   raw['Name']   as string,
+      health: raw['Health'] as number,
+      level:  raw['Level']  as number ?? 0,
+      drops,
+    };
+  }).sort((a, b) => (a.level - b.level) || a.name.localeCompare(b.name));
+
+  res.json({ enemies });
+});
+
 app.get('/api/character', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
