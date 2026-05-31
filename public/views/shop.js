@@ -2,7 +2,7 @@
 (function() {
   let shopKey  = null;
   let data     = null;
-  let cart     = { buys: {}, sells: {} };  // { itemId: quantity }
+  let cart     = { buys: {}, sells: {}, weapons: new Set() };  // weapons holds weapon instance IDs
   let rootEl   = null;
 
   function esc(s) {
@@ -24,7 +24,7 @@
   async function mount(root, params) {
     rootEl  = root;
     shopKey = params.shopKey;
-    cart    = { buys: {}, sells: {} };
+    cart    = { buys: {}, sells: {}, weapons: new Set() };
     setLayoutTitle('Shop');
     root.innerHTML = `
       <div id="shop-subhead">
@@ -109,12 +109,16 @@
       const si = data.items.find(i => i.id === inv.item_id);
       return si && si.sell != null;
     });
+    const sellableWeapons = (data.weapons ?? []).filter(w => w.sell != null);
+
     const list = document.getElementById('shop-sell-list');
-    if (sellable.length === 0) {
+    if (sellable.length === 0 && sellableWeapons.length === 0) {
       list.innerHTML = "<p class='shop-empty'>Nothing in your inventory to sell here.</p>";
       return;
     }
+
     list.innerHTML = '';
+
     for (const inv of sellable) {
       const si    = data.items.find(i => i.id === inv.item_id);
       const room  = Math.max(0, si.stock_max - si.stock);
@@ -141,12 +145,50 @@
       `;
       list.appendChild(el);
     }
+
+    if (sellableWeapons.length > 0) {
+      const divider = document.createElement('div');
+      divider.className = 'shop-divider';
+      divider.textContent = 'Weapons';
+      list.appendChild(divider);
+
+      for (const w of sellableWeapons) {
+        const inCart = cart.weapons.has(w.id);
+        const subPart = w.equipped ? 'equipped — unequip to sell' : `${w.sell} korel`;
+        const bonusTag = w.bonus_count > 0 ? ` <span class="shop-w-bonus">+${w.bonus_count}</span>` : '';
+        const el = document.createElement('div');
+        el.className = 'shop-item';
+        el.innerHTML = `
+          <div class="shop-item-row">
+            <div class="shop-item-info">
+              <span class="shop-item-name${w.equipped ? ' dim' : ''}">${esc(w.name)}${bonusTag}</span>
+              <span class="shop-item-sub">${esc(subPart)}</span>
+            </div>
+            ${w.equipped ? '' : `
+              <div class="shop-cart-ctrl">
+                <button class="shop-step" onclick="Views.shop.toggleWeapon('${w.id}')" ${inCart ? '' : 'disabled'}>−</button>
+                <span class="shop-step-val">${inCart ? 1 : 0}</span>
+                <button class="shop-step" onclick="Views.shop.toggleWeapon('${w.id}')" ${inCart ? 'disabled' : ''}>+</button>
+              </div>`}
+          </div>
+        `;
+        list.appendChild(el);
+      }
+    }
+  }
+
+  function toggleWeapon(id) {
+    if (cart.weapons.has(id)) cart.weapons.delete(id);
+    else cart.weapons.add(id);
+    renderSell();
+    renderCart();
   }
 
   function cartSummary() {
     let cost = 0, revenue = 0;
-    const buyLines  = [];
-    const sellLines = [];
+    const buyLines    = [];
+    const sellLines   = [];
+    const weaponLines = [];
     for (const [id, qty] of Object.entries(cart.buys)) {
       const item = data.items.find(i => i.id === id);
       if (!item) continue;
@@ -161,7 +203,17 @@
       revenue += sub;
       sellLines.push({ id, name: item.name, qty, subtotal: sub, unit: item.sell });
     }
-    return { cost, revenue, net: revenue - cost, buyLines, sellLines, empty: buyLines.length === 0 && sellLines.length === 0 };
+    for (const wid of cart.weapons) {
+      const w = (data.weapons ?? []).find(x => x.id === wid);
+      if (!w || w.sell == null) continue;
+      revenue += w.sell;
+      weaponLines.push({ id: w.id, name: w.name, bonus_count: w.bonus_count, subtotal: w.sell });
+    }
+    return {
+      cost, revenue, net: revenue - cost,
+      buyLines, sellLines, weaponLines,
+      empty: buyLines.length === 0 && sellLines.length === 0 && weaponLines.length === 0,
+    };
   }
 
   function renderCart() {
@@ -188,6 +240,14 @@
         <button class="cart-remove" onclick="Views.shop.setCartQty('${side}', '${line.id}', 0)" title="Remove">×</button>
       </div>`;
 
+    const weaponLineHtml = (line) => `
+      <div class="cart-line">
+        <span class="cart-line-name">${esc(line.name)}${line.bonus_count > 0 ? ` <span class="shop-w-bonus">+${line.bonus_count}</span>` : ''}</span>
+        <span class="cart-line-qty">weapon</span>
+        <span class="cart-line-sub">+${line.subtotal} korel</span>
+        <button class="cart-remove" onclick="Views.shop.toggleWeapon('${line.id}')" title="Remove">×</button>
+      </div>`;
+
     el.innerHTML = `
       <div class="cart-head">
         <span class="cart-net ${totalClass}">Total: ${s.net >= 0 ? '+' : ''}${s.net} korel</span>
@@ -197,27 +257,35 @@
       <div class="cart-lines">
         ${s.buyLines.map(l => lineHtml(l, 'buys', '−')).join('')}
         ${s.sellLines.map(l => lineHtml(l, 'sells', '+')).join('')}
+        ${s.weaponLines.map(weaponLineHtml).join('')}
       </div>
     `;
 
-    // Measure cart height after layout settles, set CSS var so content padding matches.
     requestAnimationFrame(() => {
       document.documentElement.style.setProperty('--cart-h', `${el.offsetHeight}px`);
     });
   }
 
   function clearCart() {
-    cart = { buys: {}, sells: {} };
+    cart = { buys: {}, sells: {}, weapons: new Set() };
     renderBuy(); renderSell(); renderCart();
   }
 
   async function checkout() {
-    const buys  = Object.entries(cart.buys).map(([itemId, quantity]) => ({ itemId, quantity }));
-    const sells = Object.entries(cart.sells).map(([itemId, quantity]) => ({ itemId, quantity }));
-    if (buys.length === 0 && sells.length === 0) return;
+    const buys        = Object.entries(cart.buys).map(([itemId, quantity]) => ({ itemId, quantity }));
+    const sells       = Object.entries(cart.sells).map(([itemId, quantity]) => ({ itemId, quantity }));
+    const sellWeapons = Array.from(cart.weapons);
+    if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0) return;
+
+    // Confirm modal when selling weapons (permanent)
+    if (sellWeapons.length > 0) {
+      const ok = await confirmModal(sellWeapons);
+      if (!ok) return;
+    }
+
     const res = await fetch(`/api/shop/${shopKey}/checkout`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buys, sells }),
+      body: JSON.stringify({ buys, sells, sellWeapons }),
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
@@ -225,6 +293,38 @@
       clearCart();
       await mountLayout();
     }
+  }
+
+  function confirmModal(weaponIds) {
+    return new Promise((resolve) => {
+      const lines = weaponIds.map(id => {
+        const w = (data.weapons ?? []).find(x => x.id === id);
+        if (!w) return '';
+        const bonus = w.bonus_count > 0 ? ` +${w.bonus_count}` : '';
+        return `<li>${esc(w.name)}${bonus} — ${w.sell} korel</li>`;
+      }).join('');
+      const overlay = document.createElement('div');
+      overlay.className = 'shop-modal-overlay';
+      overlay.innerHTML = `
+        <div class="shop-modal">
+          <h3>Sell ${weaponIds.length} weapon${weaponIds.length > 1 ? 's' : ''}?</h3>
+          <p class="shop-modal-warn">This is permanent — the weapon${weaponIds.length > 1 ? 's' : ''} and all upgrades/enchants are lost.</p>
+          <ul class="shop-modal-list">${lines}</ul>
+          <div class="shop-modal-actions">
+            <button class="cart-clear" data-action="cancel">Cancel</button>
+            <button class="cart-checkout" data-action="confirm">Sell</button>
+          </div>
+        </div>
+      `;
+      overlay.addEventListener('click', (e) => {
+        const t = e.target;
+        if (t === overlay) { overlay.remove(); resolve(false); return; }
+        const action = t?.dataset?.action;
+        if (action === 'cancel')  { overlay.remove(); resolve(false); }
+        if (action === 'confirm') { overlay.remove(); resolve(true); }
+      });
+      document.body.appendChild(overlay);
+    });
   }
 
   function toast(msg, ok) {
@@ -243,6 +343,6 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, adjCart, setCartQty, clearCart, checkout };
+  window.Views.shop = { mount, unmount, adjCart, setCartQty, toggleWeapon, clearCart, checkout };
   window.showToast = (msg) => toast(msg, true);
 })();

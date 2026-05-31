@@ -294,6 +294,11 @@ app.get('/api/weapons', (_req: Request, res: Response) => {
   res.json({ weapons });
 });
 
+// True if the id matches a weapon YAML file (i.e. it's a weapon, not an item).
+function isWeaponKey(key: string): boolean {
+  return fs.existsSync(join(__dirname, `../../database/weapons/${key}.yaml`));
+}
+
 // Get the weapon_key of the character's equipped weapon (null if none).
 async function equippedWeaponKey(char: { equipped_weapon_id: string | null }): Promise<string | null> {
   if (!char.equipped_weapon_id) return null;
@@ -624,6 +629,30 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     };
   }
 
+  // Split shop entries: items have shop stock; weapons are unique instances we look up.
+  const itemPrices   = prices.filter(p => !isWeaponKey(p.id));
+  const weaponPrices = prices.filter(p =>  isWeaponKey(p.id));
+
+  // For weapons the shop accepts, find the player's owned matching instances.
+  const acceptedWeaponKeys = weaponPrices.map(p => p.id);
+  const ownedWeapons = acceptedWeaponKeys.length === 0 ? [] : await prisma.characterWeapon.findMany({
+    where: { character_id: chars[0].id, weapon_key: { in: acceptedWeaponKeys } },
+    orderBy: { created_at: 'asc' },
+  });
+
+  const sellableWeapons = ownedWeapons.map(w => {
+    const price = weaponPrices.find(p => p.id === w.weapon_key);
+    const raw   = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
+    return {
+      id:          w.id,
+      weapon_key:  w.weapon_key,
+      name:        (raw?.['Name'] as string | undefined) ?? w.weapon_key,
+      sell:        price?.sell ?? null,
+      bonus_count: weaponBonusCount(w.weapon_key, w.upgrades),
+      equipped:    w.id === chars[0].equipped_weapon_id,
+    };
+  });
+
   res.json({
     shopName: config.name,
     npc:      config.npc,
@@ -631,7 +660,7 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
     greeting: config.greeting,
     korel:    dbUser?.korel ?? 0,
     training,
-    items: prices.map(p => ({
+    items: itemPrices.map(p => ({
       id:          p.id,
       name:        ITEMS[p.id]?.name        ?? dbItems.find(i => i.id === p.id)?.name        ?? p.id,
       description: ITEMS[p.id]?.description ?? dbItems.find(i => i.id === p.id)?.description ?? '',
@@ -647,6 +676,8 @@ app.get('/api/shop/:shopKey', async (req: Request, res: Response) => {
       description: i.item.description,
       quantity:    i.quantity,
     })),
+    weapons:        sellableWeapons,
+    weapon_buys:    weaponPrices.map(p => ({ weapon_key: p.id, buy: p.buy ?? null, sell: p.sell ?? null })),
   });
 });
 
@@ -787,23 +818,27 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   const shopKey = String(req.params.shopKey);
   if (!validShop(shopKey)) { res.status(404).json({ error: 'Shop not found' }); return; }
 
-  const { buys = [], sells = [] } = req.body as {
-    buys?:  Array<{ itemId: string; quantity: number }>,
-    sells?: Array<{ itemId: string; quantity: number }>,
+  const { buys = [], sells = [], sellWeapons = [] } = req.body as {
+    buys?:        Array<{ itemId: string; quantity: number }>,
+    sells?:       Array<{ itemId: string; quantity: number }>,
+    sellWeapons?: string[],
   };
 
   const validEntry = (e: { itemId?: unknown; quantity?: unknown }) =>
     typeof e.itemId === 'string' && Number.isInteger(e.quantity) && (e.quantity as number) >= 1 && (e.quantity as number) <= 9999;
-  if (!Array.isArray(buys) || !Array.isArray(sells) || !buys.every(validEntry) || !sells.every(validEntry)) {
+  if (!Array.isArray(buys) || !Array.isArray(sells) || !Array.isArray(sellWeapons)
+      || !buys.every(validEntry) || !sells.every(validEntry)
+      || !sellWeapons.every(id => typeof id === 'string')) {
     res.status(400).json({ error: 'Invalid cart' }); return;
   }
-  if (buys.length === 0 && sells.length === 0) {
+  if (buys.length === 0 && sells.length === 0 && sellWeapons.length === 0) {
     res.json({ success: false, message: 'Cart is empty.' }); return;
   }
 
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
-  const charId = chars[0].id;
+  const charId        = chars[0].id;
+  const equippedId    = chars[0].equipped_weapon_id;
 
   const config = loadShop(shopKey, SHOP_DIR);
   const prices = await getPrices(shopKey, config);
@@ -813,6 +848,7 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   let totalCost = 0, totalRevenue = 0;
   const buyLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; infinite: boolean; stockMax: number }> = [];
   const sellLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; stockMax: number }> = [];
+  const weaponSellLines: Array<{ id: string; weapon_key: string; name: string; unitPrice: number; bonus_count: number }> = [];
 
   for (const b of buys) {
     const item = findItem(b.itemId);
@@ -825,6 +861,30 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
     if (!item || item.sell == null) { res.json({ success: false, message: `Shop doesn't buy ${s.itemId}.` }); return; }
     totalRevenue += item.sell * s.quantity;
     sellLines.push({ id: s.itemId, name: ITEMS[s.itemId]?.name ?? s.itemId, quantity: s.quantity, unitPrice: item.sell, stockMax: item.stock_max });
+  }
+
+  // Validate each weapon: must be owned, not equipped, and shop must accept its key.
+  for (const wid of sellWeapons) {
+    const row = await prisma.characterWeapon.findUnique({ where: { id: wid } });
+    if (!row || row.character_id !== charId) {
+      res.json({ success: false, message: `You don't own one of the weapons in your cart.` }); return;
+    }
+    if (row.id === equippedId) {
+      res.json({ success: false, message: `Unequip a weapon before selling it.` }); return;
+    }
+    const price = findItem(row.weapon_key);
+    if (!price || price.sell == null) {
+      res.json({ success: false, message: `Shop doesn't buy ${row.weapon_key}.` }); return;
+    }
+    const raw = loadWeaponYaml(row.weapon_key, __dirname) as Record<string, unknown> | null;
+    totalRevenue += price.sell;
+    weaponSellLines.push({
+      id: row.id,
+      weapon_key: row.weapon_key,
+      name: (raw?.['Name'] as string | undefined) ?? row.weapon_key,
+      unitPrice: price.sell,
+      bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
+    });
   }
 
   const result = await prisma.$transaction(async tx => {
@@ -899,15 +959,32 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       adjustedSells.push({ ...s, quantity: actual });
     }
 
-    // Recompute net based on adjustedSells (in case any were clamped)
-    const actualRevenue = adjustedSells.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+    // Apply weapon sells: re-check ownership/equipped within the txn, then delete.
+    for (const w of weaponSellLines) {
+      const row = await tx.characterWeapon.findUnique({ where: { id: w.id } });
+      if (!row || row.character_id !== charId) {
+        return { success: false, message: `Weapon no longer owned.` };
+      }
+      if (row.id === equippedId) {
+        return { success: false, message: `Unequip ${w.name} before selling.` };
+      }
+      await tx.characterWeapon.delete({ where: { id: w.id } });
+      await tx.shopTransaction.create({
+        data: { shop_id: shopKey, item_id: w.weapon_key, type: 'sell', quantity: 1, discord_id: discordId },
+      });
+    }
+
+    // Recompute net based on adjustedSells (in case any were clamped) + weapon sells
+    const actualRevenue = adjustedSells.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
+                        + weaponSellLines.reduce((sum, l) => sum + l.unitPrice, 0);
     const actualNet = actualRevenue - totalCost;
 
     // Apply net korel + ledger
     if (actualNet !== 0) {
       const noteParts: string[] = [];
-      if (buyLines.length > 0)   noteParts.push(`${buyLines.length} buy`);
-      if (adjustedSells.length > 0) noteParts.push(`${adjustedSells.length} sell`);
+      if (buyLines.length > 0)        noteParts.push(`${buyLines.length} buy`);
+      if (adjustedSells.length > 0)   noteParts.push(`${adjustedSells.length} sell`);
+      if (weaponSellLines.length > 0) noteParts.push(`${weaponSellLines.length} weapon`);
       await tx.user.update({
         where: { discord_id: discordId },
         data:  { korel: { increment: actualNet } },
@@ -928,36 +1005,33 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       net: actualNet,
       buys: buyLines,
       sells: adjustedSells,
+      weapons: weaponSellLines,
     };
   });
 
   res.json(result);
 
   if (result.success) {
-    const ping = formatCartPing(discordId, config.npc, (result as unknown as { buys: typeof buyLines; sells: typeof sellLines; net: number }));
+    const ping = formatCartPing(discordId, config.npc, (result as unknown as {
+      buys: typeof buyLines; sells: typeof sellLines; weapons: typeof weaponSellLines;
+    }));
     void pingChannel((worldConfig.channels as Record<string, string>)[shopKey], ping);
-
-    // Apply transaction shock per item (price drift)
-    for (const b of buyLines) {
-      const item = findItem(b.id);
-      if (item) await applyTransactionShockHelper(shopKey, item, b.quantity, true);
-    }
-    const adjSells = (result as unknown as { sells: typeof sellLines }).sells;
-    for (const s of adjSells) {
-      const item = findItem(s.id);
-      if (item) await applyTransactionShockHelper(shopKey, item, s.quantity, false);
-    }
   }
 });
 
 function formatCartPing(
   discordId: string,
   npc: string,
-  result: { buys: Array<{ name: string; quantity: number }>; sells: Array<{ name: string; quantity: number }> },
+  result: {
+    buys:    Array<{ name: string; quantity: number }>;
+    sells:   Array<{ name: string; quantity: number }>;
+    weapons: Array<{ name: string; bonus_count: number }>;
+  },
 ): string {
   const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
-  for (const b of result.buys)  lines.push(`- bought ${b.quantity}× ${b.name}`);
-  for (const s of result.sells) lines.push(`- sold ${s.quantity}× ${s.name}`);
+  for (const b of result.buys)    lines.push(`- bought ${b.quantity}× ${b.name}`);
+  for (const s of result.sells)   lines.push(`- sold ${s.quantity}× ${s.name}`);
+  for (const w of result.weapons) lines.push(`- sold ${w.name}${w.bonus_count > 0 ? ` +${w.bonus_count}` : ''}`);
   return lines.join('\n');
 }
 
