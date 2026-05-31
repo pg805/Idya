@@ -36,6 +36,6 @@ old.js
 old
 
 *.js
-!public/*.js
+!public/**/*.js
 !webhook/*.js
 !jest.config.js
