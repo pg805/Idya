@@ -38,16 +38,19 @@
     let sectionsHtml = '';
 
     if (data.weapons.length > 0) {
+      const sortedWeapons = [...data.weapons].sort(
+        (a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name)
+      );
       sectionsHtml += `<section class="inv-section">
         <h2 class="inv-section-label">
           <span>Weapons</span>
           <span class="inv-section-count">${data.weapons.length} owned</span>
         </h2>
-        <div class="inv-grid">
-          ${data.weapons.map(w => `
-            <div class="inv-weapon-card${w.equipped ? ' equipped' : ''}">
-              <span class="inv-card-name">${esc(w.name)}</span>
-              ${w.equipped ? '<span class="inv-card-meta">Equipped</span>' : ''}
+        <div class="inv-list">
+          ${sortedWeapons.map(w => `
+            <div class="inv-row${w.equipped ? ' equipped' : ''}">
+              <span class="inv-name">${esc(w.name)}</span>
+              ${w.equipped ? '<span class="inv-meta">equipped</span>' : ''}
             </div>
           `).join('')}
         </div>
@@ -64,11 +67,11 @@
           <span>${TYPE_LABEL[t]}</span>
           <span class="inv-section-count">${list.length} types · ${total.toLocaleString()} total</span>
         </h2>
-        <div class="inv-grid">
+        <div class="inv-list">
           ${list.map(i => `
-            <div class="inv-card" title="${esc(i.description)}">
-              <span class="inv-card-name">${esc(i.name)}</span>
-              <span class="inv-card-qty">×${i.quantity.toLocaleString()}</span>
+            <div class="inv-row" title="${esc(i.description)}">
+              <span class="inv-name">${esc(i.name)}</span>
+              <span class="inv-qty">×${i.quantity.toLocaleString()}</span>
             </div>
           `).join('')}
         </div>

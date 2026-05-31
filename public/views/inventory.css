@@ -1,12 +1,12 @@
-/* View: Inventory */
+/* View: Inventory — clean, dense, non-interactive listing */
 
 #inv-body {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 20px 16px 32px;
+  padding: 20px 24px 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .inv-section { }
@@ -16,8 +16,8 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: #c0a060;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
   border-bottom: 1px solid #1c2438;
   display: flex;
   align-items: baseline;
@@ -30,63 +30,44 @@
   letter-spacing: 0.08em;
 }
 
-.inv-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 4px;
+.inv-list {
+  column-count: 3;
+  column-gap: 32px;
 }
 
-.inv-card {
-  background: #12192e;
-  border: 1px solid #161e30;
-  border-radius: 3px;
-  padding: 7px 10px;
+@media (max-width: 800px) { .inv-list { column-count: 2; } }
+@media (max-width: 480px) { .inv-list { column-count: 1; } }
+
+.inv-row {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  cursor: default;
-  transition: background 0.1s, border-color 0.1s;
-  min-height: 32px;
+  align-items: baseline;
+  padding: 4px 0;
+  break-inside: avoid;
+  border-bottom: 1px dotted #1c2438;
+  gap: 12px;
 }
-.inv-card:hover { background: #182240; border-color: #2a3a50; }
-.inv-card.equipped { border-color: #c0a060; background: #1a1c20; }
 
-.inv-card-name {
-  font-size: 0.78rem;
+.inv-name {
+  font-size: 0.82rem;
   color: #b8c8d8;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
 }
-.inv-card-qty {
-  font-size: 0.75rem;
+.inv-qty {
+  font-size: 0.78rem;
   color: #a0c890;
   font-family: monospace;
   flex-shrink: 0;
 }
-.inv-card-meta {
-  font-size: 0.65rem;
+.inv-meta {
+  font-size: 0.7rem;
   color: #667;
+  font-style: italic;
   flex-shrink: 0;
 }
-.inv-card.equipped .inv-card-meta { color: #c0a060; }
+.inv-row.equipped .inv-name { color: #c0a060; }
+.inv-row.equipped .inv-meta { color: #c0a060; }
 
 .inv-empty { padding: 40px 20px; color: #334; font-style: italic; text-align: center; }
-
-/* Weapons render slightly differently — name only, no qty */
-.inv-weapon-card {
-  background: #12192e;
-  border: 1px solid #161e30;
-  border-radius: 3px;
-  padding: 9px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 36px;
-}
-.inv-weapon-card:hover { background: #182240; border-color: #2a3a50; }
-.inv-weapon-card.equipped { border-color: #c0a060; background: #1a1c20; }
-.inv-weapon-card .inv-card-name { font-size: 0.82rem; }
