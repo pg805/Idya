@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Idya</title>
   <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/views/weapons.css">
+  <link rel="stylesheet" href="/views/shop.css">
+  <link rel="stylesheet" href="/views/craft.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
 <body>
@@ -25,12 +29,14 @@
       </div>
     </nav>
 
-    <main id="app-content">
-      <iframe id="view-frame" name="view-frame" src="about:blank"></iframe>
-    </main>
+    <main id="app-content"></main>
   </div>
 
   <script src="/auth.js"></script>
+  <script src="/layout.js"></script>
+  <script src="/views/weapons.js"></script>
+  <script src="/views/shop.js"></script>
+  <script src="/views/craft.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

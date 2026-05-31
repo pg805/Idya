@@ -1,27 +1,46 @@
-// App shell: sidebar navigation, deep-linkable URLs, iframe-loaded views.
+// App shell — single-page navigation. No iframes.
 
-// claimAuthFromUrl is loaded from /auth.js (shared)
-
-const frame      = document.getElementById('view-frame');
+const content    = document.getElementById('app-content');
 const navLinks   = Array.from(document.querySelectorAll('.nav-link'));
 const DEFAULT_PATH = '/craft';
 
+let activeView = null;
+
+// Map URL path → { viewName, params }
+function routeFromPath(path) {
+  if (path === '/' || path === '') return { viewName: 'craft', params: {} };
+  if (path === '/craft') return { viewName: 'craft', params: {} };
+  if (path === '/weapon-stats') return { viewName: 'weapons', params: {} };
+  const m = path.match(/^\/shop\/([^/]+)$/);
+  if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
+  return { viewName: 'craft', params: {} };
+}
+
 function viewPathFromUrl() {
-  // /app           → DEFAULT_PATH
-  // /app/foo       → /foo
-  // /app/foo/bar   → /foo/bar
   let p = location.pathname;
   if (p === '/app' || p === '/app/') return DEFAULT_PATH;
   if (p.startsWith('/app/')) return p.slice(4);
   return DEFAULT_PATH;
 }
 
-function navigate(viewPath, { push = true } = {}) {
+async function navigate(viewPath, { push = true } = {}) {
   if (push) history.pushState(null, '', '/app' + viewPath);
-  frame.src = viewPath + '?embedded=1';
   for (const link of navLinks) {
     link.classList.toggle('active', link.dataset.path === viewPath);
   }
+  const { viewName, params } = routeFromPath(viewPath);
+  const view = window.Views?.[viewName];
+  if (!view) {
+    content.innerHTML = `<div class="splash"><p>Unknown view: ${viewName}</p></div>`;
+    return;
+  }
+  if (activeView && activeView.unmount) {
+    try { activeView.unmount(); } catch (_) {}
+  }
+  window.onLayoutChange = null;
+  activeView = view;
+  content.innerHTML = '';
+  await view.mount(content, params);
 }
 
 for (const link of navLinks) {
@@ -37,5 +56,5 @@ window.addEventListener('popstate', () => {
 
 (async function init() {
   await claimAuthFromUrl();
-  navigate(viewPathFromUrl(), { push: false });
+  await navigate(viewPathFromUrl(), { push: false });
 })();

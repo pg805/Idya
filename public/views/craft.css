@@ -395,7 +395,7 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
 .fe-controls button:hover { background: #1a2a44; }
 
 /* ---- Toast ---- */
-#toast {
+#craft-toast {
   position: fixed;
   bottom: 24px;
   left: 50%;
@@ -411,6 +411,6 @@ code  { background: #16213e; padding: 2px 7px; border-radius: 3px; color: #c0a06
   z-index: 100;
   white-space: nowrap;
 }
-#toast.show     { opacity: 1; }
-#toast.show.ok  { border-color: #1e4a30; color: #60c880; }
-#toast.show.err { border-color: #4a1e1e; color: #c86060; }
+#craft-toast.show     { opacity: 1; }
+#craft-toast.show.ok  { border-color: #1e4a30; color: #60c880; }
+#craft-toast.show.err { border-color: #4a1e1e; color: #c86060; }

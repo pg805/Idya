@@ -223,16 +223,26 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-app.get('/weapon-stats', (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/weapon-stats.html'));
-});
-
 app.get('/trade/:tradeId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/trade.html'));
 });
 
 app.get(/^\/app(\/.*)?$/, (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/app.html'));
+});
+
+// Redirect legacy standalone URLs to the /app equivalent (preserve ?auth=).
+app.get('/shop/:shopKey', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/shop/${req.params.shopKey}${qs}`);
+});
+app.get('/craft', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/craft${qs}`);
+});
+app.get('/weapon-stats', (req: Request, res: Response) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `/app/weapon-stats${qs}`);
 });
 
 app.get('/api/weapons', (_req: Request, res: Response) => {

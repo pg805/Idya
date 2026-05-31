@@ -1,0 +1,176 @@
+/* View: Shop */
+
+#shop-subhead {
+  padding: 10px 24px 14px;
+  background: #12192e;
+  border-bottom: 1px solid #1c2438;
+}
+
+#shop-name-line {
+  font-size: 0.7rem;
+  color: #8899aa;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+}
+
+#shop-greeting {
+  font-size: 0.78rem;
+  color: #5a6a78;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.shop-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  .shop-panels { grid-template-columns: 1fr; }
+}
+
+.shop-panel {
+  border-right: 1px solid #1c2438;
+}
+.shop-panel:last-child { border-right: none; }
+
+.shop-panel-label {
+  padding: 9px 20px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #3a4a5a;
+  border-bottom: 1px solid #1c2438;
+  background: #0f1520;
+}
+
+.shop-item { border-bottom: 1px solid #181f30; }
+
+.shop-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.shop-item-row:hover,
+.shop-item-row.open { background: #14203a; }
+
+.shop-item-name {
+  font-size: 0.86rem;
+  color: #b8c8d8;
+  transition: color 0.1s;
+}
+.shop-item-row:hover .shop-item-name:not(.dim),
+.shop-item-row.open  .shop-item-name:not(.dim) { color: #d8c090; }
+.shop-item-name.dim { color: #2e3848; }
+
+.shop-qty-tag { font-size: 0.78rem; color: #3a4a5a; margin-left: 4px; }
+
+.shop-item-price { font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
+.shop-item-price.price-buy  { color: #5a8ab8; }
+.shop-item-price.price-sell { color: #50987a; }
+.shop-item-price.price-dim  { color: #2e3848; }
+
+.shop-item-detail {
+  padding: 4px 20px 16px;
+  background: #14203a;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shop-item-desc { font-size: 0.76rem; color: #4a6070; line-height: 1.55; }
+.shop-stock-line { font-size: 0.7rem; color: #334050; }
+.shop-unavailable { font-size: 0.76rem; color: #2e3848; font-style: italic; }
+
+.shop-controls { display: flex; gap: 7px; align-items: center; }
+
+.shop-qty-wrap {
+  display: flex;
+  align-items: center;
+  background: #0c1220;
+  border: 1px solid #253550;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.shop-qty-step {
+  background: none;
+  border: none;
+  color: #4a6a8a;
+  width: 26px;
+  height: 28px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+  line-height: 1;
+}
+.shop-qty-step:hover { background: #182838; color: #80aad8; }
+
+.shop-qty-input {
+  width: 38px;
+  background: none;
+  border: none;
+  border-left: 1px solid #253550;
+  border-right: 1px solid #253550;
+  color: #c8d8e8;
+  font-size: 0.83rem;
+  text-align: center;
+  padding: 4px 2px;
+  -moz-appearance: textfield;
+}
+.shop-qty-input:focus { outline: none; }
+.shop-qty-input::-webkit-inner-spin-button,
+.shop-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+.shop-btn {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border: 1px solid;
+  transition: background 0.1s;
+  display: flex;
+  align-items: center;
+}
+
+.shop-btn-buy  { background: #152840; border-color: #224870; color: #6898c8; }
+.shop-btn-buy:hover  { background: #1c3858; }
+
+.shop-btn-sell { background: #122a20; border-color: #1e4a34; color: #50a870; }
+.shop-btn-sell:hover { background: #183a2c; }
+
+.shop-btn-all  { background: #1e1818; border-color: #402828; color: #806060; }
+.shop-btn-all:hover  { background: #281e1e; }
+
+.shop-empty { padding: 28px 20px; color: #252e3a; font-style: italic; font-size: 0.78rem; }
+
+#shop-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0e141f;
+  border: 1px solid #2a3a5a;
+  border-radius: 6px;
+  padding: 8px 22px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 100;
+  white-space: nowrap;
+}
+#shop-toast.show     { opacity: 1; }
+#shop-toast.show.ok  { border-color: #1e4a30; color: #60c880; }
+#shop-toast.show.err { border-color: #4a1e1e; color: #c86060; }
