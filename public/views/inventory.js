@@ -37,33 +37,38 @@
 
     let sectionsHtml = '';
 
-    // Weapons section
     if (data.weapons.length > 0) {
       sectionsHtml += `<section class="inv-section">
-        <h2 class="inv-section-label">Weapons</h2>
+        <h2 class="inv-section-label">
+          <span>Weapons</span>
+          <span class="inv-section-count">${data.weapons.length} owned</span>
+        </h2>
         <div class="inv-grid">
           ${data.weapons.map(w => `
-            <div class="inv-card${w.equipped ? ' equipped' : ''}">
-              <p class="inv-card-name">${esc(w.name)}</p>
-              <p class="inv-card-meta">${w.equipped ? 'Equipped' : 'Owned'}</p>
+            <div class="inv-weapon-card${w.equipped ? ' equipped' : ''}">
+              <span class="inv-card-name">${esc(w.name)}</span>
+              ${w.equipped ? '<span class="inv-card-meta">Equipped</span>' : ''}
             </div>
           `).join('')}
         </div>
       </section>`;
     }
 
-    // Item sections by type
     for (const t of TYPE_ORDER) {
       const list = grouped[t].filter(i => i.quantity > 0);
       if (list.length === 0) continue;
       list.sort((a, b) => a.name.localeCompare(b.name));
+      const total = list.reduce((s, i) => s + i.quantity, 0);
       sectionsHtml += `<section class="inv-section">
-        <h2 class="inv-section-label">${TYPE_LABEL[t]}</h2>
+        <h2 class="inv-section-label">
+          <span>${TYPE_LABEL[t]}</span>
+          <span class="inv-section-count">${list.length} types · ${total.toLocaleString()} total</span>
+        </h2>
         <div class="inv-grid">
           ${list.map(i => `
             <div class="inv-card" title="${esc(i.description)}">
-              <p class="inv-card-name">${esc(i.name)}</p>
-              <p class="inv-card-qty">×${i.quantity.toLocaleString()}</p>
+              <span class="inv-card-name">${esc(i.name)}</span>
+              <span class="inv-card-qty">×${i.quantity.toLocaleString()}</span>
             </div>
           `).join('')}
         </div>
