@@ -25,6 +25,32 @@ const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
 const logEl           = document.getElementById('combat-log');
 
+// ---- Combat log filters ----
+const LOG_FILTER_KEY = 'idya.log_filters';
+function loadLogFilters() {
+  try { return JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}'); }
+  catch (_) { return {}; }
+}
+function applyLogFilters(state) {
+  for (const key of ['flavor', 'mechanics', 'move']) {
+    logEl.classList.toggle(`hide-${key}`, state[key] === false);
+    const box = document.querySelector(`#log-filters input[data-filter="${key}"]`);
+    if (box) box.checked = state[key] !== false;
+  }
+}
+(function initLogFilters() {
+  const state = loadLogFilters();
+  applyLogFilters(state);
+  document.querySelectorAll('#log-filters input[data-filter]').forEach(box => {
+    box.addEventListener('change', () => {
+      const next = loadLogFilters();
+      next[box.dataset.filter] = box.checked;
+      localStorage.setItem(LOG_FILTER_KEY, JSON.stringify(next));
+      applyLogFilters(next);
+    });
+  });
+})();
+
 // ---- Socket ----
 socket.on('connect', () => {
   connStatusEl.textContent = 'Connected';
@@ -511,11 +537,25 @@ function resetSession() {
 }
 
 // ---- Log ----
+function classifyLogLine(line) {
+  if (line.startsWith('━━━'))                                    return 'turn-divider';
+  if (line.startsWith('★'))                                      return 'crit';
+  if (line.includes('is defeated'))                              return 'status';
+  if (/ moves \(\d+,\d+\) → \(\d+,\d+\)\.?$/.test(line))         return 'move';
+  if (line.includes('yields to') || line.includes('tie for the same tile')) return 'move';
+  if (/^Roll:/.test(line) || /^DOT:/.test(line))                 return 'mechanics';
+  if (line.includes('takes') && line.includes('DOT damage'))     return 'mechanics';
+  if (line.includes('damage reflected to'))                      return 'mechanics';
+  if (/expired|wore off/i.test(line))                            return 'status';
+  if (line.includes(' — '))                                      return 'action-head';
+  // Default: narrative prose from the action_string template.
+  return 'flavor';
+}
+
 function appendLog(lines, cls = '') {
   for (const line of lines) {
     const p = document.createElement('p');
-    const autoClass = line.startsWith('★') ? 'crit' : '';
-    p.className = cls || autoClass;
+    p.className = cls || classifyLogLine(line);
     p.textContent = line;
     logEl.appendChild(p);
   }

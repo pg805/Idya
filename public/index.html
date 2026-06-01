@@ -28,7 +28,14 @@
         <div id="combatant-list"></div>
       </div>
       <div id="right-col">
-        <div id="log-header">Combat Log</div>
+        <div id="log-header">
+          <span>Combat Log</span>
+          <div id="log-filters">
+            <label><input type="checkbox" data-filter="flavor"    checked> Flavor</label>
+            <label><input type="checkbox" data-filter="mechanics" checked> Mechanics</label>
+            <label><input type="checkbox" data-filter="move"      checked> Moves</label>
+          </div>
+        </div>
         <div id="combat-log"></div>
       </div>
     </div>

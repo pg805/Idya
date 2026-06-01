@@ -238,7 +238,28 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
+#log-filters {
+  display: flex;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.7rem;
+}
+#log-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-faint);
+  cursor: pointer;
+  user-select: none;
+}
+#log-filters input { accent-color: var(--gold); cursor: pointer; }
+#log-filters label:hover { color: var(--text-2); }
 #combat-log {
   background: var(--bg-deep);
   border: 1px solid var(--border);
@@ -254,9 +275,19 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 #combat-log p { color: var(--text-2); border-bottom: 1px solid var(--border-soft); padding-bottom: 3px; }
 #combat-log p.turn-divider { color: var(--gold); font-weight: bold; border-bottom-color: var(--gold-dim); }
-#combat-log p.crit { color: var(--gold-bright); font-weight: bold; }
+#combat-log p.crit         { color: var(--gold-bright); font-weight: bold; }
+#combat-log p.action-head  { color: var(--text); font-weight: 600; }
+#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.85; padding-left: 8px; }
+#combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; padding-left: 8px; }
+#combat-log p.move         { color: var(--text-faint); font-size: 0.74rem; }
+#combat-log p.status       { color: var(--warn-bright); }
 #combat-log p.tutorial-aside { color: var(--teal-bright); font-style: italic; border-left: 2px solid var(--teal-dim); padding-left: 6px; }
 #combat-log p.tutorial-ooc { color: var(--buy); font-size: 0.72rem; border-left: 2px solid var(--buy-dim); padding-left: 6px; }
+
+/* Filter: hide categories the player has toggled off */
+#combat-log.hide-flavor    p.flavor    { display: none; }
+#combat-log.hide-mechanics p.mechanics { display: none; }
+#combat-log.hide-move      p.move      { display: none; }
 
 /* ---- Status ---- */
 #connection-status { font-size: 0.75rem; }
