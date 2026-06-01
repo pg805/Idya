@@ -147,8 +147,55 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 
-function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+// Apply per-character customizations (base/recipe bonuses, player upgrades, enchants)
+// to a freshly-loaded Weapon in place. Without this, combat rolls against the base
+// YAML field instead of the upgraded one.
+type WeaponUpgradesJson = {
+  base?:     Record<string, number | number[]>;
+  player?:   unknown;
+  enchants?: Record<string, { kind?: string; subtype?: string; type?: string; delta?: number | number[] }>;
+};
+function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJson: unknown): void {
+  if (!upgradesJson || typeof upgradesJson !== 'object') return;
+  const upgrades = upgradesJson as WeaponUpgradesJson;
+  const baseDeltas     = (upgrades.base ?? {}) as Record<string, number | number[]>;
+  const professions    = weaponUpgradeProfessions(weaponKey);
+  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
+  const enchants       = upgrades.enchants ?? {};
+
+  const allCategories = [weapon.defend, weapon.defend_crit, weapon.attack, weapon.attack_crit, weapon.special, weapon.special_crit];
+  for (const category of allCategories) {
+    for (const action of category) {
+      const name = action.name;
+      const a    = action as unknown as { field?: { field: number[]; length: number }; value?: number; damage_type?: string; damage_subtype?: string };
+
+      if (a.field && Array.isArray(a.field.field) && a.field.field.length > 0) {
+        const base    = a.field.field;
+        const baseB   = (baseDeltas[name] as number[] | undefined) ?? base.map(() => 0);
+        const playerB = summedFieldBonus(playerUpgrades, professions, name, base.length);
+        const enchB   = enchants[name]?.delta;
+        const enchArr = Array.isArray(enchB) ? enchB : base.map(() => 0);
+        a.field.field = base.map((v, i) => v + (baseB[i] ?? 0) + (playerB[i] ?? 0) + (enchArr[i] ?? 0));
+      } else if (typeof a.value === 'number' && a.value > 0) {
+        const baseB   = (baseDeltas[name] as number | undefined) ?? 0;
+        const playerB = summedValueBonus(playerUpgrades, professions, name);
+        const enchB   = enchants[name]?.delta;
+        const enchV   = typeof enchB === 'number' ? enchB : 0;
+        a.value = a.value + baseB + playerB + enchV;
+      }
+
+      const ench = enchants[name];
+      if (ench) {
+        if (ench.subtype) a.damage_subtype = ench.subtype;
+        if (ench.type)    a.damage_type    = ench.type;
+      }
+    }
+  }
+}
+
+function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+  if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
   const fistsInfo = buildWeaponInfo(weapon);
   const playerHp  = weapon.hp;
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
@@ -304,6 +351,14 @@ async function equippedWeaponKey(char: { equipped_weapon_id: string | null }): P
   if (!char.equipped_weapon_id) return null;
   const w = await prisma.characterWeapon.findUnique({ where: { id: char.equipped_weapon_id } });
   return w?.weapon_key ?? null;
+}
+
+// Load equipped weapon's key + upgrades (the data combat needs to roll correct fields).
+async function equippedWeaponForCombat(char: { equipped_weapon_id: string | null }): Promise<{ key: string; upgrades: unknown } | null> {
+  if (!char.equipped_weapon_id) return null;
+  const w = await prisma.characterWeapon.findUnique({ where: { id: char.equipped_weapon_id } });
+  if (!w) return null;
+  return { key: w.weapon_key, upgrades: w.upgrades };
 }
 
 // Count total bonuses on a weapon (base + player + enchants) for display as "+N"
@@ -483,8 +538,9 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
 
   const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
   const sessionId    = Math.random().toString(36).slice(2, 10);
-  const weaponKey    = (await equippedWeaponKey(char)) ?? 'branch';
-  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey);
+  const equipped     = await equippedWeaponForCombat(char);
+  const weaponKey    = equipped?.key ?? 'branch';
+  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades);
   sessions.set(sessionId, huntSession);
   sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
 
@@ -2071,16 +2127,19 @@ io.on('connection', (socket: Socket) => {
 
     let playerName = 'Hero';
     let playerWeaponKey = 'branch';
+    let playerUpgrades: unknown = null;
     const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
     if (oldMeta) {
       const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
       if (chars[0]) {
         playerName = chars[0].name;
-        playerWeaponKey = (await equippedWeaponKey(chars[0])) ?? 'branch';
+        const equipped = await equippedWeaponForCombat(chars[0]);
+        playerWeaponKey = equipped?.key ?? 'branch';
+        playerUpgrades  = equipped?.upgrades ?? null;
       }
     }
 
-    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
+    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
       sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date(), rounds: [] });

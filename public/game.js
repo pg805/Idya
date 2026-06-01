@@ -287,7 +287,7 @@ function renderActionPanel() {
       const again = document.createElement('a');
       again.href = '/app/hunt';
       again.className = 'battle-again-btn';
-      again.textContent = 'Hunt Again →';
+      again.textContent = 'Return to Town';
       actionPanelEl.appendChild(again);
     }
     return;
