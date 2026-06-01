@@ -1610,7 +1610,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     const budget     = budgetForLevel(profLevelOf(profession));
     const weaponCap  = weaponUpgradeCap(validProfessions.map(p => budgetForLevel(profLevelOf(p))));
 
-    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
+    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown> };
     const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
     const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
     const profUsed    = totalUpgradesUsed(profDeltas, fieldLens);
@@ -1650,7 +1650,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
       where: { id: weaponId },
-      data: { upgrades: { base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
+      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
