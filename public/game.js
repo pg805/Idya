@@ -31,8 +31,9 @@ function loadLogFilters() {
   try { return JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}'); }
   catch (_) { return {}; }
 }
+const LOG_FILTER_KEYS = ['flavor', 'action-head', 'mechanics', 'move'];
 function applyLogFilters(state) {
-  for (const key of ['flavor', 'mechanics', 'move']) {
+  for (const key of LOG_FILTER_KEYS) {
     logEl.classList.toggle(`hide-${key}`, state[key] === false);
     const box = document.querySelector(`#log-filters input[data-filter="${key}"]`);
     if (box) box.checked = state[key] !== false;
