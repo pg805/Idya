@@ -233,6 +233,18 @@ export function resolveIntents(
     });
   }
 
+  // If direct damage already decided the fight, end here — don't tick DOT on a
+  // corpse, and don't let a DOT-on-player kill them post-victory.
+  let aliveTeams = session.teams.filter(t => t.combatants.length > 0);
+  if (aliveTeams.length < 2) {
+    // Single-player tie-break (both teams wiped in the same round): player wins.
+    const winner = aliveTeams[0]?.id ?? 'team-a';
+    session.turn++;
+    session.phase = 'ended';
+    session.pendingIntents.clear();
+    return { log, winner };
+  }
+
   // --- End of round: tick DOT and status effects ---
   for (const c of session.combatants) {
     const meta = session.meta.get(c.id);
@@ -262,9 +274,15 @@ export function resolveIntents(
     }
   }
 
-  // --- Check win condition ---
-  const aliveTeams = session.teams.filter(t => t.combatants.length > 0);
-  const winner = aliveTeams.length === 1 ? aliveTeams[0].id : null;
+  // --- Check win condition (DOT may have ended the fight) ---
+  aliveTeams = session.teams.filter(t => t.combatants.length > 0);
+  let winner: string | null = null;
+  if (aliveTeams.length === 1) {
+    winner = aliveTeams[0].id;
+  } else if (aliveTeams.length === 0) {
+    // Same tie-break: player wins.
+    winner = 'team-a';
+  }
 
   session.turn++;
   session.phase = winner ? 'ended' : 'intent';
