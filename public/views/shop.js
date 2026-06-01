@@ -93,7 +93,7 @@
 
     for (const item of forSale) {
       const oos       = !item.infinite && item.stock === 0;
-      const stockText = item.infinite ? 'Always in stock' : `${item.stock} in stock`;
+      const stockText = item.infinite ? 'Always in stock' : `${item.stock}/${item.stock_max} in stock`;
       const maxQty    = item.infinite ? 9999 : item.stock;
       const qty       = getCartQty('buys', item.id);
       const el = document.createElement('div');
@@ -123,7 +123,7 @@
 
       for (const w of weaponListings) {
         const oos       = !w.infinite && w.stock === 0;
-        const stockText = w.infinite ? 'Always in stock' : `${w.stock} in stock`;
+        const stockText = w.infinite ? 'Always in stock' : `${w.stock}/${w.stock_max} in stock`;
         const maxQty    = w.infinite ? 99 : Math.min(99, w.stock);
         const qty       = getBuyWeaponQty(w.weapon_key);
         const el = document.createElement('div');
@@ -168,7 +168,7 @@
       const maxQty = Math.min(inv.quantity, room);
       const qty   = getCartQty('sells', inv.item_id);
       const note  = room === 0
-        ? 'shop is fully stocked'
+        ? `shop is fully stocked · own ${inv.quantity}`
         : `${si.sell} korel · own ${inv.quantity}`;
       const el = document.createElement('div');
       el.className = 'shop-item';

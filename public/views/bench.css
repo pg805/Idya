@@ -67,7 +67,7 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
 .recipe-name { font-size: 0.86rem; color: var(--text-2); transition: color 0.1s; }
 .recipe-row:hover .recipe-name:not(.dim),
 .recipe-row.open  .recipe-name:not(.dim) { color: var(--gold-bright); }
-.recipe-name.dim { color: var(--text-vdim); }
+.recipe-name.dim { color: var(--text-faint); }
 
 .recipe-badge {
   font-size: 0.68rem;
