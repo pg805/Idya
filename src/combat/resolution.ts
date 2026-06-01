@@ -244,26 +244,30 @@ export function resolveIntents(
     return { log, winner: aliveTeams[0]?.id ?? null };
   }
 
-  // --- End of round: tick DOT and status effects ---
-  for (const c of session.combatants) {
+  // --- End of round: tick DOT/status sequentially (enemies first), checking
+  // for death after each tick. First combatant to reach 0 ends the fight for
+  // their team; the other side's DOT never gets to tick.
+  let winner: string | null = null;
+  const dotOrder = [...session.combatants].sort((a, b) => Number(b.isAI) - Number(a.isAI));
+  for (const c of dotOrder) {
     const meta = session.meta.get(c.id);
     if (!meta) continue;
     const endStr = meta.state.end_round();
     c.hp = meta.state.health;
     c.resource = meta.state.resource_current;
     if (endStr) pushLog(log, endStr);
-  }
 
-  // --- Remove combatants that died to DOT ---
-  for (const team of session.teams) {
-    team.combatants = team.combatants.filter(c => {
-      if (c.hp <= 0) {
-        log.push(`${c.name} is defeated by damage over time!`);
-        session.meta.delete(c.id);
-        return false;
+    if (c.hp <= 0) {
+      const team = session.teams.find(t => t.id === c.teamId);
+      if (team) team.combatants = team.combatants.filter(x => x.id !== c.id);
+      session.meta.delete(c.id);
+      log.push(`${c.name} is defeated by damage over time!`);
+      const alive = session.teams.filter(t => t.combatants.length > 0);
+      if (alive.length === 1) {
+        winner = alive[0].id;
+        break;
       }
-      return true;
-    });
+    }
   }
 
   // --- Advance AI pattern indices ---
@@ -273,21 +277,8 @@ export function resolveIntents(
     }
   }
 
-  // --- Check win condition (DOT may have ended the fight) ---
-  aliveTeams = session.teams.filter(t => t.combatants.length > 0);
-  let winner: string | null = null;
-  let ended = false;
-  if (aliveTeams.length === 1) {
-    winner = aliveTeams[0].id;
-    ended  = true;
-  } else if (aliveTeams.length === 0) {
-    // Genuine tie: both sides hit zero in the same DOT tick. End as a draw
-    // rather than looping with no combatants.
-    ended = true;
-  }
-
   session.turn++;
-  session.phase = ended ? 'ended' : 'intent';
+  session.phase = winner ? 'ended' : 'intent';
   session.pendingIntents.clear();
 
   return { log, winner };
