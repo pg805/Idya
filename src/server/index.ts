@@ -1314,10 +1314,14 @@ app.get('/api/craft', async (req: Request, res: Response) => {
     levelMet:       (profLevels[r.profession] ?? 0) >= r.required_level,
     ingredientsMet: r.ingredients.every(ingredientMet),
     available:      (profLevels[r.profession] ?? 0) >= r.required_level && r.ingredients.every(ingredientMet),
-    ingredients: r.ingredients.map(i => ({
-      ...i,
-      name: i.item_id ? (ITEMS[i.item_id]?.name ?? i.item_id) : (i.weapon_id ?? ''),
-    })),
+    ingredients: r.ingredients.map(i => {
+      if (i.item_id) return { ...i, name: ITEMS[i.item_id]?.name ?? i.item_id };
+      if (i.weapon_id) {
+        const raw = loadWeaponYaml(i.weapon_id, __dirname) as Record<string, unknown> | null;
+        return { ...i, name: (raw?.['Name'] as string | undefined) ?? i.weapon_id };
+      }
+      return { ...i, name: '' };
+    }),
   }));
 
   res.json({
@@ -1514,7 +1518,11 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
       const budget   = profBudgets[i];
       const atCap    = profUsed >= budget || weaponAtCap;
-      return { profession: prof, used: profUsed, budget, at_cap: atCap, next_cost: atCap ? null : upgradeCost(weaponTotal + 1, prof) };
+      const cost = atCap ? null : upgradeCost(weaponTotal + 1, prof);
+      return {
+        profession: prof, used: profUsed, budget, at_cap: atCap,
+        next_cost: cost ? { ...cost, material_name: ITEMS[cost.material]?.name ?? cost.material } : null,
+      };
     });
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
@@ -1628,7 +1636,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
       where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
     });
     if ((invRow?.quantity ?? 0) < cost.quantity) {
-      return { success: false, message: `Need ${cost.quantity} ${cost.material} (have ${invRow?.quantity ?? 0}).` };
+      return { success: false, message: `Need ${cost.quantity} ${ITEMS[cost.material]?.name ?? cost.material} (have ${invRow?.quantity ?? 0}).` };
     }
 
     if (invRow!.quantity === cost.quantity) {

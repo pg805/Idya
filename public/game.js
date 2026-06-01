@@ -377,7 +377,9 @@ function renderActionPanel() {
     const canAfford = action.cost <= 0 || action.cost <= player.resource;
     const btn = document.createElement('button');
     btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
-    btn.textContent = action.label;
+    btn.innerHTML = action.choice && action.choice !== 'pass'
+      ? `<span class="action-tag">${action.choice}</span> ${action.label}`
+      : action.label;
     if (!canAfford) btn.disabled = true;
 
     const parts = [];
@@ -408,6 +410,19 @@ function renderActionPanel() {
   }
 }
 
+function statusBadgesHtml(status) {
+  if (!status) return '';
+  const badges = [];
+  // Block carries no rounds — it resets at end of turn — show as a single value.
+  if (status.block > 0)         badges.push(`<span class="badge badge-block">🛡 ${status.block}</span>`);
+  if (status.shield?.rounds > 0)  badges.push(`<span class="badge badge-shield">◆ ${status.shield.value} <i>${status.shield.rounds}r</i></span>`);
+  if (status.dot?.rounds > 0)     badges.push(`<span class="badge badge-dot">☠ ${status.dot.value} <i>${status.dot.rounds}r</i></span>`);
+  if (status.buff?.rounds > 0)    badges.push(`<span class="badge badge-buff">▲ ${status.buff.value} <i>${status.buff.rounds}r</i></span>`);
+  if (status.debuff?.rounds > 0)  badges.push(`<span class="badge badge-debuff">▼ ${status.debuff.value} <i>${status.debuff.rounds}r</i></span>`);
+  if (status.reflect?.rounds > 0) badges.push(`<span class="badge badge-reflect">↺ ${status.reflect.value} <i>${status.reflect.rounds}r</i></span>`);
+  return badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
+}
+
 function renderCombatantList() {
   combatantListEl.innerHTML = '';
   if (!state) return;
@@ -427,6 +442,7 @@ function renderCombatantList() {
       <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>
       <div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>
       <div class="hp-text">${c.resource ?? '?'} / ${c.maxResource ?? '?'} ${c.resourceName ?? ''}</div>
+      ${statusBadgesHtml(c.status)}
       ${telegraph ? `<div class="telegraph">${telegraph}</div>` : ''}
     `;
     combatantListEl.appendChild(card);
@@ -485,13 +501,9 @@ function onCellClick(x, y) {
   }
 
   if (ui.phase === 'selecting_target') {
-    if (clicked?.id === ui.selected?.id) {
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
-      return;
-    }
+    // Don't bump back to action select on own-tile click — the Back button does
+    // that, and intercepting clicks here blocks legitimate target-tile picks
+    // (incl. self-targeting Heal/Buff actions).
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };

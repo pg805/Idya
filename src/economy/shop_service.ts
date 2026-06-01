@@ -145,7 +145,7 @@ export async function buyItem(
       data: { discord_id: discordId, amount: -total, reason: 'shop_buy', note: `${quantity}× ${item.id} @ ${shopKey}` },
     });
 
-    return { success: true, message: `Bought ${quantity}× for **${total} korel**.` };
+    return { success: true, message: `Bought ${quantity}× for ${total} korel.` };
   });
 
   if (result.success) {
@@ -203,7 +203,7 @@ export async function sellItem(
     });
 
     const partialNote = actualQty < quantity ? ` (shop only had room for ${actualQty})` : '';
-    return { success: true, message: `Sold ${actualQty}× for **${total} korel**${partialNote}.` };
+    return { success: true, message: `Sold ${actualQty}× for ${total} korel${partialNote}.` };
   });
 
   if (result.success) {

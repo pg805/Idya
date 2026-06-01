@@ -23,6 +23,15 @@ export interface WeaponInfo {
   actions: ActionInfo[];
 }
 
+export interface CombatantStatus {
+  block:   number;
+  dot:     { value: number; rounds: number };
+  buff:    { value: number; rounds: number };
+  debuff:  { value: number; rounds: number };
+  reflect: { value: number; rounds: number };
+  shield:  { value: number; rounds: number };
+}
+
 export interface Combatant {
   id: string;
   name: string;
@@ -37,6 +46,7 @@ export interface Combatant {
   teamId: string;
   weaponInfo: WeaponInfo;
   sprite?: string;
+  status?: CombatantStatus;
 }
 
 export interface CombatantMeta {
@@ -97,10 +107,23 @@ export class CombatSession {
   }
 
   toState(): SessionState {
+    const combatants = this.combatants.map(c => {
+      const meta = this.meta.get(c.id);
+      const s = meta?.state;
+      const status = s ? {
+        block:   s.block,
+        dot:     { ...s.dot     },
+        buff:    { ...s.buff    },
+        debuff:  { ...s.debuff  },
+        reflect: { ...s.reflect },
+        shield:  { ...s.shield  },
+      } : undefined;
+      return { ...c, status };
+    });
     return {
       id: this.id,
       board: this.board.toJSON(),
-      combatants: this.combatants,
+      combatants,
       teams: this.teams.map(t => ({ id: t.id, name: t.name })),
       turn: this.turn,
       phase: this.phase,

@@ -84,7 +84,7 @@
         <span class="budget-used">${w.weapon_total} / ${w.weapon_cap} upgrades used</span>
         ${atCap
           ? '<span class="budget-cap">Budget full — level up to expand</span>'
-          : nextCost ? `<span class="budget-next">Next: <b>${nextCost.quantity}</b> ${esc(nextCost.material)}</span>` : ''}
+          : nextCost ? `<span class="budget-next">Next: <b>${nextCost.quantity}</b> ${esc(nextCost.material_name ?? nextCost.material)}</span>` : ''}
       </div>`;
 
     let sectionsHtml = '';

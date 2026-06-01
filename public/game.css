@@ -187,6 +187,19 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-btn:hover { background: #233a4d; border-color: var(--buy); }
 .action-btn.selected { background: var(--teal-bg); border-color: var(--teal); color: var(--teal-bright); }
 .action-btn.unaffordable { opacity: 0.35; cursor: not-allowed; }
+.action-tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: var(--bg-darkest);
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+.action-btn.selected .action-tag { background: var(--teal-dim); color: var(--text); }
 .submit-btn {
   background: var(--gold-bg);
   border: 1px solid var(--gold-dim);
@@ -220,6 +233,32 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .res-bar-bg { background: var(--bg-darkest); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 6px; }
 .res-bar { height: 100%; border-radius: 3px; background: var(--buy); transition: width 0.3s; }
 .telegraph { font-size: 0.7rem; color: var(--gold); margin-top: 7px; font-style: italic; letter-spacing: 0.04em; }
+
+.status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 6px;
+}
+.badge {
+  font-size: 0.62rem;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.badge i { font-style: normal; opacity: 0.65; font-weight: normal; font-size: 0.92em; }
+.badge-block   { background: var(--buy-bg);  color: var(--buy-bright);   border: 1px solid var(--buy-dim); }
+.badge-shield  { background: var(--buy-bg);  color: var(--buy-bright);   border: 1px solid var(--buy); }
+.badge-dot     { background: var(--warn-bg); color: var(--warn-bright);  border: 1px solid var(--warn-dim); }
+.badge-buff    { background: var(--teal-bg); color: var(--teal-bright);  border: 1px solid var(--teal-dim); }
+.badge-debuff  { background: var(--warn-bg); color: var(--warn);         border: 1px solid var(--warn-dim); }
+.badge-reflect { background: var(--gold-bg); color: var(--gold);         border: 1px solid var(--gold-dim); }
 
 /* ---- Combat log ---- */
 #right-col {
