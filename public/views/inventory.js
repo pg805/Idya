@@ -11,7 +11,7 @@
 
   async function mount(root) {
     setLayoutTitle('Inventory');
-    root.innerHTML = `<div id="inv-body"></div>`;
+    root.innerHTML = `<div id="inv-body"></div><div id="inv-toast"></div>`;
     window.addEventListener('layout-changed', layoutChangedHandler);
     await loadData();
   }
@@ -47,7 +47,9 @@
           ${sortedWeapons.map(w => `
             <div class="inv-row${w.equipped ? ' equipped' : ''}">
               <span class="inv-name">${esc(w.name)}${w.bonus_count > 0 ? ` <span class="inv-bonus">+${w.bonus_count}</span>` : ''}</span>
-              ${w.equipped ? '<span class="inv-meta">equipped</span>' : ''}
+              ${w.equipped
+                ? '<span class="inv-meta">equipped</span>'
+                : `<button class="inv-equip-btn" onclick="Views.inventory.equip('${esc(w.id)}')">Equip</button>`}
             </div>
           `).join('')}
         </div>
@@ -78,11 +80,34 @@
     body.innerHTML = sectionsHtml;
   }
 
+  async function equip(weaponId) {
+    const res = await fetch('/api/character/equip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weapon_id: weaponId }),
+    });
+    const r = await res.json();
+    toast(r.message ?? r.error, r.success !== false);
+    if (r.success) {
+      await mountLayout();
+      await loadData();
+    }
+  }
+
+  function toast(msg, ok) {
+    const el = document.getElementById('inv-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.className   = `show ${ok ? 'ok' : 'err'}`;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.className = ''; }, 4500);
+  }
+
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
     data = null;
   }
 
   window.Views = window.Views ?? {};
-  window.Views.inventory = { mount, unmount };
+  window.Views.inventory = { mount, unmount, equip };
 })();

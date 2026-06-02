@@ -76,3 +76,35 @@
 }
 
 .inv-empty { padding: 40px 20px; color: var(--text-faint); font-style: italic; text-align: center; }
+
+.inv-equip-btn {
+  font-size: 0.68rem;
+  padding: 3px 9px;
+  background: var(--teal-bg);
+  color: var(--teal-bright);
+  border: 1px solid var(--teal-dim);
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.inv-equip-btn:hover { background: var(--teal-dim); color: var(--text); }
+
+#inv-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 22px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 100;
+  white-space: nowrap;
+}
+#inv-toast.show     { opacity: 1; }
+#inv-toast.show.ok  { border-color: var(--teal-dim); color: var(--teal-bright); }
+#inv-toast.show.err { border-color: var(--warn-dim); color: var(--warn-bright); }
