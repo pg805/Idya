@@ -298,12 +298,32 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
 app.use(express.static(join(__dirname, '../../public')));
 app.use(express.json());
 
+// Read the bot version once at startup. Used to stamp asset URLs in HTML so
+// every deploy invalidates browser + Cloudflare caches without relying on a
+// per-URL purge — the URL is literally different so caches can't get stuck.
+const APP_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(join(__dirname, '../../package.json'), 'utf8'));
+    return String(pkg.version ?? 'dev');
+  } catch (_) { return 'dev'; }
+})();
+
+function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html'): void {
+  const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
+  // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
+  // that already have a query string). HTML itself is sent no-cache so the
+  // browser always picks up the latest version stamp on every navigation.
+  const stamped = raw.replace(/(src|href)="(\/[^"?]+\.(?:js|css))"/g, `$1="$2?v=${APP_VERSION}"`);
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('html').send(stamped);
+}
+
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/index.html'));
+  sendVersionedHtml(res, 'index.html');
 });
 
 app.get(/^\/app(\/.*)?$/, (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/app.html'));
+  sendVersionedHtml(res, 'app.html');
 });
 
 // Redirect legacy standalone URLs to the /app equivalent (preserve ?auth=).
