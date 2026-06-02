@@ -63,9 +63,11 @@ const userTokens = new Map<string, string>();    // discordUserId → token (reu
 
 // ---- Trade sessions ----
 
-interface TradeOffer { itemId: string; quantity: number; }
-interface TradePlayer { discordId: string; charName: string; offer: TradeOffer[]; locked: boolean; confirmed: boolean; }
+interface TradeItem  { itemId: string; quantity: number; }
+interface TradeOffer { items: TradeItem[]; weapons: string[]; korel: number; }
+interface TradePlayer { discordId: string; charName: string; offer: TradeOffer; locked: boolean; confirmed: boolean; }
 interface TradeSession { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
+const emptyOffer = (): TradeOffer => ({ items: [], weapons: [], korel: 0 });
 
 const tradeSessions = new Map<string, TradeSession>();
 
@@ -99,8 +101,8 @@ async function createTradeSession(
     tradeId,
     status: 'waiting',
     players: [
-      { discordId: initiatorDiscordId, charName: initiatorChars[0].name, offer: [], locked: false, confirmed: false },
-      { discordId: targetDiscordId,    charName: targetChars[0].name,    offer: [], locked: false, confirmed: false },
+      { discordId: initiatorDiscordId, charName: initiatorChars[0].name, offer: emptyOffer(), locked: false, confirmed: false },
+      { discordId: targetDiscordId,    charName: targetChars[0].name,    offer: emptyOffer(), locked: false, confirmed: false },
     ],
   });
   setTimeout(() => tradeSessions.delete(tradeId), 10 * 60_000);
@@ -730,9 +732,10 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const [items, weapons] = await Promise.all([
+  const [items, weapons, user] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { character_id: char.id }, include: { item: true } }),
     prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
   ]);
 
   const itemList = items.map(i => ({
@@ -757,6 +760,7 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
   res.json({
     characterName: char.name,
     equipped_weapon_id: char.equipped_weapon_id,
+    korel:   user?.korel ?? 0,
     items:   itemList,
     weapons: weaponList,
   });
@@ -2317,12 +2321,16 @@ io.on('connection', (socket: Socket) => {
     broadcastTradeState(tradeId, session);
   });
 
-  socket.on('trade_offer', ({ tradeId, offer }: { tradeId: string; offer: TradeOffer[] }) => {
+  socket.on('trade_offer', ({ tradeId, offer }: { tradeId: string; offer: Partial<TradeOffer> }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
     if (!session || !player || player.locked) return;
-    player.offer = offer.filter(o => o.quantity > 0);
+    player.offer = {
+      items:   (offer.items   ?? []).filter(o => o.quantity > 0),
+      weapons: (offer.weapons ?? []).filter(id => typeof id === 'string'),
+      korel:   Math.max(0, Math.floor(Number(offer.korel ?? 0))),
+    };
     broadcastTradeState(tradeId, session);
   });
 
@@ -2348,25 +2356,53 @@ io.on('connection', (socket: Socket) => {
       session!.status = 'complete';
       const [a, b] = session!.players;
       try {
+        const charA = (await charRepo.list(a.discordId))[0];
+        const charB = (await charRepo.list(b.discordId))[0];
+        if (!charA || !charB) throw new Error('Character not found');
         await prisma.$transaction(async tx => {
-          for (const { itemId, quantity } of a.offer) {
-            const charA = (await charRepo.list(a.discordId))[0];
-            const charB = (await charRepo.list(b.discordId))[0];
-            if (!charA || !charB) throw new Error('Character not found');
-            const invA = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } } });
-            if (!invA || invA.quantity < quantity) throw new Error(`${a.charName} doesn't have enough ${itemId}`);
-            await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
-            await tx.inventoryItem.upsert({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } }, update: { quantity: { increment: quantity } }, create: { character_id: charB.id, item_id: itemId, quantity } });
-          }
-          for (const { itemId, quantity } of b.offer) {
-            const charA = (await charRepo.list(a.discordId))[0];
-            const charB = (await charRepo.list(b.discordId))[0];
-            if (!charA || !charB) throw new Error('Character not found');
-            const invB = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } } });
-            if (!invB || invB.quantity < quantity) throw new Error(`${b.charName} doesn't have enough ${itemId}`);
-            await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: charB.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
-            await tx.inventoryItem.upsert({ where: { character_id_item_id: { character_id: charA.id, item_id: itemId } }, update: { quantity: { increment: quantity } }, create: { character_id: charA.id, item_id: itemId, quantity } });
-          }
+          // helper: transfer one side's offer (giver → receiver)
+          const transfer = async (
+            giver:    typeof charA,
+            receiver: typeof charA,
+            giverName: string,
+            offer:     TradeOffer,
+          ): Promise<void> => {
+            // Items
+            for (const { itemId, quantity } of offer.items) {
+              const inv = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: giver.id, item_id: itemId } } });
+              if (!inv || inv.quantity < quantity) throw new Error(`${giverName} doesn't have enough ${itemId}`);
+              await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: giver.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
+              await tx.inventoryItem.upsert({
+                where:  { character_id_item_id: { character_id: receiver.id, item_id: itemId } },
+                update: { quantity: { increment: quantity } },
+                create: { character_id: receiver.id, item_id: itemId, quantity },
+              });
+            }
+            // Weapons (CharacterWeapon instance ownership transfer)
+            for (const weaponId of offer.weapons) {
+              const w = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
+              if (!w || w.character_id !== giver.id) throw new Error(`${giverName} no longer owns one of the offered weapons.`);
+              if (giver.equipped_weapon_id === weaponId) throw new Error(`${giverName} can't trade an equipped weapon.`);
+              await tx.characterWeapon.update({ where: { id: weaponId }, data: { character_id: receiver.id } });
+            }
+            // Korel
+            if (offer.korel > 0) {
+              const fresh = await tx.user.findUnique({ where: { discord_id: giver.discord_id } });
+              if (!fresh || fresh.korel < offer.korel) throw new Error(`${giverName} doesn't have ${offer.korel} korel.`);
+              await tx.user.update({ where: { discord_id: giver.discord_id },    data: { korel: { decrement: offer.korel } } });
+              await tx.user.update({ where: { discord_id: receiver.discord_id }, data: { korel: { increment: offer.korel } } });
+              await tx.korelLedger.create({ data: {
+                discord_id: giver.discord_id, amount: -offer.korel, reason: 'trade',
+                note: `Trade ${tradeId} with ${receiver.discord_id}`,
+              }});
+              await tx.korelLedger.create({ data: {
+                discord_id: receiver.discord_id, amount: offer.korel, reason: 'trade',
+                note: `Trade ${tradeId} with ${giver.discord_id}`,
+              }});
+            }
+          };
+          await transfer(charA, charB, a.charName, a.offer);
+          await transfer(charB, charA, b.charName, b.offer);
         });
         await prisma.eventLog.create({ data: {
           discord_id: a.discordId, event_type: 'trade_completed',

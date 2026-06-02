@@ -1,11 +1,14 @@
-// View: Trade — two-panel real-time item trade.
+// View: Trade — two-panel real-time trade for items, weapons, and korel.
 (function() {
   let socket = null;
   let state  = null;
   let tradeId = null;
-  let items   = [];  // [{ item_id, name, quantity }]
-  let myOffer = {};  // item_id → quantity
-  let nameById = {}; // item_id → display name (for "their" panel)
+  let items   = [];                     // [{ item_id, name, quantity }]
+  let weapons = [];                     // [{ id, name, bonus_count, equipped }]
+  let myKorel = 0;                      // current balance
+  let myOffer = { items: {}, weapons: new Set(), korel: 0 };
+  let itemNameById   = {};              // item_id → display name
+  let weaponNameById = {};              // weapon instance id → display name
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -20,7 +23,7 @@
         <div id="trade-panels" style="display:none">
           <section class="trade-panel">
             <h2 class="trade-panel-title">Your Offer <span id="your-name" class="trade-panel-sub"></span></h2>
-            <div id="your-inventory" class="trade-list"></div>
+            <div id="your-offer-body" class="trade-offer-body"></div>
           </section>
           <div class="trade-divider">
             <button id="lock-btn" class="trade-btn trade-btn-lock">Lock In</button>
@@ -29,7 +32,7 @@
           </div>
           <section class="trade-panel">
             <h2 class="trade-panel-title">Their Offer <span id="their-name" class="trade-panel-sub"></span></h2>
-            <div id="their-offer" class="trade-list"></div>
+            <div id="their-offer-body" class="trade-offer-body"></div>
           </section>
         </div>
       </div>
@@ -51,8 +54,11 @@
       return;
     }
     const data = await res.json();
-    items = (data.items ?? []).filter(i => i.quantity > 0);
-    nameById = Object.fromEntries(items.map(i => [i.item_id, i.name]));
+    items   = (data.items ?? []).filter(i => i.quantity > 0);
+    weapons = (data.weapons ?? []);
+    myKorel = data.korel ?? 0;
+    itemNameById   = Object.fromEntries(items.map(i => [i.item_id, i.name]));
+    weaponNameById = Object.fromEntries(weapons.map(w => [w.id, w.bonus_count > 0 ? `${w.name} +${w.bonus_count}` : w.name]));
   }
 
   function connectSocket() {
@@ -87,51 +93,126 @@
     renderControls();
   }
 
+  // ---- Your panel ----
+
   function renderYourPanel() {
-    const container = document.getElementById('your-inventory');
+    const root = document.getElementById('your-offer-body');
     document.getElementById('your-name').textContent = state?.you?.charName ? `· ${state.you.charName}` : '';
-    if (items.length === 0) {
-      container.innerHTML = '<p class="trade-empty">Your inventory is empty.</p>';
-      return;
-    }
     const locked = state?.you?.locked;
-    container.innerHTML = items.map(i => {
-      const offerQty = myOffer[i.item_id] ?? 0;
-      const minus = locked || offerQty <= 0;
-      const plus  = locked || offerQty >= i.quantity;
-      return `<div class="trade-row${offerQty > 0 ? ' offering' : ''}">
+
+    const itemsHtml = renderYourItems(locked);
+    const weaponsHtml = renderYourWeapons(locked);
+    const korelHtml = renderYourKorel(locked);
+
+    root.innerHTML = `
+      <div class="trade-section">
+        <h3 class="trade-section-label">Items</h3>
+        ${itemsHtml}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Weapons</h3>
+        ${weaponsHtml}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Korel</h3>
+        ${korelHtml}
+      </div>
+    `;
+
+    // Wire up controls (re-bound on every render)
+    root.querySelectorAll('button[data-item-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const delta = btn.dataset.itemAction === 'inc' ? 1 : -1;
+        adjustItem(btn.dataset.id, delta);
+      });
+    });
+    root.querySelectorAll('button[data-weapon-id]').forEach(btn => {
+      btn.addEventListener('click', () => toggleWeapon(btn.dataset.weaponId));
+    });
+    const korelInput = root.querySelector('#your-korel-input');
+    if (korelInput) {
+      korelInput.addEventListener('input', () => setKorel(parseInt(korelInput.value, 10) || 0));
+    }
+  }
+
+  function renderYourItems(locked) {
+    if (items.length === 0) return '<p class="trade-empty">No items to offer.</p>';
+    return items.map(i => {
+      const qty = myOffer.items[i.item_id] ?? 0;
+      const minus = locked || qty <= 0;
+      const plus  = locked || qty >= i.quantity;
+      return `<div class="trade-row${qty > 0 ? ' offering' : ''}">
         <span class="trade-row-name">${esc(i.name)}</span>
         <span class="trade-row-have">×${i.quantity.toLocaleString()}</span>
         <div class="trade-qty${locked ? ' disabled' : ''}">
-          <button data-action="dec" data-id="${esc(i.item_id)}" ${minus ? 'disabled' : ''}>−</button>
-          <span class="trade-qty-val">${offerQty}</span>
-          <button data-action="inc" data-id="${esc(i.item_id)}" ${plus ? 'disabled' : ''}>+</button>
+          <button data-item-action="dec" data-id="${esc(i.item_id)}" ${minus ? 'disabled' : ''}>−</button>
+          <span class="trade-qty-val">${qty}</span>
+          <button data-item-action="inc" data-id="${esc(i.item_id)}" ${plus ? 'disabled' : ''}>+</button>
         </div>
       </div>`;
     }).join('');
-    container.querySelectorAll('button[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.id;
-        const delta = btn.dataset.action === 'inc' ? 1 : -1;
-        adjustOffer(id, delta);
-      });
-    });
   }
 
+  function renderYourWeapons(locked) {
+    if (weapons.length === 0) return '<p class="trade-empty">No weapons to offer.</p>';
+    return weapons.map(w => {
+      const selected = myOffer.weapons.has(w.id);
+      const disabled = locked || w.equipped;
+      const label = w.equipped ? 'equipped' : (selected ? 'remove' : 'add');
+      const note  = w.equipped ? '<span class="trade-row-meta">unequip to trade</span>' : '';
+      return `<div class="trade-row${selected ? ' offering' : ''}${w.equipped ? ' disabled-row' : ''}">
+        <span class="trade-row-name">${esc(w.name)}${w.bonus_count > 0 ? ` <span class="trade-bonus">+${w.bonus_count}</span>` : ''}</span>
+        ${note}
+        <button class="trade-weapon-btn" data-weapon-id="${esc(w.id)}" ${disabled ? 'disabled' : ''}>${label}</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderYourKorel(locked) {
+    return `<div class="trade-korel-row">
+      <input id="your-korel-input" type="number" min="0" max="${myKorel}" step="1" value="${myOffer.korel}" ${locked ? 'disabled' : ''}>
+      <span class="trade-row-have">/ ${myKorel.toLocaleString()} korel</span>
+    </div>`;
+  }
+
+  // ---- Their panel ----
+
   function renderTheirOffer() {
-    const container = document.getElementById('their-offer');
+    const root = document.getElementById('their-offer-body');
     document.getElementById('their-name').textContent = state?.them?.charName ? `· ${state.them.charName}` : '';
-    const offer = state?.them?.offer ?? [];
-    if (offer.length === 0) {
-      container.innerHTML = '<p class="trade-empty">Nothing offered yet.</p>';
-      return;
-    }
-    container.innerHTML = offer.map(o => `
+    const offer = state?.them?.offer ?? { items: [], weapons: [], korel: 0 };
+
+    const itemRows = (offer.items ?? []).map(o => `
       <div class="trade-row offering">
-        <span class="trade-row-name">${esc(nameById[o.itemId] ?? o.itemId)}</span>
+        <span class="trade-row-name">${esc(itemNameById[o.itemId] ?? o.itemId)}</span>
         <span class="trade-row-have">×${o.quantity.toLocaleString()}</span>
       </div>
-    `).join('');
+    `).join('') || '<p class="trade-empty">No items.</p>';
+
+    const weaponRows = (offer.weapons ?? []).map(id => `
+      <div class="trade-row offering">
+        <span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span>
+      </div>
+    `).join('') || '<p class="trade-empty">No weapons.</p>';
+
+    const korelRow = (offer.korel ?? 0) > 0
+      ? `<div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>`
+      : '<p class="trade-empty">No korel.</p>';
+
+    root.innerHTML = `
+      <div class="trade-section">
+        <h3 class="trade-section-label">Items</h3>
+        ${itemRows}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Weapons</h3>
+        ${weaponRows}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Korel</h3>
+        ${korelRow}
+      </div>
+    `;
   }
 
   function renderControls() {
@@ -172,17 +253,46 @@
     cancelBtn.style.display  = done ? 'none' : '';
   }
 
-  function adjustOffer(itemId, delta) {
+  // ---- Mutators ----
+
+  function adjustItem(itemId, delta) {
+    if (state?.you?.locked) return;
     const item = items.find(i => i.item_id === itemId);
-    if (!item || state?.you?.locked) return;
-    const current = myOffer[itemId] ?? 0;
-    myOffer[itemId] = Math.max(0, Math.min(item.quantity, current + delta));
+    if (!item) return;
+    const current = myOffer.items[itemId] ?? 0;
+    myOffer.items[itemId] = Math.max(0, Math.min(item.quantity, current + delta));
+    sendOffer();
     renderYourPanel();
+  }
+
+  function toggleWeapon(weaponId) {
+    if (state?.you?.locked) return;
+    const w = weapons.find(x => x.id === weaponId);
+    if (!w || w.equipped) return;
+    if (myOffer.weapons.has(weaponId)) myOffer.weapons.delete(weaponId);
+    else myOffer.weapons.add(weaponId);
+    sendOffer();
+    renderYourPanel();
+  }
+
+  function setKorel(amount) {
+    if (state?.you?.locked) return;
+    myOffer.korel = Math.max(0, Math.min(myKorel, Math.floor(amount)));
+    sendOffer();
+    // Don't re-render — would steal focus from the input. Only update on lock/state change.
+  }
+
+  function sendOffer() {
+    if (!socket) return;
     socket.emit('trade_offer', {
       tradeId,
-      offer: Object.entries(myOffer)
-        .filter(([, q]) => q > 0)
-        .map(([itemId, quantity]) => ({ itemId, quantity })),
+      offer: {
+        items: Object.entries(myOffer.items)
+          .filter(([, q]) => q > 0)
+          .map(([itemId, quantity]) => ({ itemId, quantity })),
+        weapons: Array.from(myOffer.weapons),
+        korel:   myOffer.korel,
+      },
     });
   }
 
@@ -204,7 +314,11 @@
       try { socket.disconnect(); } catch (_) {}
       socket = null;
     }
-    state = null; items = []; myOffer = {}; nameById = {}; tradeId = null;
+    state = null;
+    items = []; weapons = []; myKorel = 0;
+    myOffer = { items: {}, weapons: new Set(), korel: 0 };
+    itemNameById = {}; weaponNameById = {};
+    tradeId = null;
   }
 
   window.Views = window.Views ?? {};
