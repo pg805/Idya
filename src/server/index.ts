@@ -2291,51 +2291,60 @@ io.on('connection', (socket: Socket) => {
 
   // ---- Trade Socket.io ----
 
+  // Per-viewer trade_state broadcast. Each socket in the room gets a session
+  // projected through tradeSessionView so {you, them} are populated for their
+  // own discordId — the client code reads state.you / state.them.
+  const broadcastTradeState = (tradeId: string, session: TradeSession): void => {
+    const room = io.sockets.adapter.rooms.get(`trade-${tradeId}`);
+    if (!room) return;
+    for (const socketId of room) {
+      const s = io.sockets.sockets.get(socketId);
+      if (!s) continue;
+      const viewerId = resolveSocketAuth(s);
+      if (!viewerId) continue;
+      s.emit('trade_state', tradeSessionView(session, viewerId));
+    }
+  };
+
   socket.on('join_trade', async ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
-    console.log(`[trade] join_trade tradeId=${tradeId} discordId=${discordId} sessionExists=${!!session}`);
-    if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) {
-      console.log(`[trade] join_trade rejected (session=${!!session} discordId=${discordId} member=${session?.players.find(p => p.discordId === discordId) ? 'yes' : 'no'})`);
-      return;
-    }
+    if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) return;
     socket.join(`trade-${tradeId}`);
     if (session.status === 'waiting' && (io.sockets.adapter.rooms.get(`trade-${tradeId}`)?.size ?? 0) >= 2) {
       session.status = 'active';
     }
-    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    broadcastTradeState(tradeId, session);
   });
 
   socket.on('trade_offer', ({ tradeId, offer }: { tradeId: string; offer: TradeOffer[] }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
-    console.log(`[trade] trade_offer tradeId=${tradeId} discordId=${discordId} hasPlayer=${!!player} locked=${player?.locked}`);
-    if (!player || player.locked) return;
+    if (!session || !player || player.locked) return;
     player.offer = offer.filter(o => o.quantity > 0);
-    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    broadcastTradeState(tradeId, session);
   });
 
   socket.on('trade_lock', ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
-    console.log(`[trade] trade_lock tradeId=${tradeId} discordId=${discordId} hasPlayer=${!!player} priorLocked=${player?.locked}`);
-    if (!player) return;
+    if (!session || !player) return;
     player.locked = !player.locked;
     if (!player.locked) player.confirmed = false;
-    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    broadcastTradeState(tradeId, session);
   });
 
   socket.on('trade_confirm', async ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
-    if (!player || !player.locked) return;
+    if (!session || !player || !player.locked) return;
     player.confirmed = true;
-    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    broadcastTradeState(tradeId, session);
 
-    if (session!.players.every(p => p.confirmed)) {
+    if (session.players.every(p => p.confirmed)) {
       session!.status = 'complete';
       const [a, b] = session!.players;
       try {
@@ -2381,7 +2390,7 @@ io.on('connection', (socket: Socket) => {
     const discordId = resolveSocketAuth(socket);
     if (!session || !session.players.find(p => p.discordId === discordId)) return;
     session.status = 'cancelled';
-    io.to(`trade-${tradeId}`).emit('trade_state', session);
+    broadcastTradeState(tradeId, session);
     setTimeout(() => tradeSessions.delete(tradeId), 60_000);
   });
 });
