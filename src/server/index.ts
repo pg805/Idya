@@ -63,20 +63,35 @@ const userTokens = new Map<string, string>();    // discordUserId → token (reu
 
 // ---- Trade sessions ----
 
-interface TradeItem  { itemId: string; quantity: number; }
-interface TradeOffer { items: TradeItem[]; weapons: string[]; korel: number; }
-interface TradePlayer { discordId: string; charName: string; offer: TradeOffer; locked: boolean; confirmed: boolean; }
-interface TradeSession { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
+interface TradeItem        { itemId: string; quantity: number; }
+interface TradeWeaponEntry { id: string; name: string; bonus: number; }
+interface TradeOffer       { items: TradeItem[]; weapons: TradeWeaponEntry[]; korel: number; }
+interface TradePlayer      { discordId: string; charName: string; offer: TradeOffer; locked: boolean; confirmed: boolean; }
+interface TradeSession     { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
 const emptyOffer = (): TradeOffer => ({ items: [], weapons: [], korel: 0 });
 
 const tradeSessions = new Map<string, TradeSession>();
 
+function projectOffer(offer: TradeOffer) {
+  // Items: enrich with display name from the in-memory ITEMS map. (The
+  // viewing client may not have this item in its own inventory, so it can't
+  // resolve the name from itemNameById.) Weapons already carry their display
+  // name + bonus count from the offering client.
+  return {
+    items:   offer.items.map(i => ({ ...i, name: ITEMS[i.itemId]?.name ?? i.itemId })),
+    weapons: offer.weapons,
+    korel:   offer.korel,
+  };
+}
+
 function tradeSessionView(session: TradeSession, viewerId: string) {
+  const you  = session.players.find(p => p.discordId === viewerId);
+  const them = session.players.find(p => p.discordId !== viewerId);
   return {
     tradeId: session.tradeId,
     status:  session.status,
-    you:   session.players.find(p => p.discordId === viewerId),
-    them:  session.players.find(p => p.discordId !== viewerId),
+    you:   you  ? { ...you,  offer: projectOffer(you.offer)  } : undefined,
+    them:  them ? { ...them, offer: projectOffer(them.offer) } : undefined,
   };
 }
 
@@ -2327,8 +2342,10 @@ io.on('connection', (socket: Socket) => {
     const player = session?.players.find(p => p.discordId === discordId);
     if (!session || !player || player.locked) return;
     player.offer = {
-      items:   (offer.items   ?? []).filter(o => o.quantity > 0),
-      weapons: (offer.weapons ?? []).filter(id => typeof id === 'string'),
+      items:   (offer.items ?? []).filter(o => o.quantity > 0),
+      weapons: (offer.weapons ?? [])
+        .filter((w): w is TradeWeaponEntry => !!w && typeof w.id === 'string')
+        .map(w => ({ id: w.id, name: String(w.name ?? 'weapon'), bonus: Number(w.bonus) || 0 })),
       korel:   Math.max(0, Math.floor(Number(offer.korel ?? 0))),
     };
     broadcastTradeState(tradeId, session);
@@ -2379,7 +2396,7 @@ io.on('connection', (socket: Socket) => {
               });
             }
             // Weapons (CharacterWeapon instance ownership transfer)
-            for (const weaponId of offer.weapons) {
+            for (const { id: weaponId } of offer.weapons) {
               const w = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
               if (!w || w.character_id !== giver.id) throw new Error(`${giverName} no longer owns one of the offered weapons.`);
               if (giver.equipped_weapon_id === weaponId) throw new Error(`${giverName} can't trade an equipped weapon.`);

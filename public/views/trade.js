@@ -7,8 +7,6 @@
   let weapons = [];                     // [{ id, name, bonus_count, equipped }]
   let myKorel = 0;                      // current balance
   let myOffer = { items: {}, weapons: new Set(), korel: 0 };
-  let itemNameById   = {};              // item_id → display name
-  let weaponNameById = {};              // weapon instance id → display name
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -57,8 +55,6 @@
     items   = (data.items ?? []).filter(i => i.quantity > 0);
     weapons = (data.weapons ?? []);
     myKorel = data.korel ?? 0;
-    itemNameById   = Object.fromEntries(items.map(i => [i.item_id, i.name]));
-    weaponNameById = Object.fromEntries(weapons.map(w => [w.id, w.bonus_count > 0 ? `${w.name} +${w.bonus_count}` : w.name]));
   }
 
   function connectSocket() {
@@ -74,6 +70,8 @@
     socket.on('trade_complete', ({ message }) => {
       toast(message ?? 'Trade complete!', true);
       if (state) { state = { ...state, status: 'complete' }; render(); }
+      // Refresh the header so the korel total reflects the trade outcome.
+      if (typeof mountLayout === 'function') mountLayout().catch(() => {});
     });
     socket.on('trade_error', ({ message }) => {
       toast(message ?? 'Trade failed.', false);
@@ -108,10 +106,11 @@
       return;
     }
 
-    // Preserve focus + caret position on the korel input across re-renders.
-    const active   = document.activeElement;
-    const focused  = active?.id === 'your-korel-input';
-    const caretPos = focused ? active.selectionStart : null;
+    // Preserve focus + caret position on any input across re-renders (korel
+    // input or per-item qty input). The id is stable per row, so capturing
+    // the active element's id is enough.
+    const active     = document.activeElement;
+    const focusedId  = (active?.tagName === 'INPUT' && active.id?.startsWith('your-')) ? active.id : null;
 
     const itemsHtml = renderYourItems(locked);
     const weaponsHtml = renderYourWeapons(locked);
@@ -142,25 +141,33 @@
     root.querySelectorAll('button[data-weapon-id]').forEach(btn => {
       btn.addEventListener('click', () => toggleWeapon(btn.dataset.weaponId));
     });
+    root.querySelectorAll('input.trade-qty-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const itemId = inp.dataset.id;
+        const owned  = items.find(i => i.item_id === itemId)?.quantity ?? 0;
+        const cleaned = inp.value.replace(/\D/g, '');
+        const clamped = Math.max(0, Math.min(owned, parseInt(cleaned, 10) || 0));
+        if (String(clamped) !== inp.value) inp.value = String(clamped);
+        setItem(itemId, clamped);
+      });
+    });
     const korelInput = root.querySelector('#your-korel-input');
     if (korelInput) {
       korelInput.addEventListener('input', () => {
-        // Strip non-digits and clamp visually in the input itself, so the
-        // user sees the same value that the server will accept.
         const cleaned = korelInput.value.replace(/\D/g, '');
         const clamped = Math.max(0, Math.min(myKorel, parseInt(cleaned, 10) || 0));
-        if (String(clamped) !== korelInput.value) {
-          korelInput.value = String(clamped);
-        }
+        if (String(clamped) !== korelInput.value) korelInput.value = String(clamped);
         setKorel(clamped);
       });
-      if (focused) {
-        korelInput.focus();
-        // Cursor goes to end of value rather than restoring the snapshot
-        // caret — value may have been clamped/shortened, and end-of-input
-        // matches the user's typing intent.
-        const end = korelInput.value.length;
-        try { korelInput.setSelectionRange(end, end); } catch (_) {}
+    }
+
+    // Restore focus to whichever input had it, cursor at end of value.
+    if (focusedId) {
+      const el = document.getElementById(focusedId);
+      if (el) {
+        el.focus();
+        const end = el.value.length;
+        try { el.setSelectionRange(end, end); } catch (_) {}
       }
     }
   }
@@ -178,15 +185,15 @@
     if ((offer.items?.length ?? 0) > 0) {
       const rows = offer.items.map(o => `
         <div class="trade-row offering">
-          <span class="trade-row-name">${esc(itemNameById[o.itemId] ?? o.itemId)}</span>
+          <span class="trade-row-name">${esc(o.name ?? o.itemId)}</span>
           <span class="trade-row-have">×${o.quantity.toLocaleString()}</span>
         </div>
       `).join('');
       parts.push(`<div class="trade-section"><h3 class="trade-section-label">Items</h3>${rows}</div>`);
     }
     if ((offer.weapons?.length ?? 0) > 0) {
-      const rows = offer.weapons.map(id => `
-        <div class="trade-row offering"><span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span></div>
+      const rows = offer.weapons.map(w => `
+        <div class="trade-row offering"><span class="trade-row-name">${esc(w.name ?? '(weapon)')}${w.bonus > 0 ? ` <span class="trade-bonus">+${w.bonus}</span>` : ''}</span></div>
       `).join('');
       parts.push(`<div class="trade-section"><h3 class="trade-section-label">Weapons</h3>${rows}</div>`);
     }
@@ -199,12 +206,16 @@
       const qty = myOffer.items[i.item_id] ?? 0;
       const minus = locked || qty <= 0;
       const plus  = locked || qty >= i.quantity;
+      const inputId = `your-item-input-${esc(i.item_id)}`;
       return `<div class="trade-row${qty > 0 ? ' offering' : ''}">
         <span class="trade-row-name">${esc(i.name)}</span>
         <span class="trade-row-have">×${i.quantity.toLocaleString()}</span>
         <div class="trade-qty${locked ? ' disabled' : ''}">
           <button data-item-action="dec" data-id="${esc(i.item_id)}" ${minus ? 'disabled' : ''}>−</button>
-          <span class="trade-qty-val">${qty}</span>
+          <input class="trade-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
+            autocomplete="off" maxlength="6"
+            id="${inputId}" data-id="${esc(i.item_id)}"
+            value="${qty}" ${locked ? 'disabled' : ''}>
           <button data-item-action="inc" data-id="${esc(i.item_id)}" ${plus ? 'disabled' : ''}>+</button>
         </div>
       </div>`;
@@ -252,15 +263,15 @@
       ? `<div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>`
       : '<p class="trade-empty">No korel.</p>';
 
-    const weaponRows = (offer.weapons ?? []).map(id => `
+    const weaponRows = (offer.weapons ?? []).map(w => `
       <div class="trade-row offering">
-        <span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span>
+        <span class="trade-row-name">${esc(w.name ?? '(weapon)')}${w.bonus > 0 ? ` <span class="trade-bonus">+${w.bonus}</span>` : ''}</span>
       </div>
     `).join('') || '<p class="trade-empty">No weapons.</p>';
 
     const itemRows = (offer.items ?? []).map(o => `
       <div class="trade-row offering">
-        <span class="trade-row-name">${esc(itemNameById[o.itemId] ?? o.itemId)}</span>
+        <span class="trade-row-name">${esc(o.name ?? o.itemId)}</span>
         <span class="trade-row-have">×${o.quantity.toLocaleString()}</span>
       </div>
     `).join('') || '<p class="trade-empty">No items.</p>';
@@ -326,9 +337,18 @@
     const item = items.find(i => i.item_id === itemId);
     if (!item) return;
     const current = myOffer.items[itemId] ?? 0;
-    myOffer.items[itemId] = Math.max(0, Math.min(item.quantity, current + delta));
-    sendOffer();
+    setItem(itemId, current + delta);
     renderYourPanel();
+  }
+
+  function setItem(itemId, qty) {
+    if (state?.you?.locked) return;
+    const item = items.find(i => i.item_id === itemId);
+    if (!item) return;
+    myOffer.items[itemId] = Math.max(0, Math.min(item.quantity, Math.floor(qty)));
+    sendOffer();
+    // No re-render here — typing into the input must keep focus. Buttons
+    // call adjustItem which re-renders explicitly for the visual update.
   }
 
   function toggleWeapon(weaponId) {
@@ -356,7 +376,10 @@
         items: Object.entries(myOffer.items)
           .filter(([, q]) => q > 0)
           .map(([itemId, quantity]) => ({ itemId, quantity })),
-        weapons: Array.from(myOffer.weapons),
+        weapons: Array.from(myOffer.weapons).map(id => {
+          const w = weapons.find(x => x.id === id);
+          return { id, name: w?.name ?? 'weapon', bonus: w?.bonus_count ?? 0 };
+        }),
         korel:   myOffer.korel,
       },
     });
@@ -383,7 +406,6 @@
     state = null;
     items = []; weapons = []; myKorel = 0;
     myOffer = { items: {}, weapons: new Set(), korel: 0 };
-    itemNameById = {}; weaponNameById = {};
     tradeId = null;
   }
 

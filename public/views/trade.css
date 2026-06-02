@@ -202,6 +202,21 @@
   font-family: monospace;
 }
 .trade-qty.disabled button { opacity: 0.3; cursor: default; }
+.trade-qty-input {
+  width: 44px;
+  height: 22px;
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--teal-bright);
+  font-family: monospace;
+  font-size: 0.82rem;
+  padding: 0 4px;
+  outline: none;
+}
+.trade-qty-input:focus { border-color: var(--gold-dim); }
+.trade-qty-input:disabled { opacity: 0.4; cursor: default; }
 
 .trade-divider {
   display: flex;
