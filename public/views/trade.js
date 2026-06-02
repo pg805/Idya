@@ -22,7 +22,7 @@
         <div id="trade-status" class="trade-status">Connecting…</div>
         <div id="trade-panels" style="display:none">
           <section class="trade-panel">
-            <h2 class="trade-panel-title">Your Offer <span id="your-name" class="trade-panel-sub"></span></h2>
+            <h2 class="trade-panel-title"><span id="your-panel-title">Your Offer</span> <span id="your-name" class="trade-panel-sub"></span></h2>
             <div id="your-offer-body" class="trade-offer-body"></div>
           </section>
           <div class="trade-divider">
@@ -31,7 +31,7 @@
             <button id="cancel-btn" class="trade-btn trade-btn-cancel">Cancel</button>
           </div>
           <section class="trade-panel">
-            <h2 class="trade-panel-title">Their Offer <span id="their-name" class="trade-panel-sub"></span></h2>
+            <h2 class="trade-panel-title"><span id="their-panel-title">Their Offer</span> <span id="their-name" class="trade-panel-sub"></span></h2>
             <div id="their-offer-body" class="trade-offer-body"></div>
           </section>
         </div>
@@ -97,8 +97,21 @@
 
   function renderYourPanel() {
     const root = document.getElementById('your-offer-body');
+    const done = state?.status === 'complete' || state?.status === 'cancelled';
+    document.getElementById('your-panel-title').textContent = done ? 'You Gave' : 'Your Offer';
     document.getElementById('your-name').textContent = state?.you?.charName ? `· ${state.you.charName}` : '';
     const locked = state?.you?.locked;
+
+    // If the trade is complete, show the static "you gave" view (mirroring "their" panel).
+    if (done) {
+      root.innerHTML = renderCompletedSide(state.you?.offer);
+      return;
+    }
+
+    // Preserve focus + caret position on the korel input across re-renders.
+    const active   = document.activeElement;
+    const focused  = active?.id === 'your-korel-input';
+    const caretPos = focused ? active.selectionStart : null;
 
     const itemsHtml = renderYourItems(locked);
     const weaponsHtml = renderYourWeapons(locked);
@@ -106,16 +119,16 @@
 
     root.innerHTML = `
       <div class="trade-section">
-        <h3 class="trade-section-label">Items</h3>
-        ${itemsHtml}
+        <h3 class="trade-section-label">Korel</h3>
+        ${korelHtml}
       </div>
       <div class="trade-section">
         <h3 class="trade-section-label">Weapons</h3>
         ${weaponsHtml}
       </div>
       <div class="trade-section">
-        <h3 class="trade-section-label">Korel</h3>
-        ${korelHtml}
+        <h3 class="trade-section-label">Items</h3>
+        ${itemsHtml}
       </div>
     `;
 
@@ -132,7 +145,41 @@
     const korelInput = root.querySelector('#your-korel-input');
     if (korelInput) {
       korelInput.addEventListener('input', () => setKorel(parseInt(korelInput.value, 10) || 0));
+      if (focused) {
+        korelInput.focus();
+        if (caretPos !== null) {
+          try { korelInput.setSelectionRange(caretPos, caretPos); } catch (_) {}
+        }
+      }
     }
+  }
+
+  function renderCompletedSide(offer) {
+    offer = offer ?? { items: [], weapons: [], korel: 0 };
+    const isEmpty = (offer.items?.length ?? 0) === 0 && (offer.weapons?.length ?? 0) === 0 && (offer.korel ?? 0) === 0;
+    if (isEmpty) return '<p class="trade-empty">Nothing.</p>';
+    const parts = [];
+    if ((offer.korel ?? 0) > 0) {
+      parts.push(`<div class="trade-section"><h3 class="trade-section-label">Korel</h3>
+        <div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>
+      </div>`);
+    }
+    if ((offer.weapons?.length ?? 0) > 0) {
+      const rows = offer.weapons.map(id => `
+        <div class="trade-row offering"><span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span></div>
+      `).join('');
+      parts.push(`<div class="trade-section"><h3 class="trade-section-label">Weapons</h3>${rows}</div>`);
+    }
+    if ((offer.items?.length ?? 0) > 0) {
+      const rows = offer.items.map(o => `
+        <div class="trade-row offering">
+          <span class="trade-row-name">${esc(itemNameById[o.itemId] ?? o.itemId)}</span>
+          <span class="trade-row-have">×${o.quantity.toLocaleString()}</span>
+        </div>
+      `).join('');
+      parts.push(`<div class="trade-section"><h3 class="trade-section-label">Items</h3>${rows}</div>`);
+    }
+    return parts.join('');
   }
 
   function renderYourItems(locked) {
@@ -179,8 +226,25 @@
 
   function renderTheirOffer() {
     const root = document.getElementById('their-offer-body');
+    const done = state?.status === 'complete' || state?.status === 'cancelled';
+    document.getElementById('their-panel-title').textContent = done ? 'You Received' : 'Their Offer';
     document.getElementById('their-name').textContent = state?.them?.charName ? `· ${state.them.charName}` : '';
     const offer = state?.them?.offer ?? { items: [], weapons: [], korel: 0 };
+
+    if (done) {
+      root.innerHTML = renderCompletedSide(offer);
+      return;
+    }
+
+    const korelRow = (offer.korel ?? 0) > 0
+      ? `<div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>`
+      : '<p class="trade-empty">No korel.</p>';
+
+    const weaponRows = (offer.weapons ?? []).map(id => `
+      <div class="trade-row offering">
+        <span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span>
+      </div>
+    `).join('') || '<p class="trade-empty">No weapons.</p>';
 
     const itemRows = (offer.items ?? []).map(o => `
       <div class="trade-row offering">
@@ -189,28 +253,18 @@
       </div>
     `).join('') || '<p class="trade-empty">No items.</p>';
 
-    const weaponRows = (offer.weapons ?? []).map(id => `
-      <div class="trade-row offering">
-        <span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span>
-      </div>
-    `).join('') || '<p class="trade-empty">No weapons.</p>';
-
-    const korelRow = (offer.korel ?? 0) > 0
-      ? `<div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>`
-      : '<p class="trade-empty">No korel.</p>';
-
     root.innerHTML = `
       <div class="trade-section">
-        <h3 class="trade-section-label">Items</h3>
-        ${itemRows}
+        <h3 class="trade-section-label">Korel</h3>
+        ${korelRow}
       </div>
       <div class="trade-section">
         <h3 class="trade-section-label">Weapons</h3>
         ${weaponRows}
       </div>
       <div class="trade-section">
-        <h3 class="trade-section-label">Korel</h3>
-        ${korelRow}
+        <h3 class="trade-section-label">Items</h3>
+        ${itemRows}
       </div>
     `;
   }
