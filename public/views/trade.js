@@ -123,12 +123,12 @@
         ${korelHtml}
       </div>
       <div class="trade-section">
-        <h3 class="trade-section-label">Weapons</h3>
-        ${weaponsHtml}
-      </div>
-      <div class="trade-section">
         <h3 class="trade-section-label">Items</h3>
         ${itemsHtml}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Weapons</h3>
+        ${weaponsHtml}
       </div>
     `;
 
@@ -144,12 +144,23 @@
     });
     const korelInput = root.querySelector('#your-korel-input');
     if (korelInput) {
-      korelInput.addEventListener('input', () => setKorel(parseInt(korelInput.value, 10) || 0));
+      korelInput.addEventListener('input', () => {
+        // Strip non-digits and clamp visually in the input itself, so the
+        // user sees the same value that the server will accept.
+        const cleaned = korelInput.value.replace(/\D/g, '');
+        const clamped = Math.max(0, Math.min(myKorel, parseInt(cleaned, 10) || 0));
+        if (String(clamped) !== korelInput.value) {
+          korelInput.value = String(clamped);
+        }
+        setKorel(clamped);
+      });
       if (focused) {
         korelInput.focus();
-        if (caretPos !== null) {
-          try { korelInput.setSelectionRange(caretPos, caretPos); } catch (_) {}
-        }
+        // Cursor goes to end of value rather than restoring the snapshot
+        // caret — value may have been clamped/shortened, and end-of-input
+        // matches the user's typing intent.
+        const end = korelInput.value.length;
+        try { korelInput.setSelectionRange(end, end); } catch (_) {}
       }
     }
   }
@@ -164,12 +175,6 @@
         <div class="trade-row offering"><span class="trade-row-name">${offer.korel.toLocaleString()} korel</span></div>
       </div>`);
     }
-    if ((offer.weapons?.length ?? 0) > 0) {
-      const rows = offer.weapons.map(id => `
-        <div class="trade-row offering"><span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span></div>
-      `).join('');
-      parts.push(`<div class="trade-section"><h3 class="trade-section-label">Weapons</h3>${rows}</div>`);
-    }
     if ((offer.items?.length ?? 0) > 0) {
       const rows = offer.items.map(o => `
         <div class="trade-row offering">
@@ -178,6 +183,12 @@
         </div>
       `).join('');
       parts.push(`<div class="trade-section"><h3 class="trade-section-label">Items</h3>${rows}</div>`);
+    }
+    if ((offer.weapons?.length ?? 0) > 0) {
+      const rows = offer.weapons.map(id => `
+        <div class="trade-row offering"><span class="trade-row-name">${esc(weaponNameById[id] ?? '(weapon)')}</span></div>
+      `).join('');
+      parts.push(`<div class="trade-section"><h3 class="trade-section-label">Weapons</h3>${rows}</div>`);
     }
     return parts.join('');
   }
@@ -217,7 +228,8 @@
 
   function renderYourKorel(locked) {
     return `<div class="trade-korel-row">
-      <input id="your-korel-input" type="number" min="0" max="${myKorel}" step="1" value="${myOffer.korel}" ${locked ? 'disabled' : ''}>
+      <input id="your-korel-input" type="text" inputmode="numeric" pattern="[0-9]*"
+        autocomplete="off" maxlength="9" value="${myOffer.korel}" ${locked ? 'disabled' : ''}>
       <span class="trade-row-have">/ ${myKorel.toLocaleString()} korel</span>
     </div>`;
   }
@@ -259,12 +271,12 @@
         ${korelRow}
       </div>
       <div class="trade-section">
-        <h3 class="trade-section-label">Weapons</h3>
-        ${weaponRows}
-      </div>
-      <div class="trade-section">
         <h3 class="trade-section-label">Items</h3>
         ${itemRows}
+      </div>
+      <div class="trade-section">
+        <h3 class="trade-section-label">Weapons</h3>
+        ${weaponRows}
       </div>
     `;
   }
