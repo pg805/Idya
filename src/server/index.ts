@@ -270,10 +270,6 @@ app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/index.html'));
 });
 
-app.get('/trade/:tradeId', (_req: Request, res: Response) => {
-  res.sendFile(join(__dirname, '../../public/trade.html'));
-});
-
 app.get(/^\/app(\/.*)?$/, (_req: Request, res: Response) => {
   res.sendFile(join(__dirname, '../../public/app.html'));
 });
@@ -713,6 +709,14 @@ function parseCookies(header: string | undefined): Record<string, string> {
 
 function resolveAuth(req: Request): string | null {
   const cookieToken = parseCookies(req.headers.cookie)['idya_session'];
+  if (cookieToken && authTokens.has(cookieToken)) {
+    return authTokens.get(cookieToken)?.discordUserId ?? null;
+  }
+  return null;
+}
+
+function resolveSocketAuth(socket: Socket): string | null {
+  const cookieToken = parseCookies(socket.handshake.headers.cookie)['idya_session'];
   if (cookieToken && authTokens.has(cookieToken)) {
     return authTokens.get(cookieToken)?.discordUserId ?? null;
   }
@@ -2162,29 +2166,29 @@ io.on('connection', (socket: Socket) => {
 
   // ---- Trade Socket.io ----
 
-  socket.on('join_trade', async ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+  socket.on('join_trade', async ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
-    const discordId = authTokens.get(auth)?.discordUserId;
+    const discordId = resolveSocketAuth(socket);
     if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) return;
     socket.join(`trade-${tradeId}`);
-    if (session.status === 'waiting' && session.players.every(p =>
-      io.sockets.adapter.rooms.get(`trade-${tradeId}`)?.size ?? 0 >= 1
-    )) session.status = 'active';
+    if (session.status === 'waiting' && (io.sockets.adapter.rooms.get(`trade-${tradeId}`)?.size ?? 0) >= 2) {
+      session.status = 'active';
+    }
     io.to(`trade-${tradeId}`).emit('trade_state', session);
   });
 
-  socket.on('trade_offer', ({ tradeId, auth, offer }: { tradeId: string; auth: string; offer: TradeOffer[] }) => {
+  socket.on('trade_offer', ({ tradeId, offer }: { tradeId: string; offer: TradeOffer[] }) => {
     const session = tradeSessions.get(tradeId);
-    const discordId = authTokens.get(auth)?.discordUserId;
+    const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
     if (!player || player.locked) return;
     player.offer = offer.filter(o => o.quantity > 0);
     io.to(`trade-${tradeId}`).emit('trade_state', session);
   });
 
-  socket.on('trade_lock', ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+  socket.on('trade_lock', ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
-    const discordId = authTokens.get(auth)?.discordUserId;
+    const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
     if (!player) return;
     player.locked = !player.locked;
@@ -2192,9 +2196,9 @@ io.on('connection', (socket: Socket) => {
     io.to(`trade-${tradeId}`).emit('trade_state', session);
   });
 
-  socket.on('trade_confirm', async ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+  socket.on('trade_confirm', async ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
-    const discordId = authTokens.get(auth)?.discordUserId;
+    const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
     if (!player || !player.locked) return;
     player.confirmed = true;
@@ -2241,9 +2245,9 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('trade_cancel', ({ tradeId, auth }: { tradeId: string; auth: string }) => {
+  socket.on('trade_cancel', ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
-    const discordId = authTokens.get(auth)?.discordUserId;
+    const discordId = resolveSocketAuth(socket);
     if (!session || !session.players.find(p => p.discordId === discordId)) return;
     session.status = 'cancelled';
     io.to(`trade-${tradeId}`).emit('trade_state', session);
@@ -3015,15 +3019,15 @@ if (discordToken) {
     setTimeout(() => tradeSessions.delete(tradeId), 10 * 60_000);
 
     await interaction.reply({
-      content: `**Trade with ${target.username}**\n${HOST}/trade/${tradeId}?auth=${tokenA}`,
+      content: `**Trade with ${target.username}**\n${HOST}/app/trade/${tradeId}?auth=${tokenA}`,
       flags: MessageFlags.Ephemeral,
     });
 
     try {
-      await target.send(`**${interaction.user.username}** wants to trade with you!\n${HOST}/trade/${tradeId}?auth=${tokenB}`);
+      await target.send(`**${interaction.user.username}** wants to trade with you!\n${HOST}/app/trade/${tradeId}?auth=${tokenB}`);
     } catch (_) {
       await interaction.followUp({
-        content: `Could not DM ${target.username} — they may have DMs disabled. Share this link with them: ${HOST}/trade/${tradeId}?auth=${tokenB}`,
+        content: `Could not DM ${target.username} — they may have DMs disabled. Share this link with them: ${HOST}/app/trade/${tradeId}?auth=${tokenB}`,
         flags: MessageFlags.Ephemeral,
       });
     }
