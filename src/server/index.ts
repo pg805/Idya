@@ -30,7 +30,7 @@ import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
-import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
+import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
 import { ITEMS } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
@@ -2453,6 +2453,22 @@ httpServer.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
 });
+
+// ---- Proactive shop tick ----
+// Was lazy (only fired when a player loaded a shop page). Now an hourly
+// sweep walks every shop yaml and ticks any item whose 24-hour interval
+// has elapsed. Same maybeTickDaily logic — just driven by setInterval
+// instead of pageload. Lets stock drift (restock + destock-at-75%) feel
+// like the world exists between visits.
+const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
+async function runShopTick(): Promise<void> {
+  try {
+    const n = await tickAllDue(SHOP_DIR);
+    if (n > 0) console.log(`[shop tick] ticked ${n} item(s)`);
+  } catch (err) { console.error('[shop tick] failed', err); }
+}
+void runShopTick();
+setInterval(runShopTick, SHOP_TICK_INTERVAL_MS);
 
 // ---- Discord bot ----
 
