@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.2 — 2026-06-01
+
+Trading moves into the web app, equip-from-inventory comes back, the
+shop economy gets two real fixes (weapon sells were silently skipped,
+items could soft-lock at cap), and prod deploys self-heal the
+Cloudflare edge cache.
+
+### Trade
+- **Trade is an SPA view now** — the standalone `/trade/:id` page is gone. `/trade @user` in Discord still works and now links to `/app/trade/:id?auth=…`, which mounts the trade UI inside the app shell with the shared header + palette
+- **Trade from inside the app** — new **Trade** sidebar entry. Typeahead search by character name (`GET /api/players?q=…`); pick a result → `POST /api/trade/start` → navigate to the trade session. The target gets a DM with their auth-laden link
+- **Item names display correctly** — uses `/api/inventory` instead of the id-only `/api/craft` map, so "Treated Sulwood" no longer shows as `treated_sulwood`
+- **Cookie auth on trade sockets** — `resolveSocketAuth(socket)` reads the same `idya_session` cookie HTTP endpoints use; socket emits no longer carry an explicit token. Fixes a race between the SPA's URL-strip and the trade view's socket join
+- **Join-status fix** — `??` vs `>=` precedence bug was flipping the trade to "active" on first join. Now correctly waits for both sockets in the room
+
+### Inventory
+- **Equip from inventory** — non-equipped weapon rows show an `Equip` button. `POST /api/character/equip` already existed; the UI just lost the wire-up during the SPA migration
+
+### Shop / Economy
+- **Weapon sells now update shop state** — the cart's weapon-sell loop was deleting `CharacterWeapon` rows and logging `ShopTransaction`s but never touching `ShopItemState`. Stock counters for weapon-keyed entries (Spellbook, Wand, Mental Cage, etc.) drifted from the daily-tick baseline regardless of real traffic. Now each weapon sell: checks current stock against `stock_max`, skips weapons that don't fit (instead of failing the whole cart), increments stock + cumulative_volume + recent_volume, and the cart response reports a `skippedWeapons` count
+- **Shop liquidates at 75% full** — the daily tick was add-only, so items like venison sat at 200/200 forever and nobody could sell more. Now when stock is ≥ 75% of cap, the same rolled `Restock_Field` value is subtracted at 2× magnitude instead of added. Tunables: `DESTOCK_THRESHOLD`, `DESTOCK_MULTIPLIER` in `shop_service.ts`
+- **Restock values scaled up ~3–4×** — everything was tuned for ~50-day full refills, which is too slow. Now targets ~14 days. Weapons + components (which players rarely sell back) feel the biggest benefit. See the audit table in PR for the full mapping
+
+### Infrastructure
+- **Version-stamped HTML asset URLs** — `/app/*` and `/battle/:id` now render their HTML with `?v=${pkg.version}` appended to every `.js`/`.css` URL and `Cache-Control: no-cache` on the HTML itself. Every deploy invalidates browser + Cloudflare caches automatically because the URL is literally different. (Shipped early as a 0.1.1 hotfix to unblock a user whose CF edge had cached a 404)
+- **Cloudflare cache purge on prod deploy** — `deploy-prod.sh` now calls CF's `purge_cache` API after `pm2 restart`. Token + zone ID live in prod's `.env` (greps, not `source`, so `DATABASE_URL` doesn't re-leak). Belt-and-suspenders alongside the version-stamp
+
+---
+
 ## 0.1.1 — 2026-06-01
 
 Hunting moves into the web app, combat resolution gets a real per-phase
