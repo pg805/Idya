@@ -5,6 +5,8 @@ import { ITEMS } from './items.js';
 
 const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
+const DESTOCK_THRESHOLD   = 0.75; // when stock >= this fraction of cap, tick dumps instead of restocks
+const DESTOCK_MULTIPLIER  = 2;    // dump 2× the rolled Restock_Field value
 
 export interface PricedItem extends ShopItemListing {
   buy?:          number;
@@ -35,8 +37,14 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
   const newRecentVolume = Math.floor(state.recent_volume * RECENT_VOLUME_DECAY);
   const r      = currentR(item, newRecentVolume);
   const newX   = logisticStep(state.x, r);
-  const restock = rollField(item.restock_field);
-  const newStock = Math.min(state.stock + restock, item.stock_max);
+  // Same Restock_Field roll runs every tick. When stock is at or above 75% of
+  // cap the shop liquidates instead of restocking — dumps 2× the rolled value.
+  // Without this items like venison sit at stock_max forever and nobody can
+  // sell more (soft-lock).
+  const roll = rollField(item.restock_field);
+  const overstocked = item.stock_max > 0 && state.stock >= item.stock_max * DESTOCK_THRESHOLD;
+  const stockDelta = overstocked ? -roll * DESTOCK_MULTIPLIER : roll;
+  const newStock = Math.max(0, Math.min(state.stock + stockDelta, item.stock_max));
 
   // Optimistic lock — only one concurrent request runs the tick
   const updated = await prisma.shopItemState.updateMany({
