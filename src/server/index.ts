@@ -2294,7 +2294,11 @@ io.on('connection', (socket: Socket) => {
   socket.on('join_trade', async ({ tradeId }: { tradeId: string }) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
-    if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) return;
+    console.log(`[trade] join_trade tradeId=${tradeId} discordId=${discordId} sessionExists=${!!session}`);
+    if (!session || !discordId || !session.players.find(p => p.discordId === discordId)) {
+      console.log(`[trade] join_trade rejected (session=${!!session} discordId=${discordId} member=${session?.players.find(p => p.discordId === discordId) ? 'yes' : 'no'})`);
+      return;
+    }
     socket.join(`trade-${tradeId}`);
     if (session.status === 'waiting' && (io.sockets.adapter.rooms.get(`trade-${tradeId}`)?.size ?? 0) >= 2) {
       session.status = 'active';
@@ -2306,6 +2310,7 @@ io.on('connection', (socket: Socket) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
+    console.log(`[trade] trade_offer tradeId=${tradeId} discordId=${discordId} hasPlayer=${!!player} locked=${player?.locked}`);
     if (!player || player.locked) return;
     player.offer = offer.filter(o => o.quantity > 0);
     io.to(`trade-${tradeId}`).emit('trade_state', session);
@@ -2315,6 +2320,7 @@ io.on('connection', (socket: Socket) => {
     const session = tradeSessions.get(tradeId);
     const discordId = resolveSocketAuth(socket);
     const player = session?.players.find(p => p.discordId === discordId);
+    console.log(`[trade] trade_lock tradeId=${tradeId} discordId=${discordId} hasPlayer=${!!player} priorLocked=${player?.locked}`);
     if (!player) return;
     player.locked = !player.locked;
     if (!player.locked) player.confirmed = false;
