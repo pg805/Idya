@@ -242,6 +242,13 @@ function render() {
 function renderBoard() {
   const { width, height, obstacles } = state.board;
   boardEl.style.gridTemplateColumns = `repeat(${width}, 72px)`;
+  // Lock #left-col to the board's pixel width. Otherwise the action panel's
+  // flex-wrap button row can be intrinsically wider than the board, which
+  // stretches the column on action-pick frames and snaps it back on
+  // waiting/idle frames — visible as the grid "jumping" and a blank gap
+  // appearing between the board and the combat log.
+  const boardPxWidth = width * 72 + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
+  document.getElementById('left-col').style.width = `${boardPxWidth}px`;
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
