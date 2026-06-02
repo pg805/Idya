@@ -69,7 +69,7 @@ Items:
     Transaction_Threshold: 20
     Stock_Max: 1000
     Stock_Influence: 0.1
-    Restock_Field: [10, 20, 20, 30, 0]
+    Restock_Field: [40, 60, 80, 100, 0]
 
   - id: venison
     Base_Buy: 50
@@ -80,7 +80,7 @@ Items:
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
-    Restock_Field: [5, 8, 10, 0, 0]
+    Restock_Field: [10, 15, 20, 25, 0]
 
   - id: maek_egg
     Base_Buy: 70
@@ -91,4 +91,4 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 50
     Stock_Influence: 0.35
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]

@@ -14,7 +14,7 @@ Items:
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.2
-    Restock_Field: [5, 10, 10, 15, 0]
+    Restock_Field: [15, 25, 30, 40, 0]
 
   # Intermediate materials
   - id: treated_sulwood
@@ -26,7 +26,7 @@ Items:
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
-    Restock_Field: [2, 4, 5, 6, 0]
+    Restock_Field: [6, 10, 12, 16, 0]
 
   - id: hardwood
     Base_Buy: 400
@@ -37,7 +37,7 @@ Items:
     Transaction_Threshold: 6
     Stock_Max: 80
     Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   # Weapons
   - id: quarterstaff
@@ -49,7 +49,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: bow
     Base_Buy: 700
@@ -60,7 +60,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: sword_wood
     Base_Buy: 800
@@ -71,7 +71,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: axe_wood
     Base_Buy: 800
@@ -82,7 +82,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: shovel_wood
     Base_Buy: 800
@@ -93,7 +93,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   # Components (2 treated_sulwood)
   - id: sword_hilt
@@ -105,7 +105,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: axe_handle
     Base_Buy: 300
@@ -116,7 +116,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: shovel_handle
     Base_Buy: 300
@@ -127,7 +127,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: wand_base_wood
     Base_Buy: 300
@@ -138,7 +138,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   # Components (3 treated_sulwood)
   - id: sword_blade_wood
@@ -150,7 +150,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: axe_head_wood
     Base_Buy: 400
@@ -161,7 +161,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: shovel_head_wood
     Base_Buy: 400
@@ -172,7 +172,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   # Hardwood components (2x base)
   - id: sword_blade_hardwood
@@ -184,7 +184,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: axe_head_hardwood
     Base_Buy: 800
@@ -195,7 +195,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: shovel_head_hardwood
     Base_Buy: 800
@@ -206,7 +206,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: wand_base_hardwood
     Base_Buy: 600
@@ -217,7 +217,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   # Valuables
   - id: felt_hat
@@ -229,7 +229,7 @@ Items:
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.15
-    Restock_Field: [3, 5, 5, 10, 0]
+    Restock_Field: [15, 25, 30, 40, 0]
 
   - id: antler_trophy
     Base_Buy: 1000
@@ -240,4 +240,4 @@ Items:
     Transaction_Threshold: 3
     Stock_Max: 10
     Stock_Influence: 0.4
-    Restock_Field: [0, 0, 0, 1, 0]
+    Restock_Field: [0, 1, 1, 2, 0]

@@ -14,7 +14,7 @@ Items:
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.2
-    Restock_Field: [5, 10, 10, 15, 0]
+    Restock_Field: [15, 25, 30, 40, 0]
 
   # Intermediate materials
   - id: talamite
@@ -26,7 +26,7 @@ Items:
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
-    Restock_Field: [2, 4, 5, 6, 0]
+    Restock_Field: [6, 10, 12, 16, 0]
 
   - id: alloy
     Base_Buy: 400
@@ -37,7 +37,7 @@ Items:
     Transaction_Threshold: 6
     Stock_Max: 80
     Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   # Weapons
   - id: dagger
@@ -49,7 +49,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: mace
     Base_Buy: 900
@@ -60,7 +60,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: sword_talamite
     Base_Buy: 1000
@@ -71,7 +71,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: axe_talamite
     Base_Buy: 1000
@@ -82,7 +82,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: shovel_talamite
     Base_Buy: 1000
@@ -93,7 +93,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   # Components — talamite (3 talamite each)
   - id: sword_blade_talamite
@@ -105,7 +105,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: axe_head_talamite
     Base_Buy: 600
@@ -116,7 +116,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: shovel_head_talamite
     Base_Buy: 600
@@ -127,7 +127,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   - id: wand_base_talamite
     Base_Buy: 400
@@ -138,7 +138,7 @@ Items:
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
-    Restock_Field: [1, 2, 2, 0, 0]
+    Restock_Field: [3, 5, 6, 8, 0]
 
   # Components — alloy (L7, premium)
   - id: sword_blade_alloy
@@ -150,7 +150,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: axe_head_alloy
     Base_Buy: 1200
@@ -161,7 +161,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: shovel_head_alloy
     Base_Buy: 1200
@@ -172,7 +172,7 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
 
   - id: wand_base_alloy
     Base_Buy: 800
@@ -183,4 +183,4 @@ Items:
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
-    Restock_Field: [0, 1, 1, 0, 0]
+    Restock_Field: [1, 2, 2, 3, 0]
