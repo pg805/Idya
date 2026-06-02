@@ -17,6 +17,7 @@ function routeFromPath(path) {
   if (path === '/professions')          return { viewName: 'professions', params: {} };
   if (path === '/enemies')              return { viewName: 'enemies', params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
+  if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/weapon-stats')         return { viewName: 'weapons', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };

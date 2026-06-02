@@ -78,6 +78,38 @@ function tradeSessionView(session: TradeSession, viewerId: string) {
   };
 }
 
+async function createTradeSession(
+  initiatorDiscordId: string,
+  targetDiscordId: string,
+): Promise<
+  | { ok: true; tradeId: string; initiatorToken: string; targetToken: string; initiatorCharName: string; targetCharName: string }
+  | { ok: false; error: string }
+> {
+  if (initiatorDiscordId === targetDiscordId) return { ok: false, error: "You can't trade with yourself." };
+  const [initiatorChars, targetChars] = await Promise.all([
+    charRepo.list(initiatorDiscordId),
+    charRepo.list(targetDiscordId),
+  ]);
+  if (initiatorChars.length === 0) return { ok: false, error: "You don't have a character yet." };
+  if (targetChars.length === 0)    return { ok: false, error: "That player doesn't have a character yet." };
+  const tradeId        = Math.random().toString(36).slice(2, 9);
+  const initiatorToken = getOrCreateToken(initiatorDiscordId);
+  const targetToken    = getOrCreateToken(targetDiscordId);
+  tradeSessions.set(tradeId, {
+    tradeId,
+    status: 'waiting',
+    players: [
+      { discordId: initiatorDiscordId, charName: initiatorChars[0].name, offer: [], locked: false, confirmed: false },
+      { discordId: targetDiscordId,    charName: targetChars[0].name,    offer: [], locked: false, confirmed: false },
+    ],
+  });
+  setTimeout(() => tradeSessions.delete(tradeId), 10 * 60_000);
+  return {
+    ok: true, tradeId, initiatorToken, targetToken,
+    initiatorCharName: initiatorChars[0].name, targetCharName: targetChars[0].name,
+  };
+}
+
 function getOrCreateToken(discordId: string): string {
   let token = userTokens.get(discordId);
   if (!token) {
@@ -621,6 +653,54 @@ app.post('/api/character/equip', async (req: Request, res: Response) => {
     payload: { weapon_id, weapon_key: owned.weapon_key, weapon_name: weaponName },
   }}).catch(() => {});
   res.json({ success: true, message: `Equipped ${weaponName}.` });
+});
+
+app.get('/api/players', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const q = String(req.query.q ?? '').trim();
+  if (q.length === 0) { res.json({ players: [] }); return; }
+  const chars = await prisma.character.findMany({
+    where: {
+      name: { contains: q, mode: 'insensitive' },
+      NOT:  { discord_id: discordId },
+    },
+    take: 12,
+    orderBy: { name: 'asc' },
+  });
+  res.json({
+    players: chars.map(c => ({
+      name:        c.name,
+      discord_id:  c.discord_id,
+      nationality: c.nationality,
+    })),
+  });
+});
+
+app.post('/api/trade/start', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { target_discord_id } = req.body as { target_discord_id?: string };
+  if (!target_discord_id) { res.status(400).json({ error: 'target_discord_id required' }); return; }
+  const result = await createTradeSession(discordId, target_discord_id);
+  if (!result.ok) { res.json({ success: false, message: result.error }); return; }
+
+  let dmStatus: 'sent' | 'failed' | 'no-bot' = 'no-bot';
+  if (discord) {
+    try {
+      const user = await discord.users.fetch(target_discord_id);
+      await user.send(`**${result.initiatorCharName}** wants to trade with you!\n${HOST}/app/trade/${result.tradeId}?auth=${result.targetToken}`);
+      dmStatus = 'sent';
+    } catch (_) { dmStatus = 'failed'; }
+  }
+
+  res.json({
+    success:        true,
+    trade_id:       result.tradeId,
+    target_name:    result.targetCharName,
+    dm_status:      dmStatus,
+    target_link:    `${HOST}/app/trade/${result.tradeId}?auth=${result.targetToken}`,
+  });
 });
 
 app.get('/api/inventory', async (req: Request, res: Response) => {
@@ -2983,51 +3063,28 @@ if (discordToken) {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'trade') return;
 
     const target = interaction.options.getUser('user', true);
-    if (target.id === interaction.user.id) {
-      await interaction.reply({ content: "You can't trade with yourself.", flags: MessageFlags.Ephemeral });
-      return;
-    }
     if (target.bot) {
       await interaction.reply({ content: "You can't trade with a bot.", flags: MessageFlags.Ephemeral });
       return;
     }
 
-    const initiatorChars = await charRepo.list(interaction.user.id);
-    const targetChars    = await charRepo.list(target.id);
-    if (initiatorChars.length === 0) {
-      await interaction.reply({ content: "You don't have a character yet.", flags: MessageFlags.Ephemeral });
+    const result = await createTradeSession(interaction.user.id, target.id);
+    if (!result.ok) {
+      await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral });
       return;
     }
-    if (targetChars.length === 0) {
-      await interaction.reply({ content: `${target.username} doesn't have a character yet.`, flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    const tradeId   = Math.random().toString(36).slice(2, 9);
-    const tokenA    = getOrCreateToken(interaction.user.id);
-    const tokenB    = getOrCreateToken(target.id);
-
-    const session: TradeSession = {
-      tradeId,
-      status: 'waiting',
-      players: [
-        { discordId: interaction.user.id, charName: initiatorChars[0].name, offer: [], locked: false, confirmed: false },
-        { discordId: target.id,           charName: targetChars[0].name,    offer: [], locked: false, confirmed: false },
-      ],
-    };
-    tradeSessions.set(tradeId, session);
-    setTimeout(() => tradeSessions.delete(tradeId), 10 * 60_000);
+    const { tradeId, initiatorToken, targetToken } = result;
 
     await interaction.reply({
-      content: `**Trade with ${target.username}**\n${HOST}/app/trade/${tradeId}?auth=${tokenA}`,
+      content: `**Trade with ${target.username}**\n${HOST}/app/trade/${tradeId}?auth=${initiatorToken}`,
       flags: MessageFlags.Ephemeral,
     });
 
     try {
-      await target.send(`**${interaction.user.username}** wants to trade with you!\n${HOST}/app/trade/${tradeId}?auth=${tokenB}`);
+      await target.send(`**${interaction.user.username}** wants to trade with you!\n${HOST}/app/trade/${tradeId}?auth=${targetToken}`);
     } catch (_) {
       await interaction.followUp({
-        content: `Could not DM ${target.username} — they may have DMs disabled. Share this link with them: ${HOST}/app/trade/${tradeId}?auth=${tokenB}`,
+        content: `Could not DM ${target.username} — they may have DMs disabled. Share this link with them: ${HOST}/app/trade/${tradeId}?auth=${targetToken}`,
         flags: MessageFlags.Ephemeral,
       });
     }
