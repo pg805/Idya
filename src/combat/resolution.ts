@@ -120,16 +120,25 @@ export function resolveIntents(
   }
 
   // --- Action phase ---
-  for (const [id, intent] of intents) {
-    if (intent.action.type === 'pass') continue;
+  // Ordered: defend → attack → special. Within each category, player(s) before AI.
+  // After every individual action we sync HP, remove dead combatants, and end the
+  // fight if a team is wiped. This makes "Defend beats Attack" actually true
+  // (defends go up before attacks land) and matches the rock-paper-scissors the
+  // tutorial teaches.
+
+  // Resolve a single actor's intended action. Returns false if the actor's intent
+  // produces no action (pass / dead / unaffordable / unresolvable).
+  const runAction = (id: string): void => {
+    const intent = intents.get(id);
+    if (!intent || intent.action.type === 'pass') return;
 
     const actor = session.combatants.find(c => c.id === id);
-    if (!actor) continue;
+    if (!actor) return;
 
     const actorMeta = session.meta.get(id);
-    if (!actorMeta) continue;
+    if (!actorMeta) return;
 
-    if (actorMeta.state.health <= 0) continue; // killed earlier this turn, can't act
+    if (actorMeta.state.health <= 0) return; // killed earlier this turn, can't act
 
     const { weapon } = actorMeta;
     let action = null;
@@ -137,22 +146,21 @@ export function resolveIntents(
     if (intent.action.type === 'attack')  action = weapon.attack[intent.action.actionIndex]  ?? null;
     if (intent.action.type === 'special') action = weapon.special[intent.action.actionIndex] ?? null;
 
-    if (!action) continue;
+    if (!action) return;
 
     if (action.cost > 0 && action.cost > actorMeta.state.resource_current) {
       log.push(`${actor.name} cannot afford ${action.name}.`);
-      continue;
+      return;
     }
 
     if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
       pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
-      continue;
+      return;
     }
 
     if (action.aimed) {
-      // Aimed: hits the committed tile — target can dodge by moving off it
       const targetPos = intent.action.targetPos;
-      if (!targetPos) continue;
+      if (!targetPos) return;
 
       const dist = chebyshevDist(actor.pos, targetPos);
       const tileStr = `(${targetPos.x},${targetPos.y})`;
@@ -160,27 +168,27 @@ export function resolveIntents(
       if (dist > action.range) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — out of range (dist ${dist}).`);
-        continue;
+        return;
       }
       if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — no line of sight.`);
-        continue;
+        return;
       }
 
       const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
       if (!occupant) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — commits to empty space, misses.`);
-        continue;
+        return;
       }
       if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
         log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — friendly fire avoided.`);
-        continue;
+        return;
       }
 
       const targetMeta = session.meta.get(occupant.id);
-      if (!targetMeta) continue;
+      if (!targetMeta) return;
       pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(occupant.id)?.action.type === 'special') {
@@ -188,21 +196,20 @@ export function resolveIntents(
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
     } else {
-      // Reactive: auto-targets the nearest enemy in range after all moves
       const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
       const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
 
       if (inRange.length === 0) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} — no target in range.`);
-        continue;
+        return;
       }
 
       const target = inRange.reduce((a, b) =>
         chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b
       );
       const targetMeta = session.meta.get(target.id);
-      if (!targetMeta) continue;
+      if (!targetMeta) return;
       pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(target.id)?.action.type === 'special') {
@@ -210,49 +217,88 @@ export function resolveIntents(
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
     }
-  }
+  };
 
-  // --- Sync state → combatant ---
-  for (const c of session.combatants) {
-    const meta = session.meta.get(c.id);
-    if (meta) {
-      c.hp = meta.state.health;
-      c.resource = meta.state.resource_current;
+  // Sync HP + remove dead. Returns winner team id if a team is wiped, else null.
+  const reapAndCheck = (deathKind: 'damage' | 'dot'): string | null => {
+    for (const c of session.combatants) {
+      const meta = session.meta.get(c.id);
+      if (meta) {
+        c.hp = meta.state.health;
+        c.resource = meta.state.resource_current;
+      }
+    }
+    for (const team of session.teams) {
+      team.combatants = team.combatants.filter(c => {
+        if (c.hp <= 0) {
+          log.push(deathKind === 'dot'
+            ? `${c.name} is defeated by damage over time!`
+            : `${c.name} is defeated!`);
+          session.meta.delete(c.id);
+          return false;
+        }
+        return true;
+      });
+    }
+    const alive = session.teams.filter(t => t.combatants.length > 0);
+    if (alive.length < 2) return alive[0]?.id ?? null;
+    return null;
+  };
+
+  // Action sub-phases: defend → attack → special. Player first within each.
+  // Snapshot the actor order ONCE — combatants get removed mid-phase by reapAndCheck.
+  const playerIds = snapshot.filter(c => !c.isAI).map(c => c.id);
+  const aiIds     = snapshot.filter(c =>  c.isAI).map(c => c.id);
+  const orderedIds = [...playerIds, ...aiIds];
+
+  const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];
+
+  let earlyWinner: string | null = null;
+
+  outer: for (const phase of subPhases) {
+    for (const id of orderedIds) {
+      const intent = intents.get(id);
+      if (!intent || intent.action.type !== phase) continue;
+      runAction(id);
+      const w = reapAndCheck('damage');
+      if (w !== null) { earlyWinner = w; break outer; }
+      // If only one team has combatants but the winner is still null (e.g. all
+      // remaining actors are on the same team and nobody died this action),
+      // reapAndCheck returns the surviving team id only when len < 2 — covered.
     }
   }
 
-  // --- Remove combatants killed by direct damage ---
-  for (const team of session.teams) {
-    team.combatants = team.combatants.filter(c => {
-      if (c.hp <= 0) {
-        log.push(`${c.name} is defeated!`);
-        session.meta.delete(c.id);
-        return false;
-      }
-      return true;
-    });
+  if (earlyWinner !== null || session.teams.some(t => t.combatants.length === 0)) {
+    session.turn++;
+    session.phase = 'ended';
+    session.pendingIntents.clear();
+    return { log, winner: earlyWinner };
   }
 
-  // --- End of round: tick DOT and status effects ---
-  for (const c of session.combatants) {
+  // --- End of round: tick DOT/status sequentially (enemies first), checking
+  // for death after each tick. First combatant to reach 0 ends the fight for
+  // their team; the other side's DOT never gets to tick.
+  let winner: string | null = null;
+  const dotOrder = [...session.combatants].sort((a, b) => Number(b.isAI) - Number(a.isAI));
+  for (const c of dotOrder) {
     const meta = session.meta.get(c.id);
     if (!meta) continue;
     const endStr = meta.state.end_round();
     c.hp = meta.state.health;
     c.resource = meta.state.resource_current;
     if (endStr) pushLog(log, endStr);
-  }
 
-  // --- Remove combatants that died to DOT ---
-  for (const team of session.teams) {
-    team.combatants = team.combatants.filter(c => {
-      if (c.hp <= 0) {
-        log.push(`${c.name} is defeated by damage over time!`);
-        session.meta.delete(c.id);
-        return false;
+    if (c.hp <= 0) {
+      const team = session.teams.find(t => t.id === c.teamId);
+      if (team) team.combatants = team.combatants.filter(x => x.id !== c.id);
+      session.meta.delete(c.id);
+      log.push(`${c.name} is defeated by damage over time!`);
+      const alive = session.teams.filter(t => t.combatants.length > 0);
+      if (alive.length === 1) {
+        winner = alive[0].id;
+        break;
       }
-      return true;
-    });
+    }
   }
 
   // --- Advance AI pattern indices ---
@@ -261,10 +307,6 @@ export function resolveIntents(
       meta.patternIndex = (meta.patternIndex + 1) % meta.pattern.length;
     }
   }
-
-  // --- Check win condition ---
-  const aliveTeams = session.teams.filter(t => t.combatants.length > 0);
-  const winner = aliveTeams.length === 1 ? aliveTeams[0].id : null;
 
   session.turn++;
   session.phase = winner ? 'ended' : 'intent';

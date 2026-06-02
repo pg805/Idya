@@ -147,8 +147,55 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 
-function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+// Apply per-character customizations (base/recipe bonuses, player upgrades, enchants)
+// to a freshly-loaded Weapon in place. Without this, combat rolls against the base
+// YAML field instead of the upgraded one.
+type WeaponUpgradesJson = {
+  base?:     Record<string, number | number[]>;
+  player?:   unknown;
+  enchants?: Record<string, { kind?: string; subtype?: string; type?: string; delta?: number | number[] }>;
+};
+function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJson: unknown): void {
+  if (!upgradesJson || typeof upgradesJson !== 'object') return;
+  const upgrades = upgradesJson as WeaponUpgradesJson;
+  const baseDeltas     = (upgrades.base ?? {}) as Record<string, number | number[]>;
+  const professions    = weaponUpgradeProfessions(weaponKey);
+  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
+  const enchants       = upgrades.enchants ?? {};
+
+  const allCategories = [weapon.defend, weapon.defend_crit, weapon.attack, weapon.attack_crit, weapon.special, weapon.special_crit];
+  for (const category of allCategories) {
+    for (const action of category) {
+      const name = action.name;
+      const a    = action as unknown as { field?: { field: number[]; length: number }; value?: number; damage_type?: string; damage_subtype?: string };
+
+      if (a.field && Array.isArray(a.field.field) && a.field.field.length > 0) {
+        const base    = a.field.field;
+        const baseB   = (baseDeltas[name] as number[] | undefined) ?? base.map(() => 0);
+        const playerB = summedFieldBonus(playerUpgrades, professions, name, base.length);
+        const enchB   = enchants[name]?.delta;
+        const enchArr = Array.isArray(enchB) ? enchB : base.map(() => 0);
+        a.field.field = base.map((v, i) => v + (baseB[i] ?? 0) + (playerB[i] ?? 0) + (enchArr[i] ?? 0));
+      } else if (typeof a.value === 'number' && a.value > 0) {
+        const baseB   = (baseDeltas[name] as number | undefined) ?? 0;
+        const playerB = summedValueBonus(playerUpgrades, professions, name);
+        const enchB   = enchants[name]?.delta;
+        const enchV   = typeof enchB === 'number' ? enchB : 0;
+        a.value = a.value + baseB + playerB + enchV;
+      }
+
+      const ench = enchants[name];
+      if (ench) {
+        if (ench.subtype) a.damage_subtype = ench.subtype;
+        if (ench.type)    a.damage_type    = ench.type;
+      }
+    }
+  }
+}
+
+function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+  if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
   const fistsInfo = buildWeaponInfo(weapon);
   const playerHp  = weapon.hp;
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
@@ -306,6 +353,14 @@ async function equippedWeaponKey(char: { equipped_weapon_id: string | null }): P
   return w?.weapon_key ?? null;
 }
 
+// Load equipped weapon's key + upgrades (the data combat needs to roll correct fields).
+async function equippedWeaponForCombat(char: { equipped_weapon_id: string | null }): Promise<{ key: string; upgrades: unknown } | null> {
+  if (!char.equipped_weapon_id) return null;
+  const w = await prisma.characterWeapon.findUnique({ where: { id: char.equipped_weapon_id } });
+  if (!w) return null;
+  return { key: w.weapon_key, upgrades: w.upgrades };
+}
+
 // Count total bonuses on a weapon (base + player + enchants) for display as "+N"
 function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
   const raw = loadWeaponYaml(weaponKey, __dirname);
@@ -395,6 +450,103 @@ app.get('/api/info/enemies', (_req: Request, res: Response) => {
   res.json({ enemies });
 });
 
+// ---- Hunt ----
+
+function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {
+  const path = join(__dirname, `../../database/enemies/${enemyKey}.yaml`);
+  if (!fs.existsSync(path)) return null;
+  const raw = yaml.load(fs.readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  const loot = (raw['Loot'] as { Items?: Array<{ id: string; type: string; Field: number[] }> } | undefined)?.Items ?? [];
+  const drops = loot.map(d => ({
+    item_id: d.id,
+    name:    ITEMS[d.id]?.name ?? d.id,
+    type:    d.type,
+    field:   d.Field ?? [],
+  }));
+  return { name: raw['Name'] as string, health: raw['Health'] as number, drops };
+}
+
+app.get('/api/hunt', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  const tutorialComplete = !!dbUser?.tutorial_complete;
+
+  const baitRows = await prisma.inventoryItem.findMany({
+    where: { character_id: char.id, item_id: { in: BAIT_ITEM_IDS } },
+  });
+  const owned = baitRows.filter(r => r.quantity > 0);
+
+  const baits = owned.map(r => {
+    const enemyKey = BAIT_TO_ENEMY[r.item_id];
+    const enemy    = loadEnemySummary(enemyKey);
+    return {
+      bait_id:   r.item_id,
+      bait_name: ITEMS[r.item_id]?.name ?? r.item_id,
+      quantity:  r.quantity,
+      enemy_key:    enemyKey,
+      enemy_name:   enemy?.name ?? enemyKey,
+      enemy_health: enemy?.health ?? 0,
+      enemy_sprite: `${HOST}/sprites/${enemyKey}.png`,
+      drops:        enemy?.drops ?? [],
+    };
+  }).sort((a, b) => a.enemy_health - b.enemy_health);
+
+  res.json({ baits, tutorial_complete: tutorialComplete });
+});
+
+app.post('/api/hunt/start', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { bait_id } = req.body ?? {};
+  if (typeof bait_id !== 'string' || !(bait_id in BAIT_TO_ENEMY)) {
+    res.status(400).json({ error: 'Invalid bait' });
+    return;
+  }
+  const enemyKey = BAIT_TO_ENEMY[bait_id];
+
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
+  if (!dbUser?.tutorial_complete) {
+    res.status(403).json({ error: 'Finish the tutorial first — use /battle to talk to Fendalok.' });
+    return;
+  }
+
+  const consumed = await prisma.$transaction(async tx => {
+    const inv = await tx.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
+    });
+    if (!inv || inv.quantity < 1) return false;
+    if (inv.quantity === 1) {
+      await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: bait_id } } });
+    } else {
+      await tx.inventoryItem.update({
+        where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
+        data: { quantity: { decrement: 1 } },
+      });
+    }
+    return true;
+  });
+  if (!consumed) { res.status(400).json({ error: "You don't have that bait." }); return; }
+
+  const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
+  const sessionId    = Math.random().toString(36).slice(2, 10);
+  const equipped     = await equippedWeaponForCombat(char);
+  const weaponKey    = equipped?.key ?? 'branch';
+  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades);
+  sessions.set(sessionId, huntSession);
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+
+  res.json({ session_url: `/battle/${sessionId}` });
+});
+
 app.get('/api/character', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
@@ -402,10 +554,11 @@ app.get('/api/character', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const weapons = await prisma.characterWeapon.findMany({
-    where: { character_id: char.id },
-    orderBy: { created_at: 'asc' },
-  });
+  const [weapons, dbUser, profRows] = await Promise.all([
+    prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
+    prisma.user.findUnique({ where: { discord_id: discordId } }),
+    prisma.characterProfession.findMany({ where: { character_id: char.id } }),
+  ]);
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
     return {
@@ -420,6 +573,10 @@ app.get('/api/character', async (req: Request, res: Response) => {
     };
   }).sort((a, b) => Number(b.equipped) - Number(a.equipped) || a.name.localeCompare(b.name));
 
+  const profLevels: Record<string, number> = {};
+  for (const p of profRows) profLevels[p.profession] = p.level;
+  const combined = profRows.reduce((sum, p) => sum + p.level, 0);
+
   res.json({
     id:           char.id,
     name:         char.name,
@@ -431,6 +588,15 @@ app.get('/api/character', async (req: Request, res: Response) => {
     max_health:   char.max_health,
     equipped_weapon_id: char.equipped_weapon_id,
     weapons:      weaponList,
+    korel:        dbUser?.korel ?? 0,
+    professions: Object.fromEntries(
+      PROFESSIONS.map(p => [p, {
+        label:    PROFESSION_NAMES[p],
+        level:    profLevels[p] ?? 0,
+        maxLevel: PROFESSION_MAX_LEVEL,
+        nextCost: (profLevels[p] ?? 0) < PROFESSION_MAX_LEVEL ? levelCost(combined) : null,
+      }])
+    ),
   });
 });
 
@@ -1148,10 +1314,14 @@ app.get('/api/craft', async (req: Request, res: Response) => {
     levelMet:       (profLevels[r.profession] ?? 0) >= r.required_level,
     ingredientsMet: r.ingredients.every(ingredientMet),
     available:      (profLevels[r.profession] ?? 0) >= r.required_level && r.ingredients.every(ingredientMet),
-    ingredients: r.ingredients.map(i => ({
-      ...i,
-      name: i.item_id ? (ITEMS[i.item_id]?.name ?? i.item_id) : (i.weapon_id ?? ''),
-    })),
+    ingredients: r.ingredients.map(i => {
+      if (i.item_id) return { ...i, name: ITEMS[i.item_id]?.name ?? i.item_id };
+      if (i.weapon_id) {
+        const raw = loadWeaponYaml(i.weapon_id, __dirname) as Record<string, unknown> | null;
+        return { ...i, name: (raw?.['Name'] as string | undefined) ?? i.weapon_id };
+      }
+      return { ...i, name: '' };
+    }),
   }));
 
   res.json({
@@ -1348,7 +1518,11 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
       const budget   = profBudgets[i];
       const atCap    = profUsed >= budget || weaponAtCap;
-      return { profession: prof, used: profUsed, budget, at_cap: atCap, next_cost: atCap ? null : upgradeCost(weaponTotal + 1, prof) };
+      const cost = atCap ? null : upgradeCost(weaponTotal + 1, prof);
+      return {
+        profession: prof, used: profUsed, budget, at_cap: atCap,
+        next_cost: cost ? { ...cost, material_name: ITEMS[cost.material]?.name ?? cost.material } : null,
+      };
     });
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
@@ -1444,7 +1618,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     const budget     = budgetForLevel(profLevelOf(profession));
     const weaponCap  = weaponUpgradeCap(validProfessions.map(p => budgetForLevel(profLevelOf(p))));
 
-    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
+    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown> };
     const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
     const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
     const profUsed    = totalUpgradesUsed(profDeltas, fieldLens);
@@ -1462,7 +1636,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
       where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
     });
     if ((invRow?.quantity ?? 0) < cost.quantity) {
-      return { success: false, message: `Need ${cost.quantity} ${cost.material} (have ${invRow?.quantity ?? 0}).` };
+      return { success: false, message: `Need ${cost.quantity} ${ITEMS[cost.material]?.name ?? cost.material} (have ${invRow?.quantity ?? 0}).` };
     }
 
     if (invRow!.quantity === cost.quantity) {
@@ -1484,7 +1658,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
       where: { id: weaponId },
-      data: { upgrades: { base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
+      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
@@ -1961,16 +2135,19 @@ io.on('connection', (socket: Socket) => {
 
     let playerName = 'Hero';
     let playerWeaponKey = 'branch';
+    let playerUpgrades: unknown = null;
     const playerSprite = session.combatants.find(c => !c.isAI)?.sprite;
     if (oldMeta) {
       const chars = await charRepo.list(oldMeta.discordUserId).catch(() => []);
       if (chars[0]) {
         playerName = chars[0].name;
-        playerWeaponKey = (await equippedWeaponKey(chars[0])) ?? 'branch';
+        const equipped = await equippedWeaponForCombat(chars[0]);
+        playerWeaponKey = equipped?.key ?? 'branch';
+        playerUpgrades  = equipped?.upgrades ?? null;
       }
     }
 
-    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey);
+    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
       sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date(), rounds: [] });
@@ -2349,95 +2526,10 @@ if (discordToken) {
         await interaction.reply({ content: "You can only hunt in the forest.", flags: MessageFlags.Ephemeral });
         return;
       }
-
-      const chars = await charRepo.list(interaction.user.id);
-      if (chars.length === 0) {
-        await interaction.reply({ content: "You don't have a character yet. Use the button in welcome to get started.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const dbUser = await prisma.user.findUnique({ where: { discord_id: interaction.user.id } });
-      if (!dbUser?.tutorial_complete) {
-        await interaction.reply({ content: "Talk to Fendalok first — use `/battle` to start the tutorial.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const baitRows = await prisma.inventoryItem.findMany({
-        where: { character_id: chars[0].id, item_id: { in: BAIT_ITEM_IDS } },
-      });
-      const availableBait = baitRows.filter(r => r.quantity > 0);
-
-      if (availableBait.length === 0) {
-        await interaction.reply({ content: "You don't have any bait. Visit the General Store to pick some up.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const baitButtons = availableBait.map(r =>
-        new ButtonBuilder()
-          .setCustomId(`Hunt_${r.item_id}`)
-          .setLabel(`${ITEMS[r.item_id]?.name ?? r.item_id} (${r.quantity})`)
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-      for (let i = 0; i < baitButtons.length; i += 5) {
-        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(baitButtons.slice(i, i + 5)));
-      }
-
+      const token = getOrCreateToken(interaction.user.id);
       await interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x1a1a2e)
-            .setTitle('Sulkupa Forest')
-            .setDescription('The trees are dense this far out. Choose your bait and head in.'),
-        ],
-        components: rows,
+        content: `Sulkupa Forest awaits. ${HOST}/app/hunt?auth=${token}`,
         flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId.startsWith('Hunt_')) {
-      const baitId = interaction.customId.replace('Hunt_', '');
-      const enemyKey = BAIT_TO_ENEMY[baitId];
-      if (!enemyKey) return;
-
-      const chars = await charRepo.list(interaction.user.id);
-      if (chars.length === 0) return;
-      const char = chars[0];
-
-      const consumed = await prisma.$transaction(async tx => {
-        const inv = await tx.inventoryItem.findUnique({
-          where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
-        });
-        if (!inv || inv.quantity < 1) return false;
-        if (inv.quantity === 1) {
-          await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: baitId } } });
-        } else {
-          await tx.inventoryItem.update({
-            where: { character_id_item_id: { character_id: char.id, item_id: baitId } },
-            data: { quantity: { decrement: 1 } },
-          });
-        }
-        return true;
-      });
-
-      if (!consumed) {
-        await interaction.update({ content: "You don't have that bait anymore.", embeds: [], components: [] });
-        return;
-      }
-
-      const playerSprite = char.sprite_token ? `${HOST}/sprites/${char.sprite_token}.png` : undefined;
-      const sessionId = Math.random().toString(36).slice(2, 10);
-      const charWeaponKey = (await equippedWeaponKey(char)) ?? 'branch';
-      const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, charWeaponKey);
-      sessions.set(sessionId, huntSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
-
-      await interaction.update({
-        content: `**Into the forest!**\n${HOST}/battle/${sessionId}`,
-        embeds: [],
-        components: [],
       });
       return;
     }
@@ -2519,7 +2611,7 @@ if (discordToken) {
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
               .setLabel('Follow Fendalok')
-              .setURL(`${HOST}/battle/${sessionId}`)
+              .setURL(`${HOST}/battle/${sessionId}?auth=${getOrCreateToken(interaction.user.id)}`)
               .setStyle(ButtonStyle.Link)
           ),
         ],

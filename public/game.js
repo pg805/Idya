@@ -25,6 +25,33 @@ const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
 const logEl           = document.getElementById('combat-log');
 
+// ---- Combat log filters ----
+const LOG_FILTER_KEY = 'idya.log_filters';
+function loadLogFilters() {
+  try { return JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}'); }
+  catch (_) { return {}; }
+}
+const LOG_FILTER_KEYS = ['flavor', 'action-head', 'mechanics', 'move'];
+function applyLogFilters(state) {
+  for (const key of LOG_FILTER_KEYS) {
+    logEl.classList.toggle(`hide-${key}`, state[key] === false);
+    const box = document.querySelector(`#log-filters input[data-filter="${key}"]`);
+    if (box) box.checked = state[key] !== false;
+  }
+}
+(function initLogFilters() {
+  const state = loadLogFilters();
+  applyLogFilters(state);
+  document.querySelectorAll('#log-filters input[data-filter]').forEach(box => {
+    box.addEventListener('change', () => {
+      const next = loadLogFilters();
+      next[box.dataset.filter] = box.checked;
+      localStorage.setItem(LOG_FILTER_KEY, JSON.stringify(next));
+      applyLogFilters(next);
+    });
+  });
+})();
+
 // ---- Socket ----
 socket.on('connect', () => {
   connStatusEl.textContent = 'Connected';
@@ -215,6 +242,13 @@ function render() {
 function renderBoard() {
   const { width, height, obstacles } = state.board;
   boardEl.style.gridTemplateColumns = `repeat(${width}, 72px)`;
+  // Lock #left-col to the board's pixel width. Otherwise the action panel's
+  // flex-wrap button row can be intrinsically wider than the board, which
+  // stretches the column on action-pick frames and snaps it back on
+  // waiting/idle frames — visible as the grid "jumping" and a blank gap
+  // appearing between the board and the combat log.
+  const boardPxWidth = width * 72 + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
+  document.getElementById('left-col').style.width = `${boardPxWidth}px`;
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
@@ -284,11 +318,11 @@ function renderActionPanel() {
   if (ui.phase === 'ended') {
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
     if (!isTutorial) {
-      const hint = document.createElement('div');
-      hint.className = 'action-title';
-      hint.style.marginTop = '8px';
-      hint.textContent = 'Return to Discord to start another battle.';
-      actionPanelEl.appendChild(hint);
+      const again = document.createElement('a');
+      again.href = '/app/hunt';
+      again.className = 'battle-again-btn';
+      again.textContent = 'Return to Town';
+      actionPanelEl.appendChild(again);
     }
     return;
   }
@@ -350,7 +384,9 @@ function renderActionPanel() {
     const canAfford = action.cost <= 0 || action.cost <= player.resource;
     const btn = document.createElement('button');
     btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
-    btn.textContent = action.label;
+    btn.innerHTML = action.choice && action.choice !== 'pass'
+      ? `<span class="action-tag">${action.choice}</span> ${action.label}`
+      : action.label;
     if (!canAfford) btn.disabled = true;
 
     const parts = [];
@@ -381,6 +417,19 @@ function renderActionPanel() {
   }
 }
 
+function statusBadgesHtml(status) {
+  if (!status) return '';
+  const badges = [];
+  // Block carries no rounds — it resets at end of turn — show as a single value.
+  if (status.block > 0)         badges.push(`<span class="badge badge-block">🛡 ${status.block}</span>`);
+  if (status.shield?.rounds > 0)  badges.push(`<span class="badge badge-shield">◆ ${status.shield.value} <i>${status.shield.rounds}r</i></span>`);
+  if (status.dot?.rounds > 0)     badges.push(`<span class="badge badge-dot">☠ ${status.dot.value} <i>${status.dot.rounds}r</i></span>`);
+  if (status.buff?.rounds > 0)    badges.push(`<span class="badge badge-buff">▲ ${status.buff.value} <i>${status.buff.rounds}r</i></span>`);
+  if (status.debuff?.rounds > 0)  badges.push(`<span class="badge badge-debuff">▼ ${status.debuff.value} <i>${status.debuff.rounds}r</i></span>`);
+  if (status.reflect?.rounds > 0) badges.push(`<span class="badge badge-reflect">↺ ${status.reflect.value} <i>${status.reflect.rounds}r</i></span>`);
+  return badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
+}
+
 function renderCombatantList() {
   combatantListEl.innerHTML = '';
   if (!state) return;
@@ -400,6 +449,7 @@ function renderCombatantList() {
       <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>
       <div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>
       <div class="hp-text">${c.resource ?? '?'} / ${c.maxResource ?? '?'} ${c.resourceName ?? ''}</div>
+      ${statusBadgesHtml(c.status)}
       ${telegraph ? `<div class="telegraph">${telegraph}</div>` : ''}
     `;
     combatantListEl.appendChild(card);
@@ -458,13 +508,9 @@ function onCellClick(x, y) {
   }
 
   if (ui.phase === 'selecting_target') {
-    if (clicked?.id === ui.selected?.id) {
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
-      return;
-    }
+    // Don't bump back to action select on own-tile click — the Back button does
+    // that, and intercepting clicks here blocks legitimate target-tile picks
+    // (incl. self-targeting Heal/Buff actions).
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };
@@ -511,11 +557,25 @@ function resetSession() {
 }
 
 // ---- Log ----
+function classifyLogLine(line) {
+  if (line.startsWith('━━━'))                                    return 'turn-divider';
+  if (line.startsWith('★'))                                      return 'crit';
+  if (line.includes('is defeated'))                              return 'status';
+  if (/ moves \(\d+,\d+\) → \(\d+,\d+\)\.?$/.test(line))         return 'move';
+  if (line.includes('yields to') || line.includes('tie for the same tile')) return 'move';
+  if (/^Roll:/.test(line) || /^DOT:/.test(line))                 return 'mechanics';
+  if (line.includes('takes') && line.includes('DOT damage'))     return 'mechanics';
+  if (line.includes('damage reflected to'))                      return 'mechanics';
+  if (/expired|wore off/i.test(line))                            return 'status';
+  if (line.includes(' — '))                                      return 'action-head';
+  // Default: narrative prose from the action_string template.
+  return 'flavor';
+}
+
 function appendLog(lines, cls = '') {
   for (const line of lines) {
     const p = document.createElement('p');
-    const autoClass = line.startsWith('★') ? 'crit' : '';
-    p.className = cls || autoClass;
+    p.className = cls || classifyLogLine(line);
     p.textContent = line;
     logEl.appendChild(p);
   }

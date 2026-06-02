@@ -25,6 +25,8 @@
     render();
   }
 
+  const PROF_SHOP = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchanter: 'enchanting_shop' };
+
   function render() {
     const body = document.getElementById('char-body');
     const c = data;
@@ -42,6 +44,23 @@
         </td>
       </tr>
     `).join('');
+
+    const profRows = Object.entries(c.professions ?? {}).map(([key, p]) => {
+      const atMax     = p.level >= p.maxLevel;
+      const canAfford = p.nextCost != null && (c.korel ?? 0) >= p.nextCost;
+      const cost      = p.nextCost != null ? p.nextCost.toLocaleString() : null;
+      return `
+        <tr>
+          <td class="char-prof-name">${esc(p.label)}</td>
+          <td class="char-prof-level">Lv ${p.level} <span>/ ${p.maxLevel}</span></td>
+          <td class="char-prof-cost">${atMax ? 'Mastered' : cost != null ? `${cost} korel` : 'Cap'}</td>
+          <td class="char-prof-action">
+            ${!atMax && cost != null
+              ? `<button class="char-train-btn" onclick="Views.character.train('${esc(PROF_SHOP[key])}')" ${canAfford ? '' : 'disabled'}>Train</button>`
+              : ''}
+          </td>
+        </tr>`;
+    }).join('');
 
     body.innerHTML = `
       <section class="char-hero">
@@ -64,6 +83,12 @@
         </div>
       </section>
 
+      ${profRows ? `
+      <section class="char-section">
+        <h3 class="char-section-label">Professions</h3>
+        <table class="char-prof-table"><tbody>${profRows}</tbody></table>
+      </section>` : ''}
+
       <section class="char-section">
         <h3 class="char-section-label">Weapons</h3>
         ${c.weapons.length === 0
@@ -71,6 +96,20 @@
           : `<table class="char-weapon-table"><tbody>${weaponRows}</tbody></table>`}
       </section>
     `;
+  }
+
+  async function train(shopKey) {
+    const res = await fetch(`/api/shop/${shopKey}/train`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const r = await res.json();
+    toast(r.message ?? r.error ?? 'Error', r.success === true);
+    if (r.success) {
+      await mountLayout();
+      await loadData();
+    }
   }
 
   async function equip(weaponId) {
@@ -99,5 +138,5 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.character = { mount, unmount, equip };
+  window.Views.character = { mount, unmount, equip, train };
 })();

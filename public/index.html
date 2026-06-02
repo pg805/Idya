@@ -5,33 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Idya Combat</title>
   <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/game.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
 <body>
-  <h1>IDYA COMBAT</h1>
+  <div id="layout-root"></div>
 
-  <div id="status-bar">
-    <span id="turn-label">Turn 1</span>
-    <span class="sep">·</span>
-    <span id="phase-label">waiting</span>
-    <span class="sep">·</span>
-    <span id="connection-status" class="disconnected">Connecting...</span>
+  <div id="battle-shell">
+    <div id="status-bar">
+      <span id="turn-label">Turn 1</span>
+      <span class="sep">·</span>
+      <span id="phase-label">waiting</span>
+      <span class="sep">·</span>
+      <span id="connection-status" class="disconnected">Connecting...</span>
+    </div>
+
+    <div id="main-layout">
+      <div id="left-col">
+        <div id="board"></div>
+        <div id="action-panel"></div>
+        <div id="combatant-list"></div>
+      </div>
+      <div id="right-col">
+        <div id="log-header">
+          <span>Combat Log</span>
+          <div id="log-filters">
+            <label><input type="checkbox" data-filter="flavor"     checked> Flavor</label>
+            <label><input type="checkbox" data-filter="action-head" checked> Actions</label>
+            <label><input type="checkbox" data-filter="mechanics"  checked> Mechanics</label>
+            <label><input type="checkbox" data-filter="move"       checked> Moves</label>
+          </div>
+        </div>
+        <div id="combat-log"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="main-layout">
-    <div id="left-col">
-      <div id="board"></div>
-      <div id="action-panel"></div>
-      <div id="combatant-list"></div>
-    </div>
-    <div id="right-col">
-      <div id="log-header">Combat Log</div>
-      <div id="combat-log"></div>
-    </div>
-  </div>
-
+  <script src="/auth.js"></script>
+  <script src="/layout.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/game.js"></script>
+  <script>
+    (async function initBattleLayout() {
+      await claimAuthFromUrl();
+      await mountLayout({ title: 'Combat' });
+    })();
+  </script>
 </body>
 </html>

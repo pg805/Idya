@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.1.1 — 2026-06-01
+
+Hunting moves into the web app, combat resolution gets a real per-phase
+death check, and a swarm of small UX + naming polish across the battle
+screen and shops.
+
+### Hunt → Web App
+- **Bait picker in the SPA** — `/hunt` now opens the hunt view inside the web app instead of running through Discord buttons; #forest channel gate preserved
+- **Battle screen on the new palette** — colors brought into line with the rest of `/app`; status bar, action panel, log, and combatant cards all use the shared CSS variables
+- **SPA layout header on battle page** — battle pages now show the same top header as the rest of the app, so navigation stays put when a fight starts
+- **"Return to Town"** — post-battle button now lands you back on the hunt view inside the app
+- **Profession train buttons moved** — out of the always-visible header and onto the Character page where they belong
+
+### Combat Resolution
+- **Sub-phase ordering: defend → attack → special** — actions now resolve in this fixed order within a round (this is what the tutorial has been teaching all along; previously they ran in submission order)
+- **Player before AI within each sub-phase** — player defends, then AI defends, with a death check between each action. An AI's Defend action is no longer wasted on the trigger turn
+- **Sequential DOT** — end-of-round damage-over-time ticks one combatant at a time (AI first), with a death check between every tick
+- **First-to-zero loses** — if both sides hit 0 in the same step, the side that hit 0 first loses. No player-default tie-break
+- **Battle ends on enemy KO** — a post-kill DOT can't cause a tie anymore; the round resolves as soon as one team is wiped
+
+### Combat UI
+- **Log line classification** — lines tagged as flavor / action-head / mechanics / move / status / crit and colored accordingly. Flavor text now reads as italic gold, mechanics as monospace muted
+- **Log filter chips** — Flavor / Actions / Mechanics / Moves toggles in the log header, with localStorage persistence
+- **Action category tags** — every action button now shows a `[defend]` / `[attack]` / `[special]` chip before the action name, so the rock-paper-scissors structure is visible at pick time
+- **Status badges on combatant cards** — block, shield, DOT, buff, debuff, reflect each render as a small badge with remaining rounds
+- **Own-tile target click fix** — clicking your own tile during target selection no longer bounces back to action select; self-targeting actions (Heal/Buff) can pick the player's tile
+
+### Naming Consistency
+- **Upgrade material names** — `/api/upgrade` now sends `material_name` alongside the id, so "Next: 3 Treated Sulwood" displays instead of `treated_sulwood`. "Need N material" error also uses the display name
+- **Craft ingredient names** — hybrid weapon ingredients (sword_talamite, axe_talamite, etc.) resolve to the YAML Name instead of leaking the raw key
+- **Shop toast bold** — buy/sell messages dropped the `**markdown bold**` since web toasts render asterisks literally
+
+### Fixes
+- **Weapon upgrades weren't applied in combat** — `createSession` rolled against the base weapon Field. Now applies the upgrade JSON (`base + player + enchants`) to the Weapon's actions before the session starts. Sebastian's Wand rolling 21 against a minimum 29 was the trigger
+- **Upgrade endpoint wiped enchants** — the upgrade write was clobbering the `enchants` sub-key. Now spreads existing upgrades and only overwrites `base` / `player`
+- **Shop stock display when full** — venison and other items couldn't be sold when shops hit max stock because the sell list hid quantity info. Stock now shows `XXX/YYY` and owned quantity stays visible even at cap
+- **Crafting page locked recipes invisible** — `--text-vdim` on the dark background made locked recipe text unreadable. Switched to `--text-faint`
+
+### Infrastructure
+- **Deploy scripts `unset DATABASE_URL`** — the webhook process inherits `DATABASE_URL` from its environment, which was leaking into spawned deploy shells and causing prod deploys to connect to the dev database. Both `deploy.sh` and `deploy-prod.sh` now unset it so Prisma reads the repo's `.env`
+
+---
+
 ## 0.1.0 — 2026-05-31
 
 First major post-demo iteration. Web app SPA, unique weapon instances,
