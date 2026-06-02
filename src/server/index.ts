@@ -1136,7 +1136,7 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   let totalCost = 0, totalRevenue = 0;
   const buyLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; infinite: boolean; stockMax: number }> = [];
   const sellLines: Array<{ id: string; name: string; quantity: number; unitPrice: number; stockMax: number }> = [];
-  const weaponSellLines: Array<{ id: string; weapon_key: string; name: string; unitPrice: number; bonus_count: number }> = [];
+  const weaponSellLines: Array<{ id: string; weapon_key: string; name: string; unitPrice: number; bonus_count: number; stockMax: number }> = [];
 
   for (const b of buys) {
     const item = findItem(b.itemId);
@@ -1188,6 +1188,7 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       name: (raw?.['Name'] as string | undefined) ?? row.weapon_key,
       unitPrice: price.sell,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
+      stockMax: price.stock_max,
     });
   }
 
@@ -1287,7 +1288,13 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       });
     }
 
-    // Apply weapon sells: re-check ownership/equipped within the txn, then delete.
+    // Apply weapon sells: re-check ownership/equipped within the txn, enforce
+    // the shop's stock cap per weapon_key, and update stock/volumes the same
+    // way item-sells do. Without this, shop stock + price model both ignored
+    // weapon traffic — see ShopItemState for spellbook stuck at the daily-tick
+    // baseline despite 21 sells.
+    const soldWeapons: typeof weaponSellLines = [];
+    const skippedWeapons: typeof weaponSellLines = [];
     for (const w of weaponSellLines) {
       const row = await tx.characterWeapon.findUnique({ where: { id: w.id } });
       if (!row || row.character_id !== charId) {
@@ -1296,23 +1303,37 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       if (row.id === equippedId) {
         return { success: false, message: `Unequip ${w.name} before selling.` };
       }
+      const state = await tx.shopItemState.findUnique({
+        where: { shop_id_item_id: { shop_id: shopKey, item_id: w.weapon_key } },
+      });
+      if ((state?.stock ?? 0) >= w.stockMax) {
+        skippedWeapons.push(w);
+        continue;
+      }
       await tx.characterWeapon.delete({ where: { id: w.id } });
+      await tx.shopItemState.upsert({
+        where:  { shop_id_item_id: { shop_id: shopKey, item_id: w.weapon_key } },
+        update: { stock: { increment: 1 }, cumulative_volume: { increment: 1 }, recent_volume: { increment: 1 } },
+        create: { shop_id: shopKey, item_id: w.weapon_key, x: 0.5, stock: 1, cumulative_volume: 1, recent_volume: 1 },
+      });
       await tx.shopTransaction.create({
         data: { shop_id: shopKey, item_id: w.weapon_key, type: 'sell', quantity: 1, discord_id: discordId },
       });
+      soldWeapons.push(w);
     }
 
-    // Recompute net based on adjustedSells (in case any were clamped) + weapon sells
+    // Recompute net using actually-sold lines (item-sells may have clamped to
+    // shop room; weapon-sells may have skipped entries for the same reason).
     const actualRevenue = adjustedSells.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
-                        + weaponSellLines.reduce((sum, l) => sum + l.unitPrice, 0);
+                        + soldWeapons.reduce((sum, l) => sum + l.unitPrice, 0);
     const actualNet = actualRevenue - totalCost;
 
     // Apply net korel + ledger
     if (actualNet !== 0) {
       const noteParts: string[] = [];
-      if (buyLines.length > 0)        noteParts.push(`${buyLines.length} buy`);
-      if (adjustedSells.length > 0)   noteParts.push(`${adjustedSells.length} sell`);
-      if (weaponSellLines.length > 0) noteParts.push(`${weaponSellLines.length} weapon`);
+      if (buyLines.length > 0)      noteParts.push(`${buyLines.length} buy`);
+      if (adjustedSells.length > 0) noteParts.push(`${adjustedSells.length} sell`);
+      if (soldWeapons.length > 0)   noteParts.push(`${soldWeapons.length} weapon`);
       await tx.user.update({
         where: { discord_id: discordId },
         data:  { korel: { increment: actualNet } },
@@ -1327,14 +1348,18 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
       });
     }
 
+    const skippedNote = skippedWeapons.length > 0
+      ? ` (${skippedWeapons.length} weapon${skippedWeapons.length === 1 ? '' : 's'} not taken — shop fully stocked)`
+      : '';
     return {
       success: true,
-      message: actualNet >= 0 ? `Checkout complete (+${actualNet} korel).` : `Checkout complete (${actualNet} korel).`,
+      message: (actualNet >= 0 ? `Checkout complete (+${actualNet} korel)` : `Checkout complete (${actualNet} korel)`) + skippedNote + '.',
       net: actualNet,
       buys: buyLines,
       sells: adjustedSells,
       buyWeapons: weaponBuyLines,
-      sellWeapons: weaponSellLines,
+      sellWeapons: soldWeapons,
+      skippedWeapons,
     };
   });
 
