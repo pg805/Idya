@@ -148,9 +148,17 @@
     } else if (state.status === 'complete') {
       setStatus('Trade complete!', 'ok');
     } else {
+      const youConfirmed  = state.you?.confirmed;
+      const themConfirmed = state.them?.confirmed;
+      const themName      = state.them?.charName ?? 'They';
       const parts = [];
-      if (youLocked)  parts.push('You are locked in.');
-      if (themLocked) parts.push(`${state.them?.charName ?? 'They'} is locked in.`);
+      if (youConfirmed)        parts.push('You confirmed.');
+      else if (youLocked)      parts.push('You are locked in.');
+      if (themConfirmed)       parts.push(`${themName} confirmed.`);
+      else if (themLocked)     parts.push(`${themName} is locked in.`);
+      if (bothLocked && (!youConfirmed || !themConfirmed)) {
+        parts.push(youConfirmed ? `Waiting for ${themName} to confirm…` : 'Confirm to complete.');
+      }
       setStatus(parts.join(' ') || 'Adjust your offer, then lock in.');
     }
 
