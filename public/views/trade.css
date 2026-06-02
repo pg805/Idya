@@ -65,6 +65,86 @@
   overflow-y: auto;
 }
 
+.trade-offer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trade-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trade-section-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+}
+
+.trade-row.disabled-row { opacity: 0.5; }
+.trade-row-meta {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.trade-bonus {
+  color: var(--teal-bright);
+  font-family: monospace;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.trade-weapon-btn {
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-2);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  min-width: 70px;
+}
+.trade-weapon-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+.trade-weapon-btn:disabled { opacity: 0.4; cursor: default; }
+.trade-row.offering .trade-weapon-btn {
+  background: var(--teal-bg);
+  border-color: var(--teal-dim);
+  color: var(--teal-bright);
+}
+
+.trade-korel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+}
+#your-korel-input {
+  width: 120px;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: monospace;
+  font-size: 0.9rem;
+  outline: none;
+}
+#your-korel-input:focus { border-color: var(--gold-dim); }
+#your-korel-input:disabled { opacity: 0.5; cursor: default; }
+
 .trade-row {
   display: flex;
   align-items: center;
