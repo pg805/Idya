@@ -327,7 +327,7 @@
   }
 
   function clearCart() {
-    cart = { buys: {}, sells: {}, weapons: new Set() };
+    cart = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };
     renderBuy(); renderSell(); renderCart();
   }
 
@@ -399,7 +399,7 @@
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
     document.body.classList.remove('cart-open');
-    data = null; cart = { buys: {}, sells: {} }; rootEl = null;
+    data = null; cart = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() }; rootEl = null;
   }
 
   window.Views = window.Views ?? {};
