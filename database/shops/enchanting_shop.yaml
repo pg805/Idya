@@ -9,7 +9,7 @@ Items:
     Base_Sell: 20
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 400
+    Volume_Sensitivity: 50
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.2
@@ -21,7 +21,7 @@ Items:
     Base_Sell: 40
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 100
+    Volume_Sensitivity: 20
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
@@ -32,7 +32,7 @@ Items:
     Base_Sell: 80
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 50
+    Volume_Sensitivity: 10
     Transaction_Threshold: 6
     Stock_Max: 80
     Stock_Influence: 0.25
@@ -43,7 +43,7 @@ Items:
     Base_Sell: 25
     R: 3.0
     R_Max: 3.99
-    Volume_Sensitivity: 400
+    Volume_Sensitivity: 80
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.15
@@ -55,7 +55,7 @@ Items:
     Base_Sell: 100
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -66,7 +66,7 @@ Items:
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -77,7 +77,7 @@ Items:
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -88,7 +88,7 @@ Items:
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -99,7 +99,7 @@ Items:
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -110,7 +110,7 @@ Items:
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 15
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3

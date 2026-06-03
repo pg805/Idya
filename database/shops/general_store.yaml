@@ -9,8 +9,8 @@ Items:
     Base_Sell: null
     Infinite: true
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -20,8 +20,8 @@ Items:
     Base_Buy: 5
     Base_Sell: null
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -31,8 +31,8 @@ Items:
     Base_Buy: 8
     Base_Sell: 2
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -42,8 +42,8 @@ Items:
     Base_Buy: 30
     Base_Sell: 10
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -53,8 +53,8 @@ Items:
     Base_Buy: 15
     Base_Sell: 5
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -64,8 +64,8 @@ Items:
     Base_Buy: 100
     Base_Sell: 30
     R: 1.0
-    R_Max: 1.0
-    Volume_Sensitivity: 0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
     Transaction_Threshold: 999
     Stock_Max: 9999
     Stock_Influence: 0
@@ -76,7 +76,7 @@ Items:
     Base_Sell: 6
     R: 3.0
     R_Max: 3.99
-    Volume_Sensitivity: 750
+    Volume_Sensitivity: 100
     Transaction_Threshold: 20
     Stock_Max: 1000
     Stock_Influence: 0.1
@@ -87,7 +87,7 @@ Items:
     Base_Sell: 30
     R: 3.0
     R_Max: 3.99
-    Volume_Sensitivity: 150
+    Volume_Sensitivity: 30
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
@@ -98,7 +98,7 @@ Items:
     Base_Sell: 50
     R: 3.0
     R_Max: 3.99
-    Volume_Sensitivity: 40
+    Volume_Sensitivity: 10
     Transaction_Threshold: 5
     Stock_Max: 50
     Stock_Influence: 0.35
