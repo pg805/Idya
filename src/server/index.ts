@@ -2511,8 +2511,14 @@ function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
 }
 
-function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+function buildWelcomeEmbed(
+  mention: string,
+  opts: { link?: string } = {},
+): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
   const mayor = worldConfig.npcs.mayor;
+  const button = opts.link
+    ? new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Link).setURL(opts.link)
+    : new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
   return {
     embeds: [
       new EmbedBuilder()
@@ -2526,14 +2532,7 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
           `*"Ah, another traveler, welcome to Sulku'it. My name is Fendalok and I'm the Padev around here. I take it you are here to help out in the forest. The empire* asks *that we record everyone in the town census log for tax purposes."*\n\n*Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.*\n\n*"You've got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."*`
         ),
     ],
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId('CreateChar_Begin')
-          .setLabel('Register in the Census Log')
-          .setStyle(ButtonStyle.Primary)
-      ),
-    ],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
   };
 }
 
@@ -2747,8 +2746,9 @@ if (discordToken) {
         return;
       }
       const token = getOrCreateToken(interaction.user.id);
+      const link  = `${HOST}/app/create?auth=${token}`;
       await interaction.reply({
-        content: `Register at the census log: ${HOST}/app/create?auth=${token}`,
+        ...buildWelcomeEmbed(`<@${interaction.user.id}>`, { link }),
         flags: MessageFlags.Ephemeral,
       });
       return;
