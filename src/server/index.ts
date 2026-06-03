@@ -244,18 +244,52 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
 
 // Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed
 // anywhere in the rectangle (1,0)-(5,4) inclusive. Player spawn (0,2) and
-// enemy spawn (6,2) are outside that rectangle so they can't be blocked.
+// enemy spawn (6,2) are outside that rectangle so they can't be obstacles
+// themselves. Layouts that wall the player off from the enemy (e.g. 5
+// obstacles in a single column) are rare but possible; we re-roll up to
+// a few times if the BFS can't reach.
+function pathExists(width: number, height: number, blocked: Set<string>, start: { x: number; y: number }, goal: { x: number; y: number }): boolean {
+  const seen = new Set<string>([`${start.x},${start.y}`]);
+  const q: { x: number; y: number }[] = [start];
+  while (q.length > 0) {
+    const p = q.shift()!;
+    if (p.x === goal.x && p.y === goal.y) return true;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = p.x + dx, ny = p.y + dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+        const k = `${nx},${ny}`;
+        if (seen.has(k) || blocked.has(k)) continue;
+        seen.add(k);
+        q.push({ x: nx, y: ny });
+      }
+    }
+  }
+  return false;
+}
+
 function randomHuntObstacles(): { pos: { x: number; y: number }; state: 'intact' }[] {
-  const candidates: { x: number; y: number }[] = [];
-  for (let x = 1; x <= 5; x++) {
-    for (let y = 0; y <= 4; y++) candidates.push({ x, y });
+  const W = 7, H = 5;
+  const PLAYER = { x: 0, y: 2 }, ENEMY = { x: 6, y: 2 };
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const candidates: { x: number; y: number }[] = [];
+    for (let x = 1; x <= 5; x++) {
+      for (let y = 0; y <= 4; y++) candidates.push({ x, y });
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const count = 2 + Math.floor(Math.random() * 5); // inclusive 2..6
+    const picked = candidates.slice(0, count);
+    const blocked = new Set(picked.map(p => `${p.x},${p.y}`));
+    if (pathExists(W, H, blocked, PLAYER, ENEMY)) {
+      return picked.map(pos => ({ pos, state: 'intact' as const }));
+    }
   }
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-  }
-  const count = 2 + Math.floor(Math.random() * 5); // inclusive 2..6
-  return candidates.slice(0, count).map(pos => ({ pos, state: 'intact' as const }));
+  // Extremely unlikely fallback — empty board rather than a stuck session.
+  return [];
 }
 
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
