@@ -7,7 +7,6 @@ import { dirname, join } from 'path';
 import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
@@ -55,7 +54,8 @@ const io = new Server(httpServer);
 const sessions = new Map<string, CombatSession>();
 const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
-const pendingCharCreation = new Map<string, { name: string; nationality?: string; bio?: string }>();
+const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
+type Nationality = typeof VALID_NATIONALITIES[number];
 
 interface AuthToken { discordUserId: string; }
 const authTokens = new Map<string, AuthToken>(); // token → user
@@ -690,6 +690,35 @@ app.post('/api/character/equip', async (req: Request, res: Response) => {
     payload: { weapon_id, weapon_key: owned.weapon_key, weapon_name: weaponName },
   }}).catch(() => {});
   res.json({ success: true, message: `Equipped ${weaponName}.` });
+});
+
+app.get('/api/sprites', async (_req: Request, res: Response) => {
+  res.json({
+    sprites:   SPRITES,
+    spriteCdn: worldConfig.sprite_cdn,
+  });
+});
+
+app.post('/api/character/create', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { name, bio, nationality, sprite_key } = req.body as {
+    name?: string; bio?: string; nationality?: string; sprite_key?: string;
+  };
+  if (typeof name !== 'string' || typeof nationality !== 'string' || typeof sprite_key !== 'string') {
+    res.status(400).json({ error: 'name, nationality, and sprite_key required' }); return;
+  }
+  const result = await bootstrapNewCharacter(discordId, {
+    name: name.trim(),
+    bio:  typeof bio === 'string' ? bio.trim() || undefined : undefined,
+    nationality: nationality as Nationality,
+    spriteKey:   sprite_key,
+  });
+  if (!result.ok) {
+    res.json({ success: false, message: result.error });
+    return;
+  }
+  res.json({ success: true, session_url: result.sessionUrl });
 });
 
 app.get('/api/players', async (req: Request, res: Response) => {
@@ -2508,66 +2537,26 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
   };
 }
 
-const DEFAULT_SPRITE_KEYS = ['asterius', 'penni-cold', 'trenton', 'thokk'];
+// Character creation + tutorial-session bootstrap. Used by /api/character/create.
+async function bootstrapNewCharacter(
+  discordId: string,
+  input: { name: string; bio?: string; nationality: Nationality; spriteKey: string },
+): Promise<{ ok: true; sessionUrl: string } | { ok: false; error: string }> {
+  if (!input.name || input.name.trim().length === 0) return { ok: false, error: 'Name is required.' };
+  if (input.name.length > 32) return { ok: false, error: 'Name max 32 characters.' };
+  if (input.bio && input.bio.length > 300) return { ok: false, error: 'Bio max 300 characters.' };
+  if (!VALID_NATIONALITIES.includes(input.nationality)) return { ok: false, error: 'Invalid nationality.' };
+  if (!SPRITES.find(s => s.key === input.spriteKey)) return { ok: false, error: 'Invalid sprite.' };
+  const existing = await charRepo.list(discordId);
+  if (existing.length > 0) return { ok: false, error: 'You already have a character.' };
 
-function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
-  const options = SPRITES.filter(s => DEFAULT_SPRITE_KEYS.includes(s.key));
-  return {
-    embeds: options.map(s =>
-      new EmbedBuilder()
-        .setColor(0x1a1a2e)
-        .setTitle(s.name)
-        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png`)
-    ),
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        options.map(s =>
-          new ButtonBuilder().setCustomId(`PickSprite_${s.key}`).setLabel(s.name).setStyle(ButtonStyle.Primary)
-        )
-      ),
-    ],
-  };
-}
-
-function buildNationalitySelect(): { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[]; flags: typeof MessageFlags.Ephemeral } {
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('NationalitySelect')
-    .setPlaceholder('Select your nationality...')
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Chae').setValue('Chae').setDescription('Empire citizen'),
-      new StringSelectMenuOptionBuilder().setLabel('Ketulvu').setValue('Ketulvu').setDescription('Frontier local'),
-    );
-  return {
-    content: 'What nationality are you?',
-    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
-    flags: MessageFlags.Ephemeral,
-  };
-}
-
-function buildCharModal(): ModalBuilder {
-  const modal = new ModalBuilder().setCustomId('CreateCharModal').setTitle('Create Your Character');
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('CreateCharNameInput')
-        .setLabel('Character Name')
-        .setStyle(TextInputStyle.Short)
-        .setMinLength(1)
-        .setMaxLength(32)
-        .setPlaceholder("Enter your character's name...")
-        .setRequired(true)
-    ),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('CreateCharBioInput')
-        .setLabel('About Your Character')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(300)
-        .setPlaceholder('Anything else you want others to know...')
-        .setRequired(false)
-    )
-  );
-  return modal;
+  await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
+  const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
+  const sessionId = Math.random().toString(36).slice(2, 10);
+  const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  sessions.set(sessionId, charSession);
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 
 const HOST        = process.env.HOST_URL ?? `http://localhost:${PORT}`;
@@ -2748,6 +2737,8 @@ if (discordToken) {
     }
 
     // ---- Character creation ----
+    // Whole flow lives in the SPA now (/app/create). Discord just hands the
+    // user an auth-laden link.
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'createcharacter') {
       const existing = await charRepo.list(interaction.user.id);
@@ -2755,7 +2746,11 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      await interaction.showModal(buildCharModal());
+      const token = getOrCreateToken(interaction.user.id);
+      await interaction.reply({
+        content: `Register at the census log: ${HOST}/app/create?auth=${token}`,
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 
@@ -2765,69 +2760,10 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      await interaction.showModal(buildCharModal());
-      return;
-    }
-
-    if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
-      const name = interaction.fields.getTextInputValue('CreateCharNameInput');
-      const bio  = interaction.fields.getTextInputValue('CreateCharBioInput').trim() || undefined;
-      pendingCharCreation.set(interaction.user.id, { name, bio });
-      await interaction.reply(buildNationalitySelect());
-      return;
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === 'NationalitySelect') {
-      const pending = pendingCharCreation.get(interaction.user.id);
-      if (!pending) {
-        await interaction.update({ content: 'Session expired. Run /createcharacter again.', components: [] });
-        return;
-      }
-      pending.nationality = interaction.values[0];
-      await interaction.update({
-        ...buildSpritePicker(),
-        content: `Welcome to Sulku'it, **${pending.name}**! Choose a sprite to represent you in battle.`,
-      });
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId.startsWith('PickSprite_')) {
-      const spriteKey = interaction.customId.replace('PickSprite_', '');
-      const pending = pendingCharCreation.get(interaction.user.id);
-      if (!pending) {
-        await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
-        return;
-      }
-      pendingCharCreation.delete(interaction.user.id);
-      const sprite = SPRITES.find(s => s.key === spriteKey);
-      const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey, pending.nationality, pending.bio);
-      const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
-      const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
-      sessions.set(sessionId, charSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
-      await interaction.update({
-        content: '',
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x00cc66)
-            .setTitle('Character Created!')
-            .setDescription(`**${character.name}** has arrived in Sulku'it!\n\nFendalok has a bird problem. Follow him upstairs and help him take care of it.`)
-            .setThumbnail(playerSprite)
-            .addFields(
-              { name: 'HP',     value: `${character.max_health}`, inline: true },
-              { name: 'Weapon', value: 'Branch',                  inline: true },
-              { name: 'Sprite', value: sprite?.name ?? spriteKey, inline: true },
-            ),
-        ],
-        components: [
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setLabel('Follow Fendalok')
-              .setURL(`${HOST}/battle/${sessionId}?auth=${getOrCreateToken(interaction.user.id)}`)
-              .setStyle(ButtonStyle.Link)
-          ),
-        ],
+      const token = getOrCreateToken(interaction.user.id);
+      await interaction.reply({
+        content: `Register at the census log: ${HOST}/app/create?auth=${token}`,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
