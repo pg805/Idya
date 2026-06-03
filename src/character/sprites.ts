@@ -16,13 +16,8 @@ export const SPRITES: SpriteInfo[] = [
     { key: 'brennen',       name: 'Brennen Rueskam'       },
     { key: 'flint',         name: 'Flint Smithson'        },
     { key: 'xolgren',       name: 'Xolgren'               },
-    { key: 'decodra',       name: 'DeCoDra'               },
     { key: 'darryl',        name: 'Darryl'                },
     { key: 'tinemhor',      name: 'Tine Mhor'             },
-    { key: 'tobyteist',     name: 'Toby Teist'            },
     { key: 'cecile',        name: 'Cécile Gérald'         },
-    { key: 'borealis',      name: 'Borealis'              },
-    { key: 'rend',          name: 'Rend'                  },
-    { key: 'neon',          name: 'Neon'                  },
     { key: 'penguin',       name: 'Penguin'               },
 ];
