@@ -1,10 +1,7 @@
 // Sidebar walkthrough. Highlights each nav group with a tooltip card and
-// Next/Skip controls. Triggered by:
-//   - ?tour=1 in the URL (forced — e.g. from the tutorial's Go to Town link)
-//   - on first /app/* visit if localStorage doesn't have idya.tour_seen
-// Sets idya.tour_seen on completion or skip so it doesn't reappear.
-
-const TOUR_KEY = 'idya.tour_seen';
+// Next/Skip controls. Only fires when ?tour=1 is in the URL — the tutorial's
+// "Go to Town" link sets that param so the tour shows up after the tutorial
+// battle, not during character creation.
 
 const TOUR_STEPS = [
   {
@@ -69,10 +66,10 @@ function positionCard(targetRect) {
 function showStep(idx) {
   stepIdx = idx;
   const step = TOUR_STEPS[idx];
-  if (!step) { endTour(true); return; }
+  if (!step) { endTour(); return; }
 
   const target = document.querySelector(step.selector);
-  if (!target) { endTour(true); return; }
+  if (!target) { endTour(); return; }
 
   const r = target.getBoundingClientRect();
   const hi = document.getElementById('tour-highlight');
@@ -95,7 +92,7 @@ function showStep(idx) {
 function startTour() {
   ensureTourDom();
   document.body.classList.add('tour-active');
-  document.getElementById('tour-skip').onclick = () => endTour(true);
+  document.getElementById('tour-skip').onclick = () => endTour();
   document.getElementById('tour-next').onclick = () => showStep(stepIdx + 1);
   window.addEventListener('resize', onResize);
   showStep(0);
@@ -116,25 +113,18 @@ function onResize() {
   positionCard(r);
 }
 
-function endTour(markSeen) {
+function endTour() {
   document.body.classList.remove('tour-active');
   const root = document.getElementById('tour-root');
   if (root) root.remove();
   window.removeEventListener('resize', onResize);
-  if (markSeen) {
-    try { localStorage.setItem(TOUR_KEY, '1'); } catch (_) {}
-  }
 }
 
 window.maybeStartTour = function maybeStartTour() {
   const params = new URLSearchParams(location.search);
-  const forced = params.get('tour') === '1';
-  if (forced) {
-    params.delete('tour');
-    const qs = params.toString();
-    history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
-  }
-  let seen = false;
-  try { seen = localStorage.getItem(TOUR_KEY) === '1'; } catch (_) {}
-  if (forced || !seen) startTour();
+  if (params.get('tour') !== '1') return;
+  params.delete('tour');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
+  startTour();
 };
