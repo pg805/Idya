@@ -242,6 +242,22 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
   }
 }
 
+// Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed
+// anywhere in the rectangle (1,0)-(5,4) inclusive. Player spawn (0,2) and
+// enemy spawn (6,2) are outside that rectangle so they can't be blocked.
+function randomHuntObstacles(): { pos: { x: number; y: number }; state: 'intact' }[] {
+  const candidates: { x: number; y: number }[] = [];
+  for (let x = 1; x <= 5; x++) {
+    for (let y = 0; y <= 4; y++) candidates.push({ x, y });
+  }
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const count = 2 + Math.floor(Math.random() * 5); // inclusive 2..6
+  return candidates.slice(0, count).map(pos => ({ pos, state: 'intact' as const }));
+}
+
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
@@ -260,14 +276,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
     : {
         width: 7,
         height: 5,
-        obstacles: [
-          { pos: { x: 2, y: 1 }, state: 'intact' as const },
-          { pos: { x: 2, y: 2 }, state: 'intact' as const },
-          { pos: { x: 2, y: 3 }, state: 'intact' as const },
-          { pos: { x: 4, y: 1 }, state: 'intact' as const },
-          { pos: { x: 4, y: 2 }, state: 'intact' as const },
-          { pos: { x: 4, y: 3 }, state: 'intact' as const },
-        ],
+        obstacles: randomHuntObstacles(),
       };
 
   const playerStartPos = isTutorial ? { x: 0, y: 1 } : { x: 0, y: 2 };
