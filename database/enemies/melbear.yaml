@@ -1,0 +1,96 @@
+Name: Melbear
+Health: 300
+Level: 5
+Loot:
+  Items:
+    - id: crude_talamite
+      type: material
+      Field: [0, 1, 2, 2, 2, 3, 3, 4]
+    - id: talamite
+      type: material
+      Field: [0, 0, 1, 1, 2, 2, 2]
+    - id: sulwood
+      type: material
+      Field: [0, 0, 0, 1, 1, 2]
+    - id: bear_teeth
+      type: valuable
+      Field: [0, 1, 1, 1, 1, 2, 2, 2]
+    - id: venison
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 1]
+    - id: bear_paw
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Pattern:
+  - [1, 0]   # Defend: Hibernate
+  - [2, 0]   # Attack: Ursa Minor
+  - [3, 0]   # Special: Ursa Major
+  - [2, 0]   # Attack: Ursa Minor
+  - [1, 0]   # Defend: Hibernate
+  - [1, 1]   # Defend: Berry Snack
+  - [3, 0]   # Special: Ursa Major
+Image: ""
+
+Weapon:
+  Name: Melbear Claws
+  Description: A melbear, heavy with solitude and bristling with claws.
+  Resource:
+    Name: Solitude
+    Max: 8
+
+  Defend:
+    - Name: Hibernate
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 0
+      Cost: -6
+      Action_String: "<User> hibernates, restoring 6 Solitude."
+    - Name: Berry Snack
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 30
+      Cost: 2
+      Action_String: "<User> snacks on a berry, healing 30 damage."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Ursa Minor
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [0, 5, 7, 10, 12, 14, 20]
+      Cost: 2
+      Aimed: false
+      Range: 1
+      Action_String: "<User> swipes <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Gash
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [4, 7, 8]
+      Rounds: 3
+      Range: 1
+      Action_String: "<User> opens a deep gash in <Target>, dealing <Damage> damage for 3 rounds."
+
+  Special:
+    - Name: Ursa Major
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Field: [5, 7, 9, 10, 12, 18, 18, 18, 20, 25, 36]
+      Cost: 3
+      Aimed: true
+      Range: 2
+      Action_String: "<User> calls the Ursa Major down upon <Target> for <Damage> damage."
+
+  Special Crit: []

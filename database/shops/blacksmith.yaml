@@ -184,3 +184,15 @@ Items:
     Stock_Max: 25
     Stock_Influence: 0.25
     Restock_Field: [1, 2, 2, 3, 0]
+
+  # Valuables
+  - id: bear_teeth
+    Base_Buy: 120
+    Base_Sell: 40
+    R: 1.8
+    R_Max: 2.8
+    Volume_Sensitivity: 200
+    Transaction_Threshold: 12
+    Stock_Max: 300
+    Stock_Influence: 0.15
+    Restock_Field: [15, 25, 30, 40, 0]
