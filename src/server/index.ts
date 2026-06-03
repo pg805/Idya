@@ -2666,9 +2666,11 @@ async function notifyBotLog(title: string, color: number, fields: { name: string
   } catch (_) {}
 }
 
-// Extract a single version's section from CHANGELOG.md. Returns null if not found.
+// Extract a single version's section from the Discord-facing changelog.
+// CHANGELOG.md is the detailed dev-side log; CHANGELOG_DISCORD.md is the
+// condensed, player-safe version posted to #updates.
 function extractChangelogSection(version: string): string | null {
-  const path = join(__dirname, '../../docs/CHANGELOG.md');
+  const path = join(__dirname, '../../docs/CHANGELOG_DISCORD.md');
   if (!fs.existsSync(path)) return null;
   const md = fs.readFileSync(path, 'utf-8');
   // Split on '## ' h2 headings so each section starts with "VERSION ..." then body.

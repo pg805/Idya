@@ -1,5 +1,30 @@
 # Changelog
 
+The detailed, dev-side log. The condensed, player-facing version that goes
+to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
+
+## 0.1.4 — 2026-06-03
+
+Economy tuning so prices actually react to player trading, plus changelog
+infrastructure (Discord vs detailed split).
+
+### Economy
+- **R / R_Max tier split** — three pricing personalities now baked in:
+  - **Bulk** (raw + intermediate + tier-3 materials, components, weapons): `R: 2.0`, `R_Max: 3.4`. Period-doubling band. Mostly predictable, mild oscillation under heavy trading. Grinder-friendly.
+  - **Valuables** (loot drops — swallow_feather, venison, maek_egg, crystal_tooth, felt_hat, antler_trophy, bear_teeth, bear_paw): `R: 3.0`, `R_Max: 3.99`. Full chaos band. Prices swing tick-to-tick under any sustained traffic. Sellers should time the market.
+  - **Baits**: `R: 1.0`, `R_Max: 2.5`. Idle decay toward floor, demand pushes back up to ~1.5× baseline. No chaos (stable convergence band).
+- **Volume_Sensitivity slashed** — old values needed unreachable volume (thuvel needed ~56,000 cumulative units to push r meaningfully). Cut roughly 5–8× across the board:
+  - Bulk raw 400 → 50, intermediates 100 → 20, tier-3 mats 50 → 10
+  - Components tier-2 40 → 8, tier-3 20 → 5, weapons 15 → 4
+  - Valuables: swallow_feather 750 → 100, crystal_tooth/felt_hat 400 → 80, bear_teeth 200 → 30, venison 150 → 30, maek_egg 40 → 10, antler_trophy/bear_paw 8 → 3
+  - Baits 0 → 30 (was special-cased to skip the formula entirely)
+- **Bait demand is responsive** — `Volume_Sensitivity` was 0 (locked at R=1.0 regardless of volume), now 30. Combined with R_Max 2.5, hammered baits walk price up to ~1.5× baseline; idle baits decay back toward the floor.
+
+### Infrastructure
+- **Discord changelog split** — `docs/CHANGELOG.md` stays detailed for dev/devops; new `docs/CHANGELOG_DISCORD.md` is condensed and player-safe. The version auto-announcer (`extractChangelogSection`) now reads from the Discord file so spoiler-heavy enemy specs and code-level detail don't leak into the public channel.
+
+---
+
 ## 0.1.3 — 2026-06-02
 
 Character creation and the tutorial-day hand-off move into the web app,
