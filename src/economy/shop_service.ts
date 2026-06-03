@@ -1,12 +1,15 @@
+import fs from 'fs';
+import { join } from 'path';
 import prisma from '../database/prisma.js';
 import type { ShopItemListing, ShopConfig } from './shop_loader.js';
+import { loadShop } from './shop_loader.js';
 import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
 import { ITEMS } from './items.js';
 
 const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
 const DESTOCK_THRESHOLD   = 0.75; // when stock >= this fraction of cap, tick dumps instead of restocks
-const DESTOCK_MULTIPLIER  = 2;    // dump 2× the rolled Restock_Field value
+const DESTOCK_MULTIPLIER  = 6;    // dump 6× the rolled Restock_Field value — keep stock flowing so players can always sell
 
 export interface PricedItem extends ShopItemListing {
   buy?:          number;
@@ -62,6 +65,33 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
   return { ...state, x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() };
 }
 
+
+// Walk every shop yaml in shopDir, find any items whose last_tick is older
+// than TICK_INTERVAL_MS, run maybeTickDaily on each. Called on a timer from
+// the server so the world keeps ticking even when no player visits a shop.
+// Returns the number of items that actually ticked, for logging.
+export async function tickAllDue(shopDir: string): Promise<number> {
+  let ticked = 0;
+  for (const file of fs.readdirSync(shopDir)) {
+    if (!file.endsWith('.yaml')) continue;
+    const shopKey = file.replace(/\.yaml$/, '');
+    let config: ShopConfig;
+    try { config = loadShop(shopKey, shopDir); }
+    catch { continue; }
+    for (const item of config.items) {
+      try {
+        let state = await getOrCreateState(shopKey, item);
+        if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) continue;
+        const before = state.last_tick;
+        state = await maybeTickDaily(shopKey, item, state);
+        if (state.last_tick.getTime() !== before.getTime()) ticked++;
+      } catch (err) {
+        console.error(`tickAllDue: ${shopKey}/${item.id} failed`, err);
+      }
+    }
+  }
+  return ticked;
+}
 
 export async function getPrices(shopKey: string, config: ShopConfig): Promise<PricedItem[]> {
   const results: PricedItem[] = [];

@@ -70,6 +70,6 @@
 
 .prof-budget       { color: var(--teal-bright); font-weight: 600; }
 .prof-budget-total { color: var(--text-faint); font-size: 0.78rem; }
-.prof-none         { color: var(--text-vdim); }
+.prof-none         { color: var(--text-faint); }
 
 .prof-empty { padding: 40px; text-align: center; color: var(--text-faint); font-style: italic; }

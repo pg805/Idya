@@ -241,3 +241,14 @@ Items:
     Stock_Max: 10
     Stock_Influence: 0.4
     Restock_Field: [0, 1, 1, 2, 0]
+
+  - id: bear_paw
+    Base_Buy: 1200
+    Base_Sell: 600
+    R: 3.0
+    R_Max: 3.8
+    Volume_Sensitivity: 8
+    Transaction_Threshold: 3
+    Stock_Max: 12
+    Stock_Influence: 0.4
+    Restock_Field: [0, 1, 1, 2, 0]

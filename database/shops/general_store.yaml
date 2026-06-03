@@ -60,6 +60,17 @@ Items:
     Stock_Influence: 0
     Restock_Field: [10]
 
+  - id: bear_bait
+    Base_Buy: 100
+    Base_Sell: 30
+    R: 1.0
+    R_Max: 1.0
+    Volume_Sensitivity: 0
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
   - id: swallow_feather
     Base_Buy: 10
     Base_Sell: 6

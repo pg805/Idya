@@ -144,7 +144,7 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
 .craft-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
 .craft-btn:disabled { opacity: 0.35; cursor: default; }
 
-.empty { padding: 28px 20px; color: var(--text-vdim); font-style: italic; font-size: 0.78rem; }
+.empty { padding: 28px 20px; color: var(--text-faint); font-style: italic; font-size: 0.78rem; }
 
 .upgrade-locked { padding: 28px 20px; color: var(--text-faint); font-style: italic; font-size: 0.82rem; }
 
@@ -204,7 +204,7 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
 .field-avg { font-size: 0.7rem; color: var(--text-faint); }
 .field-rolls { font-family: monospace; font-size: 0.78rem; color: var(--teal-bright); }
 .bonus-tag { font-size: 0.7rem; color: var(--teal-bright); background: var(--teal-bg); border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
-.cannot-upg { font-size: 0.72rem; color: var(--text-vdim); font-style: italic; }
+.cannot-upg { font-size: 0.72rem; color: var(--text-faint); font-style: italic; }
 
 .upg-btn {
   background: var(--teal-bg);

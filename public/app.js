@@ -18,6 +18,7 @@ function routeFromPath(path) {
   if (path === '/enemies')              return { viewName: 'enemies', params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
+  if (path === '/create')               return { viewName: 'create',  params: {} };
   if (path === '/weapon-stats')         return { viewName: 'weapons', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
@@ -67,4 +68,7 @@ window.addEventListener('popstate', () => {
   await claimAuthFromUrl();
   await mountLayout({ title: 'Idya' });
   await navigate(viewPathFromUrl(), { push: false });
+  // After the layout + first view are in the DOM, trigger the sidebar walkthrough
+  // when the URL forces it (?tour=1, set by the tutorial's Go to Town link).
+  if (typeof window.maybeStartTour === 'function') window.maybeStartTour();
 })();

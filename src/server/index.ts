@@ -7,7 +7,6 @@ import { dirname, join } from 'path';
 import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
@@ -30,7 +29,7 @@ import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
-import { getPrices, buyItem, sellItem } from '../economy/shop_service.js';
+import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
 import { ITEMS } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
@@ -55,7 +54,8 @@ const io = new Server(httpServer);
 const sessions = new Map<string, CombatSession>();
 const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
-const pendingCharCreation = new Map<string, { name: string; nationality?: string; bio?: string }>();
+const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
+type Nationality = typeof VALID_NATIONALITIES[number];
 
 interface AuthToken { discordUserId: string; }
 const authTokens = new Map<string, AuthToken>(); // token → user
@@ -63,20 +63,35 @@ const userTokens = new Map<string, string>();    // discordUserId → token (reu
 
 // ---- Trade sessions ----
 
-interface TradeItem  { itemId: string; quantity: number; }
-interface TradeOffer { items: TradeItem[]; weapons: string[]; korel: number; }
-interface TradePlayer { discordId: string; charName: string; offer: TradeOffer; locked: boolean; confirmed: boolean; }
-interface TradeSession { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
+interface TradeItem        { itemId: string; quantity: number; }
+interface TradeWeaponEntry { id: string; name: string; bonus: number; }
+interface TradeOffer       { items: TradeItem[]; weapons: TradeWeaponEntry[]; korel: number; }
+interface TradePlayer      { discordId: string; charName: string; offer: TradeOffer; locked: boolean; confirmed: boolean; }
+interface TradeSession     { tradeId: string; players: [TradePlayer, TradePlayer]; status: 'waiting' | 'active' | 'complete' | 'cancelled'; }
 const emptyOffer = (): TradeOffer => ({ items: [], weapons: [], korel: 0 });
 
 const tradeSessions = new Map<string, TradeSession>();
 
+function projectOffer(offer: TradeOffer) {
+  // Items: enrich with display name from the in-memory ITEMS map. (The
+  // viewing client may not have this item in its own inventory, so it can't
+  // resolve the name from itemNameById.) Weapons already carry their display
+  // name + bonus count from the offering client.
+  return {
+    items:   offer.items.map(i => ({ ...i, name: ITEMS[i.itemId]?.name ?? i.itemId })),
+    weapons: offer.weapons,
+    korel:   offer.korel,
+  };
+}
+
 function tradeSessionView(session: TradeSession, viewerId: string) {
+  const you  = session.players.find(p => p.discordId === viewerId);
+  const them = session.players.find(p => p.discordId !== viewerId);
   return {
     tradeId: session.tradeId,
     status:  session.status,
-    you:   session.players.find(p => p.discordId === viewerId),
-    them:  session.players.find(p => p.discordId !== viewerId),
+    you:   you  ? { ...you,  offer: projectOffer(you.offer)  } : undefined,
+    them:  them ? { ...them, offer: projectOffer(them.offer) } : undefined,
   };
 }
 
@@ -169,7 +184,7 @@ function refreshTelegraphs(session: CombatSession): void {
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'melbear'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
@@ -178,6 +193,7 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
   wyrm_bait:    'talwyrm',
   deer_bait:    'daefen_deer',
   toad_bait:    'maetoad',
+  bear_bait:    'melbear',
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 
@@ -227,6 +243,56 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
   }
 }
 
+// Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed
+// anywhere in the rectangle (1,0)-(5,4) inclusive. Player spawn (0,2) and
+// enemy spawn (6,2) are outside that rectangle so they can't be obstacles
+// themselves. Layouts that wall the player off from the enemy (e.g. 5
+// obstacles in a single column) are rare but possible; we re-roll up to
+// a few times if the BFS can't reach.
+function pathExists(width: number, height: number, blocked: Set<string>, start: { x: number; y: number }, goal: { x: number; y: number }): boolean {
+  const seen = new Set<string>([`${start.x},${start.y}`]);
+  const q: { x: number; y: number }[] = [start];
+  while (q.length > 0) {
+    const p = q.shift()!;
+    if (p.x === goal.x && p.y === goal.y) return true;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = p.x + dx, ny = p.y + dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+        const k = `${nx},${ny}`;
+        if (seen.has(k) || blocked.has(k)) continue;
+        seen.add(k);
+        q.push({ x: nx, y: ny });
+      }
+    }
+  }
+  return false;
+}
+
+function randomHuntObstacles(): { pos: { x: number; y: number }; state: 'intact' }[] {
+  const W = 7, H = 5;
+  const PLAYER = { x: 0, y: 2 }, ENEMY = { x: 6, y: 2 };
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const candidates: { x: number; y: number }[] = [];
+    for (let x = 1; x <= 5; x++) {
+      for (let y = 0; y <= 4; y++) candidates.push({ x, y });
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const count = 2 + Math.floor(Math.random() * 5); // inclusive 2..6
+    const picked = candidates.slice(0, count);
+    const blocked = new Set(picked.map(p => `${p.x},${p.y}`));
+    if (pathExists(W, H, blocked, PLAYER, ENEMY)) {
+      return picked.map(pos => ({ pos, state: 'intact' as const }));
+    }
+  }
+  // Extremely unlikely fallback — empty board rather than a stuck session.
+  return [];
+}
+
 function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
@@ -245,14 +311,7 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
     : {
         width: 7,
         height: 5,
-        obstacles: [
-          { pos: { x: 2, y: 1 }, state: 'intact' as const },
-          { pos: { x: 2, y: 2 }, state: 'intact' as const },
-          { pos: { x: 2, y: 3 }, state: 'intact' as const },
-          { pos: { x: 4, y: 1 }, state: 'intact' as const },
-          { pos: { x: 4, y: 2 }, state: 'intact' as const },
-          { pos: { x: 4, y: 3 }, state: 'intact' as const },
-        ],
+        obstacles: randomHuntObstacles(),
       };
 
   const playerStartPos = isTutorial ? { x: 0, y: 1 } : { x: 0, y: 2 };
@@ -675,6 +734,35 @@ app.post('/api/character/equip', async (req: Request, res: Response) => {
     payload: { weapon_id, weapon_key: owned.weapon_key, weapon_name: weaponName },
   }}).catch(() => {});
   res.json({ success: true, message: `Equipped ${weaponName}.` });
+});
+
+app.get('/api/sprites', async (_req: Request, res: Response) => {
+  res.json({
+    sprites:   SPRITES,
+    spriteCdn: worldConfig.sprite_cdn,
+  });
+});
+
+app.post('/api/character/create', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { name, bio, nationality, sprite_key } = req.body as {
+    name?: string; bio?: string; nationality?: string; sprite_key?: string;
+  };
+  if (typeof name !== 'string' || typeof nationality !== 'string' || typeof sprite_key !== 'string') {
+    res.status(400).json({ error: 'name, nationality, and sprite_key required' }); return;
+  }
+  const result = await bootstrapNewCharacter(discordId, {
+    name: name.trim(),
+    bio:  typeof bio === 'string' ? bio.trim() || undefined : undefined,
+    nationality: nationality as Nationality,
+    spriteKey:   sprite_key,
+  });
+  if (!result.ok) {
+    res.json({ success: false, message: result.error });
+    return;
+  }
+  res.json({ success: true, session_url: result.sessionUrl });
 });
 
 app.get('/api/players', async (req: Request, res: Response) => {
@@ -2327,8 +2415,10 @@ io.on('connection', (socket: Socket) => {
     const player = session?.players.find(p => p.discordId === discordId);
     if (!session || !player || player.locked) return;
     player.offer = {
-      items:   (offer.items   ?? []).filter(o => o.quantity > 0),
-      weapons: (offer.weapons ?? []).filter(id => typeof id === 'string'),
+      items:   (offer.items ?? []).filter(o => o.quantity > 0),
+      weapons: (offer.weapons ?? [])
+        .filter((w): w is TradeWeaponEntry => !!w && typeof w.id === 'string')
+        .map(w => ({ id: w.id, name: String(w.name ?? 'weapon'), bonus: Number(w.bonus) || 0 })),
       korel:   Math.max(0, Math.floor(Number(offer.korel ?? 0))),
     };
     broadcastTradeState(tradeId, session);
@@ -2379,7 +2469,7 @@ io.on('connection', (socket: Socket) => {
               });
             }
             // Weapons (CharacterWeapon instance ownership transfer)
-            for (const weaponId of offer.weapons) {
+            for (const { id: weaponId } of offer.weapons) {
               const w = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
               if (!w || w.character_id !== giver.id) throw new Error(`${giverName} no longer owns one of the offered weapons.`);
               if (giver.equipped_weapon_id === weaponId) throw new Error(`${giverName} can't trade an equipped weapon.`);
@@ -2437,6 +2527,22 @@ httpServer.listen(PORT, () => {
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
 });
 
+// ---- Proactive shop tick ----
+// Was lazy (only fired when a player loaded a shop page). Now an hourly
+// sweep walks every shop yaml and ticks any item whose 24-hour interval
+// has elapsed. Same maybeTickDaily logic — just driven by setInterval
+// instead of pageload. Lets stock drift (restock + destock-at-75%) feel
+// like the world exists between visits.
+const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
+async function runShopTick(): Promise<void> {
+  try {
+    const n = await tickAllDue(SHOP_DIR);
+    if (n > 0) console.log(`[shop tick] ticked ${n} item(s)`);
+  } catch (err) { console.error('[shop tick] failed', err); }
+}
+void runShopTick();
+setInterval(runShopTick, SHOP_TICK_INTERVAL_MS);
+
 // ---- Discord bot ----
 
 function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
@@ -2449,8 +2555,14 @@ function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
 }
 
-function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+function buildWelcomeEmbed(
+  mention: string,
+  opts: { link?: string } = {},
+): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
   const mayor = worldConfig.npcs.mayor;
+  const button = opts.link
+    ? new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Link).setURL(opts.link)
+    : new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
   return {
     embeds: [
       new EmbedBuilder()
@@ -2464,77 +2576,30 @@ function buildWelcomeEmbed(mention: string): { embeds: EmbedBuilder[]; component
           `*"Ah, another traveler, welcome to Sulku'it. My name is Fendalok and I'm the Padev around here. I take it you are here to help out in the forest. The empire* asks *that we record everyone in the town census log for tax purposes."*\n\n*Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.*\n\n*"You've got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."*`
         ),
     ],
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId('CreateChar_Begin')
-          .setLabel('Register in the Census Log')
-          .setStyle(ButtonStyle.Primary)
-      ),
-    ],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
   };
 }
 
-const DEFAULT_SPRITE_KEYS = ['asterius', 'penni-cold', 'trenton', 'thokk'];
+// Character creation + tutorial-session bootstrap. Used by /api/character/create.
+async function bootstrapNewCharacter(
+  discordId: string,
+  input: { name: string; bio?: string; nationality: Nationality; spriteKey: string },
+): Promise<{ ok: true; sessionUrl: string } | { ok: false; error: string }> {
+  if (!input.name || input.name.trim().length === 0) return { ok: false, error: 'Name is required.' };
+  if (input.name.length > 32) return { ok: false, error: 'Name max 32 characters.' };
+  if (input.bio && input.bio.length > 300) return { ok: false, error: 'Bio max 300 characters.' };
+  if (!VALID_NATIONALITIES.includes(input.nationality)) return { ok: false, error: 'Invalid nationality.' };
+  if (!SPRITES.find(s => s.key === input.spriteKey)) return { ok: false, error: 'Invalid sprite.' };
+  const existing = await charRepo.list(discordId);
+  if (existing.length > 0) return { ok: false, error: 'You already have a character.' };
 
-function buildSpritePicker(): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
-  const options = SPRITES.filter(s => DEFAULT_SPRITE_KEYS.includes(s.key));
-  return {
-    embeds: options.map(s =>
-      new EmbedBuilder()
-        .setColor(0x1a1a2e)
-        .setTitle(s.name)
-        .setImage(`${worldConfig.sprite_cdn}/${s.key}.png`)
-    ),
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        options.map(s =>
-          new ButtonBuilder().setCustomId(`PickSprite_${s.key}`).setLabel(s.name).setStyle(ButtonStyle.Primary)
-        )
-      ),
-    ],
-  };
-}
-
-function buildNationalitySelect(): { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[]; flags: typeof MessageFlags.Ephemeral } {
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('NationalitySelect')
-    .setPlaceholder('Select your nationality...')
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Chae').setValue('Chae').setDescription('Empire citizen'),
-      new StringSelectMenuOptionBuilder().setLabel('Ketulvu').setValue('Ketulvu').setDescription('Frontier local'),
-    );
-  return {
-    content: 'What nationality are you?',
-    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
-    flags: MessageFlags.Ephemeral,
-  };
-}
-
-function buildCharModal(): ModalBuilder {
-  const modal = new ModalBuilder().setCustomId('CreateCharModal').setTitle('Create Your Character');
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('CreateCharNameInput')
-        .setLabel('Character Name')
-        .setStyle(TextInputStyle.Short)
-        .setMinLength(1)
-        .setMaxLength(32)
-        .setPlaceholder("Enter your character's name...")
-        .setRequired(true)
-    ),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('CreateCharBioInput')
-        .setLabel('About Your Character')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(300)
-        .setPlaceholder('Anything else you want others to know...')
-        .setRequired(false)
-    )
-  );
-  return modal;
+  await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
+  const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
+  const sessionId = Math.random().toString(36).slice(2, 10);
+  const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  sessions.set(sessionId, charSession);
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 
 const HOST        = process.env.HOST_URL ?? `http://localhost:${PORT}`;
@@ -2715,6 +2780,8 @@ if (discordToken) {
     }
 
     // ---- Character creation ----
+    // Whole flow lives in the SPA now (/app/create). Discord just hands the
+    // user an auth-laden link.
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'createcharacter') {
       const existing = await charRepo.list(interaction.user.id);
@@ -2722,7 +2789,12 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      await interaction.showModal(buildCharModal());
+      const token = getOrCreateToken(interaction.user.id);
+      const link  = `${HOST}/app/create?auth=${token}`;
+      await interaction.reply({
+        ...buildWelcomeEmbed(`<@${interaction.user.id}>`, { link }),
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 
@@ -2732,69 +2804,10 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      await interaction.showModal(buildCharModal());
-      return;
-    }
-
-    if (interaction.isModalSubmit() && interaction.customId === 'CreateCharModal') {
-      const name = interaction.fields.getTextInputValue('CreateCharNameInput');
-      const bio  = interaction.fields.getTextInputValue('CreateCharBioInput').trim() || undefined;
-      pendingCharCreation.set(interaction.user.id, { name, bio });
-      await interaction.reply(buildNationalitySelect());
-      return;
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === 'NationalitySelect') {
-      const pending = pendingCharCreation.get(interaction.user.id);
-      if (!pending) {
-        await interaction.update({ content: 'Session expired. Run /createcharacter again.', components: [] });
-        return;
-      }
-      pending.nationality = interaction.values[0];
-      await interaction.update({
-        ...buildSpritePicker(),
-        content: `Welcome to Sulku'it, **${pending.name}**! Choose a sprite to represent you in battle.`,
-      });
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId.startsWith('PickSprite_')) {
-      const spriteKey = interaction.customId.replace('PickSprite_', '');
-      const pending = pendingCharCreation.get(interaction.user.id);
-      if (!pending) {
-        await interaction.update({ content: 'Session expired. Run /createcharacter again.', embeds: [], components: [] });
-        return;
-      }
-      pendingCharCreation.delete(interaction.user.id);
-      const sprite = SPRITES.find(s => s.key === spriteKey);
-      const character = await charRepo.create(interaction.user.id, pending.name, 'branch', spriteKey, pending.nationality, pending.bio);
-      const playerSprite = `${HOST}/sprites/${spriteKey}.png`;
-      const sessionId = Math.random().toString(36).slice(2, 10);
-      const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
-      sessions.set(sessionId, charSession);
-      sessionMeta.set(sessionId, { discordUserId: interaction.user.id, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
-      await interaction.update({
-        content: '',
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x00cc66)
-            .setTitle('Character Created!')
-            .setDescription(`**${character.name}** has arrived in Sulku'it!\n\nFendalok has a bird problem. Follow him upstairs and help him take care of it.`)
-            .setThumbnail(playerSprite)
-            .addFields(
-              { name: 'HP',     value: `${character.max_health}`, inline: true },
-              { name: 'Weapon', value: 'Branch',                  inline: true },
-              { name: 'Sprite', value: sprite?.name ?? spriteKey, inline: true },
-            ),
-        ],
-        components: [
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setLabel('Follow Fendalok')
-              .setURL(`${HOST}/battle/${sessionId}?auth=${getOrCreateToken(interaction.user.id)}`)
-              .setStyle(ButtonStyle.Link)
-          ),
-        ],
+      const token = getOrCreateToken(interaction.user.id);
+      await interaction.reply({
+        content: `Register at the census log: ${HOST}/app/create?auth=${token}`,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }

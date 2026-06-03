@@ -35,6 +35,7 @@
     }
   },
   "dev": {
+    "sprite_cdn": "https://raw.githubusercontent.com/pg805/Idya/dev/public/sprites",
     "guild_id":   "1505456783655702620",
     "admin_role": "1509771545516703864",
     "categories": {

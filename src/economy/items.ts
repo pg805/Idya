@@ -43,6 +43,7 @@ export const ITEMS: Record<string, ItemDef> = {
     wyrm_bait:    { name: 'Wyrm Bait',     description: 'A chunk of raw talamite ore. Talwyrm are drawn to the mineral scent.',                  type: 'consumable' },
     deer_bait:    { name: 'Deer Bait',     description: 'A pouch of dried herbs from the forest floor. Daefen deer follow the smell for miles.', type: 'consumable' },
     toad_bait:    { name: 'Toad Bait',     description: 'A jar of murky pond water. Maetoads surface when they smell their own.',                type: 'consumable' },
+    bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
 
     // Valuables — dropped by enemies, sold at shops
     swallow_feather: { name: 'Swallow Feather', description: 'A sleek feather from a lithkem swallow. Light and iridescent.',                   type: 'valuable'   },
@@ -51,4 +52,6 @@ export const ITEMS: Record<string, ItemDef> = {
     crystal_tooth:   { name: 'Crystal Tooth',   description: 'A crystallized tooth shed by a talwyrm. Dense and faintly luminous.',             type: 'valuable'   },
     felt_hat:        { name: 'Felt Hat',        description: 'A wide-brimmed felt hat. Someone left it in the woods.',                         type: 'valuable'   },
     antler_trophy:   { name: 'Antler Trophy',   description: 'A full rack of burning antlers from a daefen deer. Impressive wall art.',         type: 'valuable'   },
+    bear_teeth:      { name: 'Bear Teeth',      description: 'Thick canine teeth from a melbear. A blacksmith can mount them as edged tools.',  type: 'valuable'   },
+    bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
 };
