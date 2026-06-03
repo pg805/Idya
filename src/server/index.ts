@@ -262,6 +262,12 @@ function pathExists(width: number, height: number, blocked: Set<string>, start: 
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         const k = `${nx},${ny}`;
         if (seen.has(k) || blocked.has(k)) continue;
+        // No diagonal corner-cutting (matches the in-game movement rule —
+        // a layout that walls the player off via this rule needs re-rolling).
+        if (dx !== 0 && dy !== 0) {
+          const ka = `${p.x},${ny}`, kb = `${nx},${p.y}`;
+          if (blocked.has(ka) && blocked.has(kb)) continue;
+        }
         seen.add(k);
         q.push({ x: nx, y: ny });
       }
