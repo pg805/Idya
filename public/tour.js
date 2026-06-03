@@ -3,21 +3,39 @@
 // "Go to Town" link sets that param so the tour shows up after the tutorial
 // battle, not during character creation.
 
+// Order is the gameplay loop: where you spend money → how you make money →
+// where you see your balance → what professions do → the activities sidebar
+// → the workshop → reference info.
 const TOUR_STEPS = [
+  {
+    selector: '#app-sidebar > .nav-group:nth-of-type(3)',
+    title:    'Town Shops',
+    body:     'Take your loot to the town shops to earn korel, the currency of the empire. Use korel to buy materials, items, weapons, or bait.',
+  },
+  {
+    selector: '#app-sidebar a[data-path="/hunt"]',
+    title:    'Hunting',
+    body:     'Once you have bought some bait in the shops, hunt any creature you have bait for. Creatures will drop loot that you can sell back to the store.',
+  },
+  {
+    selector: '.layout-korel',
+    title:    'Korel',
+    body:     'Your live korel count is shown in the top right.',
+  },
+  {
+    selector: '.layout-prof-cards',
+    title:    'Professions',
+    body:     'Your professions determine what weapons you can craft and upgrade. Train your professions on your Character page.',
+  },
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(1)',
     title:    'Character & Activities',
-    body:     'Your character sheet, inventory, hunting, and trading with other players. Start here every session.',
+    body:     'Manage your character sheet, browse your inventory, head out to hunt, and start a trade with another player.',
   },
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(2)',
     title:    'The Bench',
     body:     'Workshop tools. Craft items from materials, upgrade your equipped weapon, and apply magical enchants.',
-  },
-  {
-    selector: '#app-sidebar > .nav-group:nth-of-type(3)',
-    title:    'Town Shops',
-    body:     'Buy materials, sell hunting loot, and train your professions. Each shop also runs the trainer for its profession.',
   },
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(4)',
