@@ -9,7 +9,7 @@ import { ITEMS } from './items.js';
 const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
 const DESTOCK_THRESHOLD   = 0.75; // when stock >= this fraction of cap, tick dumps instead of restocks
-const DESTOCK_MULTIPLIER  = 2;    // dump 2× the rolled Restock_Field value
+const DESTOCK_MULTIPLIER  = 6;    // dump 6× the rolled Restock_Field value — keep stock flowing so players can always sell
 
 export interface PricedItem extends ShopItemListing {
   buy?:          number;
