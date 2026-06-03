@@ -150,6 +150,11 @@ function computeReachable(combatant) {
         const sk = `${k}:${newParity}`;
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         if (obstacleSet.has(k)) continue;
+        // No diagonal corner-cutting (mirrors server-side movement BFS).
+        if (isDiag) {
+          const ka = `${pos.x},${ny}`, kb = `${nx},${pos.y}`;
+          if (obstacleSet.has(ka) && obstacleSet.has(kb)) continue;
+        }
         if (newCost > range) continue;
         if ((stateCosts.get(sk) ?? Infinity) <= newCost) continue;
         if (occupiedSet.has(k)) continue;
@@ -192,10 +197,21 @@ function hasLineOfSight(from, to, board) {
   const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx - dy;
+  const W = board.width, H = board.height;
+  const inB = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
   while (!(x0 === x1 && y0 === y1)) {
     const e2 = 2 * err;
-    if (e2 > -dy) { err -= dy; x0 += sx; }
-    if (e2 <  dx) { err += dx; y0 += sy; }
+    const advX = e2 > -dy;
+    const advY = e2 <  dx;
+    // Diagonal step — sight can't squeeze between two corner obstacles
+    // (matches the no-corner-cut movement rule).
+    if (advX && advY) {
+      const ax = x0 + sx, ay = y0;
+      const bx = x0, by = y0 + sy;
+      if (inB(ax, ay) && inB(bx, by) && obstacleSet.has(`${ax},${ay}`) && obstacleSet.has(`${bx},${by}`)) return false;
+    }
+    if (advX) { err -= dy; x0 += sx; }
+    if (advY) { err += dx; y0 += sy; }
     if (x0 === x1 && y0 === y1) break;
     if (obstacleSet.has(`${x0},${y0}`)) return false;
   }

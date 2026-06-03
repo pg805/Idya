@@ -26,6 +26,14 @@ export function reachableTiles(
       if (newCost > range) continue;
       if (!board.inBounds(n)) continue;
       if (board.isBlocked(n)) continue;
+      // No diagonal corner-cutting: if both orthogonal neighbors that the
+      // diagonal step "squeezes between" are blocked, the diagonal is
+      // blocked too. Out-of-bounds doesn't count (board edge isn't a wall).
+      if (isDiag) {
+        const a = { x: pos.x, y: n.y };
+        const b = { x: n.x, y: pos.y };
+        if (board.inBounds(a) && board.inBounds(b) && board.isBlocked(a) && board.isBlocked(b)) continue;
+      }
       if ((costs.get(sk) ?? Infinity) <= newCost) continue;
       if (occupied.has(k)) continue;
       costs.set(sk, newCost);

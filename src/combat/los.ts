@@ -9,8 +9,19 @@ export function hasLineOfSight(from: Pos, to: Pos, board: Board): boolean {
 
   while (x !== to.x || y !== to.y) {
     const e2 = 2 * err;
-    if (e2 > -dy) { err -= dy; x += sx; }
-    if (e2 < dx) { err += dx; y += sy; }
+    const advX = e2 > -dy;
+    const advY = e2 < dx;
+    // Diagonal step — sight can't squeeze between two corner obstacles
+    // (matches the movement-side no-corner-cut rule).
+    if (advX && advY) {
+      const a = { x: x + sx, y };
+      const b = { x, y: y + sy };
+      if (board.inBounds(a) && board.inBounds(b) && board.isBlocked(a) && board.isBlocked(b)) {
+        return false;
+      }
+    }
+    if (advX) { err -= dy; x += sx; }
+    if (advY) { err += dx; y += sy; }
     if (x === to.x && y === to.y) break;
     if (board.isBlocked({ x, y })) return false;
   }
