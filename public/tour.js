@@ -35,12 +35,12 @@ const TOUR_STEPS = [
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(2)',
     title:    'The Bench',
-    body:     'Workshop tools. Craft items from materials, upgrade your equipped weapon, and apply magical enchants.',
+    body:     'Craft items from materials, upgrade your equipped weapon, and apply magical enchants.',
   },
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(4)',
     title:    'Reference',
-    body:     'Game info — profession recipe trees, enemy stats and drops, weapon stat tables. Open these anytime.',
+    body:     'Profession recipe trees, enemy stats and drops, weapon stat tables.',
   },
 ];
 
