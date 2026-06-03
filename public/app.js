@@ -68,4 +68,7 @@ window.addEventListener('popstate', () => {
   await claimAuthFromUrl();
   await mountLayout({ title: 'Idya' });
   await navigate(viewPathFromUrl(), { push: false });
+  // After the layout + first view are in the DOM, trigger the sidebar walkthrough
+  // when the URL forces it (?tour=1, set by the tutorial's Go to Town link).
+  if (typeof window.maybeStartTour === 'function') window.maybeStartTour();
 })();

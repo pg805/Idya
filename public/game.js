@@ -317,13 +317,18 @@ function renderActionPanel() {
   }
   if (ui.phase === 'ended') {
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
-    if (!isTutorial) {
-      const again = document.createElement('a');
+    const again = document.createElement('a');
+    again.className = 'battle-again-btn';
+    if (isTutorial) {
+      // Tutorial drops you on the character page with the town-tour flag so
+      // app.js fires the sidebar walkthrough on first arrival.
+      again.href = '/app/character?tour=1';
+      again.textContent = 'Go to Town';
+    } else {
       again.href = '/app/hunt';
-      again.className = 'battle-again-btn';
       again.textContent = 'Return to Town';
-      actionPanelEl.appendChild(again);
     }
+    actionPanelEl.appendChild(again);
     return;
   }
 
