@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.1.3 — 2026-06-02
+
+Character creation and the tutorial-day hand-off move into the web app,
+a new endgame enemy (Melbear) joins the forest, hunt boards randomize,
+the shop tick runs proactively on a server timer, and the trade view
+picks up a handful of polish items.
+
+### Character Creation in the SPA
+- **`/app/create` view** — full character form in the web app: name + bio + nationality buttons + scrollable sprite grid with live filter. Drops you straight into the tutorial battle on submit.
+- **Discord welcome embed unchanged** — same Fendalok dialogue + "Register in the Census Log" button. Button (and `/createcharacter`) now reply with an ephemeral deep-link to `/app/create?auth=…` instead of opening a Discord modal chain. `/createcharacter` reply also shows the full welcome embed so the world hook lands either way.
+- **POST `/api/character/create`** + helper `bootstrapNewCharacter()` that creates the character row + the tutorial battle session in one server call.
+- **GET `/api/sprites`** returns the full sprite list for the picker.
+- Sprite list trimmed: Neon, Rend, Borealis, Toby Teist, DeCoDra removed (PNGs stay on disk so existing equipped sprites still render).
+- Lone Climber and Francesco sprites flood-filled to transparent backgrounds.
+- Dev now overrides `sprite_cdn` to its own branch on GitHub so sprite asset changes show up on dev before main.
+- Old `CreateCharModal` / `NationalitySelect` / `PickSprite_` Discord handlers and the `pendingCharCreation` in-memory map deleted.
+
+### Tutorial Hand-off
+- **"Go to Town"** — post-battle button on the tutorial run lands you on `/app/character?tour=1` (mirrors the post-hunt "Return to Town" pattern).
+- **Sidebar walkthrough** — 7-step gold-bordered tour highlighting Town Shops → Hunting → Korel header → Professions header cards → Character & Activities → The Bench → Reference. Copy walks the gameplay loop. Triggered only by `?tour=1` so the create page doesn't get caught in the auto-fire.
+
+### Combat / Hunt
+- **Random hunt boards** — non-tutorial battles roll 2–6 obstacles uniformly in the (1,0)–(5,4) rectangle each session. BFS re-rolls layouts that would wall the player off from the enemy. Tutorial board unchanged.
+- **New enemy: Melbear** (Level 5, 300 HP). Resource: Solitude (max 8). Hibernate (defend, restores 6 solitude), Berry Snack (defend, heals 30), Ursa Minor (attack, range 1, swingy 0–20), Gash crit (DOT, 4–8 for 3 rounds), Ursa Major (special, range 2, arcane mental, peaks at 36). 7-step pattern alternates the heal in mid-cycle. Designed for players running upgraded L4 talamite weapons; sim shows ~40% win rate on stock Talamite Shovel.
+- **Bear Bait** in the general store (100 korel — pricey vs the other baits).
+- **Bear Teeth** drops to the blacksmith (new valuable in that shop, 120 buy / 40 sell).
+- **Bear Paw** drops to the lumberjack (1200 buy / 600 sell, alongside antler trophy).
+
+### Shop Economy
+- **Proactive shop tick** — `maybeTickDaily` was page-load triggered; if nobody visited a shop for 3 days, no ticks. Now a server `setInterval` runs `tickAllDue(SHOP_DIR)` once at startup + every hour. Per-item 24h gate unchanged.
+- **Destock multiplier bumped 2× → 6×** — when a shop hits 75% of cap, it now dumps `6× rolled Restock_Field` value per tick. Keeps shelves clearing so players can always sell loot.
+
+### Trade Polish
+- **Server-side name enrichment** — `tradeSessionView` now projects items through `projectOffer` which attaches the display name from the `ITEMS` map; "swallow_feather" no longer shows as a raw id when the receiver doesn't have that item in their own inventory. Weapons offered as `{id, name, bonus}` objects (client supplies the name).
+- **Typeable item quantity** — items in your offer panel get a number input alongside the +/− buttons. Same in-place clamp and focus preservation as the korel input.
+- **Header korel refreshes after trade complete** — trade view calls `mountLayout()` on `trade_complete`. Other korel-touching views already did this; trade was the gap.
+- **Korel input UX** — switched to `type="text" inputmode="numeric"` so cursor preservation actually works (number inputs ignore `setSelectionRange`). Real-time clamping.
+- **Trade summary stays after the swap** — panel titles flip to "You Gave" / "You Received" and the offers stay visible as a recap instead of a fleeting toast.
+- **Confirm status text** added: "You confirmed", "X confirmed", "Waiting for X to confirm…".
+- **Korel + Weapons in offers** — earlier in 0.1.3 dev, weapons and korel became tradeable alongside items. Atomic transfer in one Prisma transaction, KorelLedger rows for the korel half, equipped weapons refused.
+
+### Fixes
+- **Shop transaction left the cart broken** — `clearCart` was missing the `buyWeapons: {}` initializer, so after a checkout `cart.buyWeapons` became undefined and the next render threw, silently aborting the `await mountLayout()` that follows. Net effect: header korel didn't update + the shop UI deadlocked until refresh. One-line fix.
+- **Near-invisible grey on dark background** — sweep replaced `--text-vdim` with `--text-faint` on `.shop-item-name.dim`, `.shop-empty`, `.empty`, `.cannot-upg`, `.prof-none`. Item names on full-shop sell rows are legible again.
+
+---
+
 ## 0.1.2 — 2026-06-01
 
 Trading moves into the web app, equip-from-inventory comes back, the

@@ -4,7 +4,7 @@
   "//3": "updating this file will download and update your packages",
   "name": "idya",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "RPG Bot",
   "author": "pg805",
   "main": "./src/discord/init.ts",
