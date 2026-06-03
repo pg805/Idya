@@ -8,8 +8,8 @@ Items:
   - id: crude_talamite
     Base_Buy: 100
     Base_Sell: 20
-    R: 1.8
-    R_Max: 3.0
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 400
     Transaction_Threshold: 15
     Stock_Max: 500
@@ -21,7 +21,7 @@ Items:
     Base_Buy: 200
     Base_Sell: 40
     R: 2.0
-    R_Max: 3.0
+    R_Max: 3.4
     Volume_Sensitivity: 100
     Transaction_Threshold: 10
     Stock_Max: 200
@@ -31,8 +31,8 @@ Items:
   - id: alloy
     Base_Buy: 400
     Base_Sell: 80
-    R: 2.2
-    R_Max: 3.2
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 50
     Transaction_Threshold: 6
     Stock_Max: 80
@@ -44,7 +44,7 @@ Items:
     Base_Buy: 500
     Base_Sell: 100
     R: 2.0
-    R_Max: 3.2
+    R_Max: 3.4
     Volume_Sensitivity: 15
     Transaction_Threshold: 5
     Stock_Max: 20
@@ -55,7 +55,7 @@ Items:
     Base_Buy: 900
     Base_Sell: 180
     R: 2.0
-    R_Max: 3.2
+    R_Max: 3.4
     Volume_Sensitivity: 15
     Transaction_Threshold: 5
     Stock_Max: 20
@@ -66,7 +66,7 @@ Items:
     Base_Buy: 1000
     Base_Sell: 200
     R: 2.0
-    R_Max: 3.2
+    R_Max: 3.4
     Volume_Sensitivity: 15
     Transaction_Threshold: 5
     Stock_Max: 20
@@ -77,7 +77,7 @@ Items:
     Base_Buy: 1000
     Base_Sell: 200
     R: 2.0
-    R_Max: 3.2
+    R_Max: 3.4
     Volume_Sensitivity: 15
     Transaction_Threshold: 5
     Stock_Max: 20
@@ -88,7 +88,7 @@ Items:
     Base_Buy: 1000
     Base_Sell: 200
     R: 2.0
-    R_Max: 3.2
+    R_Max: 3.4
     Volume_Sensitivity: 15
     Transaction_Threshold: 5
     Stock_Max: 20
@@ -100,7 +100,7 @@ Items:
     Base_Buy: 600
     Base_Sell: 120
     R: 2.0
-    R_Max: 3.0
+    R_Max: 3.4
     Volume_Sensitivity: 40
     Transaction_Threshold: 8
     Stock_Max: 50
@@ -111,7 +111,7 @@ Items:
     Base_Buy: 600
     Base_Sell: 120
     R: 2.0
-    R_Max: 3.0
+    R_Max: 3.4
     Volume_Sensitivity: 40
     Transaction_Threshold: 8
     Stock_Max: 50
@@ -122,7 +122,7 @@ Items:
     Base_Buy: 600
     Base_Sell: 120
     R: 2.0
-    R_Max: 3.0
+    R_Max: 3.4
     Volume_Sensitivity: 40
     Transaction_Threshold: 8
     Stock_Max: 50
@@ -133,7 +133,7 @@ Items:
     Base_Buy: 400
     Base_Sell: 80
     R: 2.0
-    R_Max: 3.0
+    R_Max: 3.4
     Volume_Sensitivity: 40
     Transaction_Threshold: 8
     Stock_Max: 50
@@ -144,8 +144,8 @@ Items:
   - id: sword_blade_alloy
     Base_Buy: 1200
     Base_Sell: 240
-    R: 2.2
-    R_Max: 3.3
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 20
     Transaction_Threshold: 5
     Stock_Max: 25
@@ -155,8 +155,8 @@ Items:
   - id: axe_head_alloy
     Base_Buy: 1200
     Base_Sell: 240
-    R: 2.2
-    R_Max: 3.3
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 20
     Transaction_Threshold: 5
     Stock_Max: 25
@@ -166,8 +166,8 @@ Items:
   - id: shovel_head_alloy
     Base_Buy: 1200
     Base_Sell: 240
-    R: 2.2
-    R_Max: 3.3
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 20
     Transaction_Threshold: 5
     Stock_Max: 25
@@ -177,8 +177,8 @@ Items:
   - id: wand_base_alloy
     Base_Buy: 800
     Base_Sell: 160
-    R: 2.2
-    R_Max: 3.3
+    R: 2.0
+    R_Max: 3.4
     Volume_Sensitivity: 20
     Transaction_Threshold: 5
     Stock_Max: 25
@@ -189,8 +189,8 @@ Items:
   - id: bear_teeth
     Base_Buy: 120
     Base_Sell: 40
-    R: 1.8
-    R_Max: 2.8
+    R: 3.0
+    R_Max: 3.99
     Volume_Sensitivity: 200
     Transaction_Threshold: 12
     Stock_Max: 300
