@@ -44,6 +44,7 @@ picks up a handful of polish items.
 ### Fixes
 - **Shop transaction left the cart broken** — `clearCart` was missing the `buyWeapons: {}` initializer, so after a checkout `cart.buyWeapons` became undefined and the next render threw, silently aborting the `await mountLayout()` that follows. Net effect: header korel didn't update + the shop UI deadlocked until refresh. One-line fix.
 - **Near-invisible grey on dark background** — sweep replaced `--text-vdim` with `--text-faint` on `.shop-item-name.dim`, `.shop-empty`, `.empty`, `.cannot-upg`, `.prof-none`. Item names on full-shop sell rows are legible again.
+- **Diagonal corner-cutting through obstacles** — combatants (and aimed attacks) could squeeze between two diagonally-touching obstacles. Now blocks the diagonal step when both orthogonal neighbors are obstacles. Applied to server movement BFS, server LOS, the matching client copies, and the hunt-obstacle reachability re-roll check.
 
 ---
 
