@@ -404,13 +404,15 @@ function renderActionPanel() {
 
   const allActions = [...player.weaponInfo.actions, PASS_ACTION];
 
-  for (const action of allActions) {
+  for (let i = 0; i < allActions.length; i++) {
+    const action = allActions[i];
     const canAfford = action.cost <= 0 || action.cost <= player.resource;
     const btn = document.createElement('button');
     btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
+    const keyHint = i < 9 ? `<span class="action-key">${i + 1}</span>` : '';
     btn.innerHTML = action.choice && action.choice !== 'pass'
-      ? `<span class="action-tag">${action.choice}</span> ${action.label}`
-      : action.label;
+      ? `${keyHint}<span class="action-tag">${action.choice}</span> ${action.label}`
+      : `${keyHint}${action.label}`;
     if (!canAfford) btn.disabled = true;
 
     const parts = [];
@@ -418,16 +420,7 @@ function renderActionPanel() {
     if (action.needsTarget) parts.push(`range ${action.range}`);
     if (parts.length) btn.title = parts.join(' · ');
 
-    btn.addEventListener('click', () => {
-      ui.action = action;
-      ui.targetTile = null;
-      if (action.needsTarget) {
-        ui.phase = 'selecting_target';
-        render();
-      } else {
-        renderActionPanel();
-      }
-    });
+    btn.addEventListener('click', () => pickAction(action));
     btns.appendChild(btn);
   }
   actionPanelEl.appendChild(btns);
@@ -479,6 +472,142 @@ function renderCombatantList() {
     combatantListEl.appendChild(card);
   }
 }
+
+// Shared action picker — used by both click handlers and keyboard shortcuts.
+function pickAction(action) {
+  if (!action) return;
+  const player = myPlayerCombatant();
+  if (!player) return;
+  const canAfford = action.cost <= 0 || action.cost <= player.resource;
+  if (!canAfford) return;
+  ui.action = action;
+  ui.targetTile = null;
+  if (action.needsTarget) {
+    ui.phase = 'selecting_target';
+    render();
+  } else {
+    renderActionPanel();
+  }
+}
+
+// ---- Keyboard ----
+// Arrow keys move the moveTo target (or the targetTile during aimed attacks).
+// Number keys 1-9 pick an action by visible order. Enter submits when the
+// intent is complete, Escape backs out one step.
+function onKey(e) {
+  if (!state || state.phase !== 'intent' || ui.phase === 'waiting' || ui.phase === 'ended') return;
+  // Don't intercept typing in inputs (currently none on the battle page, but defensive)
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+  const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+  const dy = e.key === 'ArrowUp'   ? -1 : e.key === 'ArrowDown'  ? 1 : 0;
+
+  // --- Movement phases ---
+  if (ui.phase === 'idle' || ui.phase === 'selecting_move' || ui.phase === 'selecting_action') {
+    if (dx !== 0 || dy !== 0) {
+      e.preventDefault();
+      // Auto-select the player's combatant if nothing is selected yet
+      if (ui.phase === 'idle') {
+        const player = myPlayerCombatant();
+        if (!player) return;
+        ui.selected = player;
+        const { reachable, parents } = computeReachable(player);
+        ui.reachable = reachable;
+        ui.moveParents = parents;
+        ui.phase = 'selecting_move';
+      }
+      if (!ui.selected) return;
+      const from = ui.moveTo ?? ui.selected.pos;
+      const cand = { x: from.x + dx, y: from.y + dy };
+      const k = `${cand.x},${cand.y}`;
+      const origin = ui.selected.pos;
+      if (cand.x === origin.x && cand.y === origin.y) {
+        // Moving back to the starting tile = stay put
+        ui.moveTo = null;
+        ui.pathTiles = new Set();
+        if (ui.phase === 'selecting_action') ui.phase = 'selecting_move';
+      } else if (ui.reachable.has(k)) {
+        ui.moveTo = cand;
+        ui.pathTiles = getPathTiles(origin, cand, ui.moveParents);
+        if (ui.phase === 'selecting_action') ui.phase = 'selecting_move';
+      } else {
+        return;
+      }
+      render();
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      // From selecting_move -> selecting_action (confirm move + start picking action)
+      if (ui.phase === 'selecting_move') {
+        e.preventDefault();
+        ui.phase = 'selecting_action';
+        render();
+        return;
+      }
+      // From selecting_action with an action set + no target needed -> submit
+      if (ui.phase === 'selecting_action' && ui.action && !ui.action.needsTarget) {
+        e.preventDefault();
+        submitIntent();
+        return;
+      }
+    }
+    // Numbers 1-9 pick an action while choosing one
+    if (ui.phase === 'selecting_action') {
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= 9) {
+        e.preventDefault();
+        const player = myPlayerCombatant();
+        if (!player?.weaponInfo) return;
+        const allActions = [...player.weaponInfo.actions, PASS_ACTION];
+        const action = allActions[num - 1];
+        if (action) pickAction(action);
+        return;
+      }
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (ui.phase === 'selecting_action') {
+        ui.phase = 'selecting_move';
+        ui.action = null;
+        render();
+      } else if (ui.phase === 'selecting_move') {
+        resetUI();
+        render();
+      }
+      return;
+    }
+  }
+
+  // --- Target-selection phase ---
+  if (ui.phase === 'selecting_target' && ui.action) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (ui.targetTile) { e.preventDefault(); submitIntent(); }
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      ui.phase = 'selecting_action';
+      ui.action = null;
+      ui.targetTile = null;
+      render();
+      return;
+    }
+    if (dx !== 0 || dy !== 0) {
+      e.preventDefault();
+      const fromPos = ui.moveTo ?? ui.selected?.pos;
+      if (!fromPos) return;
+      const targetable = computeTargetableTiles(ui.action, fromPos);
+      const seed = ui.targetTile ?? fromPos;
+      const cand = { x: seed.x + dx, y: seed.y + dy };
+      if (targetable.has(`${cand.x},${cand.y}`)) {
+        ui.targetTile = cand;
+        render();
+      }
+      return;
+    }
+  }
+}
+document.addEventListener('keydown', onKey);
 
 // ---- Interaction ----
 function onCellClick(x, y) {
