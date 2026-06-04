@@ -567,6 +567,27 @@ app.get('/api/info/enemies', (_req: Request, res: Response) => {
   res.json({ enemies });
 });
 
+// Lore — parses world_player.md by H1 headers into top-level sections.
+// Each section's body keeps its raw markdown; the client renders it.
+app.get('/api/info/lore', (_req: Request, res: Response) => {
+  const path = join(__dirname, '../../database/lore/world_player.md');
+  if (!fs.existsSync(path)) { res.json({ sections: [] }); return; }
+  const raw = fs.readFileSync(path, 'utf-8');
+  const sections: Array<{ title: string; body: string }> = [];
+  let current: { title: string; body: string } | null = null;
+  for (const line of raw.split(/\r?\n/)) {
+    const h1 = line.match(/^# (.+)$/);
+    if (h1) {
+      if (current) sections.push(current);
+      current = { title: h1[1].trim(), body: '' };
+      continue;
+    }
+    if (current) current.body += line + '\n';
+  }
+  if (current) sections.push(current);
+  res.json({ sections: sections.map(s => ({ title: s.title, body: s.body.trim() })) });
+});
+
 // ---- Hunt ----
 
 function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {

@@ -1,0 +1,116 @@
+/* View: Lore — sidebar + detail layout, mirrors enemies.css structure */
+
+.lore-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.lore-sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: var(--bg-surface);
+  border-right: 2px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lore-sidebar h2 {
+  font-size: 0.75rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.lore-list { overflow-y: auto; flex: 1; }
+
+.lore-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+.lore-btn:hover { background: var(--bg-hover); color: var(--text-2); }
+.lore-btn.active { background: var(--bg-hover); color: var(--gold); }
+
+.lore-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 40px;
+}
+
+.lore-hint { color: var(--text-faint); font-style: italic; margin-top: 40px; text-align: center; }
+
+.lore-article {
+  max-width: 720px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.lore-article h1 {
+  font-size: 1.5rem;
+  color: var(--gold);
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 10px;
+}
+
+.lore-article h2 {
+  font-size: 1.05rem;
+  color: var(--gold);
+  margin: 28px 0 10px;
+  letter-spacing: 0.02em;
+}
+
+.lore-article h3 {
+  font-size: 0.95rem;
+  color: var(--text-2);
+  margin: 22px 0 6px;
+  font-weight: 600;
+}
+
+.lore-article p {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+}
+
+.lore-article ul {
+  margin: 8px 0 16px 22px;
+  color: var(--text-muted);
+}
+
+.lore-article li {
+  margin-bottom: 6px;
+}
+
+.lore-article strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.lore-article em {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.lore-article hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 24px 0;
+}
+
+@media (max-width: 600px) {
+  .lore-sidebar { width: 140px; min-width: 140px; }
+  .lore-detail { padding: 18px 20px; }
+  .lore-article h1 { font-size: 1.3rem; }
+}
