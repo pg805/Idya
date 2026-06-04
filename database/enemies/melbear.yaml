@@ -12,7 +12,7 @@ Loot:
     - id: sulwood
       type: material
       Field: [0, 0, 0, 1, 1, 2]
-    - id: bear_teeth
+    - id: melstone
       type: valuable
       Field: [0, 1, 1, 1, 1, 2, 2, 2]
     - id: venison

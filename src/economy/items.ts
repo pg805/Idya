@@ -56,8 +56,8 @@ export const ITEMS: Record<string, ItemDef> = {
     crystal_tooth:   { name: 'Crystal Tooth',   description: 'A crystallized tooth shed by a talwyrm. Dense and faintly luminous.',             type: 'valuable'   },
     felt_hat:        { name: 'Felt Hat',        description: 'A wide-brimmed felt hat. Someone left it in the woods.',                         type: 'valuable'   },
     antler_trophy:   { name: 'Antler Trophy',   description: 'A full rack of burning antlers from a daefen deer. Impressive wall art.',         type: 'valuable'   },
-    bear_teeth:      { name: 'Bear Teeth',      description: 'Thick canine teeth from a melbear. A blacksmith can mount them as edged tools.',  type: 'valuable'   },
+    melstone:        { name: 'Melstone',        description: 'A dense, polished stone passed through a melbear\'s gut and worn smooth. The blacksmith uses them as heat-resistant cores.', type: 'valuable'   },
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
     bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
-    diamond:         { name: 'Diamond',         description: 'A flawless gemstone, found lodged in a golnosar\'s hide. The enchanter pays a fortune for one.', type: 'valuable'   },
+    lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
 };
