@@ -5,20 +5,53 @@ to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
 ## 0.1.4 — 2026-06-03
 
-Economy tuning so prices actually react to player trading, plus changelog
-infrastructure (Discord vs detailed split).
+Mobile-friendly UI, keyboard combat controls, the Golnosar joins the
+roster, a few item renames, and economy tuning so prices actually
+react to player trading.
+
+### Mobile
+- **Responsive top-level layout** — collapsing sidebar becomes a hamburger drawer below 720px, header reflows, content columns stack vertically. Tested down to a 390px viewport.
+- **Battle board scales** — cell size now drives off a `--cell-size` CSS variable. On mobile, layout stacks vertically (board above controls) and cells shrink to 44px so a 7-wide board fits in 308px instead of overflowing 504px. Touch-friendly action buttons sized at 44px+ minimum.
+
+### UI Polish
+- **ALL buttons restored** — sell-stack and craft-max buttons in the shop and crafting panels. One click to dump the full stack or craft the most a budget allows.
+- **Battle keyboard input** — arrow keys move (or click-target), `1`–`9` selects action by index, `Enter` confirms / skips / returns to town. Hunt page also accepts `Enter` to confirm bait selection.
+
+### New Content
+- **New enemy: Golnosar** (Level 4, 110 HP). Pool-dwelling living-tar creature. Resource: Tar (max 10). Tar Drink (defend, blocks 10 + restores 10 Tar), Tar Shot (attack, reactive, range 3, swingy 0–8 blunt), Blind crit (DOT, 10 per round for 3 rounds), Fistar (special, aimed, range 4, arcane fire DOT 5–14 for 5 rounds). 8-step pattern (drink → 4× shot → fistar → 2× shot). Sim shows ~40% win rate on Talamite Axe/Shovel with 50% aim-miss assumption.
+- **Tar Bait** at the general store (60 buy / 18 sell). Summons Golnosar.
+- **Bottle of Tar** drops to the lumberjack (90/30, used for waterproofing).
+- **Lifgem** drops as a rare valuable (1-in-20 from Golnosar). Goes to the enchanter (800/400). Priced for "will become more common when other enemies drop it" — moderate stock cap, modest unit value.
+- **Card Deck** new general-store material (10/3). Recipe ingredient for both Deck of Cards weapon and its Nodol upgrade. Flavor: "A simple deck of cards with the Chae emperor, Gustavus, as the king."
+- **Lore: Emperor Gustavus** — the previously unnamed Chae emperor now has a name. His face is stamped on every korel coin (the most common way subjects see him), and on the king card in standard playing decks. Added to `database/lore/world.md`.
+
+### Renames
+- **`bear_teeth` → `melstone`** — flavor reframe ("a dense stone passed through a melbear's gut, worn smooth — used as a heat-resistant core"). Updated in items.ts, melbear.yaml drop, blacksmith.yaml shop listing.
+- **`diamond` → `lifgem`** — diamond was placeholder; lifgem fits the world (faintly pulsing gemstone the enchanter pays for). Repriced for projected future drops from other enemies.
+- **Production migration required on release**:
+  ```sql
+  UPDATE "ShopItemState"   SET item_id='melstone' WHERE item_id='bear_teeth';
+  UPDATE "ShopTransaction" SET item_id='melstone' WHERE item_id='bear_teeth';
+  UPDATE "InventoryItem"   SET item_id='melstone' WHERE item_id='bear_teeth';
+  UPDATE "ShopItemState"   SET item_id='lifgem'   WHERE item_id='diamond';
+  UPDATE "ShopTransaction" SET item_id='lifgem'   WHERE item_id='diamond';
+  UPDATE "InventoryItem"   SET item_id='lifgem'   WHERE item_id='diamond';
+  ```
 
 ### Economy
 - **R / R_Max tier split** — three pricing personalities now baked in:
   - **Bulk** (raw + intermediate + tier-3 materials, components, weapons): `R: 2.0`, `R_Max: 3.4`. Period-doubling band. Mostly predictable, mild oscillation under heavy trading. Grinder-friendly.
-  - **Valuables** (loot drops — swallow_feather, venison, maek_egg, crystal_tooth, felt_hat, antler_trophy, bear_teeth, bear_paw): `R: 3.0`, `R_Max: 3.99`. Full chaos band. Prices swing tick-to-tick under any sustained traffic. Sellers should time the market.
+  - **Valuables** (loot drops — swallow_feather, venison, maek_egg, crystal_tooth, felt_hat, antler_trophy, melstone, bear_paw, bottle_of_tar, lifgem): `R: 3.0`, `R_Max: 3.99`. Full chaos band. Prices swing tick-to-tick under any sustained traffic. Sellers should time the market.
   - **Baits**: `R: 1.0`, `R_Max: 2.5`. Idle decay toward floor, demand pushes back up to ~1.5× baseline. No chaos (stable convergence band).
 - **Volume_Sensitivity slashed** — old values needed unreachable volume (thuvel needed ~56,000 cumulative units to push r meaningfully). Cut roughly 5–8× across the board:
   - Bulk raw 400 → 50, intermediates 100 → 20, tier-3 mats 50 → 10
   - Components tier-2 40 → 8, tier-3 20 → 5, weapons 15 → 4
-  - Valuables: swallow_feather 750 → 100, crystal_tooth/felt_hat 400 → 80, bear_teeth 200 → 30, venison 150 → 30, maek_egg 40 → 10, antler_trophy/bear_paw 8 → 3
+  - Valuables: swallow_feather 750 → 100, crystal_tooth/felt_hat 400 → 80, melstone 200 → 30, venison 150 → 30, maek_egg 40 → 10, antler_trophy/bear_paw 8 → 3
   - Baits 0 → 30 (was special-cased to skip the formula entirely)
 - **Bait demand is responsive** — `Volume_Sensitivity` was 0 (locked at R=1.0 regardless of volume), now 30. Combined with R_Max 2.5, hammered baits walk price up to ~1.5× baseline; idle baits decay back toward the floor.
+
+### Tooling
+- **Simulator: aimed-attack hit roll** — `src/tools/simulate.ts` now rolls 50% hit/miss on any `aimed: true` action (both sides). Without this, sim treated every aimed shot as a hit, which inflated DOT-heavy specials like Fistar and Ursa Major. Real combat is spatial and targets can dodge by moving off the tile. Sim-only; combat engine unchanged.
 
 ### Infrastructure
 - **Discord changelog split** — `docs/CHANGELOG.md` stays detailed for dev/devops; new `docs/CHANGELOG_DISCORD.md` is condensed and player-safe. The version auto-announcer (`extractChangelogSection`) now reads from the Discord file so spoiler-heavy enemy specs and code-level detail don't leak into the public channel.
