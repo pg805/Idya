@@ -1,5 +1,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root { --cell-size: 72px; }
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -50,8 +52,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 
 .cell {
-  width: 72px;
-  height: 72px;
+  width: var(--cell-size);
+  height: var(--cell-size);
   background: var(--bg-surface);
   border-radius: 4px;
   display: flex;
@@ -334,3 +336,30 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #connection-status { font-size: 0.75rem; }
 #connection-status.connected { color: #4caf50; }
 #connection-status.disconnected { color: #d94a4a; }
+
+/* ---- Mobile (portrait phones) ----
+   Stack main-layout vertically and shrink board cells so a 7-wide board
+   fits inside a ~390px viewport without overflow. The js-driven width on
+   #left-col is overridden with !important since it's set inline. */
+@media (max-width: 640px) {
+  :root { --cell-size: 44px; }
+  #battle-shell { padding: 8px; gap: 8px; }
+  #main-layout {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    align-items: stretch;
+  }
+  #left-col { width: 100% !important; }
+  #right-col { width: 100%; }
+  #combat-log { height: 240px; }
+  .combatant { width: 32px; height: 32px; font-size: 0.7rem; border-width: 1px; }
+  .combatant-name { display: none; }
+  .cell[data-coord]::after { display: none; }
+  #combatant-list { flex-wrap: wrap; }
+  .combatant-card { min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
+  h1 { font-size: 1rem; }
+  #log-header { padding: 6px 10px; }
+  #log-filters { font-size: 0.65rem; gap: 3px 8px; }
+  .action-btn { font-size: 0.8rem; padding: 5px 10px; }
+}

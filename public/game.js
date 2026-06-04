@@ -257,14 +257,17 @@ function render() {
 
 function renderBoard() {
   const { width, height, obstacles } = state.board;
-  boardEl.style.gridTemplateColumns = `repeat(${width}, 72px)`;
-  // Lock #left-col to the board's pixel width. Otherwise the action panel's
-  // flex-wrap button row can be intrinsically wider than the board, which
-  // stretches the column on action-pick frames and snaps it back on
-  // waiting/idle frames — visible as the grid "jumping" and a blank gap
-  // appearing between the board and the combat log.
-  const boardPxWidth = width * 72 + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
-  document.getElementById('left-col').style.width = `${boardPxWidth}px`;
+  // Cell size comes from the --cell-size CSS variable so the mobile media
+  // query can shrink the board (72px desktop, 44px phone) without JS knowing
+  // about breakpoints. Re-read each render so a viewport resize takes effect.
+  const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'), 10) || 72;
+  boardEl.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+  // Lock #left-col to the board's pixel width on wide viewports so the action
+  // panel's flex-wrap row doesn't stretch the column and snap it back between
+  // phases. On phones (<= 640px) the CSS overrides to width:100% — keep this
+  // pixel value off the inline style there so the override actually wins.
+  const boardPxWidth = width * cellSize + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
+  document.getElementById('left-col').style.width = window.innerWidth <= 640 ? '' : `${boardPxWidth}px`;
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
