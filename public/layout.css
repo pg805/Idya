@@ -182,7 +182,20 @@
 .layout-train-btn:disabled { opacity: 0.35; cursor: default; }
 
 @media (max-width: 640px) {
+  /* Pad the title bar enough on the left for the hamburger button without
+     overlapping. Shrink title/korel text so the three-column header fits. */
+  .layout-title-bar {
+    padding: 12px 12px 12px 60px;
+    gap: 8px;
+  }
+  .layout-title     { font-size: 0.95rem; letter-spacing: 0.04em; }
+  .layout-char-name { font-size: 0.7rem;  letter-spacing: 0.05em; }
+  .layout-korel     { font-size: 0.78rem; white-space: nowrap; }
+
   .layout-sprite { width: 64px; min-width: 64px; }
   .layout-sprite img { width: 48px; height: 48px; }
   .layout-prof-cards { grid-template-columns: 1fr; }
+  .layout-prof       { padding: 8px 12px; }
+  .layout-prof-name  { font-size: 0.62rem; }
+  .layout-prof-level { font-size: 0.95rem; }
 }
