@@ -18,7 +18,7 @@ react to player trading.
 - **Battle keyboard input** — arrow keys move (or click-target), `1`–`9` selects action by index, `Enter` confirms / skips / returns to town. Hunt page also accepts `Enter` to confirm bait selection.
 
 ### New Content
-- **New enemy: Golnosar** (Level 4, 110 HP). Pool-dwelling living-tar creature. Resource: Tar (max 10). Tar Drink (defend, blocks 10 + restores 10 Tar), Tar Shot (attack, reactive, range 3, swingy 0–8 blunt), Blind crit (DOT, 10 per round for 3 rounds), Fistar (special, aimed, range 4, arcane fire DOT 5–14 for 5 rounds). 8-step pattern (drink → 4× shot → fistar → 2× shot). Sim shows ~40% win rate on Talamite Axe/Shovel with 50% aim-miss assumption.
+- **New enemy: Golnosar** (Level 4, 110 HP). Pool-dwelling living-tar creature. Resource: Tar (max 10). Tar Drink (defend, blocks 10 + restores 10 Tar), Tar Shot (attack, reactive, range 1, swingy 0–8 blunt), Blind crit (DOT, 10 per round for 3 rounds), Fistar (special, aimed, range 4, arcane fire DOT 5–14 for 5 rounds). 8-step pattern (drink → 4× shot → fistar → 2× shot). Sim shows ~40% win rate on Talamite Axe/Shovel with 50% aim-miss assumption. (Post-release tweak: Tar Shot range dropped 3 → 1 — was too punishing as a reactive ranged attack; melee-only forces the golnosar to close before it can spit.)
 - **Tar Bait** at the general store (60 buy / 18 sell). Summons Golnosar.
 - **Bottle of Tar** drops to the lumberjack (90/30, used for waterproofing).
 - **Lifgem** drops as a rare valuable (1-in-20 from Golnosar). Goes to the enchanter (800/400). Priced for "will become more common when other enemies drop it" — moderate stock cap, modest unit value.
