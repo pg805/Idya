@@ -10,6 +10,14 @@ The town has become an outpost for those looking to make a name for themselves. 
 
 ---
 
+## The Chaevul Empire
+
+The empire is ruled by **Emperor Gustavus**. His likeness appears as the king card in standard playing decks across the continent — the most common way most subjects encounter him in their daily lives.
+
+(More to be detailed as the world expands.)
+
+---
+
 ## Sidaev
 
 **Sidaev** is a force woven through the living world — present in creatures, plants, and people in varying concentrations. Its nature is contested.
