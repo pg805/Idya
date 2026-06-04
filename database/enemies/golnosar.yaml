@@ -60,7 +60,7 @@ Weapon:
       Field: [0, 1, 2, 5, 6, 7, 8]
       Cost: 1
       Aimed: false
-      Range: 3
+      Range: 1
       Action_String: "<User> spits a thick wad of tar at <Target> for <Damage> damage."
 
   Attack Crit:
