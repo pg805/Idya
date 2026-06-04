@@ -317,7 +317,10 @@ function renderBoard() {
         cell.classList.add('move-target');
       } else if (ui.pathTiles.has(k) && !obstacle && !combatant) {
         cell.classList.add('path-tile');
-      } else if (ui.reachable.has(k) && !ui.moveTo && !obstacle && !combatant) {
+      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !obstacle && !combatant) {
+        // Keep reachable highlights up through the whole selecting_move phase
+        // (used to clear once moveTo was set) so arrow-key users can see how
+        // far they can still go from the current target.
         cell.classList.add('reachable');
       }
 
@@ -381,6 +384,14 @@ function renderActionPanel() {
       submit.addEventListener('click', submitIntent);
       actionPanelEl.appendChild(submit);
     }
+    return;
+  }
+
+  if (ui.phase === 'selecting_move') {
+    const hint = document.createElement('div');
+    hint.className = 'action-title';
+    hint.innerHTML = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
+    actionPanelEl.appendChild(hint);
     return;
   }
 
@@ -537,6 +548,21 @@ function onKey(e) {
       return;
     }
     if (e.key === 'Enter' || e.key === ' ') {
+      // From idle -> select the player's combatant and skip straight to the
+      // action phase. Lets keyboard users hold position without arrowing back
+      // to the start tile.
+      if (ui.phase === 'idle') {
+        const player = myPlayerCombatant();
+        if (!player) return;
+        e.preventDefault();
+        ui.selected = player;
+        const { reachable, parents } = computeReachable(player);
+        ui.reachable = reachable;
+        ui.moveParents = parents;
+        ui.phase = 'selecting_action';
+        render();
+        return;
+      }
       // From selecting_move -> selecting_action (confirm move + start picking action)
       if (ui.phase === 'selecting_move') {
         e.preventDefault();
