@@ -71,6 +71,18 @@ Items:
     Stock_Influence: 0
     Restock_Field: [10]
 
+  # Misc crafting material — buy-only, demand-responsive within a tight band
+  - id: card_deck
+    Base_Buy: 10
+    Base_Sell: null
+    R: 2.0
+    R_Max: 2.5
+    Volume_Sensitivity: 100
+    Transaction_Threshold: 15
+    Stock_Max: 500
+    Stock_Influence: 0.2
+    Restock_Field: [15, 25, 30, 40, 0]
+
   - id: swallow_feather
     Base_Buy: 10
     Base_Sell: 6
