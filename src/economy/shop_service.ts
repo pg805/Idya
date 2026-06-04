@@ -43,7 +43,9 @@ async function getOrCreateState(shopKey: string, item: ShopItemListing) {
 async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
   if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) return state;
 
-  const newRecentVolume = Math.floor(state.recent_volume * RECENT_VOLUME_DECAY);
+  // recent_volume is BigInt in the schema (to avoid INT4 overflow); coerce to
+  // Number for the decay math. Realistic values stay far below MAX_SAFE_INTEGER.
+  const newRecentVolume = Math.floor(Number(state.recent_volume) * RECENT_VOLUME_DECAY);
   const r      = currentR(item, newRecentVolume);
   const newX   = logisticStep(state.x, r);
   // Daily tick handles price/restock only. Destock is now on its own hourly
@@ -67,7 +69,7 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
     });
   }
 
-  return { ...state, x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() };
+  return { ...state, x: newX, stock: newStock, recent_volume: BigInt(newRecentVolume), last_tick: new Date() };
 }
 
 async function maybeHourlyDestock(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
@@ -149,7 +151,7 @@ async function applyTransactionShock(shopKey: string, item: ShopItemListing, qua
     where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
   });
 
-  const r        = currentR(item, state.recent_volume);
+  const r        = currentR(item, Number(state.recent_volume));
   const direction = isBuy ? 1 : -1;
   const shockMag  = Math.min(quantity / item.transaction_threshold, 3) * 0.1;
   const shockedX  = clamp(state.x + direction * shockMag, 0, 1);

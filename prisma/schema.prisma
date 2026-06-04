@@ -105,8 +105,8 @@ model ShopItemState {
   item_id           String
   x                 Float    @default(0.5)
   stock             Int      @default(0)
-  cumulative_volume Int      @default(0)
-  recent_volume     Int      @default(0)
+  cumulative_volume BigInt   @default(0)
+  recent_volume     BigInt   @default(0)
   last_tick         DateTime @default(now())
 
   @@id([shop_id, item_id])
