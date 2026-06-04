@@ -2778,6 +2778,12 @@ if (discordToken) {
       GatewayIntentBits.GuildMembers,
     ],
   });
+  // Each command registers its own InteractionCreate listener below — Node's
+  // default 10-listener cap fires a (misleading) "memory leak" warning at 11+.
+  // These are permanent listeners, not a growth leak, but the warning is real
+  // and pollutes logs. Bumping the cap suppresses it. Eventual cleanup: fold
+  // all command handlers into a single dispatcher (see 0.1.5 docs work).
+  discord.setMaxListeners(30);
 
   discord.on(Events.InteractionCreate, async (interaction) => {
     // ---- Hunt ----
@@ -3233,16 +3239,20 @@ if (discordToken) {
     { command: 'enemies',     path: '/enemies'     },
   ];
 
-  for (const { command, path } of APP_PAGE_LINKS) {
-    discord.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isChatInputCommand() || interaction.commandName !== command) return;
-      const token = getOrCreateToken(interaction.user.id);
-      await interaction.reply({
-        content: `${HOST}/app${path}?auth=${token}`,
-        flags: MessageFlags.Ephemeral,
-      });
+  // All 6 page-link commands share the same handler body — one listener with
+  // a lookup map instead of one listener per command (was the worst offender
+  // for the MaxListeners warning).
+  const appPageByCommand = new Map(APP_PAGE_LINKS.map(p => [p.command, p.path]));
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+    const path = appPageByCommand.get(interaction.commandName);
+    if (path === undefined) return;
+    const token = getOrCreateToken(interaction.user.id);
+    await interaction.reply({
+      content: `${HOST}/app${path}?auth=${token}`,
+      flags: MessageFlags.Ephemeral,
     });
-  }
+  });
 
   // ---- Ping ----
 
