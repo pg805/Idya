@@ -345,10 +345,10 @@ function renderActionPanel() {
       // Tutorial drops you on the character page with the town-tour flag so
       // app.js fires the sidebar walkthrough on first arrival.
       again.href = '/app/character?tour=1';
-      again.textContent = 'Go to Town';
+      again.innerHTML = 'Go to Town <span class="action-key">↵</span>';
     } else {
       again.href = '/app/hunt';
-      again.textContent = 'Return to Town';
+      again.innerHTML = 'Return to Town <span class="action-key">↵</span>';
     }
     actionPanelEl.appendChild(again);
     return;
@@ -506,9 +506,23 @@ function pickAction(action) {
 // Number keys 1-9 pick an action by visible order. Enter submits when the
 // intent is complete, Escape backs out one step.
 function onKey(e) {
-  if (!state || state.phase !== 'intent' || ui.phase === 'waiting' || ui.phase === 'ended') return;
+  if (!state) return;
   // Don't intercept typing in inputs (currently none on the battle page, but defensive)
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+  // Post-battle: Enter follows the Return/Go to Town link
+  if (ui.phase === 'ended') {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const link = actionPanelEl.querySelector('a.battle-again-btn');
+      if (link?.href) {
+        e.preventDefault();
+        location.href = link.href;
+      }
+    }
+    return;
+  }
+
+  if (state.phase !== 'intent' || ui.phase === 'waiting') return;
 
   const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
   const dy = e.key === 'ArrowUp'   ? -1 : e.key === 'ArrowDown'  ? 1 : 0;
