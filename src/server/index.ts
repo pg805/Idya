@@ -2540,6 +2540,13 @@ httpServer.listen(PORT, () => {
 // has elapsed. Same maybeTickDaily logic — just driven by setInterval
 // instead of pageload. Lets stock drift (restock + destock-at-75%) feel
 // like the world exists between visits.
+//
+// IMPORTANT: SHOP_DIR is declared further down (with the other shop/recipe
+// path constants). The initial kick + setInterval registration happen here
+// at module load, but they reference SHOP_DIR through the runShopTick
+// closure — so we have to defer the first invocation until after SHOP_DIR
+// is bound. Calling `void runShopTick()` synchronously here would hit a
+// TDZ error ("Cannot access 'SHOP_DIR' before initialization").
 const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
 async function runShopTick(): Promise<void> {
   try {
@@ -2547,7 +2554,7 @@ async function runShopTick(): Promise<void> {
     if (n > 0) console.log(`[shop tick] ticked ${n} item(s)`);
   } catch (err) { console.error('[shop tick] failed', err); }
 }
-void runShopTick();
+setImmediate(() => { void runShopTick(); });
 setInterval(runShopTick, SHOP_TICK_INTERVAL_MS);
 
 // ---- Discord bot ----
