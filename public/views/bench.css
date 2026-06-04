@@ -116,19 +116,63 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
 .ingredient .have     { color: var(--teal-bright); }
 .ingredient .missing  { color: var(--warn-bright); }
 
-.craft-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.craft-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
-.craft-qty {
-  width: 52px;
+.craft-qty-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: var(--bg-darkest);
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text);
-  font-size: 0.8rem;
-  padding: 5px 6px;
-  text-align: center;
+  padding: 2px 4px;
 }
+.craft-qty-ctrl.disabled { opacity: 0.4; }
+
+.craft-step {
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: var(--buy);
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.craft-step:hover:not(:disabled) { color: var(--buy-bright); }
+.craft-step:disabled { opacity: 0.3; cursor: default; }
+
+.craft-qty {
+  width: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 3px 4px;
+  text-align: center;
+  font-family: monospace;
+  outline: none;
+}
+.craft-qty:focus { border-color: var(--gold-dim); }
 .craft-qty:disabled { opacity: 0.35; }
+
+.craft-all {
+  background: var(--bg-surface);
+  border: 1px solid var(--buy-dim);
+  border-radius: 3px;
+  color: var(--buy);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  margin-left: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.craft-all:hover:not(:disabled) { background: var(--buy-bg); color: var(--buy-bright); border-color: var(--buy); }
+.craft-all:disabled { opacity: 0.3; cursor: default; }
 
 .craft-btn {
   align-self: flex-start;
