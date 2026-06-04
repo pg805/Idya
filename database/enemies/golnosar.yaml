@@ -1,0 +1,90 @@
+Name: Golnosar
+Health: 110
+Level: 4
+Loot:
+  Items:
+    - id: thuvel
+      type: material
+      Field: [0, 1, 1, 2, 2]
+    - id: hiruos
+      type: material
+      Field: [0, 0, 1, 1, 2]
+    - id: crude_talamite
+      type: material
+      Field: [0, 0, 0, 1, 1, 1, 1]
+    - id: sulwood
+      type: material
+      Field: [0, 0, 1, 1, 1, 1, 1]
+    - id: bottle_of_tar
+      type: valuable
+      Field: [0, 1, 1, 2, 3, 3]
+    - id: lifgem
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Pattern:
+  - [1, 0]   # Defend: Tar Drink
+  - [2, 0]   # Attack: Tar Shot
+  - [2, 0]   # Attack: Tar Shot
+  - [2, 0]   # Attack: Tar Shot
+  - [2, 0]   # Attack: Tar Shot
+  - [3, 0]   # Special: Fistar
+  - [2, 0]   # Attack: Tar Shot
+  - [2, 0]   # Attack: Tar Shot
+Image: ""
+
+Weapon:
+  Name: Living Tar
+  Description: A golnosar, dripping with the black resin that fuels it.
+  Resource:
+    Name: Tar
+    Max: 10
+
+  Defend:
+    - Name: Tar Drink
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 10
+      Cost: -10
+      Action_String: "<User> drinks deeply from its own tar pool, blocking 10 damage and restoring 10 Tar."
+
+  Defend Crit: []
+
+  Attack:
+    - Name: Tar Shot
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Field: [0, 1, 2, 5, 6, 7, 8]
+      Cost: 1
+      Aimed: false
+      Range: 3
+      Action_String: "<User> spits a thick wad of tar at <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Blind
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Field: [10]
+      Rounds: 3
+      Range: 2
+      Action_String: "<User> blinds <Target> with a faceful of tar, dealing <Damage> damage per round for 3 rounds."
+
+  Special:
+    - Name: Fistar
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Arcane
+      Damage_Subtype: Fire
+      Field: [5, 8, 10, 14]
+      Rounds: 5
+      Cost: 4
+      Aimed: true
+      Range: 4
+      Action_String: "<User> ignites a fistar above <Target>, burning for <Damage> damage per round for 5 rounds."
+
+  Special Crit: []

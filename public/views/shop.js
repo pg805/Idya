@@ -183,6 +183,7 @@
               <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
               <span class="shop-step-val">${qty}</span>
               <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
+              <button class="shop-all" onclick="Views.shop.setCartQty('sells', '${inv.item_id}', ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>ALL</button>
             </div>`}
         </div>
       `;

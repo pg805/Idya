@@ -184,7 +184,7 @@ function refreshTelegraphs(session: CombatSession): void {
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'melbear'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
@@ -193,6 +193,7 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
   wyrm_bait:    'talwyrm',
   deer_bait:    'daefen_deer',
   toad_bait:    'maetoad',
+  tar_bait:     'golnosar',
   bear_bait:    'melbear',
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
@@ -2666,9 +2667,11 @@ async function notifyBotLog(title: string, color: number, fields: { name: string
   } catch (_) {}
 }
 
-// Extract a single version's section from CHANGELOG.md. Returns null if not found.
+// Extract a single version's section from the Discord-facing changelog.
+// CHANGELOG.md is the detailed dev-side log; CHANGELOG_DISCORD.md is the
+// condensed, player-safe version posted to #updates.
 function extractChangelogSection(version: string): string | null {
-  const path = join(__dirname, '../../docs/CHANGELOG.md');
+  const path = join(__dirname, '../../docs/CHANGELOG_DISCORD.md');
   if (!fs.existsSync(path)) return null;
   const md = fs.readFileSync(path, 'utf-8');
   // Split on '## ' h2 headings so each section starts with "VERSION ..." then body.

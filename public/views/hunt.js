@@ -20,10 +20,23 @@
     setLayoutTitle('Hunt');
     root.innerHTML = `<div id="hunt-body"><p class="hunt-empty">Loading…</p></div>`;
     window.addEventListener('layout-changed', layoutChangedHandler);
+    window.addEventListener('keydown', onKey);
     await loadData();
   }
 
   function layoutChangedHandler() { if (data) loadData(); }
+
+  function onKey(e) {
+    if (!data || data.baits.length === 0 || starting) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const num = parseInt(e.key, 10);
+    if (!(num >= 1 && num <= 9)) return;
+    const b = data.baits[num - 1];
+    if (!b) return;
+    e.preventDefault();
+    const btn = document.querySelector(`.hunt-start[data-bait="${b.bait_id}"]`);
+    startHunt(b.bait_id, btn);
+  }
 
   async function loadData() {
     const res = await fetch('/api/hunt');
@@ -62,14 +75,16 @@
       return;
     }
 
-    const cardsHtml = data.baits.map(b => `
+    const cardsHtml = data.baits.map((b, i) => {
+      const keyHint = i < 9 ? `<span class="hunt-key">${i + 1}</span>` : '';
+      return `
       <article class="hunt-card" data-bait="${esc(b.bait_id)}">
         <div class="hunt-card-art">
           <img src="${esc(b.enemy_sprite)}" alt="${esc(b.enemy_name)}" onerror="this.style.visibility='hidden'">
         </div>
         <div class="hunt-card-body">
           <div class="hunt-card-headline">
-            <h2 class="hunt-enemy-name">${esc(b.enemy_name)}</h2>
+            <h2 class="hunt-enemy-name">${keyHint}${esc(b.enemy_name)}</h2>
             <span class="hunt-hp">${b.enemy_health} HP</span>
           </div>
           <div class="hunt-bait-line">
@@ -87,7 +102,7 @@
           <button class="hunt-start" data-bait="${esc(b.bait_id)}">Start Hunt</button>
         </div>
       </article>
-    `).join('');
+    `;}).join('');
 
     body.innerHTML = `
       <header class="hunt-head">
@@ -143,6 +158,7 @@
 
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
+    window.removeEventListener('keydown', onKey);
     data = null;
     starting = false;
   }

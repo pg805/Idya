@@ -19,6 +19,13 @@ const ENEMIES_DIR = join(__dirname, '../../database/enemies');
 const MAX_ROUNDS  = 80;
 const N           = 5_000;
 
+// Sim approximation: real combat is spatial, so a target can dodge an aimed
+// attack by moving off the targeted tile. Without this roll the sim assumes
+// every aimed attack lands, which overstates damage from big aimed actions
+// like Fistar or Ursa Major.
+const AIM_HIT_CHANCE = 0.5;
+const aimedHits = (action: Action): boolean => !action.aimed || Math.random() < AIM_HIT_CHANCE;
+
 // ---- Types ----
 
 type EnemyData = {
@@ -105,8 +112,12 @@ function runBattle(pWeapon: Weapon, eData: EnemyData): BattleResult {
         const eChoice = chooseEnemyAction(eWeapon, enemy, pattern, eIdx);
         eIdx = eChoice.nextIdx;
 
-        // Crit: player attacks, enemy specials → attack_crit fires first
-        if (pChoice.category === 'attack' && eChoice.category === 'special' && pWeapon.attack_crit.length > 0) {
+        const playerHits = aimedHits(pChoice.action);
+        const enemyHits  = aimedHits(eChoice.action);
+
+        // Crit: player attacks, enemy specials → attack_crit fires first.
+        // Skipped if the player's main attack would miss its aim.
+        if (playerHits && pChoice.category === 'attack' && eChoice.category === 'special' && pWeapon.attack_crit.length > 0) {
             const ehpBefore = enemy.health;
             resolve_action(player, enemy, [pWeapon.attack_crit[0]]);
             damageToEnemy += ehpBefore - enemy.health;
@@ -115,12 +126,14 @@ function runBattle(pWeapon: Weapon, eData: EnemyData): BattleResult {
         // Player action
         const ehp = enemy.health;
         const php = player.health;
-        resolve_action(player, enemy, [pChoice.action]);
+        if (playerHits) resolve_action(player, enemy, [pChoice.action]);
+        else            player.apply_cost(pChoice.action);
         damageToEnemy  += Math.max(0, ehp - enemy.health);
         if (enemy.health <= 0) return { winner: 'player', rounds: round + 1, playerHpLeft: player.health, damageToEnemy, damageToPlayer };
 
         // Enemy action
-        resolve_action(enemy, player, [eChoice.action]);
+        if (enemyHits) resolve_action(enemy, player, [eChoice.action]);
+        else           enemy.apply_cost(eChoice.action);
         damageToPlayer += Math.max(0, php - player.health);
         if (player.health <= 0) return { winner: 'enemy', rounds: round + 1, playerHpLeft: 0, damageToEnemy, damageToPlayer };
 

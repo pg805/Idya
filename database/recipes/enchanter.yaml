@@ -80,6 +80,8 @@ recipes:
     ingredients:
       - item_id: hiruos
         quantity: 5
+      - item_id: card_deck
+        quantity: 1
     output:
       type: weapon
       id: deck_of_cards
@@ -173,6 +175,8 @@ recipes:
     ingredients:
       - item_id: nodol
         quantity: 4
+      - item_id: card_deck
+        quantity: 1
     output:
       type: weapon
       id: deck_of_cards

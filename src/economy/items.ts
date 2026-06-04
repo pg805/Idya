@@ -44,6 +44,10 @@ export const ITEMS: Record<string, ItemDef> = {
     deer_bait:    { name: 'Deer Bait',     description: 'A pouch of dried herbs from the forest floor. Daefen deer follow the smell for miles.', type: 'consumable' },
     toad_bait:    { name: 'Toad Bait',     description: 'A jar of murky pond water. Maetoads surface when they smell their own.',                type: 'consumable' },
     bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
+    tar_bait:     { name: 'Tar Bait',      description: 'A pungent slick of black resin. Golnosar nest in tar pools and rise when they smell their own.', type: 'consumable' },
+
+    // Misc materials sold at the general store
+    card_deck:    { name: 'Card Deck',     description: 'A simple deck of cards with the Chae emperor, Gustavus, as the king. Common in town, occasionally enchanted by those who know how.', type: 'material'   },
 
     // Valuables — dropped by enemies, sold at shops
     swallow_feather: { name: 'Swallow Feather', description: 'A sleek feather from a lithkem swallow. Light and iridescent.',                   type: 'valuable'   },
@@ -52,6 +56,8 @@ export const ITEMS: Record<string, ItemDef> = {
     crystal_tooth:   { name: 'Crystal Tooth',   description: 'A crystallized tooth shed by a talwyrm. Dense and faintly luminous.',             type: 'valuable'   },
     felt_hat:        { name: 'Felt Hat',        description: 'A wide-brimmed felt hat. Someone left it in the woods.',                         type: 'valuable'   },
     antler_trophy:   { name: 'Antler Trophy',   description: 'A full rack of burning antlers from a daefen deer. Impressive wall art.',         type: 'valuable'   },
-    bear_teeth:      { name: 'Bear Teeth',      description: 'Thick canine teeth from a melbear. A blacksmith can mount them as edged tools.',  type: 'valuable'   },
+    melstone:        { name: 'Melstone',        description: 'A dense, polished stone passed through a melbear\'s gut and worn smooth. The blacksmith uses them as heat-resistant cores.', type: 'valuable'   },
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
+    bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
+    lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
 };

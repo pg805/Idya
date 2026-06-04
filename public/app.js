@@ -56,9 +56,20 @@ async function navigate(viewPath, { push = true } = {}) {
 for (const link of navLinks) {
   link.addEventListener('click', (e) => {
     e.preventDefault();
+    document.body.classList.remove('menu-open');
     navigate(link.dataset.path);
   });
 }
+
+// Mobile drawer toggle. The hamburger button and backdrop are sibling
+// elements at the top of <body>; tapping either toggles or closes the
+// drawer, and any nav-link click also closes (handled above).
+document.getElementById('mobile-menu-toggle')?.addEventListener('click', () => {
+  document.body.classList.toggle('menu-open');
+});
+document.getElementById('mobile-menu-backdrop')?.addEventListener('click', () => {
+  document.body.classList.remove('menu-open');
+});
 
 window.addEventListener('popstate', () => {
   navigate(viewPathFromUrl(), { push: false });

@@ -8,9 +8,9 @@ Items:
   - id: sulwood
     Base_Buy: 100
     Base_Sell: 20
-    R: 1.8
-    R_Max: 3.0
-    Volume_Sensitivity: 400
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 50
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.2
@@ -21,8 +21,8 @@ Items:
     Base_Buy: 200
     Base_Sell: 40
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 100
+    R_Max: 3.4
+    Volume_Sensitivity: 20
     Transaction_Threshold: 10
     Stock_Max: 200
     Stock_Influence: 0.2
@@ -31,9 +31,9 @@ Items:
   - id: hardwood
     Base_Buy: 400
     Base_Sell: 80
-    R: 2.2
-    R_Max: 3.2
-    Volume_Sensitivity: 50
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 10
     Transaction_Threshold: 6
     Stock_Max: 80
     Stock_Influence: 0.25
@@ -44,8 +44,8 @@ Items:
     Base_Buy: 500
     Base_Sell: 100
     R: 2.0
-    R_Max: 3.2
-    Volume_Sensitivity: 15
+    R_Max: 3.4
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -55,8 +55,8 @@ Items:
     Base_Buy: 700
     Base_Sell: 140
     R: 2.0
-    R_Max: 3.2
-    Volume_Sensitivity: 15
+    R_Max: 3.4
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -66,8 +66,8 @@ Items:
     Base_Buy: 800
     Base_Sell: 160
     R: 2.0
-    R_Max: 3.2
-    Volume_Sensitivity: 15
+    R_Max: 3.4
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -77,8 +77,8 @@ Items:
     Base_Buy: 800
     Base_Sell: 160
     R: 2.0
-    R_Max: 3.2
-    Volume_Sensitivity: 15
+    R_Max: 3.4
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -88,8 +88,8 @@ Items:
     Base_Buy: 800
     Base_Sell: 160
     R: 2.0
-    R_Max: 3.2
-    Volume_Sensitivity: 15
+    R_Max: 3.4
+    Volume_Sensitivity: 4
     Transaction_Threshold: 5
     Stock_Max: 20
     Stock_Influence: 0.3
@@ -100,8 +100,8 @@ Items:
     Base_Buy: 300
     Base_Sell: 60
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -111,8 +111,8 @@ Items:
     Base_Buy: 300
     Base_Sell: 60
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -122,8 +122,8 @@ Items:
     Base_Buy: 300
     Base_Sell: 60
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -133,8 +133,8 @@ Items:
     Base_Buy: 300
     Base_Sell: 60
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -145,8 +145,8 @@ Items:
     Base_Buy: 400
     Base_Sell: 80
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -156,8 +156,8 @@ Items:
     Base_Buy: 400
     Base_Sell: 80
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -167,8 +167,8 @@ Items:
     Base_Buy: 400
     Base_Sell: 80
     R: 2.0
-    R_Max: 3.0
-    Volume_Sensitivity: 40
+    R_Max: 3.4
+    Volume_Sensitivity: 8
     Transaction_Threshold: 8
     Stock_Max: 50
     Stock_Influence: 0.2
@@ -178,9 +178,9 @@ Items:
   - id: sword_blade_hardwood
     Base_Buy: 800
     Base_Sell: 160
-    R: 2.2
-    R_Max: 3.3
-    Volume_Sensitivity: 20
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 5
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
@@ -189,9 +189,9 @@ Items:
   - id: axe_head_hardwood
     Base_Buy: 800
     Base_Sell: 160
-    R: 2.2
-    R_Max: 3.3
-    Volume_Sensitivity: 20
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 5
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
@@ -200,9 +200,9 @@ Items:
   - id: shovel_head_hardwood
     Base_Buy: 800
     Base_Sell: 160
-    R: 2.2
-    R_Max: 3.3
-    Volume_Sensitivity: 20
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 5
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
@@ -211,9 +211,9 @@ Items:
   - id: wand_base_hardwood
     Base_Buy: 600
     Base_Sell: 120
-    R: 2.2
-    R_Max: 3.3
-    Volume_Sensitivity: 20
+    R: 2.0
+    R_Max: 3.4
+    Volume_Sensitivity: 5
     Transaction_Threshold: 5
     Stock_Max: 25
     Stock_Influence: 0.25
@@ -223,9 +223,9 @@ Items:
   - id: felt_hat
     Base_Buy: 100
     Base_Sell: 25
-    R: 1.8
-    R_Max: 2.8
-    Volume_Sensitivity: 400
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 80
     Transaction_Threshold: 15
     Stock_Max: 500
     Stock_Influence: 0.15
@@ -235,8 +235,8 @@ Items:
     Base_Buy: 1000
     Base_Sell: 500
     R: 3.0
-    R_Max: 3.8
-    Volume_Sensitivity: 8
+    R_Max: 3.99
+    Volume_Sensitivity: 3
     Transaction_Threshold: 3
     Stock_Max: 10
     Stock_Influence: 0.4
@@ -246,9 +246,20 @@ Items:
     Base_Buy: 1200
     Base_Sell: 600
     R: 3.0
-    R_Max: 3.8
-    Volume_Sensitivity: 8
+    R_Max: 3.99
+    Volume_Sensitivity: 3
     Transaction_Threshold: 3
     Stock_Max: 12
     Stock_Influence: 0.4
     Restock_Field: [0, 1, 1, 2, 0]
+
+  - id: bottle_of_tar
+    Base_Buy: 90
+    Base_Sell: 30
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 80
+    Transaction_Threshold: 12
+    Stock_Max: 300
+    Stock_Influence: 0.15
+    Restock_Field: [15, 25, 30, 40, 0]

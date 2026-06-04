@@ -166,3 +166,19 @@
   color: var(--warn-bright);
   font-size: 0.85rem;
 }
+
+.hunt-key {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-family: monospace;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-right: 8px;
+  padding: 1px 0;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+@media (max-width: 640px) { .hunt-key { display: none; } }
