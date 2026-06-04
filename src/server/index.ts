@@ -8,6 +8,7 @@ import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  type Interaction,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
@@ -2778,14 +2779,16 @@ if (discordToken) {
       GatewayIntentBits.GuildMembers,
     ],
   });
-  // Each command registers its own InteractionCreate listener below — Node's
-  // default 10-listener cap fires a (misleading) "memory leak" warning at 11+.
-  // These are permanent listeners, not a growth leak, but the warning is real
-  // and pollutes logs. Bumping the cap suppresses it. Eventual cleanup: fold
-  // all command handlers into a single dispatcher (see 0.1.5 docs work).
-  discord.setMaxListeners(30);
+  // All Discord interactions fan out from ONE listener at the bottom of this
+  // block. Each command/button registers a handler into interactionHandlers
+  // instead of adding its own client.on() — the old pattern leaked ~17
+  // listeners against Node's default 10-listener cap and fired a misleading
+  // "memory leak" warning on every restart. Each handler is responsible for
+  // its own filter (isChatInputCommand + commandName, isButton + customId,
+  // etc.) and returns early if no match.
+  const interactionHandlers: Array<(interaction: Interaction) => Promise<void>> = [];
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     // ---- Hunt ----
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'hunt') {
@@ -2837,7 +2840,7 @@ if (discordToken) {
 
   // ---- Admin commands ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'admin') return;
     if (!interaction.member || !isAdmin(interaction.member)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
@@ -2948,7 +2951,7 @@ if (discordToken) {
 
   // ---- Dev commands ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'dev') return;
     if (!isDev(interaction.user.id)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
@@ -2984,7 +2987,7 @@ if (discordToken) {
 
   // ---- Profile ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'profile') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3051,7 +3054,7 @@ if (discordToken) {
 
   // ---- Weapon equip ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3103,7 +3106,7 @@ if (discordToken) {
     await interaction.reply({ content: note, components: [row], flags: MessageFlags.Ephemeral });
   });
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isStringSelectMenu() || interaction.customId !== 'WeaponEquip') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3135,7 +3138,7 @@ if (discordToken) {
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'shop') return;
 
     const shopKey = CHANNEL_TO_SHOP[interaction.channelId];
@@ -3166,7 +3169,7 @@ if (discordToken) {
 
   // ---- Craft ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'craft') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3190,7 +3193,7 @@ if (discordToken) {
 
   // ---- Trade ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'trade') return;
 
     const target = interaction.options.getUser('user', true);
@@ -3223,7 +3226,7 @@ if (discordToken) {
 
   // ---- Weapons reference ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon-stats') return;
     await interaction.reply({ content: `${HOST}/app/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
@@ -3243,7 +3246,7 @@ if (discordToken) {
   // a lookup map instead of one listener per command (was the worst offender
   // for the MaxListeners warning).
   const appPageByCommand = new Map(APP_PAGE_LINKS.map(p => [p.command, p.path]));
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const path = appPageByCommand.get(interaction.commandName);
     if (path === undefined) return;
@@ -3256,9 +3259,20 @@ if (discordToken) {
 
   // ---- Ping ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'ping') return;
     await interaction.reply('Pong!');
+  });
+
+  // Single dispatcher — fans every interaction out to the handlers above.
+  // Each handler's filter ignores interactions it doesn't own, so iteration
+  // is effectively a routing table walk. Errors in one handler don't break
+  // siblings.
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    for (const handler of interactionHandlers) {
+      try { await handler(interaction); }
+      catch (err) { console.error('interaction handler error:', err); }
+    }
   });
 
   // ---- Guild member join ----
