@@ -115,3 +115,15 @@ Items:
     Stock_Max: 20
     Stock_Influence: 0.3
     Restock_Field: [1, 2, 2, 3, 0]
+
+  # Valuables
+  - id: diamond
+    Base_Buy: 2000
+    Base_Sell: 1000
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 3
+    Transaction_Threshold: 3
+    Stock_Max: 10
+    Stock_Influence: 0.4
+    Restock_Field: [0, 1, 1, 2, 0]

@@ -12,7 +12,7 @@ The town has become an outpost for those looking to make a name for themselves. 
 
 ## The Chaevul Empire
 
-The empire is ruled by **Emperor Gustavus**. His likeness appears as the king card in standard playing decks across the continent — the most common way most subjects encounter him in their daily lives.
+The empire is ruled by **Emperor Gustavus**. His face is stamped on every korel coin — the most common way most subjects encounter him in their daily lives. He also appears as the king card in standard playing decks across the continent.
 
 (More to be detailed as the world expands.)
 

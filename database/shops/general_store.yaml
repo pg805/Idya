@@ -60,6 +60,17 @@ Items:
     Stock_Influence: 0
     Restock_Field: [10]
 
+  - id: tar_bait
+    Base_Buy: 60
+    Base_Sell: 18
+    R: 1.0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
   - id: bear_bait
     Base_Buy: 100
     Base_Sell: 30
