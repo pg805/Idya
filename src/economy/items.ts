@@ -46,7 +46,7 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
 
     // Misc materials sold at the general store
-    card_deck:    { name: 'Card Deck',     description: 'A blank deck of paper cards. An enchanter can charge it into a Deck of Cards weapon.', type: 'material'   },
+    card_deck:    { name: 'Card Deck',     description: 'A simple deck of cards with the Chae emperor as the king. Common in town, occasionally enchanted by those who know how.', type: 'material'   },
 
     // Valuables — dropped by enemies, sold at shops
     swallow_feather: { name: 'Swallow Feather', description: 'A sleek feather from a lithkem swallow. Light and iridescent.',                   type: 'valuable'   },
