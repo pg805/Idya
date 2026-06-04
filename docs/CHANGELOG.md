@@ -3,6 +3,20 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.1.5 — unreleased
+
+### Shop Stock
+- **Hourly destock loop** — `TICK_INTERVAL_MS` (24h) blocked the destock from firing more than once per day per item, so popular shelves (venison, thuvel, hiruos, maek_egg seen pinned at cap on prod) waited hours-to-a-full-day before any flush. Split into two clocks: daily tick still owns price update + low-stock restock, new `maybeHourlyDestock` runs on the same hourly walk and dumps `6× rolled Restock_Field` whenever stock ≥ 75% of cap. In-memory `lastDestockAt` map gates one destock per item per hour (lost on restart — acceptable, restart just triggers a fresh round of catch-up flushes).
+- **Stock_Max bumps on hot items** to give shelves real headroom under multi-player load:
+  - venison 200 → 800, maek_egg 50 → 200 (general store)
+  - thuvel 500 → 2000, hiruos 200 → 800 (enchanter)
+  - swallow_feather 1000 → 2000 (general store)
+  - crude_talamite 500 → 2000 (blacksmith), sulwood 500 → 2000 (lumberjack)
+  - melstone 300 → 1000 (blacksmith)
+  - felt_hat 500 → 1000, bottle_of_tar 300 → 1000 (lumberjack)
+
+---
+
 ## 0.1.4 — 2026-06-03
 
 Mobile-friendly UI, keyboard combat controls, the Golnosar joins the

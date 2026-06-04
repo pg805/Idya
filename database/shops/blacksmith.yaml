@@ -12,7 +12,7 @@ Items:
     R_Max: 3.4
     Volume_Sensitivity: 50
     Transaction_Threshold: 15
-    Stock_Max: 500
+    Stock_Max: 2000
     Stock_Influence: 0.2
     Restock_Field: [15, 25, 30, 40, 0]
 
@@ -193,6 +193,6 @@ Items:
     R_Max: 3.99
     Volume_Sensitivity: 30
     Transaction_Threshold: 12
-    Stock_Max: 300
+    Stock_Max: 1000
     Stock_Influence: 0.15
     Restock_Field: [15, 25, 30, 40, 0]
