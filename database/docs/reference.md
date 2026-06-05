@@ -4,7 +4,7 @@
 
 **Health (HP)** is your survival pool in a fight. Drops to zero, you lose the battle.
 
-**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Luck for a deck of cards — and most attacks cost some to use. Most weapons have a dedicated action to restore it. Different weapons play very differently because of their resource rhythm.
+**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Luck for a deck of cards — and most attacks cost some to use. Most weapons have a dedicated action to restore it.
 
 ---
 
@@ -31,14 +31,14 @@ Actions come in eight types. Some take effect immediately, others apply a durati
 | **Reflect** | Sends a flat amount back any round you take a Strike | Duration |
 | **Shield** | Subtracts a flat amount from damage you take each round | Duration |
 
-**Field** is the roll table for any value that varies — usually the damage on a Strike or DOT tick. `Field: [0, 1, 2, 5, 6, 7, 8]` means each use picks one of those values at random. A wider range is swingier; a tighter range is more predictable.
+**Field** is the roll table for any value that varies — usually the damage on a Strike or DOT tick. `Field: [0, 1, 2, 5, 6, 7, 8]` means each use picks one of those values at random.
 
 **Range** is how far the action can reach, measured in tiles (diagonals count as one step).
 
 **Aimed vs Reactive**:
 - **Aimed** — you pick a target tile before the attack fires. Less reliable, requires prediction.
 - **Reactive** — fires automatically at the nearest valid target in range. More reliable.
-- **Self-targeting** — Heal and Buff actions automatically target the user (you), not an enemy. You don't pick a tile for them.
+- **Self-targeting** — Heal and Buff actions target the user automatically; no tile selection.
 
 **Attack Crit** fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
 
@@ -68,13 +68,13 @@ Enemies have **Resistances** against each type and subtype. Your action's type a
 | **Resist** | **Ld2** | Roll 2 dice, take the lowest. Skews low. |
 | **Neutral** | **1d** | Single roll. Baseline. |
 
-The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when active. Matching damage types to enemy weaknesses isn't a guaranteed bonus, but it dramatically shifts the odds in your favor.
+The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when active. Type matchups shift the roll distribution; they don't apply a flat damage multiplier.
 
 ---
 
 # The Battle
 
-Battles are turn-based on a small grid against an enemy from the [Enemies](/app/enemies) roster. You start each battle at **full HP and full Resource** — no need to warm up before using a Special.
+Battles are turn-based on a small grid against an enemy from the [Enemies](/app/enemies) roster. Both combatants begin at **full HP and full Resource**.
 
 Each turn unfolds in three phases:
 
@@ -86,9 +86,9 @@ Each turn unfolds in three phases:
    - **Special actions**
    - **DOT ticks** (end of round)
 
-**Within each action sub-phase, the player resolves before the AI — except DOT ticks, where the AI ticks first.** The battle ends the moment any character reaches 0 HP — they're the loser, even if a tick on the same round would have killed both.
+Within each action sub-phase, the player resolves before the AI — **except DOT ticks, where the AI ticks first**. The battle ends the moment any character reaches 0 HP — they are the loser. If both would drop from ticks on the same round, whichever reaches 0 first loses.
 
-Position matters: range, line of sight, and which tiles get blocked by **obstacles** all shape what's possible. Obstacles are rolled randomly per hunt and block both movement and aimed attacks. Diagonal moves can't slip between two obstacles that touch corners.
+Range, line of sight, and **obstacles** all affect movement and targeting. Obstacles are rolled randomly per hunt and block both movement and aimed attacks. Diagonal moves cannot pass between two obstacles that touch corners.
 
 ---
 
@@ -123,13 +123,13 @@ Sulku'it has four shops. Each one buys back items at a sell price and stocks goo
 
 Prices move with the market. Shops respond to player trading: heavy buying pushes prices up, heavy selling pushes them down. Some items (valuables) swing harder; bulk materials shift more slowly. Idle items drift back toward their baseline.
 
-If a shop's shelf is full of an item, it stops buying that item until stock clears. Shops dump excess stock on their own schedule to keep things flowing.
+If a shop's shelf is full of an item, it stops buying that item until stock clears. Shops dump excess stock on their own schedule.
 
 ---
 
 # The Bench
 
-The **Bench** is where you turn materials into things. It splits into three pages, one per profession:
+The **Bench** is where materials become items, weapons, and enchants. It splits into three pages, one per profession:
 
 - [**Crafting**](/app/crafting) — combine materials and components into finished weapons, intermediates, and enchanting reagents. Weapons crafted from higher-tier components come with bonuses baked in (see [Items](#items)).
 - [**Upgrading**](/app/upgrade) — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
@@ -143,7 +143,7 @@ There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enc
 
 The cost of a level depends on your **total** profession levels across all three. Your 1st level (in any profession) is cheap; your 30th — the last one to reach the cap — is expensive. The profession you put it into doesn't change the price, even if it's a lower level than another profession.
 
-That means picking up a second or third profession late is costly, and specializing is the cheaper path. Other players are expected to fill the gaps via trade.
+Picking up a second or third profession late costs more total korel and materials than specializing. Players are expected to trade to cover gaps in their own professions.
 
 You raise profession levels on your [Character](/app/character) page.
 
@@ -165,7 +165,7 @@ Each profession level grants either a new recipe or a bigger upgrade budget. See
 
 You can trade with another player at any time. From the **Trade** page, search a partner by character name and you'll both land in a shared trade view.
 
-Both sides drop items, weapons, and korel into their offer panel. Each side must lock in their offer (no further changes), then both must confirm. The transfer happens atomically — if anything goes wrong, nobody loses anything.
+Both sides drop items, weapons, and korel into their offer panel. Each side must lock in their offer (no further changes), then both must confirm. The transfer is atomic — if validation fails, no items move.
 
 Equipped weapons can't be traded.
 
@@ -173,7 +173,7 @@ Equipped weapons can't be traded.
 
 # Weapons
 
-Your equipped **Weapon** sets your stats and dictates what actions are available in a fight. Different weapons play very differently — different HP totals, different resource rhythms, different action mixes.
+Your equipped **Weapon** sets your stats and dictates what actions are available in a fight. Weapons differ in HP, Resource, and action mix.
 
 A weapon has:
 - **HP** — the survival pool you fight with. Different weapons have different HP totals.
@@ -190,7 +190,7 @@ An **Action** has:
 - **Aimed or Reactive** — targeting mode.
 - **Rounds** — for duration actions (DOT, Buff, Debuff, Reflect, Shield), how many rounds the effect lasts.
 
-**Each weapon you own is its own instance.** If you craft two Quarterstaffs, they're separate items — upgrades and enchants on one don't carry over to the other. You can keep a fresh "spare" alongside a heavily-upgraded main weapon if you want.
+**Each weapon you own is its own instance.** Crafting two Quarterstaffs produces two separate items; upgrades and enchants on one do not carry over to the other.
 
 For per-weapon stats and the exact actions of every weapon, see the [Weapon Stats](/app/weapon-stats) info page.
 
@@ -210,7 +210,7 @@ Every item in your inventory has a type:
 - **Tier-2 recipes** — use tier-2 components (treated sulwood, talamite, hiruos). The crafted weapon comes with **+1 attack** baked in. The three starting weapons each have a tier-2 variant: **Quarterstaff (Treated)** at LJ level 2, **Dagger (Talamite)** at BS level 2, and **Spellbook (Hiruos)** at EN level 2.
 - **Tier-3 recipes** — use tier-3 components (hardwood, alloy, nodol). The crafted weapon comes with **+1 defend, +1 attack, +1 special** baked in. Every weapon has a tier-3 variant, unlocking at profession level 7.
 
-These baked-in bonuses don't count against your [upgrade budget](#the-bench) — they're part of the recipe. So crafting a hardwood quarterstaff gives you a +1/+1/+1 quarterstaff without spending any upgrade points.
+These baked-in bonuses do not count against the [upgrade budget](#the-bench) — they are part of the recipe. A hardwood quarterstaff arrives at +1/+1/+1 with no upgrade points spent.
 
 See the [Professions](/app/professions) info page for the full list of which recipes are available at each level.
 
