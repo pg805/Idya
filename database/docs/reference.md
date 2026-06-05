@@ -195,7 +195,7 @@ Every item in your inventory has a type:
 
 **Higher-tier crafting**. Many weapons have alternate recipes that use higher-tier components and bake bonuses into the crafted weapon:
 
-- **Tier-2 recipes** — use tier-2 components (treated sulwood, talamite). The crafted weapon comes with **+1 attack** baked in. Only the two starting weapons currently have a tier-2 variant: **Quarterstaff (Treated)** at LJ level 2 and **Dagger (Talamite)** at BS level 2.
+- **Tier-2 recipes** — use tier-2 components (treated sulwood, talamite, hiruos). The crafted weapon comes with **+1 attack** baked in. The three starting weapons each have a tier-2 variant: **Quarterstaff (Treated)** at LJ level 2, **Dagger (Talamite)** at BS level 2, and **Spellbook (Hiruos)** at EN level 2.
 - **Tier-3 recipes** — use tier-3 components (hardwood, alloy, nodol). The crafted weapon comes with **+1 defend, +1 attack, +1 special** baked in. Every weapon has a tier-3 variant, unlocking at profession level 7.
 
 These baked-in bonuses don't count against your [upgrade budget](#the-bench) — they're part of the recipe. So crafting a hardwood quarterstaff gives you a +1/+1/+1 quarterstaff without spending any upgrade points.
@@ -269,5 +269,5 @@ Quick reference. Click any term to jump to its section.
 - [Component](#items) — crafted intermediate combined into a weapon (sword hilt, axe head, etc.). All components are also materials.
 - [Valuable](#items) — loot meant for selling.
 - [Consumable](#items) — single-use item (baits are the main example).
-- [Tier-2 recipe](#items) — alternate recipe for the L1 weapons (Quarterstaff, Dagger) using treated sulwood / talamite. Crafted weapon comes with +1 attack baked in.
+- [Tier-2 recipe](#items) — alternate recipe for the L1 weapons (Quarterstaff, Dagger, Spellbook) using treated sulwood / talamite / hiruos. Crafted weapon comes with +1 attack baked in.
 - [Tier-3 recipe](#items) — alternate recipe for every weapon using hardwood / alloy / nodol. Crafted weapon comes with +1 defend / +1 attack / +1 special baked in.
