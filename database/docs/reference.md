@@ -42,13 +42,12 @@ Actions come in eight types. Some take effect immediately, others apply a durati
 
 **Attack Crit** fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
 
-**How damage adds up.** When you land a Strike, the rolled damage is adjusted by your active Buff (added) and Debuff (subtracted), then reduced by the target's Block and Shield. Final damage can't go below 0.
+**Damage calculation.** When a Strike lands, the rolled damage is adjusted by the attacker's active Buff (added) and Debuff (subtracted), then reduced by the target's Block and Shield. Final damage cannot go below 0.
 
-A few details worth knowing:
-- **Buff and Debuff are mutually exclusive on the same target.** Applying one clears the other — you can't be both buffed and debuffed at once.
-- **Block lasts only the current round.** It resets to 0 at end of round, so you have to re-apply it each turn you want it.
-- **Shield reduces damage every round for its duration.** It's not a damage pool that depletes; the value stays the same each round until the duration ends.
-- **Reflect fires on any incoming Strike**, regardless of how much damage landed (even 0). It sends a flat amount back.
+- **Buff and Debuff are mutually exclusive on the same target.** Applying one clears the other.
+- **Block resets at end of round.** It must be re-applied each round.
+- **Shield is not a depleting pool.** Its value subtracts from incoming damage each round for the duration.
+- **Reflect fires on any incoming Strike** regardless of damage landed, and sends a flat amount back.
 
 ---
 
