@@ -1,84 +1,85 @@
 # Currency and Stats
 
-**Korel** is the standard currency. Stamped with Emperor Gustavus's face. Earned by selling loot to shops and from battle rewards. Used to buy weapons, baits, materials, and upgrades.
+**Korel** is the standard currency. Earned by selling loot to shops and from battle rewards. Used to buy weapons, baits, materials, and upgrades.
 
 **Health (HP)** is your survival pool in a fight. Drops to zero, you lose the battle.
 
-**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Tar for a Golnosar — and most attacks cost some to use. Defensive actions usually restore it. Different weapons play very differently because of their resource rhythm.
+**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Energy for a deck of cards — and most attacks cost some to use. Most weapons have a dedicated action to restore it. Different weapons play very differently because of their resource rhythm.
 
 ---
 
 # Combat Actions
 
-Every weapon has six action sets:
+Every weapon has three action sets, plus an attack crit:
 
-- **Defend** and **Defend Crit**
+- **Defend**
 - **Attack** and **Attack Crit**
-- **Special** and **Special Crit**
+- **Special**
 
-You pick one Defend, Attack, or Special each turn. The "Crit" variants are bonus actions that fire automatically when conditions are met (see Crits below).
+You pick one Defend, Attack, or Special each turn. The Attack Crit is a bonus action that fires automatically when the conditions are met (see Crits below).
 
-Actions come in eight types:
+Actions come in eight types. Some take effect immediately, others apply a duration over several rounds. **Duration effects never stack** — applying a new one replaces the existing one on the same target.
 
-- **Strike** — direct damage
-- **Block** — reduces incoming damage this turn
-- **Buff** — adds an effect that helps the user (e.g., boosts damage)
-- **Debuff** — adds an effect that hurts the target (e.g., reduces their damage)
-- **Heal** — restores HP
-- **DOT (Damage Over Time)** — ticks damage for several rounds after it lands
-- **Reflect** — sends a portion of incoming damage back at the attacker
-- **Shield** — soaks a fixed amount of damage over multiple turns
+| Type | Effect | Duration |
+|---|---|---|
+| **Strike** | Direct damage | Immediate |
+| **Block** | Reduces incoming damage this turn | Immediate (this turn only) |
+| **Buff** | Boosts the user's damage | Duration |
+| **Debuff** | Reduces the target's damage | Duration |
+| **Heal** | Restores HP | Immediate |
+| **DOT** (Damage Over Time) | Damage that ticks each round | Duration |
+| **Reflect** | Sends a portion of incoming damage back | Duration |
+| **Shield** | Soaks a fixed amount of damage | Duration |
 
-**DOTs do not stack.** A new DOT replaces the existing one on the same target.
+**Field** is the roll table for any value that varies — damage on a Strike, damage per tick on a DOT, even shield/block values. `Field: [0, 1, 2, 5, 6, 7, 8]` means each use picks one of those values at random. A wider range is swingier; a tighter range is more predictable.
 
-**Field** is the damage roll table for an attack. `Field: [0, 1, 2, 5, 6, 7, 8]` means each hit picks one of those values at random. A wider range means swingier; a tighter range means predictable.
-
-**Range** is how far the action can reach measured in tiles (diagonals count as one step).
+**Range** is how far the action can reach, measured in tiles (diagonals count as one step).
 
 **Aimed vs Reactive**:
-- **Aimed** — you pick a target tile before the attack fires. Lets you hit specific positions or save a powerful attack for a moment when the enemy is in range.
-- **Reactive** — fires automatically at the nearest valid target in range. Less control, more reliable.
+- **Aimed** — you pick a target tile before the attack fires. Less reliable, because the target can move off the tile.
+- **Reactive** — fires automatically at the nearest valid target in range. More reliable.
 
-**Crits (`attack_crit`)** fire when you use an Attack and your target uses a Special on the same turn. The crit lands *before* the main attack. Defend Crit and Special Crit work analogously for those action types.
+**Crits** — `attack_crit` fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
 
 ---
 
 # Damage and Resistances
 
-Every action carries a **Damage Type** and a **Damage Subtype**.
+Every action carries a **Damage Type** and a **Damage Subtype**. Any type/subtype combination is possible (an action can be Arcane Sharp or Elemental Blunt — enchants make these mixes).
 
-**Damage Types**
-- **Physical** — Sharp, Blunt, Poison
+**Damage Types** and their typical subtypes:
+- **Physical** — Sharp, Blunt
 - **Arcane** — Mental, Force
 - **Elemental** — Fire, Water, Earth, Wind, Plant
 
-Enemies have **Resistances** as multiplier scores against each type and subtype. Your action's type score and subtype score multiply together. The combined number doesn't directly multiply damage — it changes the *shape* of the roll:
+Enemies have **Resistances** against each type and subtype. Your action's type and subtype are evaluated against the enemy's, and the result maps to a roll mode:
 
-- Combined > 1.0 — **weakness** — roll 4 dice, take the highest (Hd4). Big variance, skews high.
-- Combined < 1.0 — **resist** — roll 2 dice, take the lowest (Ld2). Skews low.
-- Combined = 1.0 — **neutral** — single roll. Baseline.
+| Matchup | Roll mode | Behavior |
+|---|---|---|
+| **Weakness** | **Hd4** | Roll 4 dice, take the highest. Big variance, skews high. |
+| **Resist** | **Ld2** | Roll 2 dice, take the lowest. Skews low. |
+| **Neutral** | **1d** | Single roll. Baseline. |
 
-The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when active. Matching damage types to enemy weaknesses isn't always a guaranteed bonus, but it dramatically shifts the odds in your favor.
+The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when active. Matching damage types to enemy weaknesses isn't a guaranteed bonus, but it dramatically shifts the odds in your favor.
 
 ---
 
 # The Battle
 
-Battles are turn-based on a small grid. Each turn unfolds in three phases:
+Battles are turn-based on a small grid. You and your enemy submit your choices each turn, then resolution runs in two phases:
 
-1. **Intent** — you and the enemy each choose an action.
-2. **Move** — both sides take their movement step.
-3. **Action** — Defends resolve first, then Attacks, then Specials. Within each sub-phase, the player resolves before the AI.
+1. **Move phase** — both sides execute their movement step.
+2. **Action phase** — Defends resolve first, then Attacks, then Specials. Within each sub-phase, the player resolves before the AI.
 
-You and your enemy share the board. Position matters: range, line of sight, and which tiles get blocked by obstacles all shape what's possible. The board includes **obstacles** — rolled randomly per hunt — that block both movement and aimed attacks. Diagonal moves can't slip between two obstacles that touch corners.
+Position matters: range, line of sight, and which tiles get blocked by **obstacles** all shape what's possible. Obstacles are rolled randomly per hunt and block both movement and aimed attacks. Diagonal moves can't slip between two obstacles that touch corners.
 
-DOTs tick at end of round. If a fight ends with both combatants dying to DOT damage on the same tick, the AI's DOT resolves first, then yours — death is checked between.
+**The battle ends the moment any character reaches 0 HP — they're the loser.** DOTs tick at end of round and are checked the same way: whoever drops first is the loser.
 
 ---
 
 # Hunting
 
-Hunts happen on the **Hunt** page. Each hunt costs one **bait** from the General Store, and each bait summons one specific enemy:
+Hunts happen on the **Hunt** page. Each hunt costs one bait from the General Store, and each bait summons one specific enemy:
 
 | Bait | Enemy |
 |---|---|
@@ -90,9 +91,9 @@ Hunts happen on the **Hunt** page. Each hunt costs one **bait** from the General
 | Tar Bait | Golnosar |
 | Bear Bait | Melbear |
 
-**Loot** is rolled at the end of a victorious battle, not per turn. Each enemy has a drop table — see the **Enemies** info page for the exact roll tables.
+**Loot** is rolled at the end of a victorious battle, not per turn. Each enemy has a drop table — see the [Enemies](/app/enemies) info page for exact roll tables.
 
-Each hunt rolls a fresh board layout: 2–6 obstacles placed randomly in the open zone. The tutorial board is fixed.
+Each hunt rolls a fresh board layout: 2–6 obstacles placed randomly in the open zone.
 
 ---
 
@@ -105,7 +106,7 @@ Sulku'it has four shops. Each one buys back items at a sell price and stocks goo
 - **Lumberjack** (Vetha) — sulwood materials, wood weapons, lumber components.
 - **Enchanting Shop** (Lomis) — enchanting reagents, arcane weapons, valuable gemstones.
 
-**Prices move with the market.** Shops respond to player trading: heavy buying pushes prices up, heavy selling pushes them down. Some items (valuables) swing harder; bulk materials shift more slowly. Idle items drift back toward their baseline.
+Prices move with the market. Shops respond to player trading: heavy buying pushes prices up, heavy selling pushes them down. Some items (valuables) swing harder; bulk materials shift more slowly. Idle items drift back toward their baseline.
 
 If a shop's shelf is full of an item, it stops buying that item until stock clears. Shops dump excess stock on their own schedule to keep things flowing.
 
@@ -115,56 +116,34 @@ If a shop's shelf is full of an item, it stops buying that item until stock clea
 
 The **Bench** is where you turn materials into things. It splits into three pages, one per profession:
 
-- **Crafting** — combine materials and components into finished weapons, intermediates, and enchanting reagents. The recipe is fixed; you provide the inputs.
+- **Crafting** — combine materials and components into finished weapons, intermediates, and enchanting reagents.
 - **Upgrading** — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
-- **Enchanting** — apply an enchant to one of a weapon's three enchant slots. Enchants change an action's damage subtype (minor) or its full damage type and subtype (major). Three enchant slots per weapon, one enchant per action, permanent.
+- **Enchanting** — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action; a **major** enchant changes both **Damage Type** and **Damage Subtype** (and adds a small bonus). Three enchant slots per weapon, one enchant per action, permanent.
 
 ---
 
 # Professions
 
-There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10. Total combined level is capped at 30, so leveling all three to max is possible but takes work.
+There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10. Total combined level is capped at 30 — that's enough to max two and leave one at 10, or spread your levels more evenly. The cap means specializing is encouraged: you can't be the master of everything, and other players are expected to fill the gaps via trade.
 
 | Profession | What it crafts | What it upgrades |
 |---|---|---|
-| Lumberjack | Wood and hybrid weapons | Any weapon with a wood component |
-| Blacksmith | Metal weapons | Talamite-only weapons (no wood handle) |
-| Enchanter | Enchanting reagents and arcane weapons | All weapons (via enchants) |
+| Lumberjack | Wood and hybrid weapons | Any weapon containing a wood component |
+| Blacksmith | Metal weapons | Any weapon containing talamite |
+| Enchanter | Enchanter-tree weapons (spellbook, wand, kustaff, deck of cards, mental cage) | Enchanter-tree weapons |
 
-Hybrid weapons (Sword (Talamite), Axe (Talamite), Shovel (Talamite)) can be upgraded by **either** LJ or BS — cross-profession collaboration is intentional.
+Hybrid weapons (Sword (Talamite), Axe (Talamite), Shovel (Talamite)) have both wood and talamite parts, so **both** LJ and BS can upgrade them — cross-profession collaboration is intentional.
 
-Each profession level grants either a new recipe or a bigger upgrade budget. See the **Professions** info page for the full per-level breakdown.
+Enchanting is a separate system from upgrades. Any profession's weapon can receive enchants (apply via the Enchanting page above).
+
+Each profession level grants either a new recipe or a bigger upgrade budget. See the [Professions](/app/professions) info page for the full per-level breakdown.
 
 ---
 
 # Trading
 
-You can trade with another player at any time. From the **Trade** page, search a partner by character name, and you'll both land in a shared trade view.
+You can trade with another player at any time. From the **Trade** page, search a partner by character name and you'll both land in a shared trade view.
 
-Both sides drop items, weapons, and **korel** into their offer panel. Each side must **lock in** their offer (no further changes), then both must **confirm**. The transfer happens atomically — if anything goes wrong, nobody loses anything.
+Both sides drop items, weapons, and korel into their offer panel. Each side must lock in their offer (no further changes), then both must confirm. The transfer happens atomically — if anything goes wrong, nobody loses anything.
 
-Equipped weapons can't be traded. Unequip first if you want to send one across.
-
----
-
-# The Pages
-
-The sidebar groups everything you'll touch into four areas.
-
-**Top group** (your character and the world):
-- **Character** — your sprite, stats, profession levels.
-- **Inventory** — your items and weapons. Equip weapons from here.
-- **Hunt** — pick a bait, start a battle.
-- **Trade** — open a trade session with another player.
-
-**Bench** (production):
-- **Crafting**, **Upgrading**, **Enchanting** — described above.
-
-**Town** (the four shops): General Store, Blacksmith, Lumberjack, Enchanting Shop.
-
-**Info** (reference, no game state changes):
-- **Professions** — per-level recipe and budget breakdown.
-- **Enemies** — drop tables for every enemy.
-- **Weapon Stats** — action stats and damage fields for every weapon.
-- **Lore** — the world, its peoples, the town.
-- **Reference** — this page.
+Equipped weapons can't be traded.

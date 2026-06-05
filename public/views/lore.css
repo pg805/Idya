@@ -143,6 +143,13 @@
 .ref-table td { color: var(--text-muted); }
 .ref-table td strong { color: var(--text-2); }
 
+.ref-link {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--gold-dim, var(--gold));
+}
+.ref-link:hover { color: var(--text-2); border-bottom-color: var(--text-2); }
+
 @media (max-width: 600px) {
   .lore-sidebar { width: 140px; min-width: 140px; }
   .lore-detail { padding: 18px 20px; }
