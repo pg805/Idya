@@ -10,9 +10,9 @@ The town has become an outpost for those looking to make a name for themselves. 
 
 # The Chaevul Empire
 
-The empire is ruled by **Emperor Gustavus**. His face is stamped on every korel coin — the most common way most subjects encounter him in their daily lives. He also appears as the king card in standard playing decks across the continent.
+The empire is ruled by **Emperor Gustavus**. His face is stamped on every korel coin — the most common way most subjects encounter him in their daily lives.
 
-The empire's two peoples coexist uneasily in the conquered territories. The **Chae** are the empire's dominant culture: orderly, methodical, given to study and the systematizing of the world. The **Ketulvu** are the people who lived in these lands before the conquest. Their traditions predate the empire by centuries and have not been erased — only forced to share space with it.
+The empire spans many peoples. Two of them meet in Sulku'it: the **Chae**, the empire's dominant culture — orderly, methodical, given to study and the systematizing of the world — and the **Ketulvu**, the people who lived in these lands before the conquest. Ketulvu traditions predate the empire by centuries and have not been erased, only forced to share space with it.
 
 ---
 
@@ -30,7 +30,7 @@ Both traditions produce practitioners. The tension between them is cultural and 
 
 # The Gods
 
-The Ketulvu pantheon is older than the empire and quietly resilient. Three names recur most often:
+The Ketulvu pantheon is wide and older than the empire. A few names a newcomer to Sulku'it is likely to hear:
 
 - **Dae** — the source of Sidaev. Honored in every act of crafting, enchanting, and healing that draws on the living force.
 - **Vidali** — the god of life. Patroness of growth, healing, and what endures.
@@ -52,31 +52,31 @@ The town square is the gathering point. The temple, the shops, and the homes of 
 
 ## Fendalok — Padev
 
-The town's leader, called the **Padev** in Ketulvu tradition. Older man, tall, with a chinstrap beard and the practical bearing of someone who's spent decades doing the work himself. Born in Sulku'it and intends to die in it. He leads by example — joining projects until the rest of the town joins in too. He is the first face new arrivals are likely to see.
+The town's leader, called the **Padev** in Ketulvu tradition. Older man, tall, with a chinstrap beard and the practical bearing of someone who's spent decades doing the work himself. Born in Sulku'it and intends to die in it. It's not uncommon to see him with a hammer or shovel due to his hands-on approach to leadership. Married to **Morna**.
 
 ## Morna — Baker
 
-Married to Fendalok. Runs the bakery on the main square. The town's quiet center — present, capable, the person who steps in when Fendalok's pulled in too many directions. She is steady in a way the town has come to depend on.
+Married to **Fendalok**. Runs the bakery on the main square. The town's quiet center — present, capable, the person who steps in when Fendalok's pulled in too many directions. She is steady in a way the town has come to depend on.
 
 ## Dolan — General Store
 
-Older Ketulvu man, retired officer of the Chaevul military. Spent decades on the road before returning home in his later years. His store carries equipment, supplies, and the occasional curiosity brought in by traveling caravans. His military bearing has never quite left him.
+Runs the general store. If you didn't catch that Dolan is a military man from his bearing, he'll make sure you know by way of stories from his younger days or a misplaced curt order. His store carries equipment, supplies, and the occasional curiosity brought in by traveling caravans.
 
 ## Vetha — Lumberjack
 
-Runs the lumber trade out of her workshop on the edge of town. Inherited the business from Thegan, the old lumberjack who took her on as an apprentice when she was young. She is most herself when working, and the trade reflects it. Took on **Dagwen** as her apprentice.
+Runs the lumber trade out of her workshop on the edge of town. Inherited the business from Thegan, the old lumberjack who took her on as an apprentice when she was young. Took on **Dagwen** as her apprentice. Married to **Fakel**.
 
 ## Fakel — Guard
 
-A Chae soldier stationed in Sulku'it for guard duty. Twenty years on, he is married to Vetha and has made a life here. He keeps the peace with a light hand. Most of the town has come to accept him; some still see only the uniform.
+A Chae soldier stationed in Sulku'it for guard duty. Twenty years on, he is married to **Vetha** and has made a life here. He keeps the peace with a light hand. Most of the town has come to accept him; some still see only the uniform.
 
 ## Kethalis — Blacksmith
 
-Boisterous, social, the kind of presence a town builds an evening around. Inherited the smithy from his mentor Tovanas and has run it since. The smithy is welcoming despite the heat — his doing.
+Boisterous, social, the kind of presence a town builds an evening around. Inherited the smithy from his mentor Tovanas and has run it since. The smithy is welcoming despite the heat — his doing. Married to **Lithona**; father of **Dagwen**.
 
 ## Lithona — Temple Keeper
 
-Born with stark white hair, taken into temple life young. Tends the temple and the traditions of the gods. Will help anyone who comes through her door — healing, listening, advice. Married to Kethalis.
+Born with stark white hair, taken into temple life young. Tends the temple and the traditions of the gods. Will help anyone who comes through her door — healing, listening, advice. Married to **Kethalis**; mother of **Dagwen**.
 
 ## Lomis — Enchanter
 
@@ -84,8 +84,8 @@ A young Ketulvu enchanter with a deep affinity for Sidaev. Discovered his talent
 
 ## Dagwen — Apprentice Lumberjack
 
-Kethalis and Lithona's son. Fourteen, energetic, still finding the shape of who he'll be. Apprenticed to Vetha. He is in the middle of growing up, which is a noisy process.
+Son of **Kethalis** and **Lithona**. Fourteen, energetic. Apprenticed to **Vetha**.
 
 ## Nisra — Aspiring Guard
 
-Vetha and Fakel's daughter. Sixteen. Quiet, watchful, and increasingly drawn to the kind of work her father does — though that's a complicated thing to want in Sulku'it.
+Daughter of **Vetha** and **Fakel**. Sixteen. Quiet, watchful, and increasingly drawn to the kind of work her father does — though that's a complicated thing to want in Sulku'it.
