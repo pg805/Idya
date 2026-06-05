@@ -19,9 +19,11 @@
   function renderMarkdown(md) {
     const lines = md.split(/\r?\n/);
     const out = [];
-    let inList = false;
+    // Stack of open lists: each entry = { tag: 'ul'|'ol', indent: number }.
+    // Indent-based nesting: 0 spaces = top level, 2+ spaces = sub-list.
+    const listStack = [];
     let paragraph = [];
-    let tableRows = null;          // null | array of cell-arrays
+    let tableRows = null;
     let tableHeader = null;
 
     const flushParagraph = () => {
@@ -30,7 +32,14 @@
       if (text) out.push(`<p>${formatInline(text)}</p>`);
       paragraph = [];
     };
-    const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+    const closeAllLists = () => {
+      while (listStack.length) { out.push(`</${listStack.pop().tag}>`); }
+    };
+    const closeListsDeeperThan = (indent) => {
+      while (listStack.length && listStack[listStack.length - 1].indent > indent) {
+        out.push(`</${listStack.pop().tag}>`);
+      }
+    };
     const closeTable = () => {
       if (!tableRows) return;
       const head = tableHeader ? `<thead><tr>${tableHeader.map(h => `<th>${formatInline(h)}</th>`).join('')}</tr></thead>` : '';
@@ -40,40 +49,57 @@
     };
 
     for (const raw of lines) {
-      const line = raw.trimEnd();
+      const line = raw.replace(/\s+$/, '');
       const tableRow = line.match(/^\|(.+)\|$/);
       const tableSep = line.match(/^\|[\s\-:|]+\|$/);
 
       if (tableRow && !tableSep) {
-        flushParagraph(); closeList();
+        flushParagraph(); closeAllLists();
         const cells = tableRow[1].split('|').map(c => c.trim());
         if (!tableRows) { tableHeader = cells; tableRows = []; }
         else { tableRows.push(cells); }
         continue;
       }
-      if (tableSep) continue; // separator row between header + body — ignored
+      if (tableSep) continue;
       if (tableRows) closeTable();
 
       if (/^---+$/.test(line.trim())) {
-        flushParagraph(); closeList();
+        flushParagraph(); closeAllLists();
         out.push('<hr>');
         continue;
       }
       const h2 = line.match(/^## (.+)$/);
-      if (h2) { flushParagraph(); closeList(); out.push(`<h2>${formatInline(h2[1])}</h2>`); continue; }
+      if (h2) { flushParagraph(); closeAllLists(); out.push(`<h2>${formatInline(h2[1])}</h2>`); continue; }
       const h3 = line.match(/^### (.+)$/);
-      if (h3) { flushParagraph(); closeList(); out.push(`<h3>${formatInline(h3[1])}</h3>`); continue; }
-      const bullet = line.match(/^- (.+)$/);
-      if (bullet) {
+      if (h3) { flushParagraph(); closeAllLists(); out.push(`<h3>${formatInline(h3[1])}</h3>`); continue; }
+
+      // Bullets (`- text`) and numbered (`1. text`), with optional indent for nesting
+      const bullet = line.match(/^(\s*)- (.+)$/);
+      const numbered = line.match(/^(\s*)\d+\. (.+)$/);
+      const listItem = bullet || numbered;
+      if (listItem) {
         flushParagraph();
-        if (!inList) { out.push('<ul>'); inList = true; }
-        out.push(`<li>${formatInline(bullet[1])}</li>`);
+        const indent = listItem[1].length;
+        const tag = bullet ? 'ul' : 'ol';
+        closeListsDeeperThan(indent);
+        const top = listStack[listStack.length - 1];
+        if (!top || top.indent < indent) {
+          out.push(`<${tag}>`);
+          listStack.push({ tag, indent });
+        } else if (top.tag !== tag) {
+          // Same indent but different list type — close and reopen.
+          out.push(`</${listStack.pop().tag}>`);
+          out.push(`<${tag}>`);
+          listStack.push({ tag, indent });
+        }
+        out.push(`<li>${formatInline(listItem[2])}</li>`);
         continue;
       }
-      if (line.trim() === '') { flushParagraph(); closeList(); continue; }
+
+      if (line.trim() === '') { flushParagraph(); closeAllLists(); continue; }
       paragraph.push(line);
     }
-    flushParagraph(); closeList(); closeTable();
+    flushParagraph(); closeAllLists(); closeTable();
     return out.join('\n');
   }
 

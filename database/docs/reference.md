@@ -106,10 +106,10 @@ Each hunt rolls a fresh board layout: 2–6 obstacles placed randomly in the ope
 
 Sulku'it has four shops. Each one buys back items at a sell price and stocks goods at a buy price.
 
-- **General Store** (Dolan) — baits, miscellaneous valuables.
-- **Blacksmith** (Kethalis) — talamite materials, metal weapons, blacksmith components.
-- **Lumberjack** (Vetha) — sulwood materials, wood weapons, lumber components.
-- **Enchanting Shop** (Lomis) — enchanting reagents, arcane weapons, valuable gemstones.
+- [**General Store**](/app/shop/general_store) (Dolan) — baits, miscellaneous valuables.
+- [**Blacksmith**](/app/shop/blacksmith) (Kethalis) — talamite materials, metal weapons, blacksmith components.
+- [**Lumberjack**](/app/shop/lumberjack) (Vetha) — sulwood materials, wood weapons, lumber components.
+- [**Enchanting Shop**](/app/shop/enchanting_shop) (Lomis) — enchanting reagents, arcane weapons, valuable gemstones.
 
 Prices move with the market. Shops respond to player trading: heavy buying pushes prices up, heavy selling pushes them down. Some items (valuables) swing harder; bulk materials shift more slowly. Idle items drift back toward their baseline.
 
@@ -121,15 +121,17 @@ If a shop's shelf is full of an item, it stops buying that item until stock clea
 
 The **Bench** is where you turn materials into things. It splits into three pages, one per profession:
 
-- **Crafting** — combine materials and components into finished weapons, intermediates, and enchanting reagents.
-- **Upgrading** — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
-- **Enchanting** — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action and adds a small bonus. A **major** enchant changes both **Damage Type** and **Damage Subtype** and adds a large bonus (+3). Three enchant slots per weapon, one enchant per action, permanent.
+- [**Crafting**](/app/crafting) — combine materials and components into finished weapons, intermediates, and enchanting reagents.
+- [**Upgrading**](/app/upgrade) — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
+- [**Enchanting**](/app/enchant) — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action and adds a small bonus. A **major** enchant changes both **Damage Type** and **Damage Subtype** and adds a large bonus (+3). Three enchant slots per weapon, one enchant per action, permanent.
 
 ---
 
 # Professions
 
 There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10. Total combined level is capped at 30 — that's enough to max two and leave one at 10, or spread your levels more evenly. The cap means specializing is encouraged: you can't be the master of everything, and other players are expected to fill the gaps via trade.
+
+You raise profession levels on your [Character](/app/character) page.
 
 | Profession | What it crafts | What it upgrades |
 |---|---|---|
@@ -152,6 +154,29 @@ You can trade with another player at any time. From the **Trade** page, search a
 Both sides drop items, weapons, and korel into their offer panel. Each side must lock in their offer (no further changes), then both must confirm. The transfer happens atomically — if anything goes wrong, nobody loses anything.
 
 Equipped weapons can't be traded.
+
+---
+
+# Weapons
+
+A **Weapon** is the centerpiece of your loadout. The weapon you have equipped determines your stats and what actions you can take in a battle.
+
+A weapon has:
+- **HP** — the survival pool you fight with. Different weapons have different HP totals.
+- **Resource** — a per-weapon secondary stat with its own name (Stamina, Luck, Energy, etc.) and a maximum. Drives action costs.
+- **Action sets** — Defend, Attack (+ Attack Crit), and Special. You pick one Defend, Attack, or Special each turn; Attack Crit fires automatically.
+
+An **Action** has:
+- **Name** — the in-game name.
+- **Type** — one of the eight types ([Strike, Block, Buff, Debuff, Heal, DOT, Reflect, Shield](#combat-actions)).
+- **Damage Type** and **Damage Subtype** — see [Damage and Resistances](#damage-and-resistances).
+- **Field** or **Value** — the variable amount the action does. Field is rolled (e.g. damage per use); Value is fixed (e.g. block amount).
+- **Cost** — how much Resource it consumes. Negative cost restores Resource instead of spending it.
+- **Range** — how far it reaches in tiles.
+- **Aimed or Reactive** — targeting mode.
+- **Rounds** — for duration actions (DOT, Buff, Debuff, Reflect, Shield), how many rounds the effect lasts.
+
+For per-weapon stats and the exact actions of every weapon, see the [Weapon Stats](/app/weapon-stats) info page.
 
 ---
 
@@ -204,3 +229,11 @@ Quick reference. Click any term to jump to its section.
 **Professions**
 - [Lumberjack](#professions), [Blacksmith](#professions), [Enchanter](#professions).
 - [Hybrid weapon](#professions) — wood + talamite parts; both LJ and BS can upgrade.
+
+**Weapons**
+- [Weapon](#weapons) — your equipped loadout; provides HP, Resource, Actions.
+- [HP](#weapons), [Resource](#weapons), [Action sets](#weapons) — weapon properties.
+- [Action](#weapons) — one of the entries in a weapon's set. Has type, damage type/subtype, field/value, cost, range, aimed/reactive, rounds.
+- [Field vs Value](#weapons) — Field is a rolled range, Value is fixed.
+- [Cost](#weapons) — Resource consumed (negative = restored).
+- [Rounds](#weapons) — how long a duration action lasts.
