@@ -76,46 +76,21 @@ The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when 
 
 Battles are turn-based on a grid against one or more enemies from the [Enemies](/app/enemies) roster. Every combatant begins at **full HP and full Resource**.
 
+At the start of every battle, every combatant rolls for **initiative** — a random score that decides turn order for the whole fight. Lighter weapons (lower **Weight**) roll higher on average and act earlier. The rolls appear at the top of the combat log in the order combatants will act. On a rare tied roll, the player wins against an NPC; otherwise it's a coin flip.
+
 Each turn unfolds in three phases:
 
 1. **Intent phase** — every combatant picks a move target and an action for the turn.
-2. **Move phase** — every combatant executes their movement step in [initiative](#initiative) order. If two combatants want the same tile, the higher-initiative one takes it; the other re-routes toward its original destination, or stays put if it can't get any closer.
+2. **Move phase** — every combatant executes their movement step in initiative order. If two combatants want the same tile, the higher-initiative one takes it; the other re-routes toward its original destination, or stays put if it can't get any closer.
 3. **Action phase** — actions resolve in a fixed order:
    - **Defend actions**
    - **Attack actions** (including Attack Crit triggers)
    - **Special actions**
    - **DOT ticks** (end of round)
 
-Within each sub-phase, combatants act in [initiative](#initiative) order. The battle ends the moment any team has no combatants left with HP above 0 — that team loses.
+Within each sub-phase, combatants act in initiative order. The battle ends the moment any team has no combatants left with HP above 0 — that team loses.
 
 Range, line of sight, and **obstacles** all affect movement and targeting. Obstacles are rolled randomly per hunt and block both movement and aimed attacks. Diagonal moves cannot pass between two obstacles that touch corners.
-
----
-
-# Initiative
-
-At the start of every battle, each combatant rolls `1..100 − Weight` to set their **initiative**. Higher initiative acts first in every sub-phase of every turn — defends, attacks, specials, DOT ticks, and movement priority.
-
-**Weight** is a per-weapon stat. Heavier weapons go later. The roll happens once at battle start and stays fixed for the rest of the fight.
-
-**Tiebreakers** (initiative ties are uncommon since the roll has 100 buckets):
-- A player wins ties against an NPC.
-- Otherwise, coin flip.
-
-The initiative log appears at the top of the combat log on every join, in the order combatants will act.
-
----
-
-# Multi-enemy Combat
-
-Most hunts pull one enemy. Occasionally (about 2.3% of the time) a bait pulls a **second enemy** of the same type — you'll see two of them on the board, named `Lithkem Swallow A` and `Lithkem Swallow B` (for example) in the combat log.
-
-A few specifics:
-
-- Both enemies must reach 0 HP for you to win. Defeating one and dying to the other counts as a loss.
-- Each enemy rolls its own loot table on victory — two enemies, two loot rolls.
-- Each enemy starts at a random position in its action pattern, so identical enemies don't telegraph identical actions on turn 1.
-- Reactive attacks pick the nearest enemy in range; aimed attacks pick the target tile explicitly.
 
 ---
 
@@ -135,7 +110,9 @@ Hunts happen on the **Hunt** page. Each hunt costs one bait from the General Sto
 
 **Loot** is rolled at the end of a victorious battle. Each enemy has a drop table — see the [Enemies](/app/enemies) info page for exact roll tables.
 
-Each hunt rolls a fresh board layout: 2–6 obstacles placed randomly in the open zone.
+Each hunt rolls a fresh board layout with obstacles placed randomly in the open zone.
+
+**Occasionally a bait pulls a second enemy** of the same type — roughly one hunt in forty. Two enemies share the board and the combat log distinguishes them with an `A` / `B` suffix (e.g. `Lithkem Swallow A`, `Lithkem Swallow B`). Both must be defeated to win; each rolls its own loot table independently. Each enemy starts at a random position in its action pattern, so identical enemies don't telegraph identical actions on turn 1.
 
 ---
 
@@ -259,12 +236,11 @@ Quick reference. Click any term to jump to its section.
 **Combat**
 - [HP](#currency-and-stats) — survival pool. Reach 0 and you lose.
 - [Resource](#currency-and-stats) — per-weapon secondary stat (Stamina, Luck, etc.). Drives action costs.
-- [Weight](#weapons) — per-weapon stat. Drives initiative; heavier = later.
-- [Initiative](#initiative) — `1..100 − Weight` rolled at battle start. Sets turn order for the whole fight.
+- [Weight](#weapons) — per-weapon stat. Heavier weapons act later in the turn order.
+- [Initiative](#the-battle) — random score rolled at battle start that decides turn order. Lower Weight tends to mean higher initiative.
 - [Action](#weapons) — one entry in a weapon's set. Has a type, damage type/subtype, field/value, cost, range, aimed/reactive, and (for duration) rounds.
 - [Action sets](#weapons) — every weapon has Defend, Attack (+ Attack Crit), and Special sets.
 - [Obstacle](#the-battle) — board feature blocking movement and aimed attacks.
-- [Multi-enemy](#multi-enemy-combat) — about 2.3% of hunts pull a second enemy of the same type. Both must be defeated to win; each rolls its own loot.
 
 **Action types** (what an Action does)
 - [Strike](#combat-actions) — direct damage.
