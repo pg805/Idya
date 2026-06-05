@@ -288,8 +288,26 @@ const ENEMY_DIST_MAX  = 10;            // max chebyshev distance from player spa
 const ENEMY_PAIR_MIN_SEP = 3;          // min chebyshev distance between two enemies
 const OBSTACLE_BUFFER = 1;             // tiles around each spawn tile that obstacles avoid
                                        // (1 = 3x3 area centered on each spawn tile)
-const OBSTACLE_COUNT_MIN = 5;
-const OBSTACLE_COUNT_MAX = 15;
+// Obstacle count is sampled from a normal distribution centered on the mean,
+// clamped to [MIN, MAX]. Bell shape favors ~10 obstacles, with the long tails
+// occasionally giving very sparse or very crowded boards.
+const OBSTACLE_COUNT_MEAN = 10;
+const OBSTACLE_COUNT_STDDEV = 4;
+const OBSTACLE_COUNT_MIN = 3;
+const OBSTACLE_COUNT_MAX = 25;
+
+function randomNormal(mean: number, stdDev: number): number {
+  // Box-Muller; clamp u1 away from 0 so log doesn't blow up.
+  const u1 = Math.random() || 1e-10;
+  const u2 = Math.random();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return mean + stdDev * z;
+}
+
+function rollObstacleCount(): number {
+  const n = Math.round(randomNormal(OBSTACLE_COUNT_MEAN, OBSTACLE_COUNT_STDDEV));
+  return Math.max(OBSTACLE_COUNT_MIN, Math.min(OBSTACLE_COUNT_MAX, n));
+}
 
 type Pos = { x: number; y: number };
 
@@ -365,7 +383,7 @@ function randomHuntBoard(enemyCount: number): {
       const j = Math.floor(Math.random() * (i + 1));
       [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
     }
-    const count = OBSTACLE_COUNT_MIN + Math.floor(Math.random() * (OBSTACLE_COUNT_MAX - OBSTACLE_COUNT_MIN + 1));
+    const count = rollObstacleCount();
     const picked = candidates.slice(0, count);
     const blocked = new Set(picked.map(p => `${p.x},${p.y}`));
 
