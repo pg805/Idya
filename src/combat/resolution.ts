@@ -41,7 +41,7 @@ export function resolveIntents(
 
   const blocked = new Set<string>();
 
-  for (const [, claimants] of byDest) {
+  for (const [destKey, claimants] of byDest) {
     if (claimants.length === 1) continue;
     const bestPriority = Math.min(...claimants.map(movePriority));
     const winners = claimants.filter(id => movePriority(id) === bestPriority);
@@ -49,7 +49,7 @@ export function resolveIntents(
       for (const id of claimants) {
         if (id !== winners[0]) {
           blocked.add(id);
-          log.push(`${cName(id)} yields to ${cName(winners[0])}.`);
+          log.push(`${cName(id)}'s path to (${destKey}) blocked by ${cName(winners[0])}.`);
         }
       }
     } else {
@@ -78,10 +78,19 @@ export function resolveIntents(
     }
   }
 
+  // Re-route blocked AI combatants. We don't store the BFS path of their
+  // intended move, so we approximate "stop on the path" by picking the
+  // reachable tile that gets the combatant closest to the ORIGINAL
+  // destination (the tile they wanted but lost). Strict-less would force
+  // them to stay put any time they couldn't get strictly closer; <= lets
+  // them step toward the destination even when the chebyshev distance is
+  // tied (which is the case for the last tile before a blocked dest).
   for (const [id] of intents) {
     if (!blocked.has(id)) continue;
     const c = snapshot.find(c => c.id === id);
     if (!c?.isAI) continue;
+    const originalDest = intents.get(id)?.moveTo;
+    if (!originalDest) continue;
 
     const allOccupied = new Set<string>([
       ...snapshot.filter(o => o.id !== id).map(o => `${o.pos.x},${o.pos.y}`),
@@ -90,17 +99,11 @@ export function resolveIntents(
 
     const reachable = reachableTiles(c.pos, c.movementRange, session.board, allOccupied);
 
-    const enemies = snapshot.filter(e => e.teamId !== c.teamId);
-    if (enemies.length === 0) continue;
-    const target = enemies.reduce((a, b) =>
-      chebyshevDist(c.pos, a.pos) <= chebyshevDist(c.pos, b.pos) ? a : b
-    );
-
-    let bestDist = chebyshevDist(c.pos, target.pos);
+    let bestDist = chebyshevDist(c.pos, originalDest);
     let bestPos: { x: number; y: number } | null = null;
     for (const pos of reachable.values()) {
-      const d = chebyshevDist(pos, target.pos);
-      if (d < bestDist) { bestDist = d; bestPos = pos; }
+      const d = chebyshevDist(pos, originalDest);
+      if (d <= bestDist) { bestDist = d; bestPos = pos; }
     }
 
     if (bestPos) {
