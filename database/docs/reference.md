@@ -76,7 +76,7 @@ The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when 
 
 Battles are turn-based on a grid against one or more enemies from the [Enemies](/app/enemies) roster. Every combatant begins at **full HP and full Resource**.
 
-At the start of every battle, every combatant rolls for **initiative** — a random score that decides turn order for the whole fight. Lighter weapons (lower **Weight**) roll higher on average and act earlier. The rolls appear at the top of the combat log in the order combatants will act. On a rare tied roll, the player wins against an NPC; otherwise it's a coin flip.
+At the start of every battle, every combatant rolls for **initiative** — a random score that decides turn order for the whole fight. Lighter weapons (lower **Weight**) roll higher on average and act earlier. The rolls appear at the top of the combat log in the order combatants will act. On a tie, the player wins against an NPC; otherwise it's a coin flip.
 
 Each turn unfolds in three phases:
 
@@ -112,7 +112,7 @@ Hunts happen on the **Hunt** page. Each hunt costs one bait from the General Sto
 
 Each hunt rolls a fresh board layout with obstacles placed randomly in the open zone.
 
-**Occasionally a bait pulls a second enemy** of the same type — roughly one hunt in forty. Two enemies share the board and the combat log distinguishes them with an `A` / `B` suffix (e.g. `Lithkem Swallow A`, `Lithkem Swallow B`). Both must be defeated to win; each rolls its own loot table independently. Each enemy starts at a random position in its action pattern, so identical enemies don't telegraph identical actions on turn 1.
+**A bait occasionally pulls a second enemy of the same type** — roughly one in forty hunts. Both must be defeated, each drops loot, and the combat log distinguishes them with an `A` / `B` suffix. Their action patterns start offset so they don't move in sync.
 
 ---
 
