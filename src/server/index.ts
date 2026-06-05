@@ -712,6 +712,10 @@ app.get('/api/info/reference', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/reference.md')) });
 });
 
+app.get('/api/info/about', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/about.md')) });
+});
+
 // ---- Hunt ----
 
 function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {
