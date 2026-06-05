@@ -112,7 +112,7 @@ Hunts happen on the **Hunt** page. Each hunt costs one bait from the General Sto
 
 Each hunt rolls a fresh board layout with obstacles placed randomly in the open zone.
 
-**A bait occasionally pulls a second enemy of the same type** — roughly one in forty hunts. Both must be defeated, each drops loot, and the combat log distinguishes them with an `A` / `B` suffix. Their action patterns start offset so they don't move in sync.
+**A bait occasionally pulls a second enemy of the same type** — about a 2.3% chance per hunt. Both must be defeated, each drops loot, and the combat log distinguishes them with an `A` / `B` suffix. Their action patterns start offset so they don't move in sync.
 
 ---
 
