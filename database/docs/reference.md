@@ -131,7 +131,9 @@ The **Bench** is where you turn materials into things. It splits into three page
 
 There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10, with a combined cap of 30 across all three.
 
-The cost to gain a level depends only on that profession's current level — leveling 1 → 2 is cheap, leveling 9 → 10 is expensive — independent of your other profession levels. That means spreading levels evenly is cheaper per level, but specializing reaches high-tier recipes and bigger upgrade budgets sooner. Other players are expected to fill the gaps via trade.
+The cost of a level depends on your **total** profession levels across all three. Your 1st level (in any profession) is cheap; your 30th — the last one to reach the cap — is expensive. The profession you put it into doesn't change the price.
+
+That means picking up a second or third profession late is costly, and specializing is the cheaper path. Other players are expected to fill the gaps via trade.
 
 You raise profession levels on your [Character](/app/character) page.
 
@@ -186,26 +188,41 @@ For per-weapon stats and the exact actions of every weapon, see the [Weapon Stat
 
 Quick reference. Click any term to jump to its section.
 
-**Currency and stats**
+**Big concepts**
 - [Korel](#currency-and-stats) — the standard currency.
-- [HP](#currency-and-stats) — health pool; drops to 0, you lose.
-- [Resource](#currency-and-stats) — per-weapon secondary stat (Stamina, Luck, Tar, etc.).
+- [Weapon](#weapons) — your equipped loadout; determines stats and available actions.
+- [Profession](#professions) — Lumberjack, Blacksmith, or Enchanter. Combined cap of 30 levels.
+- [Bench](#the-bench) — your production area, split into Crafting / Upgrading / Enchanting.
+- [Bait](#hunting) — consumable that summons one specific enemy.
+- [Loot](#hunting) — drops rolled at end of a victorious battle.
 
-**Combat actions**
+**Combat objects**
+- [HP](#currency-and-stats) — survival pool. Reach 0 and you lose.
+- [Resource](#currency-and-stats) — per-weapon secondary stat (Stamina, Luck, etc.). Drives action costs.
+- [Action](#weapons) — one entry in a weapon's set. Has a type, damage type/subtype, field/value, cost, range, aimed/reactive, and (for duration) rounds.
+- [Action sets](#weapons) — every weapon has Defend, Attack (+ Attack Crit), and Special sets.
+- [Obstacle](#the-battle) — board feature blocking movement and aimed attacks.
+
+**Action types** (what an Action does)
 - [Strike](#combat-actions) — direct damage.
 - [Block](#combat-actions) — reduces this turn's incoming damage.
 - [Buff](#combat-actions) — boosts user's damage for a duration.
 - [Debuff](#combat-actions) — reduces target's damage for a duration.
 - [Heal](#combat-actions) — restores HP.
 - [DOT](#combat-actions) — Damage Over Time; ticks each round.
-- [Reflect](#combat-actions) — returns a portion of incoming damage.
+- [Reflect](#combat-actions) — returns a portion of incoming damage for a duration.
 - [Shield](#combat-actions) — soaks a fixed amount of damage over multiple turns.
-- [Field](#combat-actions) — the roll table for a variable value.
-- [Range](#combat-actions) — reach in tiles (diagonal counts as one).
-- [Aimed](#combat-actions) — pick a tile to fire at.
-- [Reactive](#combat-actions) — fires at nearest valid target automatically.
-- [Attack Crit](#combat-actions) — bonus action when your Attack meets enemy Special.
-- [Duration](#combat-actions) — multi-round effects; never stack.
+
+**Action properties** (numbers attached to an Action)
+- [Field](#weapons) — roll table for a variable value (rolls one entry per use).
+- [Value](#weapons) — fixed amount (e.g. block value, shield value).
+- [Range](#weapons) — reach in tiles (diagonal counts as one).
+- [Cost](#weapons) — Resource consumed (negative cost restores instead).
+- [Rounds](#weapons) — how long a duration action lasts.
+- [Aimed](#combat-actions) — you pick a target tile. Less reliable.
+- [Reactive](#combat-actions) — auto-fires at nearest valid target. More reliable.
+- [Attack Crit](#combat-actions) — bonus action when your Attack meets enemy Special. Resolves after the main attack.
+- [Duration](#combat-actions) — multi-round effects; never stack — a new application replaces the existing one.
 
 **Damage**
 - [Damage Type](#damage-and-resistances) — Physical / Arcane / Elemental.
@@ -214,28 +231,15 @@ Quick reference. Click any term to jump to its section.
 - [Resist](#damage-and-resistances) — Ld2 roll (skews low).
 - [Neutral](#damage-and-resistances) — 1d roll (baseline).
 
-**Battle**
+**Turn flow**
 - [Intent phase](#the-battle) — choose your move + action.
-- [Move phase](#the-battle) — both sides step.
-- [Action phase](#the-battle) — Defends → Attacks → Specials → DOT ticks.
-- [Obstacle](#the-battle) — blocks movement and aimed attacks.
+- [Move phase](#the-battle) — both sides execute their movement step.
+- [Action phase](#the-battle) — Defend → Attack → Special → DOT ticks. Player resolves before AI except DOTs (AI first).
 
-**Hunt and economy**
-- [Bait](#hunting) — consumable that summons one enemy.
-- [Loot](#hunting) — drops rolled on victory.
-- [Bench](#the-bench) — your production area.
-- [Crafting](#the-bench), [Upgrading](#the-bench), [Enchanting](#the-bench) — Bench activities.
-- [Minor enchant](#the-bench) — changes subtype, small bonus.
-- [Major enchant](#the-bench) — changes type + subtype, +3 bonus.
-
-**Professions**
-- [Lumberjack](#professions), [Blacksmith](#professions), [Enchanter](#professions).
-- [Hybrid weapon](#professions) — wood + talamite parts; both LJ and BS can upgrade.
-
-**Weapons**
-- [Weapon](#weapons) — your equipped loadout; provides HP, Resource, Actions.
-- [HP](#weapons), [Resource](#weapons), [Action sets](#weapons) — weapon properties.
-- [Action](#weapons) — one of the entries in a weapon's set. Has type, damage type/subtype, field/value, cost, range, aimed/reactive, rounds.
-- [Field vs Value](#weapons) — Field is a rolled range, Value is fixed.
-- [Cost](#weapons) — Resource consumed (negative = restored).
-- [Rounds](#weapons) — how long a duration action lasts.
+**Production**
+- [Crafting](#the-bench) — turn materials into weapons, intermediates, reagents.
+- [Upgrading](#the-bench) — permanently boost a weapon's stats.
+- [Enchanting](#the-bench) — apply an enchant to one of a weapon's three slots.
+- [Minor enchant](#the-bench) — changes Damage Subtype, small bonus.
+- [Major enchant](#the-bench) — changes Damage Type and Subtype, +3 bonus.
+- [Hybrid weapon](#professions) — has wood and talamite parts; both LJ and BS can upgrade.
