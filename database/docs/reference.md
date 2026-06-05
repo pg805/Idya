@@ -42,11 +42,9 @@ Actions come in eight types. Some take effect immediately, others apply a durati
 
 **Attack Crit** fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
 
-**How damage adds up.** When a Strike lands, the final damage is one arithmetic step:
+**How damage adds up.** When you land a Strike, the rolled damage is adjusted by your active Buff (added) and Debuff (subtracted), then reduced by the target's Block and Shield. Final damage can't go below 0.
 
-`damage = max(0, roll + attacker's Buff − attacker's Debuff − target's Block − target's Shield)`
-
-Final damage is never below zero. A few non-obvious rules:
+A few details worth knowing:
 - **Buff and Debuff are mutually exclusive on the same target.** Applying one clears the other — you can't be both buffed and debuffed at once.
 - **Block lasts only the current round.** It resets to 0 at end of round, so you have to re-apply it each turn you want it.
 - **Shield reduces damage every round for its duration.** It's not a damage pool that depletes; the value stays the same each round until the duration ends.
