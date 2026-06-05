@@ -121,7 +121,7 @@ If a shop's shelf is full of an item, it stops buying that item until stock clea
 
 The **Bench** is where you turn materials into things. It splits into three pages, one per profession:
 
-- [**Crafting**](/app/crafting) — combine materials and components into finished weapons, intermediates, and enchanting reagents.
+- [**Crafting**](/app/crafting) — combine materials and components into finished weapons, intermediates, and enchanting reagents. Weapons crafted from higher-tier components come with bonuses baked in (see [Items](#items)).
 - [**Upgrading**](/app/upgrade) — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
 - [**Enchanting**](/app/enchant) — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action and adds a small bonus. A **major** enchant changes both **Damage Type** and **Damage Subtype** and adds a large bonus (+3). Three enchant slots per weapon, one enchant per action, permanent.
 
@@ -184,6 +184,25 @@ For per-weapon stats and the exact actions of every weapon, see the [Weapon Stat
 
 ---
 
+# Items
+
+Every item in your inventory has a type:
+
+- **Material** — raw or processed crafting inputs (sulwood, talamite, hiruos, treated sulwood, hardwood, alloy, nodol, etc.). Used at the Bench.
+- **Component** — a crafted intermediate combined into a weapon (sword hilt, axe head, wand base, etc.). All components are also materials.
+- **Valuable** — loot from enemies meant for selling (swallow feather, venison, melstone, lifgem, etc.). Generally not used in crafting.
+- **Consumable** — spent on use. Baits are the main consumables — one is consumed per hunt.
+
+**Components have tiers**. Most weapons have a base recipe plus one or two higher-tier variants:
+
+- **Tier-1** — the base recipe. Uses raw or unprocessed material. No bundled bonus.
+- **Tier-2** — uses tier-2 components (treated sulwood, talamite, hiruos). The crafted weapon comes with a free **+1 attack** baked in. Unlocks at profession level 2–3.
+- **Tier-3** — uses tier-3 components (hardwood, alloy, nodol). The crafted weapon comes with **+1 defend, +1 attack, +1 special** baked in. Unlocks at profession level 7.
+
+These free bonuses don't count against your [upgrade budget](#the-bench) — they're part of the recipe. So crafting a hardwood quarterstaff gives you a quarterstaff that's already +1/+1/+1 without spending any upgrade points.
+
+---
+
 # Glossary
 
 Quick reference. Click any term to jump to its section.
@@ -243,3 +262,10 @@ Quick reference. Click any term to jump to its section.
 - [Minor enchant](#the-bench) — changes Damage Subtype, small bonus.
 - [Major enchant](#the-bench) — changes Damage Type and Subtype, +3 bonus.
 - [Hybrid weapon](#professions) — has wood and talamite parts; both LJ and BS can upgrade.
+
+**Items**
+- [Material](#items) — raw or processed crafting input.
+- [Component](#items) — crafted intermediate combined into a weapon (sword hilt, axe head, etc.). All components are also materials.
+- [Valuable](#items) — loot meant for selling.
+- [Consumable](#items) — single-use item (baits are the main example).
+- [Tier-1 / Tier-2 / Tier-3](#items) — component tiers. Tier-2 weapons get +attack baked in; tier-3 get +defend/+attack/+special.
