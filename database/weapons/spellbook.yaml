@@ -2,6 +2,7 @@ Name: Spellbook
 Description: A tome of bound spells — each page a strike, each chapter a strategy.
 Level: 2
 HP: 35
+Weight: 0
 
 Resource:
   Name: Pages

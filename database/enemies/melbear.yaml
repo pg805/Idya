@@ -34,6 +34,7 @@ Image: ""
 Weapon:
   Name: Melbear Claws
   Description: A melbear, heavy with solitude and bristling with claws.
+  Weight: 0
   Resource:
     Name: Solitude
     Max: 8

@@ -2,6 +2,7 @@ Name: Talamite Wand
 Description: A wand of talamite. Cold and dense where sulwood is warm — the elements don't care which it is.
 Level: 3
 HP: 15
+Weight: 0
 
 Resource:
   Name: Sidaev

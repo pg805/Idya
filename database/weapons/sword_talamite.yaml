@@ -2,6 +2,7 @@ Name: Talamite Sword
 Description: A well-balanced talamite blade. The edge holds far longer than sulwood — let it work.
 Level: 4
 HP: 55
+Weight: 0
 
 Resource:
   Name: Sharpness

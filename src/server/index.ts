@@ -344,6 +344,9 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
           isAI: false,
           teamId: 'team-a',
           weaponInfo: fistsInfo,
+          weight: weapon.weight,
+          initiative: 0,      // set by assignInitiative in CombatSession constructor
+          initiativeRank: 0,  // set by assignInitiative in CombatSession constructor
           sprite: playerSprite,
         }],
       },

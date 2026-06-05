@@ -2,6 +2,7 @@ Name: Talamite Axe
 Description: Heavy and unforgiving. The talamite head takes an edge that sulwood never could.
 Level: 4
 HP: 65
+Weight: 0
 
 Resource:
   Name: Strength

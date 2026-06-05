@@ -2,6 +2,7 @@ Name: Mental Cage
 Description: A lattice of psychic force worn on the mind — invisible to anyone else, crushing to its wearer's enemies. It does not bind you. It binds them.
 Level: 3
 HP: 30
+Weight: 0
 
 Resource:
   Name: Tranquility

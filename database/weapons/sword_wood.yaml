@@ -2,6 +2,7 @@
 Description: A well-balanced blade. Sharpness is everything â€” let it dull and you'll feel it.
 Level: 3
 HP: 45
+Weight: 0
 
 Resource:
   Name: Sharpness

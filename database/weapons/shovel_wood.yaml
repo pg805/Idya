@@ -2,6 +2,7 @@
 Description: A rusty shovel with a few knicks in the cutting edge. It has obviously served another fighter well.
 Level: 3
 HP: 60
+Weight: 0
 
 Resource:
   Name: Stamina

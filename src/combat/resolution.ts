@@ -245,11 +245,12 @@ export function resolveIntents(
     return null;
   };
 
-  // Action sub-phases: defend → attack → special. Player first within each.
-  // Snapshot the actor order ONCE — combatants get removed mid-phase by reapAndCheck.
-  const playerIds = snapshot.filter(c => !c.isAI).map(c => c.id);
-  const aiIds     = snapshot.filter(c =>  c.isAI).map(c => c.id);
-  const orderedIds = [...playerIds, ...aiIds];
+  // Action sub-phases: defend → attack → special. Initiative order within each
+  // (lower rank = sooner). Snapshot the actor order ONCE — combatants get removed
+  // mid-phase by reapAndCheck and we don't want order to shift.
+  const orderedIds = [...snapshot]
+    .sort((a, b) => a.initiativeRank - b.initiativeRank)
+    .map(c => c.id);
 
   const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];
 
@@ -275,11 +276,11 @@ export function resolveIntents(
     return { log, winner: earlyWinner };
   }
 
-  // --- End of round: tick DOT/status sequentially (enemies first), checking
-  // for death after each tick. First combatant to reach 0 ends the fight for
-  // their team; the other side's DOT never gets to tick.
+  // --- End of round: tick DOT/status sequentially in initiative order,
+  // checking for death after each tick. First combatant to reach 0 ends the
+  // fight for their team; later combatants' DOTs never tick.
   let winner: string | null = null;
-  const dotOrder = [...session.combatants].sort((a, b) => Number(b.isAI) - Number(a.isAI));
+  const dotOrder = [...session.combatants].sort((a, b) => a.initiativeRank - b.initiativeRank);
   for (const c of dotOrder) {
     const meta = session.meta.get(c.id);
     if (!meta) continue;

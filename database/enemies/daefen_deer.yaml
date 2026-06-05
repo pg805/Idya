@@ -32,6 +32,7 @@ Image: ""
 Weapon:
   Name: Burning Antlers
   Description: A daefen deer, antlers ablaze with elemental charge.
+  Weight: 0
   Resource:
     Name: Rein
     Max: 10

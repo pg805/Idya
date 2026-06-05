@@ -29,6 +29,7 @@ Image: ""
 Weapon:
   Name: Beak and Wings
   Description: A lithkem swallow in a fighting stance.
+  Weight: 0
   Resource:
     Name: Water
     Max: 7

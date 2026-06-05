@@ -35,6 +35,7 @@ Image: ""
 Weapon:
   Name: Living Tar
   Description: A golnosar, dripping with the black resin that fuels it.
+  Weight: 0
   Resource:
     Name: Tar
     Max: 10

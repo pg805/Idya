@@ -19,6 +19,7 @@ Image: ""
 Weapon:
   Name: Crystal Fangs
   Description: A talwyrm, scales hardened with crude talamite crystal.
+  Weight: 0
   Resource:
     Name: Talam
     Max: 4

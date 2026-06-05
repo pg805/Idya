@@ -3,6 +3,7 @@ import { CombatIntent } from './intent.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatantState } from './combatant_state.js';
 import { PatternEntry } from '../infrastructure/pattern.js';
+import { assignInitiative } from './initiative.js';
 
 export interface ActionInfo {
   label: string;
@@ -45,6 +46,9 @@ export interface Combatant {
   isAI: boolean;
   teamId: string;
   weaponInfo: WeaponInfo;
+  weight: number;        // weapon weight; drives initiative roll
+  initiative: number;    // rolled at session start: (1..100) - weight. Higher acts first.
+  initiativeRank: number;// final 0-based rank across all combatants after tiebreaks; lower = sooner
   sprite?: string;
   status?: CombatantStatus;
 }
@@ -88,6 +92,7 @@ export class CombatSession {
     this.id = id;
     this.board = new Board(boardConfig);
     this.teams = teams;
+    assignInitiative(this.combatants);
   }
 
   get combatants(): Combatant[] {

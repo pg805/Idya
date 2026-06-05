@@ -80,6 +80,9 @@ export function loadEnemy(file: string, options: {
     isAI: true,
     teamId: options.teamId,
     weaponInfo,
+    weight: weapon.weight,
+    initiative: 0,      // set by assignInitiative in CombatSession constructor
+    initiativeRank: 0,  // set by assignInitiative in CombatSession constructor
   };
 
   const meta: CombatantMeta = {
