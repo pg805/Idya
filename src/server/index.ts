@@ -364,8 +364,53 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
 
 // ---- Web server ----
 
+// Request log — one line per request to stdout, captured by PM2. Format:
+//   2026-06-04T17:30:01.123Z 1.2.3.4 GET /app/shop/general_store 200 12ms
+// Skipped paths: static assets (.js/.css/.png/etc) — they're high-volume and
+// usually not interesting for debugging. Failures on dynamic routes (4xx/5xx)
+// always log, including for skipped paths, so a missing CSS still shows up.
+app.use((req: Request, res: Response, next) => {
+  const start = Date.now();
+  const ip = (req.headers['cf-connecting-ip'] as string | undefined)
+    ?? (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? '-';
+  const isAsset = /\.(?:js|css|png|jpg|jpeg|svg|ico|webp|woff2?|map)(?:\?|$)/.test(req.url);
+  res.on('finish', () => {
+    const dur = Date.now() - start;
+    if (!isAsset || res.statusCode >= 400) {
+      console.log(`[req] ${new Date().toISOString()} ${ip} ${req.method} ${req.url} ${res.statusCode} ${dur}ms`);
+    }
+  });
+  next();
+});
+
 app.use(express.static(join(__dirname, '../../public')));
 app.use(express.json());
+
+// Client-side error capture — SPA posts unhandled errors here; we log to
+// stdout (PM2 captures) so we can debug white screens / runtime crashes
+// without needing the user's devtools open. No auth required intentionally:
+// errors happen before auth in many cases, and the payload is rate-limit
+// guarded by Express's default body size cap.
+app.post('/api/client_error', (req: Request, res: Response) => {
+  const ip = (req.headers['cf-connecting-ip'] as string | undefined) ?? req.socket.remoteAddress ?? '-';
+  const ua = (req.headers['user-agent'] as string | undefined)?.slice(0, 200) ?? '-';
+  const body = req.body ?? {};
+  const summary = {
+    ts:      new Date().toISOString(),
+    ip,
+    ua,
+    url:     String(body.url ?? '').slice(0, 500),
+    message: String(body.message ?? '').slice(0, 500),
+    source:  String(body.source ?? '').slice(0, 200),
+    line:    body.line,
+    col:     body.col,
+    stack:   String(body.stack ?? '').slice(0, 2000),
+  };
+  console.log(`[client_error] ${JSON.stringify(summary)}`);
+  res.json({ ok: true });
+});
 
 // Read the bot version once at startup. Used to stamp asset URLs in HTML so
 // every deploy invalidates browser + Cloudflare caches without relying on a
