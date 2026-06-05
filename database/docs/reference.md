@@ -131,7 +131,7 @@ The **Bench** is where you turn materials into things. It splits into three page
 
 There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10, with a combined cap of 30 across all three.
 
-The cost of a level depends on your **total** profession levels across all three. Your 1st level (in any profession) is cheap; your 30th — the last one to reach the cap — is expensive. The profession you put it into doesn't change the price.
+The cost of a level depends on your **total** profession levels across all three. Your 1st level (in any profession) is cheap; your 30th — the last one to reach the cap — is expensive. The profession you put it into doesn't change the price, even if it's a lower level than another profession.
 
 That means picking up a second or third profession late is costly, and specializing is the cheaper path. Other players are expected to fill the gaps via trade.
 
@@ -188,7 +188,7 @@ For per-weapon stats and the exact actions of every weapon, see the [Weapon Stat
 
 Quick reference. Click any term to jump to its section.
 
-**Big concepts**
+**Essentials**
 - [Korel](#currency-and-stats) — the standard currency.
 - [Weapon](#weapons) — your equipped loadout; determines stats and available actions.
 - [Profession](#professions) — Lumberjack, Blacksmith, or Enchanter. Combined cap of 30 levels.
@@ -196,7 +196,7 @@ Quick reference. Click any term to jump to its section.
 - [Bait](#hunting) — consumable that summons one specific enemy.
 - [Loot](#hunting) — drops rolled at end of a victorious battle.
 
-**Combat objects**
+**Combat**
 - [HP](#currency-and-stats) — survival pool. Reach 0 and you lose.
 - [Resource](#currency-and-stats) — per-weapon secondary stat (Stamina, Luck, etc.). Drives action costs.
 - [Action](#weapons) — one entry in a weapon's set. Has a type, damage type/subtype, field/value, cost, range, aimed/reactive, and (for duration) rounds.
