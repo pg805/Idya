@@ -1,6 +1,6 @@
 # Currency and Stats
 
-**Korel** is the standard currency. Earned by selling loot to shops and from battle rewards. Used to buy weapons, baits, and materials.
+**Korel** is the standard currency. Earned by selling loot to shops. Used to buy weapons, baits, and materials.
 
 **Health (HP)** is your survival pool in a fight. Drops to zero, you lose the battle.
 
@@ -38,8 +38,11 @@ Actions come in eight types. Some take effect immediately, others apply a durati
 **Aimed vs Reactive**:
 - **Aimed** — you pick a target tile before the attack fires. Less reliable, requires prediction.
 - **Reactive** — fires automatically at the nearest valid target in range. More reliable.
+- **Self-targeting** — Heal and Buff actions automatically target the user (you), not an enemy. You don't pick a tile for them.
 
 **Attack Crit** fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
+
+**Damage modifier order.** When several effects are active on a turn, they apply to the raw damage roll in a fixed order: **Buffs** (boost the attacker) → **Debuffs** (reduce the attacker) → **Blocks** (subtract from incoming damage) → **Shields** (soak remaining damage). The combat log shows each step so you can see how the final number was reached.
 
 ---
 
@@ -66,7 +69,9 @@ The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when 
 
 # The Battle
 
-Battles are turn-based on a small grid against an enemy from the [Enemies](/app/enemies) roster. Each turn unfolds in three phases:
+Battles are turn-based on a small grid against an enemy from the [Enemies](/app/enemies) roster. You start each battle at **full HP and full Resource** — no need to warm up before using a Special.
+
+Each turn unfolds in three phases:
 
 1. **Intent phase** — you and the enemy each pick a move target and an action for the turn.
 2. **Move phase** — both sides execute their movement step.
@@ -179,6 +184,8 @@ An **Action** has:
 - **Range** — how far it reaches in tiles.
 - **Aimed or Reactive** — targeting mode.
 - **Rounds** — for duration actions (DOT, Buff, Debuff, Reflect, Shield), how many rounds the effect lasts.
+
+**Each weapon you own is its own instance.** If you craft two Quarterstaffs, they're separate items — upgrades and enchants on one don't carry over to the other. You can keep a fresh "spare" alongside a heavily-upgraded main weapon if you want.
 
 For per-weapon stats and the exact actions of every weapon, see the [Weapon Stats](/app/weapon-stats) info page.
 
