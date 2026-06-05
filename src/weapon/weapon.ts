@@ -80,6 +80,7 @@ export default class Weapon {
     name: string
     description: string
     hp: number
+    weight: number
     resource_name: string
     resource_max: number
     defend: Array<Action>
@@ -89,10 +90,11 @@ export default class Weapon {
     special: Array<Action>
     special_crit: Array<Action>
 
-    constructor(name: string, description: string, hp: number, resource_name: string, resource_max: number, defend: Array<Action>, defend_crit: Array<Action>, attack: Array<Action>, attack_crit: Array<Action>, special: Array<Action>, special_crit: Array<Action>) {
+    constructor(name: string, description: string, hp: number, weight: number, resource_name: string, resource_max: number, defend: Array<Action>, defend_crit: Array<Action>, attack: Array<Action>, attack_crit: Array<Action>, special: Array<Action>, special_crit: Array<Action>) {
         this.name = name;
         this.description = description;
         this.hp = hp;
+        this.weight = weight;
         this.resource_name = resource_name;
         this.resource_max = resource_max;
         this.defend = defend;
@@ -140,6 +142,7 @@ export default class Weapon {
             'Name': string,
             'Description': string,
             'HP'?: number,
+            'Weight'?: number,
             'Resource': { 'Name': string, 'Max': number },
             'Defend': [],
             'Defend Crit': [],
@@ -154,7 +157,8 @@ export default class Weapon {
         return new Weapon(
             weapon_data['Name'],
             weapon_data['Description'],
-            weapon_data['HP'] ?? 0,
+            weapon_data['HP']     ?? 0,
+            weapon_data['Weight'] ?? 0,
             weapon_data['Resource']['Name'],
             weapon_data['Resource']['Max'],
             weapon_data['Defend'].flatMap((action_object: ActionData) => from_json(action_object)),

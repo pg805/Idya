@@ -21,6 +21,7 @@ Image: ""
 Weapon:
   Name: Maek Glands
   Description: A maetoad, Maek pooling behind its eyes.
+  Weight: 0
   Resource:
     Name: Maek
     Max: 8

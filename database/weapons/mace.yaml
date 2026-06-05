@@ -2,6 +2,7 @@ Name: Mace
 Description: A dense talamite mace. Once it gets moving, hard to stop — and hard to get away from.
 Level: 3
 HP: 80
+Weight: 0
 
 Resource:
   Name: Momentum

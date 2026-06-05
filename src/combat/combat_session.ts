@@ -3,6 +3,7 @@ import { CombatIntent } from './intent.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatantState } from './combatant_state.js';
 import { PatternEntry } from '../infrastructure/pattern.js';
+import { assignInitiative } from './initiative.js';
 
 export interface ActionInfo {
   label: string;
@@ -45,6 +46,9 @@ export interface Combatant {
   isAI: boolean;
   teamId: string;
   weaponInfo: WeaponInfo;
+  weight: number;        // weapon weight; drives initiative roll
+  initiative: number;    // rolled at session start: (1..100) - weight. Higher acts first.
+  initiativeRank: number;// final 0-based rank across all combatants after tiebreaks; lower = sooner
   sprite?: string;
   status?: CombatantStatus;
 }
@@ -83,11 +87,16 @@ export class CombatSession {
   turn: number = 0;
   phase: SessionPhase = 'waiting';
   telegraphs: Record<string, string> = {};
+  // Initiative-roll log captured at session start. Emitted to clients on
+  // every join_session so refreshers / late-joiners see it too, and
+  // persisted as a synthetic "turn 0" entry in the battle log.
+  initiativeLog: string[] = [];
 
   constructor(id: string, boardConfig: BoardConfig, teams: Team[]) {
     this.id = id;
     this.board = new Board(boardConfig);
     this.teams = teams;
+    this.initiativeLog = assignInitiative(this.combatants);
   }
 
   get combatants(): Combatant[] {

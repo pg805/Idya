@@ -99,7 +99,10 @@
               </ul>
             </div>
           ` : ''}
-          <button class="hunt-start" data-bait="${esc(b.bait_id)}">Start Hunt</button>
+          <div class="hunt-card-actions">
+            <button class="hunt-start" data-bait="${esc(b.bait_id)}">Start Hunt</button>
+            ${data.is_dev ? `<button class="hunt-start hunt-start-dev" data-bait="${esc(b.bait_id)}" data-count="2" title="Dev only: force a 2-enemy spawn">+2 (dev)</button>` : ''}
+          </div>
         </div>
       </article>
     `;}).join('');
@@ -114,7 +117,7 @@
     `;
 
     body.querySelectorAll('.hunt-start').forEach(btn => {
-      btn.addEventListener('click', () => startHunt(btn.dataset.bait, btn));
+      btn.addEventListener('click', () => startHunt(btn.dataset.bait, btn, btn.dataset.count ? parseInt(btn.dataset.count, 10) : 1));
     });
     bindNav(body);
   }
@@ -130,18 +133,19 @@
     });
   }
 
-  async function startHunt(baitId, btn) {
+  async function startHunt(baitId, btn, count = 1) {
     if (starting) return;
     starting = true;
     const err = document.getElementById('hunt-error');
     if (err) err.hidden = true;
     btn.disabled = true;
+    const originalText = btn.textContent;
     btn.textContent = 'Entering…';
     try {
       const res = await fetch('/api/hunt/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bait_id: baitId }),
+        body: JSON.stringify({ bait_id: baitId, count }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.session_url) {
@@ -151,7 +155,7 @@
     } catch (e) {
       starting = false;
       btn.disabled = false;
-      btn.textContent = 'Start Hunt';
+      btn.textContent = originalText;
       if (err) { err.textContent = e.message; err.hidden = false; }
     }
   }

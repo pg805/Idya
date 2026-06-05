@@ -2,6 +2,7 @@ Name: Bow
 Description: A simple bow strung with sulwood. Keeps enemies at a distance, but you'll need to watch your quiver.
 Level: 3
 HP: 25
+Weight: 0
 
 Resource:
   Name: Quiver

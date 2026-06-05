@@ -2,6 +2,7 @@ Name: Kustaff
 Description: A quarterstaff woven through with living vines and hardened thorns. It grows, constricts, and reflects — the wood doesn't end where the plant begins.
 Level: 3
 HP: 60
+Weight: 0
 
 Resource:
   Name: Connection

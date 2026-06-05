@@ -148,6 +148,26 @@
   cursor: default;
 }
 
+.hunt-card-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.hunt-card-actions .hunt-start { margin-top: 0; flex: 1; }
+.hunt-card-actions .hunt-start-dev {
+  flex: 0 0 auto;
+  background: var(--gold-bg, var(--bg-deep));
+  border-color: var(--gold);
+  color: var(--gold);
+  font-size: 0.75rem;
+  padding: 8px 10px;
+}
+.hunt-card-actions .hunt-start-dev:hover:not(:disabled) {
+  background: var(--gold);
+  color: var(--bg-base);
+}
+
 .hunt-empty {
   padding: 40px 20px;
   color: var(--text-faint);

@@ -28,7 +28,10 @@ export function resolveIntents(
   const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
 
   // --- Move phase ---
-  const movePriority = (id: string) => (snapshot.find(c => c.id === id)?.isAI ? 2 : 1);
+  // Use initiative rank to resolve which combatant wins a contested tile.
+  // Initiative ranks are unique (0..N-1), so winners.length is always 1 —
+  // no genuine ties are possible.
+  const movePriority = (id: string) => snapshot.find(c => c.id === id)?.initiativeRank ?? Infinity;
 
   const byDest = new Map<string, string[]>();
   for (const [id, intent] of intents) {
@@ -41,20 +44,15 @@ export function resolveIntents(
 
   const blocked = new Set<string>();
 
-  for (const [, claimants] of byDest) {
+  for (const [destKey, claimants] of byDest) {
     if (claimants.length === 1) continue;
-    const bestPriority = Math.min(...claimants.map(movePriority));
-    const winners = claimants.filter(id => movePriority(id) === bestPriority);
-    if (winners.length === 1) {
-      for (const id of claimants) {
-        if (id !== winners[0]) {
-          blocked.add(id);
-          log.push(`${cName(id)} yields to ${cName(winners[0])}.`);
-        }
+    const sortedByPriority = [...claimants].sort((a, b) => movePriority(a) - movePriority(b));
+    const winner = sortedByPriority[0];
+    for (const id of claimants) {
+      if (id !== winner) {
+        blocked.add(id);
+        log.push(`${cName(id)}'s path to (${destKey}) blocked by ${cName(winner)}.`);
       }
-    } else {
-      for (const id of claimants) blocked.add(id);
-      log.push(`${winners.map(cName).join(' and ')} tie for the same tile — neither moves.`);
     }
   }
 
@@ -78,10 +76,19 @@ export function resolveIntents(
     }
   }
 
+  // Re-route blocked AI combatants. We don't store the BFS path of their
+  // intended move, so we approximate "stop on the path" by picking the
+  // reachable tile that gets the combatant closest to the ORIGINAL
+  // destination (the tile they wanted but lost). Strict-less would force
+  // them to stay put any time they couldn't get strictly closer; <= lets
+  // them step toward the destination even when the chebyshev distance is
+  // tied (which is the case for the last tile before a blocked dest).
   for (const [id] of intents) {
     if (!blocked.has(id)) continue;
     const c = snapshot.find(c => c.id === id);
     if (!c?.isAI) continue;
+    const originalDest = intents.get(id)?.moveTo;
+    if (!originalDest) continue;
 
     const allOccupied = new Set<string>([
       ...snapshot.filter(o => o.id !== id).map(o => `${o.pos.x},${o.pos.y}`),
@@ -90,17 +97,11 @@ export function resolveIntents(
 
     const reachable = reachableTiles(c.pos, c.movementRange, session.board, allOccupied);
 
-    const enemies = snapshot.filter(e => e.teamId !== c.teamId);
-    if (enemies.length === 0) continue;
-    const target = enemies.reduce((a, b) =>
-      chebyshevDist(c.pos, a.pos) <= chebyshevDist(c.pos, b.pos) ? a : b
-    );
-
-    let bestDist = chebyshevDist(c.pos, target.pos);
+    let bestDist = chebyshevDist(c.pos, originalDest);
     let bestPos: { x: number; y: number } | null = null;
     for (const pos of reachable.values()) {
-      const d = chebyshevDist(pos, target.pos);
-      if (d < bestDist) { bestDist = d; bestPos = pos; }
+      const d = chebyshevDist(pos, originalDest);
+      if (d <= bestDist) { bestDist = d; bestPos = pos; }
     }
 
     if (bestPos) {
@@ -245,11 +246,12 @@ export function resolveIntents(
     return null;
   };
 
-  // Action sub-phases: defend → attack → special. Player first within each.
-  // Snapshot the actor order ONCE — combatants get removed mid-phase by reapAndCheck.
-  const playerIds = snapshot.filter(c => !c.isAI).map(c => c.id);
-  const aiIds     = snapshot.filter(c =>  c.isAI).map(c => c.id);
-  const orderedIds = [...playerIds, ...aiIds];
+  // Action sub-phases: defend → attack → special. Initiative order within each
+  // (lower rank = sooner). Snapshot the actor order ONCE — combatants get removed
+  // mid-phase by reapAndCheck and we don't want order to shift.
+  const orderedIds = [...snapshot]
+    .sort((a, b) => a.initiativeRank - b.initiativeRank)
+    .map(c => c.id);
 
   const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];
 
@@ -275,11 +277,11 @@ export function resolveIntents(
     return { log, winner: earlyWinner };
   }
 
-  // --- End of round: tick DOT/status sequentially (enemies first), checking
-  // for death after each tick. First combatant to reach 0 ends the fight for
-  // their team; the other side's DOT never gets to tick.
+  // --- End of round: tick DOT/status sequentially in initiative order,
+  // checking for death after each tick. First combatant to reach 0 ends the
+  // fight for their team; later combatants' DOTs never tick.
   let winner: string | null = null;
-  const dotOrder = [...session.combatants].sort((a, b) => Number(b.isAI) - Number(a.isAI));
+  const dotOrder = [...session.combatants].sort((a, b) => a.initiativeRank - b.initiativeRank);
   for (const c of dotOrder) {
     const meta = session.meta.get(c.id);
     if (!meta) continue;

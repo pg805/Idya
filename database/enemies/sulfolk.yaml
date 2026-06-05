@@ -29,6 +29,7 @@ Image: ""
 Weapon:
   Name: Regrown Claws
   Description: A sulfolk, limbs rebuilt and ready.
+  Weight: 0
   Resource:
     Name: Nutrients
     Max: 10

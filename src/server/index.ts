@@ -8,6 +8,7 @@ import {
   Client, GatewayIntentBits, Partials, Events,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  type Interaction,
   type GuildMember, type APIInteractionGuildMember,
 } from 'discord.js';
 import CharacterRepository from '../character/character_repository.js';
@@ -52,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -277,30 +278,181 @@ function pathExists(width: number, height: number, blocked: Set<string>, start: 
   return false;
 }
 
-function randomHuntObstacles(): { pos: { x: number; y: number }; state: 'intact' }[] {
-  const W = 7, H = 5;
-  const PLAYER = { x: 0, y: 2 }, ENEMY = { x: 6, y: 2 };
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidates: { x: number; y: number }[] = [];
-    for (let x = 1; x <= 5; x++) {
-      for (let y = 0; y <= 4; y++) candidates.push({ x, y });
+// Board geometry for hunt battles. Bigger than the tutorial so multi-enemy
+// combat has room to maneuver and ranged actions feel meaningful.
+const HUNT_BOARD_W = 12;
+const HUNT_BOARD_H = 10;
+const PLAYER_SPAWN_BOX = 5;            // player picks a random tile in (0..4, 0..4)
+const ENEMY_DIST_MIN  = 6;             // min chebyshev distance from player spawn
+const ENEMY_DIST_MAX  = 8;             // max chebyshev distance from player spawn (capped
+                                       // by board geometry — worst-case player spawn at
+                                       // (4,4) can only reach chebyshev 7 on a 12x10 board)
+const ENEMY_PAIR_MIN_SEP = 3;          // min chebyshev distance between two enemies
+const OBSTACLE_BUFFER = 1;             // tiles around each spawn tile that obstacles avoid
+                                       // (1 = 3x3 area centered on each spawn tile)
+// Obstacle count is sampled from a normal distribution centered on the mean,
+// clamped to [MIN, MAX]. Bell shape favors ~10 obstacles, with the long tails
+// occasionally giving very sparse or very crowded boards.
+const OBSTACLE_COUNT_MEAN = 10;
+const OBSTACLE_COUNT_STDDEV = 4;
+const OBSTACLE_COUNT_MIN = 3;
+const OBSTACLE_COUNT_MAX = 25;
+
+function randomNormal(mean: number, stdDev: number): number {
+  // Box-Muller; clamp u1 away from 0 so log doesn't blow up.
+  const u1 = Math.random() || 1e-10;
+  const u2 = Math.random();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return mean + stdDev * z;
+}
+
+function rollObstacleCount(): number {
+  const n = Math.round(randomNormal(OBSTACLE_COUNT_MEAN, OBSTACLE_COUNT_STDDEV));
+  return Math.max(OBSTACLE_COUNT_MIN, Math.min(OBSTACLE_COUNT_MAX, n));
+}
+
+type Pos = { x: number; y: number };
+
+function chebyshev(a: Pos, b: Pos): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+// Random player spawn in a top-left 5x5 box.
+function randomPlayerSpawn(): Pos {
+  return {
+    x: Math.floor(Math.random() * PLAYER_SPAWN_BOX),
+    y: Math.floor(Math.random() * PLAYER_SPAWN_BOX),
+  };
+}
+
+// Pick an enemy spawn at a random distance/direction from the player, kept
+// on-board and away from the player and any previously-placed enemy tiles.
+function randomEnemySpawn(player: Pos, taken: Pos[]): Pos | null {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const dist = ENEMY_DIST_MIN + Math.floor(Math.random() * (ENEMY_DIST_MAX - ENEMY_DIST_MIN + 1));
+    const angle = Math.random() * Math.PI * 2;
+    const x = Math.round(player.x + Math.cos(angle) * dist);
+    const y = Math.round(player.y + Math.sin(angle) * dist);
+    if (x < 0 || x >= HUNT_BOARD_W || y < 0 || y >= HUNT_BOARD_H) continue;
+    const pos = { x, y };
+    if (chebyshev(pos, player) < ENEMY_DIST_MIN) continue;
+    if (taken.some(t => chebyshev(t, pos) < ENEMY_PAIR_MIN_SEP)) continue;
+    return pos;
+  }
+  return null;
+}
+
+// Build the full board layout for a hunt: player spawn, enemy spawn(s),
+// and obstacles. Obstacles avoid a 3x3 area around each spawn tile and
+// the layout is BFS-verified so every enemy is reachable from the player.
+function randomHuntBoard(enemyCount: number): {
+  playerSpawn: Pos;
+  enemySpawns: Pos[];
+  obstacles: { pos: Pos; state: 'intact' }[];
+} {
+  for (let layoutAttempt = 0; layoutAttempt < 20; layoutAttempt++) {
+    const playerSpawn = randomPlayerSpawn();
+
+    const enemySpawns: Pos[] = [];
+    let spawnFailed = false;
+    for (let i = 0; i < enemyCount; i++) {
+      const e = randomEnemySpawn(playerSpawn, enemySpawns);
+      if (!e) { spawnFailed = true; break; }
+      enemySpawns.push(e);
     }
+    if (spawnFailed) continue;
+
+    // Tiles to keep free of obstacles: the spawn tiles themselves plus a
+    // 3x3 buffer around each.
+    const noObstacle = new Set<string>();
+    const allSpawns = [playerSpawn, ...enemySpawns];
+    for (const s of allSpawns) {
+      for (let dx = -OBSTACLE_BUFFER; dx <= OBSTACLE_BUFFER; dx++) {
+        for (let dy = -OBSTACLE_BUFFER; dy <= OBSTACLE_BUFFER; dy++) {
+          noObstacle.add(`${s.x + dx},${s.y + dy}`);
+        }
+      }
+    }
+
+    const candidates: Pos[] = [];
+    for (let x = 0; x < HUNT_BOARD_W; x++) {
+      for (let y = 0; y < HUNT_BOARD_H; y++) {
+        if (!noObstacle.has(`${x},${y}`)) candidates.push({ x, y });
+      }
+    }
+    // Shuffle so we pick a random subset.
     for (let i = candidates.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
     }
-    const count = 2 + Math.floor(Math.random() * 5); // inclusive 2..6
+    const count = rollObstacleCount();
     const picked = candidates.slice(0, count);
     const blocked = new Set(picked.map(p => `${p.x},${p.y}`));
-    if (pathExists(W, H, blocked, PLAYER, ENEMY)) {
-      return picked.map(pos => ({ pos, state: 'intact' as const }));
-    }
+
+    // Verify the player can reach every enemy without being walled off.
+    const allReachable = enemySpawns.every(e =>
+      pathExists(HUNT_BOARD_W, HUNT_BOARD_H, blocked, playerSpawn, e)
+    );
+    if (!allReachable) continue;
+
+    return {
+      playerSpawn,
+      enemySpawns,
+      obstacles: picked.map(pos => ({ pos, state: 'intact' as const })),
+    };
   }
-  // Extremely unlikely fallback — empty board rather than a stuck session.
-  return [];
+
+  // Fallback: empty obstacles, deterministic spawns. Should be extremely rare.
+  return {
+    playerSpawn: { x: 0, y: 0 },
+    enemySpawns: enemyCount > 1
+      ? [{ x: HUNT_BOARD_W - 1, y: 1 }, { x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }]
+      : [{ x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }],
+    obstacles: [],
+  };
 }
 
-function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+// Runs RewardService.grant once per defeated enemy (one entry in lootTables
+// per enemy in the battle), and merges the results into a single RewardResult
+// so the existing summary/UI logic doesn't have to know about multi-enemy.
+async function grantAllLoot(
+  discordId: string,
+  characterId: string,
+  lootTables: LootTable[],
+  enemyName: string,
+): Promise<{ currency: number; items: Array<{ name: string; quantity: number }>; summary: string }> {
+  const service = new RewardService();
+  let totalCurrency = 0;
+  const mergedItems = new Map<string, number>(); // name → quantity
+  for (const table of lootTables) {
+    const r = await service.grant(discordId, characterId, table, enemyName);
+    totalCurrency += r.currency;
+    for (const i of r.items) {
+      mergedItems.set(i.name, (mergedItems.get(i.name) ?? 0) + i.quantity);
+    }
+  }
+  const items = [...mergedItems.entries()].map(([name, quantity]) => ({ name, quantity }));
+  const lines = [
+    ...(totalCurrency > 0 ? [`+${totalCurrency} Korel`] : []),
+    ...items.map(i => `+${i.quantity}x ${i.name}`),
+  ];
+  return {
+    currency: totalCurrency,
+    items,
+    summary: lines.length > 0 ? lines.join('\n') : 'No drops.',
+  };
+}
+
+function createSession(
+  sessionId: string,
+  enemyKey: EnemyKey | 'tutorial_swallow',
+  playerSprite?: string,
+  playerName = 'Hero',
+  weaponKey = 'branch',
+  isTutorial = false,
+  weaponUpgrades: unknown = null,
+  enemyCount = 1,
+): { session: CombatSession; lootTables: LootTable[]; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
   const fistsInfo = buildWeaponInfo(weapon);
@@ -308,20 +460,45 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
   const enemyFile = isTutorial ? 'tutorial_swallow' : enemyKey;
-  const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
-    join(__dirname, `../../database/enemies/${enemyFile}.yaml`),
-    { id: 'enemy-1', teamId: 'team-b', pos: isTutorial ? { x: 5, y: 0 } : { x: 6, y: 2 }, movementRange: 2 },
-  );
+  const enemyPath = join(__dirname, `../../database/enemies/${enemyFile}.yaml`);
+  const effectiveCount = isTutorial ? 1 : Math.max(1, enemyCount);
+
+  // Compute the full hunt layout (player spawn, enemy spawns, obstacles).
+  // Tutorial keeps its fixed mini-board.
+  const layout = isTutorial
+    ? {
+        playerSpawn: { x: 0, y: 1 },
+        enemySpawns: [{ x: 5, y: 0 }],
+        obstacles: [] as { pos: { x: number; y: number }; state: 'intact' }[],
+      }
+    : randomHuntBoard(effectiveCount);
+
+  const enemies: Array<{ combatant: Combatant; meta: CombatantMeta; lootTable: LootTable }> = [];
+  for (let i = 0; i < effectiveCount; i++) {
+    const suffix = effectiveCount > 1 ? String.fromCharCode(65 + i) : null; // A, B, C...
+    const id = effectiveCount > 1 ? `enemy-${suffix}` : 'enemy-1';
+    const loaded = loadEnemy(enemyPath, {
+      id,
+      teamId: 'team-b',
+      pos: layout.enemySpawns[i],
+      movementRange: 2,
+    });
+    if (suffix !== null) {
+      loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
+      loaded.meta.state.name = loaded.combatant.name; // log lines use state.name
+    }
+    enemies.push(loaded);
+  }
 
   const boardConfig = isTutorial
     ? { width: 6, height: 2, obstacles: [] }
     : {
-        width: 7,
-        height: 5,
-        obstacles: randomHuntObstacles(),
+        width: HUNT_BOARD_W,
+        height: HUNT_BOARD_H,
+        obstacles: layout.obstacles,
       };
 
-  const playerStartPos = isTutorial ? { x: 0, y: 1 } : { x: 0, y: 2 };
+  const playerStartPos = layout.playerSpawn;
 
   const session = new CombatSession(
     sessionId,
@@ -343,28 +520,80 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
           isAI: false,
           teamId: 'team-a',
           weaponInfo: fistsInfo,
+          weight: weapon.weight,
+          initiative: 0,
+          initiativeRank: 0,
           sprite: playerSprite,
         }],
       },
       {
         id: 'team-b',
         name: 'Enemy',
-        combatants: [enemy],
+        combatants: enemies.map(e => e.combatant),
       },
     ],
   );
 
   session.meta.set('player-1', { weapon: weapon, state: playerState, pattern: [], patternIndex: 0 });
-  session.meta.set('enemy-1', enemyMeta);
+  for (const e of enemies) session.meta.set(e.combatant.id, e.meta);
   session.phase = 'intent';
   refreshTelegraphs(session);
-  return { session, lootTable, enemyName: enemy.name };
+  return {
+    session,
+    lootTables: enemies.map(e => e.lootTable),
+    enemyName: enemies[0].combatant.name.replace(/ [A-Z]$/, ''), // base name without suffix
+  };
 }
 
 // ---- Web server ----
 
+// Request log — one line per request to stdout, captured by PM2. Format:
+//   2026-06-04T17:30:01.123Z 1.2.3.4 GET /app/shop/general_store 200 12ms
+// Skipped paths: static assets (.js/.css/.png/etc) — they're high-volume and
+// usually not interesting for debugging. Failures on dynamic routes (4xx/5xx)
+// always log, including for skipped paths, so a missing CSS still shows up.
+app.use((req: Request, res: Response, next) => {
+  const start = Date.now();
+  const ip = (req.headers['cf-connecting-ip'] as string | undefined)
+    ?? (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? '-';
+  const isAsset = /\.(?:js|css|png|jpg|jpeg|svg|ico|webp|woff2?|map)(?:\?|$)/.test(req.url);
+  res.on('finish', () => {
+    const dur = Date.now() - start;
+    if (!isAsset || res.statusCode >= 400) {
+      console.log(`[req] ${new Date().toISOString()} ${ip} ${req.method} ${req.url} ${res.statusCode} ${dur}ms`);
+    }
+  });
+  next();
+});
+
 app.use(express.static(join(__dirname, '../../public')));
 app.use(express.json());
+
+// Client-side error capture — SPA posts unhandled errors here; we log to
+// stdout (PM2 captures) so we can debug white screens / runtime crashes
+// without needing the user's devtools open. No auth required intentionally:
+// errors happen before auth in many cases, and the payload is rate-limit
+// guarded by Express's default body size cap.
+app.post('/api/client_error', (req: Request, res: Response) => {
+  const ip = (req.headers['cf-connecting-ip'] as string | undefined) ?? req.socket.remoteAddress ?? '-';
+  const ua = (req.headers['user-agent'] as string | undefined)?.slice(0, 200) ?? '-';
+  const body = req.body ?? {};
+  const summary = {
+    ts:      new Date().toISOString(),
+    ip,
+    ua,
+    url:     String(body.url ?? '').slice(0, 500),
+    message: String(body.message ?? '').slice(0, 500),
+    source:  String(body.source ?? '').slice(0, 200),
+    line:    body.line,
+    col:     body.col,
+    stack:   String(body.stack ?? '').slice(0, 2000),
+  };
+  console.log(`[client_error] ${JSON.stringify(summary)}`);
+  res.json({ ok: true });
+});
 
 // Read the bot version once at startup. Used to stamp asset URLs in HTML so
 // every deploy invalidates browser + Cloudflare caches without relying on a
@@ -566,6 +795,38 @@ app.get('/api/info/enemies', (_req: Request, res: Response) => {
   res.json({ enemies });
 });
 
+// Parses a markdown doc by H1 headers into top-level sections. Used by
+// the Lore + Reference info pages.
+function parseMarkdownSections(absPath: string): Array<{ title: string; body: string }> {
+  if (!fs.existsSync(absPath)) return [];
+  const raw = fs.readFileSync(absPath, 'utf-8');
+  const sections: Array<{ title: string; body: string }> = [];
+  let current: { title: string; body: string } | null = null;
+  for (const line of raw.split(/\r?\n/)) {
+    const h1 = line.match(/^# (.+)$/);
+    if (h1) {
+      if (current) sections.push(current);
+      current = { title: h1[1].trim(), body: '' };
+      continue;
+    }
+    if (current) current.body += line + '\n';
+  }
+  if (current) sections.push(current);
+  return sections.map(s => ({ title: s.title, body: s.body.trim() }));
+}
+
+app.get('/api/info/lore', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/lore/world_player.md')) });
+});
+
+app.get('/api/info/reference', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/reference.md')) });
+});
+
+app.get('/api/info/about', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/about.md')) });
+});
+
 // ---- Hunt ----
 
 function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {
@@ -612,7 +873,7 @@ app.get('/api/hunt', async (req: Request, res: Response) => {
     };
   }).sort((a, b) => a.enemy_health - b.enemy_health);
 
-  res.json({ baits, tutorial_complete: tutorialComplete });
+  res.json({ baits, tutorial_complete: tutorialComplete, is_dev: isDev(discordId) });
 });
 
 app.post('/api/hunt/start', async (req: Request, res: Response) => {
@@ -656,9 +917,23 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
   const sessionId    = Math.random().toString(36).slice(2, 10);
   const equipped     = await equippedWeaponForCombat(char);
   const weaponKey    = equipped?.key ?? 'branch';
-  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades);
+  // Roll for a second enemy: 2.3% on real hunts, force-2 if the client passed
+  // it AND the user is a dev. Dev override exists so we can reliably test the
+  // multi-enemy code without waiting on a rare random spawn.
+  const wantsForceTwo = req.body?.count === 2;
+  const isDevUser     = isDev(discordId);
+  let enemyCount: number;
+  if (wantsForceTwo && isDevUser) enemyCount = 2;
+  else                            enemyCount = Math.random() < 0.023 ? 2 : 1;
+
+  const { session: huntSession, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades, enemyCount);
   sessions.set(sessionId, huntSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  // Persist initiative rolls as a synthetic round 0 so the battle log table
+  // captures them alongside the per-turn rounds.
+  const rounds: { turn: number; log: string[] }[] = huntSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: huntSession.initiativeLog }]
+    : [];
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -2158,6 +2433,11 @@ io.on('connection', (socket: Socket) => {
     const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
     socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
+    // Initiative rolls happen at session creation. Replay them on every
+    // join so refreshers + late-joiners see them at the top of their log.
+    if (session.initiativeLog.length > 0) {
+      socket.emit('turn_result', { log: session.initiativeLog });
+    }
     if (isTut) {
       socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
       socket.emit('tutorial_aside', { text: 'Click your character first, then select a highlighted tile to move, or select the tile you are on to stay put.', isOOC: true });
@@ -2259,7 +2539,10 @@ io.on('connection', (socket: Socket) => {
         let rewardSummary = 'No drops.';
         let korelEarned = 0;
         if (char) {
-          const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable, meta.enemyName).catch(() => null);
+          // One grant per defeated enemy — each enemy's loot table rolls
+          // independently. Sum up the results into a single rewards object so
+          // the existing summary/reply logic still works.
+          const rewards = await grantAllLoot(meta.discordUserId, char.id, meta.lootTables, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
           korelEarned = rewards?.currency ?? 0;
           const winLog = await prisma.battleLog.create({ data: {
@@ -2375,10 +2658,13 @@ io.on('connection', (socket: Socket) => {
       }
     }
 
-    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
+    const { session: fresh, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
-      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+      const freshRounds: { turn: number; log: string[] }[] = fresh.initiativeLog.length > 0
+        ? [{ turn: 0, log: fresh.initiativeLog }]
+        : [];
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -2540,6 +2826,13 @@ httpServer.listen(PORT, () => {
 // has elapsed. Same maybeTickDaily logic — just driven by setInterval
 // instead of pageload. Lets stock drift (restock + destock-at-75%) feel
 // like the world exists between visits.
+//
+// IMPORTANT: SHOP_DIR is declared further down (with the other shop/recipe
+// path constants). The initial kick + setInterval registration happen here
+// at module load, but they reference SHOP_DIR through the runShopTick
+// closure — so we have to defer the first invocation until after SHOP_DIR
+// is bound. Calling `void runShopTick()` synchronously here would hit a
+// TDZ error ("Cannot access 'SHOP_DIR' before initialization").
 const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
 async function runShopTick(): Promise<void> {
   try {
@@ -2547,7 +2840,7 @@ async function runShopTick(): Promise<void> {
     if (n > 0) console.log(`[shop tick] ticked ${n} item(s)`);
   } catch (err) { console.error('[shop tick] failed', err); }
 }
-void runShopTick();
+setImmediate(() => { void runShopTick(); });
 setInterval(runShopTick, SHOP_TICK_INTERVAL_MS);
 
 // ---- Discord bot ----
@@ -2603,9 +2896,12 @@ async function bootstrapNewCharacter(
   await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
   const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
   const sessionId = Math.random().toString(36).slice(2, 10);
-  const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  const { session: charSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
   sessions.set(sessionId, charSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  const tutorialRounds: { turn: number; log: string[] }[] = charSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: charSession.initiativeLog }]
+    : [];
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: tutorialRounds });
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 
@@ -2771,8 +3067,16 @@ if (discordToken) {
       GatewayIntentBits.GuildMembers,
     ],
   });
+  // All Discord interactions fan out from ONE listener at the bottom of this
+  // block. Each command/button registers a handler into interactionHandlers
+  // instead of adding its own client.on() — the old pattern leaked ~17
+  // listeners against Node's default 10-listener cap and fired a misleading
+  // "memory leak" warning on every restart. Each handler is responsible for
+  // its own filter (isChatInputCommand + commandName, isButton + customId,
+  // etc.) and returns early if no match.
+  const interactionHandlers: Array<(interaction: Interaction) => Promise<void>> = [];
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     // ---- Hunt ----
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'hunt') {
@@ -2824,7 +3128,7 @@ if (discordToken) {
 
   // ---- Admin commands ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'admin') return;
     if (!interaction.member || !isAdmin(interaction.member)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
@@ -2935,7 +3239,7 @@ if (discordToken) {
 
   // ---- Dev commands ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'dev') return;
     if (!isDev(interaction.user.id)) {
       await interaction.reply({ content: 'Unauthorized.', flags: MessageFlags.Ephemeral });
@@ -2971,7 +3275,7 @@ if (discordToken) {
 
   // ---- Profile ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'profile') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3038,7 +3342,7 @@ if (discordToken) {
 
   // ---- Weapon equip ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3090,7 +3394,7 @@ if (discordToken) {
     await interaction.reply({ content: note, components: [row], flags: MessageFlags.Ephemeral });
   });
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isStringSelectMenu() || interaction.customId !== 'WeaponEquip') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3122,7 +3426,7 @@ if (discordToken) {
     [worldConfig.channels.enchanting_shop]: 'enchanting_shop',
   };
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'shop') return;
 
     const shopKey = CHANNEL_TO_SHOP[interaction.channelId];
@@ -3153,7 +3457,7 @@ if (discordToken) {
 
   // ---- Craft ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'craft') return;
 
     const chars = await charRepo.list(interaction.user.id);
@@ -3177,7 +3481,7 @@ if (discordToken) {
 
   // ---- Trade ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'trade') return;
 
     const target = interaction.options.getUser('user', true);
@@ -3210,7 +3514,7 @@ if (discordToken) {
 
   // ---- Weapons reference ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'weapon-stats') return;
     await interaction.reply({ content: `${HOST}/app/weapon-stats`, flags: MessageFlags.Ephemeral });
   });
@@ -3226,22 +3530,37 @@ if (discordToken) {
     { command: 'enemies',     path: '/enemies'     },
   ];
 
-  for (const { command, path } of APP_PAGE_LINKS) {
-    discord.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isChatInputCommand() || interaction.commandName !== command) return;
-      const token = getOrCreateToken(interaction.user.id);
-      await interaction.reply({
-        content: `${HOST}/app${path}?auth=${token}`,
-        flags: MessageFlags.Ephemeral,
-      });
+  // All 6 page-link commands share the same handler body — one listener with
+  // a lookup map instead of one listener per command (was the worst offender
+  // for the MaxListeners warning).
+  const appPageByCommand = new Map(APP_PAGE_LINKS.map(p => [p.command, p.path]));
+  interactionHandlers.push(async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+    const path = appPageByCommand.get(interaction.commandName);
+    if (path === undefined) return;
+    const token = getOrCreateToken(interaction.user.id);
+    await interaction.reply({
+      content: `${HOST}/app${path}?auth=${token}`,
+      flags: MessageFlags.Ephemeral,
     });
-  }
+  });
 
   // ---- Ping ----
 
-  discord.on(Events.InteractionCreate, async (interaction) => {
+  interactionHandlers.push(async (interaction) => {
     if (!interaction.isChatInputCommand() || interaction.commandName !== 'ping') return;
     await interaction.reply('Pong!');
+  });
+
+  // Single dispatcher — fans every interaction out to the handlers above.
+  // Each handler's filter ignores interactions it doesn't own, so iteration
+  // is effectively a routing table walk. Errors in one handler don't break
+  // siblings.
+  discord.on(Events.InteractionCreate, async (interaction) => {
+    for (const handler of interactionHandlers) {
+      try { await handler(interaction); }
+      catch (err) { console.error('interaction handler error:', err); }
+    }
   });
 
   // ---- Guild member join ----

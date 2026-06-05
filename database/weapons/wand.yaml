@@ -2,6 +2,7 @@ Name: Wand
 Description: A slender sulwood rod attuned to the elements. Bolts share a source but land differently.
 Level: 3
 HP: 15
+Weight: 0
 
 Resource:
   Name: Sidaev

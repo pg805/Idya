@@ -2,6 +2,7 @@ Name: Dagger
 Description: A slim talamite blade, quick in the hand. Keep it close or throw it — either way, it draws blood.
 Level: 2
 HP: 30
+Weight: 0
 
 Resource:
   Name: Poise

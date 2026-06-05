@@ -2,6 +2,7 @@ Name: Talamite Shovel
 Description: The talamite blade stays sharp no matter the abuse. Same rhythm, just hits harder.
 Level: 4
 HP: 70
+Weight: 0
 
 Resource:
   Name: Stamina

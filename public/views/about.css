@@ -1,0 +1,19 @@
+/* View: About — single-column narrative, centered article */
+
+.about-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 40px 24px 60px;
+}
+
+.about-body .lore-article {
+  max-width: 680px;
+  width: 100%;
+}
+
+.about-body .lore-article p {
+  margin-bottom: 16px;
+  line-height: 1.7;
+}

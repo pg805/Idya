@@ -1,6 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root { --cell-size: 72px; }
+:root { --cell-size: 48px; }
 
 body {
   background: var(--bg);
@@ -359,7 +359,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    fits inside a ~390px viewport without overflow. The js-driven width on
    #left-col is overridden with !important since it's set inline. */
 @media (max-width: 640px) {
-  :root { --cell-size: 44px; }
+  :root { --cell-size: 28px; }
   #battle-shell { padding: 8px; gap: 8px; }
   #main-layout {
     flex-direction: column;

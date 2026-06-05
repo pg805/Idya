@@ -3,6 +3,172 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.1.5 — 2026-06-05
+
+The "fill in the docs and rebuild combat for teams" release. Three new info
+pages (Lore, Reference, About), a full multi-combatant rewrite for combat
+with DnD-style initiative, multi-enemy hunts on a much larger board, and a
+big infrastructure pass to make the prod stack reliable.
+
+### Combat — multi-combatant rewrite
+
+The combat engine no longer assumes 1-vs-1. The architecture now generalizes
+to N-vs-M with a single initiative system driving everything — a deliberate
+stepping stone toward eventual PVP.
+
+- **Initiative system** (DnD-style). Each combatant rolls `(1..100) − Weight`
+  at battle start. Higher score acts first; ties resolved by "player beats
+  NPC" then coin flip. Initiative ordering applies to action sub-phases
+  (defend/attack/special), DOT ticks, and contested-tile movement priority
+  — replaces the old hardcoded "player first" / "AI DOT first" / `isAI`
+  movePriority rules. Initiative rolls log to the combat log on `join_session`
+  (and persist as a synthetic "round 0" in the battle log).
+- **Weight stat** on every weapon (YAML `Weight:` field) and on every enemy
+  weapon. All weights currently `0` — per-weapon tuning is its own balance
+  pass. Even at 0 weight the random roll spreads combatants across the
+  initiative order.
+- **Multi-enemy spawn**. 2.3% chance of a 2-enemy spawn on bait consumption.
+  Two enemies get `A`/`B` name suffixes (e.g. `Melbear A`, `Melbear B`) for
+  log disambiguation. Each spawn picks a random pattern start index so
+  identical enemies don't telegraph identical actions on turn 1.
+- **Dev `+2 (dev)` button** on each bait card (gated server-side by
+  `isDev(discordId)`) forces a 2-spawn for testing without waiting on the
+  2.3% roll.
+- **Per-enemy loot** — each defeated enemy rolls its own loot table; results
+  merge into one summary so the existing victory UI is unchanged.
+- **Re-route algorithm changed** — when a combatant loses a contested move,
+  it now re-routes toward its *original destination* (not the nearest enemy
+  as before), which approximates "stop on the path you planned" when the
+  blocking enemy is one tile ahead. Used `<=` for the tile comparator so the
+  combatant will step toward the destination when chebyshev distance is tied
+  (the "tile right before the blocker" case).
+- **Conflict log reworded** — `X yields to Y.` → `X's path to (a,b) blocked
+  by Y.`. The old "tie — neither moves" message is gone (unreachable now
+  that initiative ranks are unique).
+
+### Combat — board redesign
+
+- **12×10 hunt board** (was 7×5). 120 tiles vs 35.
+- **Random player spawn** in the top-left 5×5 box.
+- **Distance-based enemy spawn**. Random chebyshev distance 6–8 at a random
+  angle from the player. Two enemies maintain ≥ 3 chebyshev separation from
+  each other.
+- **Obstacle generation**: count sampled from a normal distribution (mean
+  10, stddev 4, clamped 3–25). 3×3 buffer around every spawn tile so nothing
+  is pinned in immediately. BFS verifies every enemy is reachable from the
+  player; layouts that wall enemies off are re-rolled.
+- **Tutorial board unchanged** — still the fixed 6×2 mini-layout.
+- **Cell size tuned**: 72px → 48px desktop, 44px → 28px mobile. The 12-wide
+  board is now 576px on desktop, 336px on mobile (fits a typical phone).
+
+### Info pages
+
+Three new pages under the **Info** sidebar group, all rendered from markdown
+under `database/lore/` and `database/docs/`:
+
+- **Lore** (`/app/lore`) — curated player-facing world doc: world background,
+  the Chaevul Empire, Sidaev, the gods, Sulku'it, and town-introduction style
+  NPC blurbs. Sidebar of sections, detail panel on the right. Designer-facing
+  `world.md` is kept separate so personal NPC notes / spoilers don't leak.
+- **Reference** (`/app/reference`) — game terms reference: Currency & Stats,
+  Combat Actions, Damage & Resistances, The Battle, Hunting, Town Shops, The
+  Bench, Professions, Trading, Weapons, Items, and a Glossary that links
+  back to every section. Includes nested-list + table + intra-page anchor
+  link support in the markdown renderer.
+- **About** (`/app/about`) — single-section narrative page from the dev about
+  the game's origin and design intent.
+
+The renderer used by Lore/Reference picked up support for tables, nested
+bullet lists, numbered lists, `code` spans, and intra-page anchor links
+(`[Term](#section-slug)` jumps to the linked section via the SPA's section
+selector instead of doing a full navigation).
+
+### Crafting / recipes
+
+- **Spellbook tier-2 and tier-3 recipes added**. Spellbook was the only L1
+  weapon missing higher-tier variants:
+  - `Spellbook (Hiruos)` at Enchanter level 2 → spellbook with +1 attack
+    baked in (mirrors Quarterstaff (Treated) and Dagger (Talamite))
+  - `Spellbook (Nodol)` at Enchanter level 7 → spellbook with +1 def/+1 atk/
+    +1 spec baked in (mirrors Kustaff (Nodol) and Mental Cage (Nodol))
+
+### Shop economy
+
+- **Hourly destock loop**. `TICK_INTERVAL_MS` (24h) blocked the destock from
+  firing more than once per day per item, so popular shelves (venison,
+  thuvel, hiruos, maek_egg pinned at cap on prod) waited hours-to-a-day for
+  any flush. Split into two clocks: daily tick still owns price update +
+  low-stock restock; new `maybeHourlyDestock` runs on the same hourly walk
+  and dumps `6 × rolled Restock_Field` whenever stock ≥ 75% of cap. In-memory
+  `lastDestockAt` map gates one destock per item per hour (lost on restart —
+  acceptable, restart just triggers a fresh round of catch-up flushes).
+- **Stock_Max bumps on hot items**:
+  - venison 200 → 800, maek_egg 50 → 200 (general store)
+  - thuvel 500 → 2000, hiruos 200 → 800 (enchanter)
+  - swallow_feather 1000 → 2000 (general store)
+  - crude_talamite 500 → 2000 (blacksmith), sulwood 500 → 2000 (lumberjack)
+  - melstone 300 → 1000 (blacksmith)
+  - felt_hat 500 → 1000, bottle_of_tar 300 → 1000 (lumberjack)
+- **SHOP_DIR TDZ fix** — `runShopTick()` was being invoked synchronously at
+  module load before `SHOP_DIR` was declared, so the hourly shop tick had
+  been silently failing on prod every hour since 0.1.3 with
+  `ReferenceError: Cannot access 'SHOP_DIR' before initialization`. Deferred
+  to `setImmediate(...)` so SHOP_DIR is bound before the first tick. Means
+  the new hourly destock loop will *actually run* on prod.
+- **Volume columns → BigInt**. `cumulative_volume` + `recent_volume` on
+  `ShopItemState` were INT4 (ceiling 2.1B). The infinite `swallow_bait`
+  tutorial item drove `cumulative_volume` past INT4 in testing and broke
+  buy/sell on prod with a "Unable to fit integer value '2147483648' into
+  an INT4" Prisma error. Widened to BigInt; math sites coerce to Number
+  (values stay far below MAX_SAFE_INTEGER).
+
+### Diagnostics
+
+- **Express request logging** — middleware emits one line per dynamic
+  request: `[req] 2026-06-05T01:32:43.277Z 1.2.3.4 GET /url 200 13ms`. Static
+  asset hits are skipped unless they 4xx/5xx. CF-Connecting-IP preferred over
+  socket peer so the IP is the real client.
+- **Client error capture** — new `POST /api/client_error` endpoint plus
+  `public/error-capture.js` wires `window.error` + `unhandledrejection` to
+  POST `{url, message, source, line, col, stack, ua}`. Throttled to one
+  POST per message per minute. Uses `sendBeacon` when available so capture
+  survives page unload. Loaded by both `app.html` and `index.html`. Lets us
+  remotely diagnose white screens / SPA crashes without devtools on the
+  user's end.
+- **Webhook script gets request logging**. `webhook/index.js` now logs
+  every incoming GitHub delivery with method, URL, IP, UA, delivery ID, and
+  the routing decision (`-> 200 (deploy dev)`, `-> 401 (bad signature)`,
+  `-> 404 (method/url mismatch)`, etc.). Cross-references with the
+  cloudflared journal made the "intermittent webhook 404s" debug session
+  tractable.
+- **Discord interaction listener consolidation**. 12 separate
+  `client.on(InteractionCreate, ...)` registrations consolidated into one
+  dispatcher backed by an `interactionHandlers[]` array. Each handler still
+  owns its own filter (`isChatInputCommand && commandName === 'X'`) and
+  early-returns when not addressed. Error in one handler doesn't break the
+  siblings (each call wrapped in try/catch). Killed the
+  `MaxListenersExceededWarning` that fired on every restart.
+
+### Infrastructure
+
+- **Cloudflared tunnel consolidation**. Discovered a second `cloudflared`
+  instance on the `proxy` VM running an older config with non-overlapping
+  hostname rules (handled `webhook.slowb.rodeo` + `foundry.slowb.rodeo`,
+  but no `idya.slowb.rodeo` route). Cloudflare load-balanced incoming
+  requests across both replicas, which meant about half of all hits to
+  `idya.slowb.rodeo` 404'd at the catch-all on the proxy replica, and
+  half of all hits to `webhook.slowb.rodeo` 404'd on the db-server
+  replica. Classic intermittent-404 pattern across all 0.1.x. Fix:
+  consolidated all hostnames into the db-server `cloudflared` config
+  (`idya`, `webhook`, `foundry` all point at `localhost:9000/3001` or
+  `10.0.0.3:30000`), stopped + disabled cloudflared on the proxy box.
+- **Cloudflared 2026.5.2 upgrade** on db-server with `edge-ip-version: "4"`
+  pinned in config — the 2026.5.2 default of `auto` prefers IPv6, which is
+  asymmetrically broken on the prod ISP and caused a brief total outage
+  during the upgrade until pinned to v4.
+
+---
+
 ## 0.1.4 — 2026-06-03
 
 Mobile-friendly UI, keyboard combat controls, the Golnosar joins the
@@ -18,7 +184,7 @@ react to player trading.
 - **Battle keyboard input** — arrow keys move (or click-target), `1`–`9` selects action by index, `Enter` confirms / skips / returns to town. Hunt page also accepts `Enter` to confirm bait selection.
 
 ### New Content
-- **New enemy: Golnosar** (Level 4, 110 HP). Pool-dwelling living-tar creature. Resource: Tar (max 10). Tar Drink (defend, blocks 10 + restores 10 Tar), Tar Shot (attack, reactive, range 3, swingy 0–8 blunt), Blind crit (DOT, 10 per round for 3 rounds), Fistar (special, aimed, range 4, arcane fire DOT 5–14 for 5 rounds). 8-step pattern (drink → 4× shot → fistar → 2× shot). Sim shows ~40% win rate on Talamite Axe/Shovel with 50% aim-miss assumption.
+- **New enemy: Golnosar** (Level 4, 110 HP). Pool-dwelling living-tar creature. Resource: Tar (max 10). Tar Drink (defend, blocks 10 + restores 10 Tar), Tar Shot (attack, reactive, range 1, swingy 0–8 blunt), Blind crit (DOT, 10 per round for 3 rounds), Fistar (special, aimed, range 4, arcane fire DOT 5–14 for 5 rounds). 8-step pattern (drink → 4× shot → fistar → 2× shot). Sim shows ~40% win rate on Talamite Axe/Shovel with 50% aim-miss assumption. (Post-release tweak: Tar Shot range dropped 3 → 1 — was too punishing as a reactive ranged attack; melee-only forces the golnosar to close before it can spit.)
 - **Tar Bait** at the general store (60 buy / 18 sell). Summons Golnosar.
 - **Bottle of Tar** drops to the lumberjack (90/30, used for waterproofing).
 - **Lifgem** drops as a rare valuable (1-in-20 from Golnosar). Goes to the enchanter (800/400). Priced for "will become more common when other enemies drop it" — moderate stock cap, modest unit value.

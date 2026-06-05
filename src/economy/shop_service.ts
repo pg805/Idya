@@ -6,10 +6,16 @@ import { loadShop } from './shop_loader.js';
 import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
 import { ITEMS } from './items.js';
 
-const TICK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const TICK_INTERVAL_MS    = 24 * 60 * 60 * 1000;
+const DESTOCK_INTERVAL_MS = 60 * 60 * 1000;  // hourly overflow flush, decoupled from daily price tick
 const RECENT_VOLUME_DECAY = 0.7; // half-life ~2 days; ~8% remains after 7 days
-const DESTOCK_THRESHOLD   = 0.75; // when stock >= this fraction of cap, tick dumps instead of restocks
+const DESTOCK_THRESHOLD   = 0.75; // when stock >= this fraction of cap, hourly tick dumps stock
 const DESTOCK_MULTIPLIER  = 6;    // dump 6× the rolled Restock_Field value — keep stock flowing so players can always sell
+
+// In-memory gate so the hourly destock doesn't fire more than once per hour per
+// item. Lost on server restart — that's fine, worst case the next hourly walk
+// catches up on anything that's overstocked.
+const lastDestockAt = new Map<string, number>();
 
 export interface PricedItem extends ShopItemListing {
   buy?:          number;
@@ -37,16 +43,17 @@ async function getOrCreateState(shopKey: string, item: ShopItemListing) {
 async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
   if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) return state;
 
-  const newRecentVolume = Math.floor(state.recent_volume * RECENT_VOLUME_DECAY);
+  // recent_volume is BigInt in the schema (to avoid INT4 overflow); coerce to
+  // Number for the decay math. Realistic values stay far below MAX_SAFE_INTEGER.
+  const newRecentVolume = Math.floor(Number(state.recent_volume) * RECENT_VOLUME_DECAY);
   const r      = currentR(item, newRecentVolume);
   const newX   = logisticStep(state.x, r);
-  // Same Restock_Field roll runs every tick. When stock is at or above 75% of
-  // cap the shop liquidates instead of restocking — dumps 2× the rolled value.
-  // Without this items like venison sit at stock_max forever and nobody can
-  // sell more (soft-lock).
+  // Daily tick handles price/restock only. Destock is now on its own hourly
+  // clock (see maybeHourlyDestock) so overstocked items don't sit pinned at
+  // cap for up to 24 hours waiting for the next price tick.
   const roll = rollField(item.restock_field);
   const overstocked = item.stock_max > 0 && state.stock >= item.stock_max * DESTOCK_THRESHOLD;
-  const stockDelta = overstocked ? -roll * DESTOCK_MULTIPLIER : roll;
+  const stockDelta = overstocked ? 0 : roll;
   const newStock = Math.max(0, Math.min(state.stock + stockDelta, item.stock_max));
 
   // Optimistic lock — only one concurrent request runs the tick
@@ -62,7 +69,26 @@ async function maybeTickDaily(shopKey: string, item: ShopItemListing, state: Awa
     });
   }
 
-  return { ...state, x: newX, stock: newStock, recent_volume: newRecentVolume, last_tick: new Date() };
+  return { ...state, x: newX, stock: newStock, recent_volume: BigInt(newRecentVolume), last_tick: new Date() };
+}
+
+async function maybeHourlyDestock(shopKey: string, item: ShopItemListing, state: Awaited<ReturnType<typeof getOrCreateState>>) {
+  if (item.stock_max <= 0) return state;
+  if (state.stock < item.stock_max * DESTOCK_THRESHOLD) return state;
+
+  const key = `${shopKey}:${item.id}`;
+  const last = lastDestockAt.get(key) ?? 0;
+  if (Date.now() - last < DESTOCK_INTERVAL_MS) return state;
+
+  const roll = rollField(item.restock_field);
+  const newStock = Math.max(0, state.stock - roll * DESTOCK_MULTIPLIER);
+
+  await prisma.shopItemState.update({
+    where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    data:  { stock: newStock },
+  });
+  lastDestockAt.set(key, Date.now());
+  return { ...state, stock: newStock };
 }
 
 
@@ -81,10 +107,14 @@ export async function tickAllDue(shopDir: string): Promise<number> {
     for (const item of config.items) {
       try {
         let state = await getOrCreateState(shopKey, item);
-        if (Date.now() - state.last_tick.getTime() < TICK_INTERVAL_MS) continue;
-        const before = state.last_tick;
-        state = await maybeTickDaily(shopKey, item, state);
-        if (state.last_tick.getTime() !== before.getTime()) ticked++;
+        const beforeStock = state.stock;
+        state = await maybeHourlyDestock(shopKey, item, state);
+        if (Date.now() - state.last_tick.getTime() >= TICK_INTERVAL_MS) {
+          const before = state.last_tick;
+          state = await maybeTickDaily(shopKey, item, state);
+          if (state.last_tick.getTime() !== before.getTime()) ticked++;
+        }
+        if (state.stock !== beforeStock) ticked++;
       } catch (err) {
         console.error(`tickAllDue: ${shopKey}/${item.id} failed`, err);
       }
@@ -98,6 +128,7 @@ export async function getPrices(shopKey: string, config: ShopConfig): Promise<Pr
 
   for (const item of config.items) {
     let state = await getOrCreateState(shopKey, item);
+    state = await maybeHourlyDestock(shopKey, item, state);
     state = await maybeTickDaily(shopKey, item, state);
 
     const mult = effectiveMultiplier(item, state.x, state.stock);
@@ -120,7 +151,7 @@ async function applyTransactionShock(shopKey: string, item: ShopItemListing, qua
     where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
   });
 
-  const r        = currentR(item, state.recent_volume);
+  const r        = currentR(item, Number(state.recent_volume));
   const direction = isBuy ? 1 : -1;
   const shockMag  = Math.min(quantity / item.transaction_threshold, 3) * 0.1;
   const shockedX  = clamp(state.x + direction * shockMag, 0, 1);

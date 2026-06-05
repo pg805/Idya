@@ -1,6 +1,7 @@
 Name: Honor
 Description: Virtue made manifest.
 HP: 1000
+Weight: 0
 Resource:
   Name: Virtue
   Max: 100
