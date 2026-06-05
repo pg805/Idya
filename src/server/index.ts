@@ -612,12 +612,11 @@ app.get('/api/info/enemies', (_req: Request, res: Response) => {
   res.json({ enemies });
 });
 
-// Lore — parses world_player.md by H1 headers into top-level sections.
-// Each section's body keeps its raw markdown; the client renders it.
-app.get('/api/info/lore', (_req: Request, res: Response) => {
-  const path = join(__dirname, '../../database/lore/world_player.md');
-  if (!fs.existsSync(path)) { res.json({ sections: [] }); return; }
-  const raw = fs.readFileSync(path, 'utf-8');
+// Parses a markdown doc by H1 headers into top-level sections. Used by
+// the Lore + Reference info pages.
+function parseMarkdownSections(absPath: string): Array<{ title: string; body: string }> {
+  if (!fs.existsSync(absPath)) return [];
+  const raw = fs.readFileSync(absPath, 'utf-8');
   const sections: Array<{ title: string; body: string }> = [];
   let current: { title: string; body: string } | null = null;
   for (const line of raw.split(/\r?\n/)) {
@@ -630,7 +629,15 @@ app.get('/api/info/lore', (_req: Request, res: Response) => {
     if (current) current.body += line + '\n';
   }
   if (current) sections.push(current);
-  res.json({ sections: sections.map(s => ({ title: s.title, body: s.body.trim() })) });
+  return sections.map(s => ({ title: s.title, body: s.body.trim() }));
+}
+
+app.get('/api/info/lore', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/lore/world_player.md')) });
+});
+
+app.get('/api/info/reference', (_req: Request, res: Response) => {
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/reference.md')) });
 });
 
 // ---- Hunt ----
