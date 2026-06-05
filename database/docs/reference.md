@@ -1,6 +1,6 @@
 # Currency and Stats
 
-**Korel** is the standard currency. Earned by selling loot to shops and from battle rewards. Used to buy weapons, baits, materials, and upgrades.
+**Korel** is the standard currency. Earned by selling loot to shops and from battle rewards. Used to buy weapons, baits, and materials.
 
 **Health (HP)** is your survival pool in a fight. Drops to zero, you lose the battle.
 
@@ -71,9 +71,9 @@ Battles are turn-based on a small grid against an enemy from the [Enemies](/app/
 1. **Intent phase** — you and the enemy each pick a move target and an action for the turn.
 2. **Move phase** — both sides execute their movement step.
 3. **Action phase** — actions resolve in a fixed order:
-   - **Defends**
-   - **Attacks** (including Attack Crit triggers)
-   - **Specials**
+   - **Defend actions**
+   - **Attack actions** (including Attack Crit triggers)
+   - **Special actions**
    - **DOT ticks** (end of round)
 
 **Within each action sub-phase, the player resolves before the AI — except DOT ticks, where the AI ticks first.** The battle ends the moment any character reaches 0 HP — they're the loser, even if a tick on the same round would have killed both.
@@ -96,7 +96,7 @@ Hunts happen on the **Hunt** page. Each hunt costs one bait from the General Sto
 | Tar Bait | Golnosar |
 | Bear Bait | Melbear |
 
-**Loot** is rolled at the end of a victorious battle, not per turn. Each enemy has a drop table — see the [Enemies](/app/enemies) info page for exact roll tables.
+**Loot** is rolled at the end of a victorious battle. Each enemy has a drop table — see the [Enemies](/app/enemies) info page for exact roll tables.
 
 Each hunt rolls a fresh board layout: 2–6 obstacles placed randomly in the open zone.
 
@@ -129,7 +129,9 @@ The **Bench** is where you turn materials into things. It splits into three page
 
 # Professions
 
-There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10. Total combined level is capped at 30 — that's enough to max two and leave one at 10, or spread your levels more evenly. The cap means specializing is encouraged: you can't be the master of everything, and other players are expected to fill the gaps via trade.
+There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enchanter**. You can level each one from 1 to 10, with a combined cap of 30 across all three.
+
+The cost to gain a level depends only on that profession's current level — leveling 1 → 2 is cheap, leveling 9 → 10 is expensive — independent of your other profession levels. That means spreading levels evenly is cheaper per level, but specializing reaches high-tier recipes and bigger upgrade budgets sooner. Other players are expected to fill the gaps via trade.
 
 You raise profession levels on your [Character](/app/character) page.
 
@@ -159,7 +161,7 @@ Equipped weapons can't be traded.
 
 # Weapons
 
-A **Weapon** is the centerpiece of your loadout. The weapon you have equipped determines your stats and what actions you can take in a battle.
+Your equipped **Weapon** sets your stats and dictates what actions are available in a fight. Different weapons play very differently — different HP totals, different resource rhythms, different action mixes.
 
 A weapon has:
 - **HP** — the survival pool you fight with. Different weapons have different HP totals.
