@@ -28,7 +28,10 @@ export function resolveIntents(
   const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
 
   // --- Move phase ---
-  const movePriority = (id: string) => (snapshot.find(c => c.id === id)?.isAI ? 2 : 1);
+  // Use initiative rank to resolve which combatant wins a contested tile.
+  // Initiative ranks are unique (0..N-1), so winners.length is always 1 —
+  // no genuine ties are possible.
+  const movePriority = (id: string) => snapshot.find(c => c.id === id)?.initiativeRank ?? Infinity;
 
   const byDest = new Map<string, string[]>();
   for (const [id, intent] of intents) {
@@ -43,18 +46,13 @@ export function resolveIntents(
 
   for (const [destKey, claimants] of byDest) {
     if (claimants.length === 1) continue;
-    const bestPriority = Math.min(...claimants.map(movePriority));
-    const winners = claimants.filter(id => movePriority(id) === bestPriority);
-    if (winners.length === 1) {
-      for (const id of claimants) {
-        if (id !== winners[0]) {
-          blocked.add(id);
-          log.push(`${cName(id)}'s path to (${destKey}) blocked by ${cName(winners[0])}.`);
-        }
+    const sortedByPriority = [...claimants].sort((a, b) => movePriority(a) - movePriority(b));
+    const winner = sortedByPriority[0];
+    for (const id of claimants) {
+      if (id !== winner) {
+        blocked.add(id);
+        log.push(`${cName(id)}'s path to (${destKey}) blocked by ${cName(winner)}.`);
       }
-    } else {
-      for (const id of claimants) blocked.add(id);
-      log.push(`${winners.map(cName).join(' and ')} tie for the same tile — neither moves.`);
     }
   }
 

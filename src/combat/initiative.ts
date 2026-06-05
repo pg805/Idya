@@ -28,6 +28,9 @@ export function assignInitiative(combatants: Combatant[]): string[] {
   });
   sorted.forEach((c, i) => { c.initiativeRank = i; });
 
-  const parts = sorted.map(c => `${c.name} ${c.initiative}`);
-  return [`Initiative — ${parts.join(', ')}`];
+  const lines = ['Initiative:'];
+  sorted.forEach((c, i) => {
+    lines.push(`  ${i + 1}. ${c.name} — ${c.initiative}`);
+  });
+  return lines;
 }
