@@ -280,11 +280,13 @@ function pathExists(width: number, height: number, blocked: Set<string>, start: 
 
 // Board geometry for hunt battles. Bigger than the tutorial so multi-enemy
 // combat has room to maneuver and ranged actions feel meaningful.
-const HUNT_BOARD_W = 16;
-const HUNT_BOARD_H = 12;
+const HUNT_BOARD_W = 12;
+const HUNT_BOARD_H = 10;
 const PLAYER_SPAWN_BOX = 5;            // player picks a random tile in (0..4, 0..4)
 const ENEMY_DIST_MIN  = 6;             // min chebyshev distance from player spawn
-const ENEMY_DIST_MAX  = 10;            // max chebyshev distance from player spawn
+const ENEMY_DIST_MAX  = 8;             // max chebyshev distance from player spawn (capped
+                                       // by board geometry — worst-case player spawn at
+                                       // (4,4) can only reach chebyshev 7 on a 12x10 board)
 const ENEMY_PAIR_MIN_SEP = 3;          // min chebyshev distance between two enemies
 const OBSTACLE_BUFFER = 1;             // tiles around each spawn tile that obstacles avoid
                                        // (1 = 3x3 area centered on each spawn tile)
