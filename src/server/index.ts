@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTable: LootTable; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -301,7 +301,47 @@ function randomHuntObstacles(): { pos: { x: number; y: number }; state: 'intact'
   return [];
 }
 
-function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow', playerSprite?: string, playerName = 'Hero', weaponKey = 'branch', isTutorial = false, weaponUpgrades: unknown = null): { session: CombatSession; lootTable: LootTable; enemyName: string } {
+// Runs RewardService.grant once per defeated enemy (one entry in lootTables
+// per enemy in the battle), and merges the results into a single RewardResult
+// so the existing summary/UI logic doesn't have to know about multi-enemy.
+async function grantAllLoot(
+  discordId: string,
+  characterId: string,
+  lootTables: LootTable[],
+  enemyName: string,
+): Promise<{ currency: number; items: Array<{ name: string; quantity: number }>; summary: string }> {
+  const service = new RewardService();
+  let totalCurrency = 0;
+  const mergedItems = new Map<string, number>(); // name → quantity
+  for (const table of lootTables) {
+    const r = await service.grant(discordId, characterId, table, enemyName);
+    totalCurrency += r.currency;
+    for (const i of r.items) {
+      mergedItems.set(i.name, (mergedItems.get(i.name) ?? 0) + i.quantity);
+    }
+  }
+  const items = [...mergedItems.entries()].map(([name, quantity]) => ({ name, quantity }));
+  const lines = [
+    ...(totalCurrency > 0 ? [`+${totalCurrency} Korel`] : []),
+    ...items.map(i => `+${i.quantity}x ${i.name}`),
+  ];
+  return {
+    currency: totalCurrency,
+    items,
+    summary: lines.length > 0 ? lines.join('\n') : 'No drops.',
+  };
+}
+
+function createSession(
+  sessionId: string,
+  enemyKey: EnemyKey | 'tutorial_swallow',
+  playerSprite?: string,
+  playerName = 'Hero',
+  weaponKey = 'branch',
+  isTutorial = false,
+  weaponUpgrades: unknown = null,
+  enemyCount = 1,
+): { session: CombatSession; lootTables: LootTable[]; enemyName: string } {
   const weapon     = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
   if (weaponUpgrades) applyWeaponCustomizations(weapon, weaponKey, weaponUpgrades);
   const fistsInfo = buildWeaponInfo(weapon);
@@ -309,10 +349,35 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
   const playerState = new CombatantState(playerName, playerHp, weapon.resource_name, weapon.resource_max);
 
   const enemyFile = isTutorial ? 'tutorial_swallow' : enemyKey;
-  const { combatant: enemy, meta: enemyMeta, lootTable } = loadEnemy(
-    join(__dirname, `../../database/enemies/${enemyFile}.yaml`),
-    { id: 'enemy-1', teamId: 'team-b', pos: isTutorial ? { x: 5, y: 0 } : { x: 6, y: 2 }, movementRange: 2 },
-  );
+  const enemyPath = join(__dirname, `../../database/enemies/${enemyFile}.yaml`);
+
+  // Spawn N enemies. Names get an "A" / "B" suffix when more than one; ids
+  // follow the same letter for stability across log lines.
+  // Positions are spread vertically around the original enemy slot. Tutorial
+  // ignores enemyCount.
+  const effectiveCount = isTutorial ? 1 : Math.max(1, enemyCount);
+  const enemyStartPositions: Array<{ x: number; y: number }> = isTutorial
+    ? [{ x: 5, y: 0 }]
+    : effectiveCount === 1
+      ? [{ x: 6, y: 2 }]
+      : [{ x: 6, y: 1 }, { x: 6, y: 3 }];
+
+  const enemies: Array<{ combatant: Combatant; meta: CombatantMeta; lootTable: LootTable }> = [];
+  for (let i = 0; i < effectiveCount; i++) {
+    const suffix = effectiveCount > 1 ? String.fromCharCode(65 + i) : null; // A, B, C...
+    const id = effectiveCount > 1 ? `enemy-${suffix}` : 'enemy-1';
+    const loaded = loadEnemy(enemyPath, {
+      id,
+      teamId: 'team-b',
+      pos: enemyStartPositions[i],
+      movementRange: 2,
+    });
+    if (suffix !== null) {
+      loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
+      loaded.meta.state.name = loaded.combatant.name; // log lines use state.name
+    }
+    enemies.push(loaded);
+  }
 
   const boardConfig = isTutorial
     ? { width: 6, height: 2, obstacles: [] }
@@ -345,24 +410,28 @@ function createSession(sessionId: string, enemyKey: EnemyKey | 'tutorial_swallow
           teamId: 'team-a',
           weaponInfo: fistsInfo,
           weight: weapon.weight,
-          initiative: 0,      // set by assignInitiative in CombatSession constructor
-          initiativeRank: 0,  // set by assignInitiative in CombatSession constructor
+          initiative: 0,
+          initiativeRank: 0,
           sprite: playerSprite,
         }],
       },
       {
         id: 'team-b',
         name: 'Enemy',
-        combatants: [enemy],
+        combatants: enemies.map(e => e.combatant),
       },
     ],
   );
 
   session.meta.set('player-1', { weapon: weapon, state: playerState, pattern: [], patternIndex: 0 });
-  session.meta.set('enemy-1', enemyMeta);
+  for (const e of enemies) session.meta.set(e.combatant.id, e.meta);
   session.phase = 'intent';
   refreshTelegraphs(session);
-  return { session, lootTable, enemyName: enemy.name };
+  return {
+    session,
+    lootTables: enemies.map(e => e.lootTable),
+    enemyName: enemies[0].combatant.name.replace(/ [A-Z]$/, ''), // base name without suffix
+  };
 }
 
 // ---- Web server ----
@@ -689,7 +758,7 @@ app.get('/api/hunt', async (req: Request, res: Response) => {
     };
   }).sort((a, b) => a.enemy_health - b.enemy_health);
 
-  res.json({ baits, tutorial_complete: tutorialComplete });
+  res.json({ baits, tutorial_complete: tutorialComplete, is_dev: isDev(discordId) });
 });
 
 app.post('/api/hunt/start', async (req: Request, res: Response) => {
@@ -733,9 +802,18 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
   const sessionId    = Math.random().toString(36).slice(2, 10);
   const equipped     = await equippedWeaponForCombat(char);
   const weaponKey    = equipped?.key ?? 'branch';
-  const { session: huntSession, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades);
+  // Roll for a second enemy: 2.3% on real hunts, force-2 if the client passed
+  // it AND the user is a dev. Dev override exists so we can reliably test the
+  // multi-enemy code without waiting on a rare random spawn.
+  const wantsForceTwo = req.body?.count === 2;
+  const isDevUser     = isDev(discordId);
+  let enemyCount: number;
+  if (wantsForceTwo && isDevUser) enemyCount = 2;
+  else                            enemyCount = Math.random() < 0.023 ? 2 : 1;
+
+  const { session: huntSession, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades, enemyCount);
   sessions.set(sessionId, huntSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds: [] });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -2336,7 +2414,10 @@ io.on('connection', (socket: Socket) => {
         let rewardSummary = 'No drops.';
         let korelEarned = 0;
         if (char) {
-          const rewards = await new RewardService().grant(meta.discordUserId, char.id, meta.lootTable, meta.enemyName).catch(() => null);
+          // One grant per defeated enemy — each enemy's loot table rolls
+          // independently. Sum up the results into a single rewards object so
+          // the existing summary/reply logic still works.
+          const rewards = await grantAllLoot(meta.discordUserId, char.id, meta.lootTables, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
           korelEarned = rewards?.currency ?? 0;
           const winLog = await prisma.battleLog.create({ data: {
@@ -2452,10 +2533,10 @@ io.on('connection', (socket: Socket) => {
       }
     }
 
-    const { session: fresh, lootTable, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
+    const { session: fresh, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
-      sessionMeta.set(sessionId, { ...oldMeta, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: [] });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -2687,9 +2768,9 @@ async function bootstrapNewCharacter(
   await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
   const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
   const sessionId = Math.random().toString(36).slice(2, 10);
-  const { session: charSession, lootTable, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  const { session: charSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
   sessions.set(sessionId, charSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTable, enemyName, startedAt: new Date(), rounds: [] });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: [] });
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 

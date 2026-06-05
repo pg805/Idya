@@ -14,7 +14,9 @@ export function rollInitiativeScore(weight: number): number {
 }
 
 // Mutates each combatant, setting .initiative and .initiativeRank.
-export function assignInitiative(combatants: Combatant[]): void {
+// Returns log lines describing the rolls + final order, suitable for
+// prepending to the first round of the combat log.
+export function assignInitiative(combatants: Combatant[]): string[] {
   for (const c of combatants) {
     c.initiative = rollInitiativeScore(c.weight);
   }
@@ -26,4 +28,11 @@ export function assignInitiative(combatants: Combatant[]): void {
     return Math.random() < 0.5 ? -1 : 1;
   });
   sorted.forEach((c, i) => { c.initiativeRank = i; });
+
+  const log: string[] = ['⚔ Rolling initiative…'];
+  for (const c of sorted) {
+    log.push(`  ${c.name}: rolled ${c.initiative} (1–100 minus weight ${c.weight})`);
+  }
+  log.push(`Order: ${sorted.map(c => c.name).join(' → ')}`);
+  return log;
 }
