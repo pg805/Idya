@@ -122,13 +122,25 @@
     selectedTitle = title;
     const slug = slugify(title);
     document.querySelectorAll('.lore-btn').forEach(b => b.classList.toggle('active', b.dataset.slug === slug));
-    document.getElementById('ref-detail').innerHTML = `
+    const detail = document.getElementById('ref-detail');
+    detail.innerHTML = `
       <article class="lore-article">
         <h1>${esc(sec.title)}</h1>
         ${renderMarkdown(sec.body)}
       </article>
     `;
-    document.getElementById('ref-detail').scrollTop = 0;
+    detail.scrollTop = 0;
+
+    // Intercept intra-page anchor links (#section-slug) and route them to
+    // select() so they switch sections instead of doing a full navigation.
+    detail.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const slug = a.getAttribute('href').slice(1);
+        const target = sections.find(s => slugify(s.title) === slug);
+        if (target) select(target.title);
+      });
+    });
   }
 
   function unmount() {

@@ -4,7 +4,7 @@
 
 **Health (HP)** is your survival pool in a fight. Drops to zero, you lose the battle.
 
-**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Energy for a deck of cards — and most attacks cost some to use. Most weapons have a dedicated action to restore it. Different weapons play very differently because of their resource rhythm.
+**Resource** is a per-weapon secondary stat. Each weapon has its own — Stamina for an axe, Luck for a deck of cards — and most attacks cost some to use. Most weapons have a dedicated action to restore it. Different weapons play very differently because of their resource rhythm.
 
 ---
 
@@ -16,14 +16,14 @@ Every weapon has three action sets, plus an attack crit:
 - **Attack** and **Attack Crit**
 - **Special**
 
-You pick one Defend, Attack, or Special each turn. The Attack Crit is a bonus action that fires automatically when the conditions are met (see Crits below).
+You pick one Defend, Attack, or Special each turn. The **Attack Crit** is a bonus action that fires automatically when conditions are met (see Crits below).
 
 Actions come in eight types. Some take effect immediately, others apply a duration over several rounds. **Duration effects never stack** — applying a new one replaces the existing one on the same target.
 
 | Type | Effect | Duration |
 |---|---|---|
 | **Strike** | Direct damage | Immediate |
-| **Block** | Reduces incoming damage this turn | Immediate (this turn only) |
+| **Block** | Reduces incoming damage this turn | Immediate |
 | **Buff** | Boosts the user's damage | Duration |
 | **Debuff** | Reduces the target's damage | Duration |
 | **Heal** | Restores HP | Immediate |
@@ -31,15 +31,15 @@ Actions come in eight types. Some take effect immediately, others apply a durati
 | **Reflect** | Sends a portion of incoming damage back | Duration |
 | **Shield** | Soaks a fixed amount of damage | Duration |
 
-**Field** is the roll table for any value that varies — damage on a Strike, damage per tick on a DOT, even shield/block values. `Field: [0, 1, 2, 5, 6, 7, 8]` means each use picks one of those values at random. A wider range is swingier; a tighter range is more predictable.
+**Field** is the roll table for any value that varies — usually the damage on a Strike or DOT tick. `Field: [0, 1, 2, 5, 6, 7, 8]` means each use picks one of those values at random. A wider range is swingier; a tighter range is more predictable.
 
 **Range** is how far the action can reach, measured in tiles (diagonals count as one step).
 
 **Aimed vs Reactive**:
-- **Aimed** — you pick a target tile before the attack fires. Less reliable, because the target can move off the tile.
+- **Aimed** — you pick a target tile before the attack fires. Less reliable, requires prediction.
 - **Reactive** — fires automatically at the nearest valid target in range. More reliable.
 
-**Crits** — `attack_crit` fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
+**Attack Crit** fires when you use an Attack and your target uses a Special on the same turn. The crit lands **after** the main attack.
 
 ---
 
@@ -66,14 +66,19 @@ The combat log marks these with `[weakness — Hd4]` or `[resist — Ld2]` when 
 
 # The Battle
 
-Battles are turn-based on a small grid. You and your enemy submit your choices each turn, then resolution runs in two phases:
+Battles are turn-based on a small grid against an enemy from the [Enemies](/app/enemies) roster. Each turn unfolds in three phases:
 
-1. **Move phase** — both sides execute their movement step.
-2. **Action phase** — Defends resolve first, then Attacks, then Specials. Within each sub-phase, the player resolves before the AI.
+1. **Intent phase** — you and the enemy each pick a move target and an action for the turn.
+2. **Move phase** — both sides execute their movement step.
+3. **Action phase** — actions resolve in a fixed order:
+   - **Defends**
+   - **Attacks** (including Attack Crit triggers)
+   - **Specials**
+   - **DOT ticks** (end of round)
+
+**Within each action sub-phase, the player resolves before the AI — except DOT ticks, where the AI ticks first.** The battle ends the moment any character reaches 0 HP — they're the loser, even if a tick on the same round would have killed both.
 
 Position matters: range, line of sight, and which tiles get blocked by **obstacles** all shape what's possible. Obstacles are rolled randomly per hunt and block both movement and aimed attacks. Diagonal moves can't slip between two obstacles that touch corners.
-
-**The battle ends the moment any character reaches 0 HP — they're the loser.** DOTs tick at end of round and are checked the same way: whoever drops first is the loser.
 
 ---
 
@@ -118,7 +123,7 @@ The **Bench** is where you turn materials into things. It splits into three page
 
 - **Crafting** — combine materials and components into finished weapons, intermediates, and enchanting reagents.
 - **Upgrading** — spend tier-2 or tier-3 material on a weapon you own to permanently boost its stats. Each profession has its own upgrade budget per weapon.
-- **Enchanting** — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action; a **major** enchant changes both **Damage Type** and **Damage Subtype** (and adds a small bonus). Three enchant slots per weapon, one enchant per action, permanent.
+- **Enchanting** — apply an enchant to one of a weapon's three enchant slots. A **minor** enchant changes the **Damage Subtype** of one action and adds a small bonus. A **major** enchant changes both **Damage Type** and **Damage Subtype** and adds a large bonus (+3). Three enchant slots per weapon, one enchant per action, permanent.
 
 ---
 
@@ -132,7 +137,7 @@ There are three professions: **Lumberjack (LJ)**, **Blacksmith (BS)**, and **Enc
 | Blacksmith | Metal weapons | Any weapon containing talamite |
 | Enchanter | Enchanter-tree weapons (spellbook, wand, kustaff, deck of cards, mental cage) | Enchanter-tree weapons |
 
-Hybrid weapons (Sword (Talamite), Axe (Talamite), Shovel (Talamite)) have both wood and talamite parts, so **both** LJ and BS can upgrade them — cross-profession collaboration is intentional.
+Hybrid weapons (Sword (Talamite), Axe (Talamite), Shovel (Talamite)) have both wood and talamite parts, so **both** LJ and BS can upgrade them.
 
 Enchanting is a separate system from upgrades. Any profession's weapon can receive enchants (apply via the Enchanting page above).
 
@@ -147,3 +152,55 @@ You can trade with another player at any time. From the **Trade** page, search a
 Both sides drop items, weapons, and korel into their offer panel. Each side must lock in their offer (no further changes), then both must confirm. The transfer happens atomically — if anything goes wrong, nobody loses anything.
 
 Equipped weapons can't be traded.
+
+---
+
+# Glossary
+
+Quick reference. Click any term to jump to its section.
+
+**Currency and stats**
+- [Korel](#currency-and-stats) — the standard currency.
+- [HP](#currency-and-stats) — health pool; drops to 0, you lose.
+- [Resource](#currency-and-stats) — per-weapon secondary stat (Stamina, Luck, Tar, etc.).
+
+**Combat actions**
+- [Strike](#combat-actions) — direct damage.
+- [Block](#combat-actions) — reduces this turn's incoming damage.
+- [Buff](#combat-actions) — boosts user's damage for a duration.
+- [Debuff](#combat-actions) — reduces target's damage for a duration.
+- [Heal](#combat-actions) — restores HP.
+- [DOT](#combat-actions) — Damage Over Time; ticks each round.
+- [Reflect](#combat-actions) — returns a portion of incoming damage.
+- [Shield](#combat-actions) — soaks a fixed amount of damage over multiple turns.
+- [Field](#combat-actions) — the roll table for a variable value.
+- [Range](#combat-actions) — reach in tiles (diagonal counts as one).
+- [Aimed](#combat-actions) — pick a tile to fire at.
+- [Reactive](#combat-actions) — fires at nearest valid target automatically.
+- [Attack Crit](#combat-actions) — bonus action when your Attack meets enemy Special.
+- [Duration](#combat-actions) — multi-round effects; never stack.
+
+**Damage**
+- [Damage Type](#damage-and-resistances) — Physical / Arcane / Elemental.
+- [Damage Subtype](#damage-and-resistances) — Sharp, Blunt, Mental, Force, Fire, Water, Earth, Wind, Plant.
+- [Weakness](#damage-and-resistances) — Hd4 roll (skews high).
+- [Resist](#damage-and-resistances) — Ld2 roll (skews low).
+- [Neutral](#damage-and-resistances) — 1d roll (baseline).
+
+**Battle**
+- [Intent phase](#the-battle) — choose your move + action.
+- [Move phase](#the-battle) — both sides step.
+- [Action phase](#the-battle) — Defends → Attacks → Specials → DOT ticks.
+- [Obstacle](#the-battle) — blocks movement and aimed attacks.
+
+**Hunt and economy**
+- [Bait](#hunting) — consumable that summons one enemy.
+- [Loot](#hunting) — drops rolled on victory.
+- [Bench](#the-bench) — your production area.
+- [Crafting](#the-bench), [Upgrading](#the-bench), [Enchanting](#the-bench) — Bench activities.
+- [Minor enchant](#the-bench) — changes subtype, small bonus.
+- [Major enchant](#the-bench) — changes type + subtype, +3 bonus.
+
+**Professions**
+- [Lumberjack](#professions), [Blacksmith](#professions), [Enchanter](#professions).
+- [Hybrid weapon](#professions) — wood + talamite parts; both LJ and BS can upgrade.
