@@ -85,11 +85,18 @@ export function loadEnemy(file: string, options: {
     initiativeRank: 0,  // set by assignInitiative in CombatSession constructor
   };
 
+  // Start at a random index in the pattern so two of the same enemy on the
+  // same board don't telegraph identical actions every turn — adds variety
+  // and makes second-enemy spawns feel different from the first.
+  const startIndex = pattern.field.length > 0
+    ? Math.floor(Math.random() * pattern.field.length)
+    : 0;
+
   const meta: CombatantMeta = {
     weapon,
     state,
     pattern: pattern.field,
-    patternIndex: 0,
+    patternIndex: startIndex,
   };
 
   const lootTable: LootTable = {

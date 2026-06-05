@@ -24,14 +24,6 @@ export function resolveIntents(
 ): ResolutionResult {
   const log: string[] = [];
 
-  // Drain any pending preface log (initiative rolls on first round, etc.)
-  // exactly once, so it appears at the top of the first round's output and
-  // gets persisted with that round into the battle log table.
-  if (session.pendingPrefaceLog.length > 0) {
-    log.push(...session.pendingPrefaceLog);
-    session.pendingPrefaceLog = [];
-  }
-
   const snapshot = [...session.combatants];
   const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
 

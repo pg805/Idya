@@ -813,7 +813,12 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
 
   const { session: huntSession, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, char.name, weaponKey, false, equipped?.upgrades, enemyCount);
   sessions.set(sessionId, huntSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds: [] });
+  // Persist initiative rolls as a synthetic round 0 so the battle log table
+  // captures them alongside the per-turn rounds.
+  const rounds: { turn: number; log: string[] }[] = huntSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: huntSession.initiativeLog }]
+    : [];
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -2313,6 +2318,11 @@ io.on('connection', (socket: Socket) => {
     const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
     socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
+    // Initiative rolls happen at session creation. Replay them on every
+    // join so refreshers + late-joiners see them at the top of their log.
+    if (session.initiativeLog.length > 0) {
+      socket.emit('turn_result', { log: session.initiativeLog });
+    }
     if (isTut) {
       socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
       socket.emit('tutorial_aside', { text: 'Click your character first, then select a highlighted tile to move, or select the tile you are on to stay put.', isOOC: true });
@@ -2536,7 +2546,10 @@ io.on('connection', (socket: Socket) => {
     const { session: fresh, lootTables, enemyName } = createSession(sessionId, enemyKey, playerSprite, playerName, playerWeaponKey, oldMeta?.isTutorial ?? false, playerUpgrades);
     sessions.set(sessionId, fresh);
     if (oldMeta) {
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: [] });
+      const freshRounds: { turn: number; log: string[] }[] = fresh.initiativeLog.length > 0
+        ? [{ turn: 0, log: fresh.initiativeLog }]
+        : [];
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -2770,7 +2783,10 @@ async function bootstrapNewCharacter(
   const sessionId = Math.random().toString(36).slice(2, 10);
   const { session: charSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
   sessions.set(sessionId, charSession);
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: [] });
+  const tutorialRounds: { turn: number; log: string[] }[] = charSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: charSession.initiativeLog }]
+    : [];
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: tutorialRounds });
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 

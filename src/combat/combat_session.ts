@@ -87,17 +87,16 @@ export class CombatSession {
   turn: number = 0;
   phase: SessionPhase = 'waiting';
   telegraphs: Record<string, string> = {};
-  // Initiative-roll log captured at session start; the first round's
-  // resolveIntents drains this into its log so players see the rolls before
-  // any combat output. Cleared after first drain so subsequent rounds don't
-  // re-emit it.
-  pendingPrefaceLog: string[] = [];
+  // Initiative-roll log captured at session start. Emitted to clients on
+  // every join_session so refreshers / late-joiners see it too, and
+  // persisted as a synthetic "turn 0" entry in the battle log.
+  initiativeLog: string[] = [];
 
   constructor(id: string, boardConfig: BoardConfig, teams: Team[]) {
     this.id = id;
     this.board = new Board(boardConfig);
     this.teams = teams;
-    this.pendingPrefaceLog = assignInitiative(this.combatants);
+    this.initiativeLog = assignInitiative(this.combatants);
   }
 
   get combatants(): Combatant[] {
