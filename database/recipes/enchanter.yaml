@@ -15,6 +15,20 @@ recipes:
 
   # EN2 ─────────────────────────────────────────────────────────────────────
 
+  - id: en_spellbook_hiruos
+    name: Spellbook (Hiruos)
+    description: "Bind the pages with refined hiruos — the focus draws on deeper resonance."
+    profession: enchanter
+    required_level: 2
+    ingredients:
+      - item_id: hiruos
+        quantity: 4
+    output:
+      type: weapon
+      id: spellbook
+      base_bonus:
+        attack: 1
+
   - id: en_hiruos
     name: Hiruos
     description: "Distill raw thuvel into refined hiruos — the enchanter's primary working material."
@@ -112,6 +126,22 @@ recipes:
       type: item
       id: nodol
       quantity: 1
+
+  - id: en_spellbook_nodol
+    name: Spellbook (Nodol)
+    description: "Reforge the spellbook around a nodol crystal — every page hums."
+    profession: enchanter
+    required_level: 7
+    ingredients:
+      - item_id: nodol
+        quantity: 2
+    output:
+      type: weapon
+      id: spellbook
+      base_bonus:
+        defend: 1
+        attack: 1
+        special: 1
 
   - id: en_kustaff_nodol
     name: Kustaff (Nodol)
