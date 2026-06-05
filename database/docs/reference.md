@@ -193,13 +193,14 @@ Every item in your inventory has a type:
 - **Valuable** — loot from enemies meant for selling (swallow feather, venison, melstone, lifgem, etc.). Generally not used in crafting.
 - **Consumable** — spent on use. Baits are the main consumables — one is consumed per hunt.
 
-**Components have tiers**. Most weapons have a base recipe plus one or two higher-tier variants:
+**Higher-tier crafting**. Many weapons have alternate recipes that use higher-tier components and bake bonuses into the crafted weapon:
 
-- **Tier-1** — the base recipe. Uses raw or unprocessed material. No bundled bonus.
-- **Tier-2** — uses tier-2 components (treated sulwood, talamite, hiruos). The crafted weapon comes with a free **+1 attack** baked in. Unlocks at profession level 2–3.
-- **Tier-3** — uses tier-3 components (hardwood, alloy, nodol). The crafted weapon comes with **+1 defend, +1 attack, +1 special** baked in. Unlocks at profession level 7.
+- **Tier-2 recipes** — use tier-2 components (treated sulwood, talamite). The crafted weapon comes with **+1 attack** baked in. Only the two starting weapons currently have a tier-2 variant: **Quarterstaff (Treated)** at LJ level 2 and **Dagger (Talamite)** at BS level 2.
+- **Tier-3 recipes** — use tier-3 components (hardwood, alloy, nodol). The crafted weapon comes with **+1 defend, +1 attack, +1 special** baked in. Every weapon has a tier-3 variant, unlocking at profession level 7.
 
-These free bonuses don't count against your [upgrade budget](#the-bench) — they're part of the recipe. So crafting a hardwood quarterstaff gives you a quarterstaff that's already +1/+1/+1 without spending any upgrade points.
+These baked-in bonuses don't count against your [upgrade budget](#the-bench) — they're part of the recipe. So crafting a hardwood quarterstaff gives you a +1/+1/+1 quarterstaff without spending any upgrade points.
+
+See the [Professions](/app/professions) info page for the full list of which recipes are available at each level.
 
 ---
 
@@ -268,4 +269,5 @@ Quick reference. Click any term to jump to its section.
 - [Component](#items) — crafted intermediate combined into a weapon (sword hilt, axe head, etc.). All components are also materials.
 - [Valuable](#items) — loot meant for selling.
 - [Consumable](#items) — single-use item (baits are the main example).
-- [Tier-1 / Tier-2 / Tier-3](#items) — component tiers. Tier-2 weapons get +attack baked in; tier-3 get +defend/+attack/+special.
+- [Tier-2 recipe](#items) — alternate recipe for the L1 weapons (Quarterstaff, Dagger) using treated sulwood / talamite. Crafted weapon comes with +1 attack baked in.
+- [Tier-3 recipe](#items) — alternate recipe for every weapon using hardwood / alloy / nodol. Crafted weapon comes with +1 defend / +1 attack / +1 special baked in.
