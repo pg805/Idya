@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -1142,6 +1142,9 @@ function listActiveSessions(discordId: string): Array<{ session_id: string; enem
   const out: Array<{ session_id: string; enemy_name: string; is_tutorial: boolean; started_at: string; last_activity_at: string; rounds: number }> = [];
   for (const [id, m] of sessionMeta.entries()) {
     if (m.discordUserId !== discordId) continue;
+    if (m.endedAt) continue; // finished battles get hidden immediately, even though
+                             // the 10-min cleanup timer keeps them in memory for the
+                             // reward UI to stay rendered.
     out.push({
       session_id:       id,
       enemy_name:       m.enemyName,
@@ -1286,7 +1289,7 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: now, lastActivityAt: now, rounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -2798,9 +2801,17 @@ io.on('connection', (socket: Socket) => {
     const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
     socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
-    // Initiative rolls happen at session creation. Replay them on every
-    // join so refreshers + late-joiners see them at the top of their log.
-    if (session.initiativeLog.length > 0) {
+    // Replay every captured round to a (re)joining client so the combat
+    // log isn't empty when a player resumes mid-battle from the Hunt page.
+    // meta.rounds already includes turn 0 (the initiative roll) plus every
+    // turn's log lines, in order.
+    const replayMeta = sessionMeta.get(sessionId);
+    if (replayMeta && replayMeta.rounds.length > 0) {
+      for (const round of replayMeta.rounds) {
+        socket.emit('turn_result', { log: round.log });
+      }
+    } else if (session.initiativeLog.length > 0) {
+      // Fallback for sessions older than rounds-tracking (test session, etc.)
       socket.emit('turn_result', { log: session.initiativeLog });
     }
     if (isTut) {
@@ -2885,6 +2896,7 @@ io.on('connection', (socket: Socket) => {
         }
         io.to(sessionId).emit('session_state', session.toState());
         io.to(sessionId).emit('game_over', { winner: 'team-a' });
+        tutMeta.endedAt = new Date();
         await prisma.user.update({
           where: { discord_id: tutMeta.discordUserId },
           data: { tutorial_complete: true },
@@ -2900,6 +2912,10 @@ io.on('connection', (socket: Socket) => {
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
       const meta = sessionMeta.get(sessionId);
+      // Stamp ended_at so the active-battles list hides this session before
+      // the 10-minute cleanup timer fires (timer can't run shorter — players
+      // need the reward UI to stay rendered).
+      if (meta) meta.endedAt = new Date();
 
       if (meta && result.winner === 'team-a') {
         const chars = await charRepo.list(meta.discordUserId);
@@ -3018,7 +3034,7 @@ io.on('connection', (socket: Socket) => {
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
       const nowReset = new Date();
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, rounds: freshRounds });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -3325,13 +3341,13 @@ function startTutorialSession(discordId: string, spriteKey: string | null): stri
     ? [{ turn: 0, log: tutSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, rounds: tutorialRounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
   return sessionId;
 }
 
 function findActiveTutorialSession(discordId: string): string | null {
   for (const [id, m] of sessionMeta.entries()) {
-    if (m.discordUserId === discordId && m.isTutorial) return id;
+    if (m.discordUserId === discordId && m.isTutorial && !m.endedAt) return id;
   }
   return null;
 }

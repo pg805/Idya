@@ -94,7 +94,7 @@
     });
     root.querySelectorAll('.hunt-forfeit').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Forfeit this battle? You lose the bait but no other penalty.')) return;
+        if (!confirm('Forfeit this battle?')) return;
         btn.disabled = true;
         const res = await fetch(`/api/active-battles/${btn.dataset.session}/forfeit`, { method: 'POST' });
         if (res.ok) await loadData();
