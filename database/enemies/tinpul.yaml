@@ -38,9 +38,9 @@ Weapon:
       Type_Name: Block
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Value: 0
+      Value: 4
       Cost: -7
-      Action_String: "<User> drinks from its own body, restoring 7 Tin."
+      Action_String: "<User> drinks from its own body, blocking <Damage> damage and restoring 7 Tin."
 
   Defend Crit: []
 
