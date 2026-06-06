@@ -1,5 +1,5 @@
 Name: Sulfolk
-Health: 50
+Health: 40
 Level: 2
 Loot:
   Items:
@@ -40,9 +40,9 @@ Weapon:
       Type_Name: Heal
       Damage_Type: Elemental
       Damage_Subtype: Plant
-      Value: 14
+      Value: 10
       Cost: 4
-      Action_String: "<User> regrows a limb, healing 14 damage."
+      Action_String: "<User> regrows a limb, healing 10 damage."
     - Name: Shield Arm
       Type: 2
       Type_Name: Block
