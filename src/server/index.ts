@@ -3124,10 +3124,18 @@ async function logBattlePerEnemy(
   korelDelta: number,
   lootSummary: string | null,
 ): Promise<void> {
-  const playerState = session.meta.get('player-1')?.state;
-  const enemies = session.combatants.filter(c => c.isAI);
+  // The reaper deletes dead combatants from session.meta + team rosters
+  // mid-battle, so by the time game_over fires the winning side is the only
+  // one still in session.combatants. Read both pools to get the full roster.
+  const allCombatants = [
+    ...session.combatants.map(c => ({ combatant: c, state: session.meta.get(c.id)?.state })),
+    ...session.deadCombatants.map(d => ({ combatant: d.combatant, state: d.meta.state })),
+  ];
+  const playerEntry = allCombatants.find(e => e.combatant.id === 'player-1');
+  const enemies     = allCombatants.filter(e => e.combatant.isAI);
   if (enemies.length === 0) return;
 
+  const playerState     = playerEntry?.state;
   const playerHpLeft    = playerState?.health ?? 0;
   const damageReceived  = playerState?.damage_taken ?? 0;
   const roundsCount     = meta.rounds.filter(r => r.turn > 0).length;
@@ -3137,15 +3145,13 @@ async function logBattlePerEnemy(
   const restores        = playerState?.restores ?? 0;
   // Lower initiativeRank = acts sooner. Player went first iff their rank
   // is the lowest of any combatant in the session.
-  const playerCombatant = session.combatants.find(c => c.id === 'player-1');
-  const minEnemyRank    = enemies.reduce((m, e) => Math.min(m, e.initiativeRank), Number.POSITIVE_INFINITY);
-  const playerWentFirst = playerCombatant != null && playerCombatant.initiativeRank < minEnemyRank;
+  const minEnemyRank    = enemies.reduce((m, e) => Math.min(m, e.combatant.initiativeRank), Number.POSITIVE_INFINITY);
+  const playerWentFirst = playerEntry != null && playerEntry.combatant.initiativeRank < minEnemyRank;
   const korelShareBase  = Math.trunc(korelDelta / enemies.length);
   const korelRemainder  = korelDelta - korelShareBase * enemies.length;
 
   for (let i = 0; i < enemies.length; i++) {
-    const c = enemies[i];
-    const enemyState = session.meta.get(c.id)?.state;
+    const { combatant: c, state: enemyState } = enemies[i];
     const damageDealt = enemyState?.damage_taken ?? 0;
     const enemyHpLeft = enemyState?.health ?? 0;
     // Strip the A/B suffix so all rows for the same enemy type aggregate

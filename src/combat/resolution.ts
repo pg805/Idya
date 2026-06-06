@@ -245,6 +245,8 @@ export function resolveIntents(
           log.push(deathKind === 'dot'
             ? `${c.name} is defeated by damage over time!`
             : `${c.name} is defeated!`);
+          const dyingMeta = session.meta.get(c.id);
+          if (dyingMeta) session.deadCombatants.push({ combatant: c, meta: dyingMeta });
           session.meta.delete(c.id);
           return false;
         }
@@ -303,6 +305,8 @@ export function resolveIntents(
     if (c.hp <= 0) {
       const team = session.teams.find(t => t.id === c.teamId);
       if (team) team.combatants = team.combatants.filter(x => x.id !== c.id);
+      const dyingMeta = session.meta.get(c.id);
+      if (dyingMeta) session.deadCombatants.push({ combatant: c, meta: dyingMeta });
       session.meta.delete(c.id);
       log.push(`${c.name} is defeated by damage over time!`);
       const alive = session.teams.filter(t => t.combatants.length > 0);
