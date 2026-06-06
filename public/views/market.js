@@ -93,7 +93,34 @@
     render();
   }
 
-  function itemsTableHtml(items, label) {
+  function commodityRowsHtml(items) {
+    if (items.length === 0) return '';
+    const trs = items.map(r => `
+      <tr>
+        <td>${esc(r.item_name)}${r.source === 'recipe' ? '<span class="mk-tag">crafted</span>' : ''}</td>
+        <td class="mk-num">${fmtPrice(r.current_buy)}</td>
+        <td class="mk-num mk-hi">${fmtPrice(r.max_expected_buy)}</td>
+        <td class="mk-num">${fmtPrice(r.current_sell)}</td>
+        <td class="mk-num mk-hi">${fmtPrice(r.max_expected_sell)}</td>
+        <td class="mk-num mk-countdown" data-seconds="${r.seconds_to_next_tick ?? ''}">${fmtCountdown(r.seconds_to_next_tick)}</td>
+      </tr>
+    `).join('');
+    return `
+      <h4 class="mk-sub">Commodities <span class="mk-hint">(resting price vs hot-demand ceiling)</span></h4>
+      <table class="mk-table">
+        <thead><tr>
+          <th>Item</th>
+          <th class="mk-th-num">Buy</th>
+          <th class="mk-th-num" title="Buy price if demand spikes">Hot buy</th>
+          <th class="mk-th-num">Sell</th>
+          <th class="mk-th-num" title="Sell price if demand spikes">Hot sell</th>
+          <th class="mk-th-num">Next Price Update</th>
+        </tr></thead>
+        <tbody>${trs}</tbody>
+      </table>`;
+  }
+
+  function valuableRowsHtml(items) {
     if (items.length === 0) return '';
     const trs = items.map(r => `
       <tr>
@@ -106,7 +133,7 @@
       </tr>
     `).join('');
     return `
-      <h4 class="mk-sub">${label}</h4>
+      <h4 class="mk-sub">Valuables <span class="mk-hint">(low ↔ high range)</span></h4>
       <table class="mk-table">
         <thead><tr>
           <th>Item</th>
@@ -114,7 +141,7 @@
           <th class="mk-th-num">Buy range</th>
           <th class="mk-th-num">Sell</th>
           <th class="mk-th-num">Sell range</th>
-          <th class="mk-th-num">Next tick</th>
+          <th class="mk-th-num">Next Price Update</th>
         </tr></thead>
         <tbody>${trs}</tbody>
       </table>`;
@@ -129,8 +156,8 @@
           <h3>${esc(shop.name)}</h3>
           <span class="mk-shop-meta">${shop.items.length} item${shop.items.length === 1 ? '' : 's'}</span>
         </header>
-        ${itemsTableHtml(commodities, 'Commodities')}
-        ${itemsTableHtml(valuables,   'Valuables')}
+        ${commodityRowsHtml(commodities)}
+        ${valuableRowsHtml(valuables)}
       </section>`;
   }
 
