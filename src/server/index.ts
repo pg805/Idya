@@ -907,25 +907,70 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
 
   const enemyHistogram:  Record<string, number> = {};
   const weaponHistogram: Record<string, number> = {};
-  type EnemyAgg = { total: number; wins: number; korel_total: number; per_weapon: Record<string, { total: number; wins: number }> };
-  const perEnemy: Record<string, EnemyAgg> = {};
+  // Build a flat matchup table first, then pivot into per-enemy and per-weapon
+  // groupings. Keeping one source of truth means the two views can't drift —
+  // toggling Group By on the client is a pure presentation change.
+  type Cell = { total: number; wins: number; korel_total: number };
+  const matchup: Record<string, Record<string, Cell>> = {};
 
   for (const r of filtered) {
     const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
     enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
     weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
-    const agg = perEnemy[r.enemy] ??= { total: 0, wins: 0, korel_total: 0, per_weapon: {} };
-    agg.total += 1;
-    if (r.outcome === 'win') agg.wins += 1;
-    agg.korel_total += r.korel_delta;
-    const wa = agg.per_weapon[w] ??= { total: 0, wins: 0 };
-    wa.total += 1;
-    if (r.outcome === 'win') wa.wins += 1;
+    const byW = matchup[r.enemy] ??= {};
+    const c   = byW[w] ??= { total: 0, wins: 0, korel_total: 0 };
+    c.total += 1;
+    if (r.outcome === 'win') c.wins += 1;
+    c.korel_total += r.korel_delta;
   }
 
   const enemyNames  = loadEnemyNames();
   const weaponNames = loadWeaponNames();
   weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+
+  type Row = { key: string; name: string; total: number; wins: number; losses: number; win_rate: number; avg_korel: number };
+  function row(key: string, name: string, c: Cell): Row {
+    return {
+      key, name,
+      total:    c.total,
+      wins:     c.wins,
+      losses:   c.total - c.wins,
+      win_rate: c.total > 0 ? c.wins / c.total : 0,
+      avg_korel: c.total > 0 ? c.korel_total / c.total : 0,
+    };
+  }
+  function groupTotals(cells: Cell[]): Cell {
+    return cells.reduce((a, b) => ({
+      total:       a.total + b.total,
+      wins:        a.wins + b.wins,
+      korel_total: a.korel_total + b.korel_total,
+    }), { total: 0, wins: 0, korel_total: 0 });
+  }
+
+  const perEnemy = Object.entries(matchup).map(([enemyKey, byW]) => {
+    const cells = Object.values(byW);
+    const totals = groupTotals(cells);
+    return {
+      ...row(enemyKey, enemyNames[enemyKey] ?? enemyKey, totals),
+      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponNames[wk] ?? wk, c)).sort((a, b) => b.total - a.total),
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  // Same data, pivoted: outer key is weapon, inner breakdown is enemy.
+  const byWeapon: Record<string, Record<string, Cell>> = {};
+  for (const [ek, byW] of Object.entries(matchup)) {
+    for (const [wk, c] of Object.entries(byW)) {
+      (byWeapon[wk] ??= {})[ek] = c;
+    }
+  }
+  const perWeapon = Object.entries(byWeapon).map(([weaponKey, byE]) => {
+    const cells = Object.values(byE);
+    const totals = groupTotals(cells);
+    return {
+      ...row(weaponKey, weaponNames[weaponKey] ?? weaponKey, totals),
+      breakdown: Object.entries(byE).map(([ek, c]) => row(ek, enemyNames[ek] ?? ek, c)).sort((a, b) => b.total - a.total),
+    };
+  }).sort((a, b) => b.total - a.total);
 
   res.json({
     available: {
@@ -937,22 +982,8 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
       enemies:  Object.entries(enemyHistogram).map(([key, count]) => ({ key, name: enemyNames[key]  ?? key, count })).sort((a, b) => b.count - a.count),
       weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponNames[key] ?? key, count })).sort((a, b) => b.count - a.count),
     },
-    per_enemy: Object.entries(perEnemy).map(([enemyKey, agg]) => ({
-      key:        enemyKey,
-      name:       enemyNames[enemyKey] ?? enemyKey,
-      total:      agg.total,
-      wins:       agg.wins,
-      losses:     agg.total - agg.wins,
-      win_rate:   agg.total > 0 ? agg.wins / agg.total : 0,
-      avg_korel:  agg.total > 0 ? agg.korel_total / agg.total : 0,
-      per_weapon: Object.entries(agg.per_weapon).map(([wk, wa]) => ({
-        key:      wk,
-        name:     weaponNames[wk] ?? wk,
-        total:    wa.total,
-        wins:     wa.wins,
-        win_rate: wa.total > 0 ? wa.wins / wa.total : 0,
-      })).sort((a, b) => b.total - a.total),
-    })).sort((a, b) => b.total - a.total),
+    per_enemy:     perEnemy,
+    per_weapon:    perWeapon,
     total_battles: filtered.length,
     sim:           loadSimForVersion(APP_VERSION),
     app_version:   APP_VERSION,

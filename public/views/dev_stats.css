@@ -81,7 +81,24 @@
 .ds-chip:hover    { background: var(--bg-hover); color: var(--text-2); }
 .ds-chip-on       { background: var(--bg-hover); color: var(--gold); border-color: var(--gold-dim); }
 
-.ds-total { font-size: 0.78rem; color: var(--text-muted); }
+.ds-total { font-size: 0.78rem; color: var(--text-muted); margin-left: auto; }
+
+.ds-group-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-toggle {
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.ds-toggle:hover     { background: var(--bg-hover); color: var(--text-2); }
+.ds-toggle-on        { background: var(--bg-hover); color: var(--gold); border-color: var(--gold-dim); }
 
 .ds-enemies {
   display: flex;

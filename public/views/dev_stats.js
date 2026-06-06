@@ -8,7 +8,9 @@
   // params" behavior of the server.
   let available = { enemies: [], weapons: [], versions: [] };
   let selected  = { enemies: null, weapons: null, versions: null };
+  let groupBy   = 'enemy'; // 'enemy' | 'weapon'
   let lastData  = null;
+  let versionDefaultsApplied = false;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -33,6 +35,16 @@
     }
     lastData = await res.json();
     available = lastData.available;
+    // pre-0.2.0 is noisy legacy data — opt out on first load, but only once
+    // so a dev who manually re-enables it doesn't get it stripped on refetch.
+    if (!versionDefaultsApplied) {
+      versionDefaultsApplied = true;
+      if (available.versions.includes('pre-0.2.0') && available.versions.length > 1) {
+        selected.versions = new Set(available.versions.filter(v => v !== 'pre-0.2.0'));
+        await refetch();
+        return;
+      }
+    }
     render();
   }
 
@@ -120,25 +132,27 @@
       </section>`;
   }
 
-  function perEnemyHtml(perEnemy) {
-    if (perEnemy.length === 0) return `<p class="ds-empty">No battles match these filters.</p>`;
-    return perEnemy.map(e => {
-      const weaponRows = e.per_weapon.map(w => `
+  function groupsHtml(groups, breakdownLabel) {
+    if (groups.length === 0) return `<p class="ds-empty">No battles match these filters.</p>`;
+    return groups.map(g => {
+      const rows = g.breakdown.map(b => `
         <tr>
-          <td>${esc(w.name)}</td>
-          <td class="ds-num">${w.total}</td>
-          <td class="ds-num">${w.wins}</td>
-          <td class="ds-num">${pctFmt(w.win_rate)}</td>
+          <td>${esc(b.name)}</td>
+          <td class="ds-num">${b.total}</td>
+          <td class="ds-num">${b.wins}</td>
+          <td class="ds-num">${b.losses}</td>
+          <td class="ds-num">${pctFmt(b.win_rate)}</td>
+          <td class="ds-num">${b.avg_korel.toFixed(1)}</td>
         </tr>`).join('');
       return `
         <section class="ds-enemy-card">
           <header>
-            <h3>${esc(e.name)}</h3>
-            <span class="ds-enemy-meta">${e.total} battles · ${pctFmt(e.win_rate)} win · ${e.avg_korel.toFixed(0)} avg korel</span>
+            <h3>${esc(g.name)}</h3>
+            <span class="ds-enemy-meta">${g.total} battles · ${g.wins}W ${g.losses}L · ${pctFmt(g.win_rate)} win · ${g.avg_korel.toFixed(1)} avg korel</span>
           </header>
           <table class="ds-table">
-            <thead><tr><th>Weapon</th><th>Battles</th><th>Wins</th><th>Win %</th></tr></thead>
-            <tbody>${weaponRows}</tbody>
+            <thead><tr><th>${breakdownLabel}</th><th>Battles</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Avg Korel</th></tr></thead>
+            <tbody>${rows}</tbody>
           </table>
         </section>`;
     }).join('');
@@ -162,13 +176,25 @@
         <div class="ds-filter-row"><span class="ds-filter-label">Enemies</span><div class="ds-chips">${enemyChips}</div></div>
         <div class="ds-filter-row"><span class="ds-filter-label">Weapons</span><div class="ds-chips">${weaponChips}</div></div>
       </div>
-      <p class="ds-total">${lastData.total_battles} battles in current selection.</p>
-      <div class="ds-enemies">${perEnemyHtml(lastData.per_enemy)}</div>
+      <div class="ds-group-bar">
+        <span class="ds-filter-label">Group by</span>
+        <button class="ds-toggle ${groupBy === 'enemy'  ? 'ds-toggle-on' : ''}" data-group="enemy">Enemy</button>
+        <button class="ds-toggle ${groupBy === 'weapon' ? 'ds-toggle-on' : ''}" data-group="weapon">Weapon</button>
+        <span class="ds-total">${lastData.total_battles} battles in current selection.</span>
+      </div>
+      <div class="ds-enemies">${
+        groupBy === 'enemy'
+          ? groupsHtml(lastData.per_enemy,  'Weapon')
+          : groupsHtml(lastData.per_weapon, 'Enemy')
+      }</div>
       ${simHtml(lastData.sim, lastData.app_version)}
     `;
 
     root.querySelectorAll('.ds-chip').forEach(btn => {
       btn.addEventListener('click', () => toggleInSet(btn.dataset.filter, btn.dataset.value));
+    });
+    root.querySelectorAll('.ds-toggle').forEach(btn => {
+      btn.addEventListener('click', () => { groupBy = btn.dataset.group; render(); });
     });
   }
 
@@ -181,6 +207,8 @@
   function unmount() {
     available = { enemies: [], weapons: [], versions: [] };
     selected  = { enemies: null, weapons: null, versions: null };
+    groupBy   = 'enemy';
+    versionDefaultsApplied = false;
     lastData  = null;
   }
 
