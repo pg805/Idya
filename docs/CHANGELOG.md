@@ -3,16 +3,67 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
-## Unreleased (0.2.0 dev)
+## 0.1.6 — 2026-06-06
+
+The "active battles, market page, economy plumbing" release. 0.2.0 is being
+held for a full combat stats overhaul; everything that was queued for it
+ships here instead.
 
 ### New enemy
 
 - **Tinpul** (Lv 1, 10 HP). Squishy ranged shooter — pokes with Pea Shot
   (range 4, reactive) on the approach, then panics into melee Tin Punch
-  when closed. Special is Harden Tin (shield 7 / 2 rounds). Crit applies
-  Tin Coating, a Physical/Mental debuff for 4 over 2 rounds. Drops sulwood,
-  crude talamite, and the occasional lifgem. Pulled by **Tin Bait** at the
-  general store (3 korel).
+  when closed. Special is Harden Tin (shield 7 / 2 rounds + 4 block on
+  Tin Drink). Crit applies Tin Coating, a Physical/Mental debuff for 4
+  over 2 rounds. Drops sulwood, crude talamite, and rarely lifgem (~3%).
+  Pulled by **Tin Bait** at the general store (3 korel).
+
+### Recipe-driven shop pricing
+
+- Crafted item prices now derive from their ingredient prices instead of
+  reading a fixed YAML base. `final_price = Σ(ingredient_price × qty) × margin × R_mult`
+  with `margin_buy` / `margin_sell` per recipe (default 1.1). Raw items
+  keep `base × R_mult`. Fixes the thuvel-6 / hiruos-47 free-lunch where
+  crafting and selling was a guaranteed profit regardless of materials
+  market.
+- Cross-shop ingredient lookups work transparently — kustaff at the
+  enchanter pulls its quarterstaff price from the lumberjack on demand.
+- Buying a crafted item now bumps ingredient `recent_volume` (full
+  effect on buy, 0.5× on sell), so demand on hiruos pulls thuvel demand
+  up too. The chain reaction propagates through the recipe DAG.
+- `npm run price:smoke` walks every shop and dumps prices for sanity-
+  checking after margin tuning.
+
+### Market page (public, `/app/market`)
+
+- New sidebar entry in the Info section showing every shop's current
+  buy/sell prices plus a band the price can swing within.
+- Cards per shop, ordered to match the sidebar (General Store →
+  Blacksmith → Lumberjack → Enchanting Shop).
+- Each card splits into **Commodities** and **Valuables** sub-tables —
+  commodities sit near the floor under selling pressure, valuables float
+  mid-range.
+- Multi-select filter chips for Shop and Category at the top.
+- Live-ticking countdown to the next daily price update per row.
+- Crafted items inherit category from their ingredients: any valuable
+  in the recipe chain promotes the output to valuable; otherwise
+  commodity.
+- Price ranges use **absolute multiplier bounds** (`base × [0.25, 4]`)
+  so current price always sits inside. Equilibrium / period-2 math
+  underestimated the floor under heavy selling pressure.
+
+### Unlock items
+
+- New item type: `unlock`. Permanent, character-bound, quantity always 1.
+  Can't sell, can't trade, doesn't get consumed on use.
+- **Swallow Bait** converted from consumable to unlock. Pick it up free
+  from the General Store (future tutorial flow), keep it forever, use
+  it to hunt swallows without consumption.
+- Boot-time one-shot clamp lowers any pre-existing inventory rows of
+  unlock items to quantity 1 — idempotent across restarts.
+- Surfaces: market hides unlocks (no tradeable value), inventory tags
+  them as 'permanent' in their own section, trade picker filters them
+  out, shop sell flatly refuses, hunt-start skips the consumption step.
 
 ### Active battle tracking
 
