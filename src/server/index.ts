@@ -23,7 +23,7 @@ import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_sessio
 import { CombatantState } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
-import { generateAIIntent } from '../combat/ai.js';
+import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
@@ -149,20 +149,16 @@ const TELEGRAPH: Record<string, Record<string, string>> = {
 function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[]): string {
   if (meta.pattern.length === 0 || enemies.length === 0) return '';
 
-  const entry = meta.pattern[meta.patternIndex];
-  const { weapon } = meta;
+  // Use the same affordability walk the AI does so the telegraph reflects the
+  // action that will actually fire — not whatever happens to be at the current
+  // pattern index (which the AI may skip because it can't afford it).
+  const resolved = findAffordableEntry(meta);
+  if (!resolved) return '';
 
-  const category =
-    entry.type === PatternActionType.Defend  ? 'defend'  :
-    entry.type === PatternActionType.Attack  ? 'attack'  : 'special';
+  const { choice, action } = resolved;
 
-  let action = null;
-  if (entry.type === PatternActionType.Defend)  action = weapon.defend[entry.index]  ?? null;
-  if (entry.type === PatternActionType.Attack)  action = weapon.attack[entry.index]  ?? null;
-  if (entry.type === PatternActionType.Special) action = weapon.special[entry.index] ?? null;
-
-  if (!action || SELF_TARGET_TYPES.has(action.type)) {
-    return TELEGRAPH[category].holding;
+  if (SELF_TARGET_TYPES.has(action.type)) {
+    return TELEGRAPH[choice].holding;
   }
 
   const nearest = enemies.reduce((a, b) =>
@@ -170,7 +166,7 @@ function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant
   );
   const dist = chebyshevDist(ai.pos, nearest.pos);
   const movement = dist <= action.range ? 'holding' : 'closing';
-  return TELEGRAPH[category][movement];
+  return TELEGRAPH[choice][movement];
 }
 
 function refreshTelegraphs(session: CombatSession): void {
