@@ -480,6 +480,9 @@ function createSession(
       teamId: 'team-b',
       pos: layout.enemySpawns[i],
       movementRange: 2,
+      // Tutorial enemies always start at pattern index 0 so the lesson
+      // plays in the intended order (Fendalok's asides time off it).
+      randomizePatternStart: !isTutorial,
     });
     if (suffix !== null) {
       loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
