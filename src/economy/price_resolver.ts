@@ -18,6 +18,33 @@ import { loadShop, type ShopItemListing } from './shop_loader.js';
 import { loadAllRecipes, type Recipe } from './recipe_loader.js';
 import { effectiveMultiplier, xToMultiplier, clamp } from './shop_math.js';
 
+// The logistic map x_{t+1} = R·x·(1−x) has a single stable fixed point at
+// (R−1)/R when R ≤ 3, but at R > 3 the fixed point becomes unstable and
+// x settles into a period-2 cycle bouncing between two values:
+//
+//   x± = ((R+1) ± √((R+1)(R−3))) / (2R)
+//
+// For our purposes (valuables with R up to 3.99), the period-2 envelope is
+// what determines the actual price extremes — using the fixed point alone
+// underestimates the range. R can range from item.r to item.r_max, so the
+// lowest x reached is the period-2 minimum at R_max, and the highest is
+// the period-2 maximum at R_max (since both diverge from the fixed point
+// as R climbs).
+function expectedXRange(rBase: number, rMax: number): { min: number; max: number } {
+  const fixedAt = (r: number) => Math.max(0, (r - 1) / r);
+  if (rMax <= 3) {
+    return { min: fixedAt(rBase), max: fixedAt(rMax) };
+  }
+  const disc  = Math.max(0, (rMax + 1) * (rMax - 3));
+  const sqrtD = Math.sqrt(disc);
+  const xMinus = ((rMax + 1) - sqrtD) / (2 * rMax);
+  const xPlus  = ((rMax + 1) + sqrtD) / (2 * rMax);
+  return {
+    min: Math.min(fixedAt(rBase), xMinus),
+    max: Math.max(fixedAt(rBase), xPlus),
+  };
+}
+
 export type Side = 'buy' | 'sell';
 export interface PriceRange { min: number; max: number; }
 
@@ -118,18 +145,16 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const entry = itemIndex.get(itemId);
     if (!entry) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
 
-    // Equilibrium x bounds for this item's R curve, then turn them into
-    // multipliers. Stock_influence is left at its current value because it
-    // describes the structural shape of the curve for this item, not a
-    // transient state — and current stock isn't an "expected range" input.
+    // The logistic envelope (fixed point for R ≤ 3, period-2 cycle for R > 3)
+    // sets the x bounds; stock_influence stays at the current stock level
+    // because it's a structural shape of the item's curve, not a transient.
     const state = await prisma.shopItemState.findUnique({
       where: { shop_id_item_id: { shop_id: entry.shopKey, item_id: itemId } },
     });
     const stock = state?.stock ?? Math.floor(entry.listing.stock_max / 2);
-    const minX = clamp((entry.listing.r - 1) / entry.listing.r, 0, 1);
-    const maxX = clamp((entry.listing.r_max - 1) / entry.listing.r_max, 0, 1);
-    const minMult = effectiveMultiplier(entry.listing, minX, stock);
-    const maxMult = effectiveMultiplier(entry.listing, maxX, stock);
+    const xRange = expectedXRange(entry.listing.r, entry.listing.r_max);
+    const minMult = effectiveMultiplier(entry.listing, clamp(xRange.min, 0, 1), stock);
+    const maxMult = effectiveMultiplier(entry.listing, clamp(xRange.max, 0, 1), stock);
 
     const recipe = craftedIndex.get(itemId);
     let range: PriceRange | null;
