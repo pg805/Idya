@@ -911,12 +911,17 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
         ? Math.max(0, Math.round((lastTick.getTime() + TICK_MS - now) / 1000))
         : null;
 
+      // Most shop items are in ITEMS, but craftable weapons live in their
+      // own YAML and don't appear there — fall back to the weapon's Name
+      // field so the market shows "Deck of Cards" instead of "deck_of_cards".
+      const weaponYaml = ITEMS[item.id] ? null : loadWeaponYaml(item.id, __dirname);
+      const itemName = ITEMS[item.id]?.name ?? (weaponYaml?.Name as string | undefined) ?? item.id;
       rows.push({
         shop_id:           shopKey,
         shop_name:         config.name,
         item_id:           item.id,
-        item_name:         ITEMS[item.id]?.name ?? item.id,
-        item_type:         ITEMS[item.id]?.type ?? 'unknown',
+        item_name:         itemName,
+        item_type:         ITEMS[item.id]?.type ?? (weaponYaml ? 'weapon' : 'unknown'),
         category:          categoryOf(item.id),
         source:            recipe ? 'recipe' : 'raw',
         recipe_id:         recipe?.id ?? null,
@@ -938,7 +943,11 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
 // ---- Dev Stats ----
 // Pre-0.2.0 rows have NULL version/weapon_key; they bucket under these labels
 // in the filter UI so legacy data stays selectable instead of disappearing.
-const PRE_VERSION_LABEL = 'pre-0.2.0';
+// Bucket label for BattleLog rows that predate the version column (added
+// in 0.1.6). The column was first stamped in 0.1.6, so anything with NULL
+// version is genuinely "before 0.1.6". Update this string if the labelling
+// regime changes.
+const PRE_VERSION_LABEL = 'pre-0.1.6';
 const UNKNOWN_WEAPON_LABEL = 'unknown';
 
 function loadWeaponNames(): Record<string, string> {

@@ -37,12 +37,12 @@
     }
     lastData = await res.json();
     available = lastData.available;
-    // pre-0.2.0 is noisy legacy data — opt out on first load, but only once
+    // pre-0.1.6 is noisy legacy data — opt out on first load, but only once
     // so a dev who manually re-enables it doesn't get it stripped on refetch.
     if (!versionDefaultsApplied) {
       versionDefaultsApplied = true;
-      if (available.versions.includes('pre-0.2.0') && available.versions.length > 1) {
-        selected.versions = new Set(available.versions.filter(v => v !== 'pre-0.2.0'));
+      if (available.versions.includes('pre-0.1.6') && available.versions.length > 1) {
+        selected.versions = new Set(available.versions.filter(v => v !== 'pre-0.1.6'));
         await refetch();
         return;
       }
