@@ -9,6 +9,19 @@
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // Trophy tiers from defeat count.
+  //   1-99    → none   (default look)
+  //   100-299 → bronze
+  //   300-999 → silver
+  //   1000+   → gold
+  function tierFor(count) {
+    if (count >= 1000) return 'gold';
+    if (count >= 300)  return 'silver';
+    if (count >= 100)  return 'bronze';
+    return 'none';
+  }
+  const TIER_LABEL = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };
+
   async function mount(root) {
     setLayoutTitle('Stats');
     root.innerHTML = `<div id="stats-body"><p class="stats-empty">Loading…</p></div>`;
@@ -58,15 +71,20 @@
         <section class="stats-section">
           <h2 class="stats-section-label">Trophies</h2>
           <div class="stats-grid">
-            ${trophies.map(t => `
-              <div class="stats-card">
-                <div class="stats-card-head">
-                  <h3 class="stats-card-name">${esc(t.name)}</h3>
-                  <span class="stats-card-count">${(t.defeated_count ?? 0).toLocaleString()}<span class="stats-card-count-suffix"> defeated</span></span>
+            ${trophies.map(t => {
+              const count = t.defeated_count ?? 0;
+              const tier  = tierFor(count);
+              const tierBadge = tier === 'none' ? '' : `<span class="stats-tier-badge stats-tier-${tier}">${TIER_LABEL[tier]}</span>`;
+              return `
+                <div class="stats-card stats-card-${tier}">
+                  <div class="stats-card-head">
+                    <h3 class="stats-card-name">${esc(t.name)}${tierBadge}</h3>
+                    <span class="stats-card-count">${count.toLocaleString()}<span class="stats-card-count-suffix"> defeated</span></span>
+                  </div>
+                  <p class="stats-card-desc">${esc(t.description)}</p>
                 </div>
-                <p class="stats-card-desc">${esc(t.description)}</p>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </section>
       `;
