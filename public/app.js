@@ -82,6 +82,13 @@ window.addEventListener('popstate', () => {
 (async function init() {
   await claimAuthFromUrl();
   await mountLayout({ title: 'Idya' });
+  // Tutorial resilience: if /api/layout handed back a tutorial session,
+  // hop straight into it. Don't loop if the user is already on /battle.
+  const layoutData = window.getLayoutData?.();
+  if (layoutData?.tutorial_session_id && !location.pathname.startsWith('/battle/')) {
+    location.href = `/battle/${layoutData.tutorial_session_id}`;
+    return;
+  }
   await navigate(viewPathFromUrl(), { push: false });
   // After the layout + first view are in the DOM, trigger the sidebar walkthrough
   // when the URL forces it (?tour=1, set by the tutorial's Go to Town link).

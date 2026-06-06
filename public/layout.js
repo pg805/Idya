@@ -28,6 +28,9 @@ async function mountLayout({ title } = {}) {
   window.dispatchEvent(new CustomEvent('layout-changed'));
 }
 
+function getLayoutData() { return layoutData; }
+window.getLayoutData = getLayoutData;
+
 function renderLayout() {
   const root = document.getElementById('layout-root');
   if (!root) return;

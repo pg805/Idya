@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -927,7 +927,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   // groupings. Keeping one source of truth means the two views can't drift —
   // toggling Group By on the client is a pure presentation change.
   type Cell = {
-    total: number; wins: number;
+    total: number; wins: number; forfeits: number;
     // Sums + counts so we can take averages that ignore legacy NULL columns.
     // Each metric has its own denominator because different metrics are
     // populated on different rows: hp_left only on wins, enemy_hp_left only
@@ -943,7 +943,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   };
   function newCell(): Cell {
     return {
-      total: 0, wins: 0,
+      total: 0, wins: 0, forfeits: 0,
       hp_left_sum: 0, hp_left_n: 0,
       enemy_hp_left_sum: 0, enemy_hp_left_n: 0,
       dpr_sum: 0, dpr_n: 0,
@@ -963,7 +963,8 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     const byW = matchup[r.enemy] ??= {};
     const c   = byW[w] ??= newCell();
     c.total += 1;
-    if (r.outcome === 'win') c.wins += 1;
+    if (r.outcome === 'win')     c.wins += 1;
+    if (r.outcome === 'forfeit') c.forfeits += 1;
     if (r.outcome === 'win' && r.player_hp_left != null) {
       c.hp_left_sum += r.player_hp_left;
       c.hp_left_n   += 1;
@@ -1009,7 +1010,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
 
   type Row = {
     key: string; name: string;
-    total: number; wins: number; win_rate: number;
+    total: number; wins: number; forfeits: number; win_rate: number;
     avg_hp_left: number | null; avg_enemy_hp_left: number | null;
     avg_dpr: number | null; avg_dtr: number | null;
     avg_crits: number | null; aimed_hit_rate: number | null;
@@ -1020,6 +1021,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
       key, name,
       total:             c.total,
       wins:              c.wins,
+      forfeits:          c.forfeits,
       win_rate:          c.total > 0 ? c.wins / c.total : 0,
       avg_hp_left:       c.hp_left_n        > 0 ? c.hp_left_sum        / c.hp_left_n        : null,
       avg_enemy_hp_left: c.enemy_hp_left_n  > 0 ? c.enemy_hp_left_sum  / c.enemy_hp_left_n  : null,
@@ -1035,6 +1037,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     return cells.reduce((a, b) => ({
       total:               a.total + b.total,
       wins:                a.wins + b.wins,
+      forfeits:            a.forfeits + b.forfeits,
       hp_left_sum:         a.hp_left_sum + b.hp_left_sum,
       hp_left_n:           a.hp_left_n + b.hp_left_n,
       enemy_hp_left_sum:   a.enemy_hp_left_sum + b.enemy_hp_left_sum,
@@ -1095,6 +1098,85 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     sim:           loadSimForVersion(APP_VERSION),
     app_version:   APP_VERSION,
   });
+});
+
+// ---- Active battles ----
+// Sessions live in-memory only (sessions Map + sessionMeta Map). We don't
+// persist them — bot restarts intentionally drop everything. To prevent
+// stale sessions from piling up, anything that hasn't seen a submit_intent
+// in 7 days gets auto-forfeited the next time a list/lookup runs.
+const FORFEIT_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function forfeitSession(sessionId: string, reason: 'user' | 'timeout'): Promise<void> {
+  const session = sessions.get(sessionId);
+  const meta    = sessionMeta.get(sessionId);
+  if (!session || !meta) return;
+  // Tutorial forfeits don't write BattleLog (the tutorial doesn't count as a
+  // real fight) — but they still get cleaned up.
+  if (!meta.isTutorial) {
+    const chars = await charRepo.list(meta.discordUserId).catch(() => []);
+    const char = chars[0];
+    if (char) {
+      await logBattlePerEnemy(session, meta, char.id, 'forfeit', 0, reason === 'timeout' ? 'auto-forfeit (inactive 7d)' : null).catch(() => {});
+    }
+  }
+  sessions.delete(sessionId);
+  sessionMeta.delete(sessionId);
+  io.to(sessionId).emit('game_over', { winner: null, reason: 'forfeit' });
+}
+
+// Sweep all expired sessions. Called at the top of any read that lists
+// active battles, so the user can't see a stale entry that's already past
+// the cutoff. Cheap — Map iteration over an in-memory collection that's
+// always small in practice.
+async function sweepExpiredSessions(): Promise<void> {
+  const cutoff = Date.now() - FORFEIT_TIMEOUT_MS;
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.lastActivityAt.getTime() < cutoff) {
+      await forfeitSession(id, 'timeout');
+    }
+  }
+}
+
+function listActiveSessions(discordId: string): Array<{ session_id: string; enemy_name: string; is_tutorial: boolean; started_at: string; last_activity_at: string; rounds: number }> {
+  const out: Array<{ session_id: string; enemy_name: string; is_tutorial: boolean; started_at: string; last_activity_at: string; rounds: number }> = [];
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.discordUserId !== discordId) continue;
+    out.push({
+      session_id:       id,
+      enemy_name:       m.enemyName,
+      is_tutorial:      m.isTutorial,
+      started_at:       m.startedAt.toISOString(),
+      last_activity_at: m.lastActivityAt.toISOString(),
+      rounds:           m.rounds.filter(r => r.turn > 0).length,
+    });
+  }
+  // Tutorial first (so it stays anchored), then most-recent activity at top.
+  out.sort((a, b) => {
+    if (a.is_tutorial !== b.is_tutorial) return a.is_tutorial ? -1 : 1;
+    return b.last_activity_at.localeCompare(a.last_activity_at);
+  });
+  return out;
+}
+
+app.get('/api/active-battles', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  await sweepExpiredSessions();
+  res.json({ battles: listActiveSessions(discordId) });
+});
+
+app.post('/api/active-battles/:sessionId/forfeit', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const sessionId = String(req.params.sessionId);
+  const meta = sessionMeta.get(sessionId);
+  if (!meta || meta.discordUserId !== discordId) {
+    res.status(404).json({ error: 'No such battle.' });
+    return;
+  }
+  await forfeitSession(sessionId, 'user');
+  res.json({ ok: true });
 });
 
 // ---- Hunt ----
@@ -1203,7 +1285,8 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
   const rounds: { turn: number; log: string[] }[] = huntSession.initiativeLog.length > 0
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: new Date(), rounds });
+  const now = new Date();
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: now, lastActivityAt: now, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -1421,6 +1504,16 @@ app.get('/api/layout', async (req: Request, res: Response) => {
   for (const p of profRows) profLevels[p.profession] = p.level;
   const combined = profRows.reduce((sum, p) => sum + p.level, 0);
 
+  // Tutorial resilience: if the player has a character but never finished
+  // the tutorial AND nothing is in memory for them (closed tab, bot restart,
+  // 7-day timeout), spin up a fresh tutorial session. The client redirects
+  // to it on app init. Resume-in-progress is also a valid outcome here —
+  // findActiveTutorialSession returns the existing id if one's still alive.
+  let tutorialSessionId: string | null = null;
+  if (!dbUser?.tutorial_complete) {
+    tutorialSessionId = findActiveTutorialSession(discordId) ?? startTutorialSession(discordId, char.sprite_token);
+  }
+
   res.json({
     authenticated: true,
     characterName: char.name,
@@ -1428,6 +1521,7 @@ app.get('/api/layout', async (req: Request, res: Response) => {
     spriteCdn:     worldConfig.sprite_cdn,
     korel:         dbUser?.korel ?? 0,
     is_dev:        isDev(discordId),
+    tutorial_session_id: tutorialSessionId,
     professions: Object.fromEntries(
       PROFESSIONS.map(p => [p, {
         label:    PROFESSION_NAMES[p],
@@ -2749,7 +2843,10 @@ io.on('connection', (socket: Socket) => {
     io.to(sessionId).emit('turn_result', { log: result.log });
 
     const tutMeta = sessionMeta.get(sessionId);
-    if (tutMeta) tutMeta.rounds.push({ turn: session.turn, log: result.log });
+    if (tutMeta) {
+      tutMeta.rounds.push({ turn: session.turn, log: result.log });
+      tutMeta.lastActivityAt = new Date();
+    }
     if (tutMeta?.isTutorial && !result.winner) {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
@@ -2920,7 +3017,8 @@ io.on('connection', (socket: Socket) => {
       const freshRounds: { turn: number; log: string[] }[] = fresh.initiativeLog.length > 0
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: new Date(), rounds: freshRounds });
+      const nowReset = new Date();
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -3120,7 +3218,7 @@ async function logBattlePerEnemy(
   session: CombatSession,
   meta: NonNullable<ReturnType<typeof sessionMeta.get>>,
   characterId: string,
-  outcome: 'win' | 'loss',
+  outcome: 'win' | 'loss' | 'forfeit',
   korelDelta: number,
   lootSummary: string | null,
 ): Promise<void> {
@@ -3214,6 +3312,30 @@ function buildWelcomeEmbed(
   };
 }
 
+// Spin up a fresh tutorial session for an existing character. Returns the
+// session id. Used by bootstrapNewCharacter and by /api/layout when an
+// existing player returns to /app with tutorial_complete=false but no
+// active tutorial in memory (e.g., they closed the tab before finishing).
+function startTutorialSession(discordId: string, spriteKey: string | null): string {
+  const sessionId = Math.random().toString(36).slice(2, 10);
+  const playerSprite = spriteKey ? `${HOST}/sprites/${spriteKey}.png` : undefined;
+  const { session: tutSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  sessions.set(sessionId, tutSession);
+  const tutorialRounds: { turn: number; log: string[] }[] = tutSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: tutSession.initiativeLog }]
+    : [];
+  const now = new Date();
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, rounds: tutorialRounds });
+  return sessionId;
+}
+
+function findActiveTutorialSession(discordId: string): string | null {
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.discordUserId === discordId && m.isTutorial) return id;
+  }
+  return null;
+}
+
 // Character creation + tutorial-session bootstrap. Used by /api/character/create.
 async function bootstrapNewCharacter(
   discordId: string,
@@ -3228,14 +3350,7 @@ async function bootstrapNewCharacter(
   if (existing.length > 0) return { ok: false, error: 'You already have a character.' };
 
   await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
-  const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
-  const sessionId = Math.random().toString(36).slice(2, 10);
-  const { session: charSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
-  sessions.set(sessionId, charSession);
-  const tutorialRounds: { turn: number; log: string[] }[] = charSession.initiativeLog.length > 0
-    ? [{ turn: 0, log: charSession.initiativeLog }]
-    : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: new Date(), rounds: tutorialRounds });
+  const sessionId = startTutorialSession(discordId, input.spriteKey);
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 

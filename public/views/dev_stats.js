@@ -151,6 +151,7 @@
           <td>${esc(b.name)}</td>
           <td class="ds-num">${b.total}</td>
           <td class="ds-num">${b.wins}</td>
+          <td class="ds-num">${b.forfeits}</td>
           <td class="ds-num">${pctFmt(b.win_rate)}</td>
           <td class="ds-num">${fmtOrDash(b.avg_hp_left)}</td>
           <td class="ds-num">${fmtOrDash(b.avg_enemy_hp_left)}</td>
@@ -165,11 +166,13 @@
         <section class="ds-enemy-card">
           <header>
             <h3>${esc(g.name)}</h3>
-            <span class="ds-enemy-meta">${g.total} battles · ${pctFmt(g.win_rate)} win · HP ${fmtOrDash(g.avg_hp_left)} / EHP ${fmtOrDash(g.avg_enemy_hp_left)} · DPR ${fmtOrDash(g.avg_dpr, 2)} / DTR ${fmtOrDash(g.avg_dtr, 2)} · ${durFmt(g.avg_duration_s)}</span>
+            <span class="ds-enemy-meta">${g.total} battles · ${pctFmt(g.win_rate)} win · ${g.forfeits} forfeits · HP ${fmtOrDash(g.avg_hp_left)} / EHP ${fmtOrDash(g.avg_enemy_hp_left)} · DPR ${fmtOrDash(g.avg_dpr, 2)} / DTR ${fmtOrDash(g.avg_dtr, 2)} · ${durFmt(g.avg_duration_s)}</span>
           </header>
           <div class="ds-table-wrap"><table class="ds-table">
             <thead><tr>
-              <th>${breakdownLabel}</th><th>Battles</th><th>Wins</th><th>Win %</th>
+              <th>${breakdownLabel}</th><th>Battles</th><th>Wins</th>
+              <th title="Battles ended by /forfeit (player walked away)">Forfeits</th>
+              <th>Win %</th>
               <th title="Average player HP left on wins">HP Left</th>
               <th title="Average enemy HP left on losses">Enemy HP</th>
               <th title="Damage dealt per round (avg)">DPR</th>
