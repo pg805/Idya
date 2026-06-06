@@ -28,10 +28,31 @@ src/
 
 database/
 ├── config.json          # Bot token (CLIENT_TOKEN)
-├── weapons/             # Weapon JSON definitions
-├── enemies/             # Enemy JSON definitions
-└── players/             # (unused)
+├── weapons/             # Weapon YAML definitions
+├── enemies/             # Enemy YAML definitions
+├── shops/               # Shop YAML definitions
+├── recipes/             # Crafting recipe YAML
+├── docs/                # Markdown rendered by SPA info pages (Reference, About)
+└── lore/                # World/NPC lore (designer + player-facing variants)
+
+docs/                    # Dev/design docs — NOT served by the app
+├── CHANGELOG.md         # Detailed dev changelog
+├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
+├── battle-ideas.md      # Design ideas / future work for combat
+├── alpha_checklist.md   # TODOs before alpha
+├── PRD.md               # Vision / product requirements
+└── ...
 ```
+
+### Documentation locations
+
+| Folder | Purpose | Served to players? |
+|---|---|---|
+| `docs/` | Dev docs: changelog, design ideas, alpha checklist, PRDs, server rules | No |
+| `database/docs/` | Markdown content for SPA info pages (`/app/reference`, `/app/about`) | Yes — via `/api/info/*` |
+| `database/lore/` | World lore — `world.md` is designer-facing, `world_player.md` is the SPA Lore page | `world_player.md` only |
+
+When adding a new markdown doc, decide first whether it's player-facing (served by SPA) or dev-facing (just in the repo) and place accordingly.
 
 ## Key Concepts
 
