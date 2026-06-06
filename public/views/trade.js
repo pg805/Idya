@@ -52,7 +52,9 @@
       return;
     }
     const data = await res.json();
-    items   = (data.items ?? []).filter(i => i.quantity > 0);
+    // Unlock items are character-bound and can't change hands — hide them
+    // from the offer picker entirely so they never even look tradeable.
+    items   = (data.items ?? []).filter(i => i.quantity > 0 && i.type !== 'unlock');
     weapons = (data.weapons ?? []);
     myKorel = data.korel ?? 0;
   }

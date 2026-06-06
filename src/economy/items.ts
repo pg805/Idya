@@ -1,4 +1,13 @@
-export type ItemType = 'material' | 'valuable' | 'consumable';
+export type ItemType = 'material' | 'valuable' | 'consumable' | 'unlock';
+
+// Items of type 'unlock' are permanent — once a character owns one, the
+// quantity is always 1 and they can't sell, trade, give away, or consume it.
+// They're typically issued by NPCs/shops to gate access to content (hunting a
+// specific enemy, entering a place, etc.). Hunt start checks the bait type
+// and skips consumption if it's an unlock.
+export function isUnlock(itemId: string): boolean {
+  return ITEMS[itemId]?.type === 'unlock';
+}
 
 export type ItemDef = { name: string; description: string; type: ItemType };
 
@@ -38,7 +47,7 @@ export const ITEMS: Record<string, ItemDef> = {
     wand_base_alloy:      { name: 'Wand Base (Alloy)',    description: 'A rod of refined alloy. Channels arcane energy with exceptional precision.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
-    swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones. Draws lithkem swallows out of the trees.',   type: 'consumable' },
+    swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },
     sulfolk_bait: { name: 'Sulfolk Bait',  description: 'A bundle of fresh-cut branches. Sulfolk can\'t resist investigating.',                  type: 'consumable' },
     wyrm_bait:    { name: 'Wyrm Bait',     description: 'A chunk of raw talamite ore. Talwyrm are drawn to the mineral scent.',                  type: 'consumable' },
     deer_bait:    { name: 'Deer Bait',     description: 'A pouch of dried herbs from the forest floor. Daefen deer follow the smell for miles.', type: 'consumable' },

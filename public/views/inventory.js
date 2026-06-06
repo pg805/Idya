@@ -2,8 +2,8 @@
 (function() {
   let data = null;
 
-  const TYPE_LABEL = { material: 'Materials', consumable: 'Consumables', valuable: 'Valuables' };
-  const TYPE_ORDER = ['material', 'consumable', 'valuable'];
+  const TYPE_LABEL = { material: 'Materials', consumable: 'Consumables', valuable: 'Valuables', unlock: 'Unlocks' };
+  const TYPE_ORDER = ['unlock', 'material', 'consumable', 'valuable'];
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -66,7 +66,7 @@
           ${list.map(i => `
             <div class="inv-row" title="${esc(i.description)}">
               <span class="inv-name">${esc(i.name)}</span>
-              <span class="inv-qty">×${i.quantity.toLocaleString()}</span>
+              <span class="inv-qty">${i.type === 'unlock' ? '<span class="inv-tag">permanent</span>' : '×' + i.quantity.toLocaleString()}</span>
             </div>
           `).join('')}
         </div>

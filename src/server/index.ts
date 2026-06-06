@@ -32,7 +32,7 @@ import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
-import { ITEMS } from '../economy/items.js';
+import { ITEMS, isUnlock } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
@@ -889,6 +889,9 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
     catch { continue; }
 
     for (const item of config.items) {
+      // Unlock items don't belong on the price overview — they have no
+      // tradeable value and live in the "claim once and keep forever" lane.
+      if (isUnlock(item.id)) continue;
       const recipe = ctx.recipeFor(item.id);
       const [curBuy, curSell, rangeBuy, rangeSell, state] = await Promise.all([
         ctx.currentPrice(item.id, 'buy'),
@@ -1357,11 +1360,14 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     return;
   }
 
+  const baitIsUnlock = isUnlock(bait_id);
   const consumed = await prisma.$transaction(async tx => {
     const inv = await tx.inventoryItem.findUnique({
       where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
     });
     if (!inv || inv.quantity < 1) return false;
+    // Unlock items aren't consumed — owning one is the permit, not a charge.
+    if (baitIsUnlock) return true;
     if (inv.quantity === 1) {
       await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: bait_id } } });
     } else {
@@ -3184,7 +3190,9 @@ io.on('connection', (socket: Socket) => {
     const player = session?.players.find(p => p.discordId === discordId);
     if (!session || !player || player.locked) return;
     player.offer = {
-      items:   (offer.items ?? []).filter(o => o.quantity > 0),
+      // Drop unlock items defensively in case a client sends them — they're
+      // permanent character-bound and can't change hands.
+      items:   (offer.items ?? []).filter(o => o.quantity > 0 && !isUnlock(o.itemId)),
       weapons: (offer.weapons ?? [])
         .filter((w): w is TradeWeaponEntry => !!w && typeof w.id === 'string')
         .map(w => ({ id: w.id, name: String(w.name ?? 'weapon'), bonus: Number(w.bonus) || 0 })),
@@ -3290,10 +3298,33 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+// One-time pass at boot to enforce the "unlock items have quantity 1" rule.
+// Players had piles of swallow_bait before it changed to an unlock type;
+// this clamps them all down on the next boot. Idempotent — running again
+// when nothing's wrong is a no-op.
+async function clampUnlockQuantities(): Promise<void> {
+  try {
+    const unlockIds = Object.entries(ITEMS).filter(([_, v]) => v.type === 'unlock').map(([k]) => k);
+    if (unlockIds.length === 0) return;
+    const overstuffed = await prisma.inventoryItem.findMany({
+      where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
+    });
+    if (overstuffed.length === 0) return;
+    await prisma.inventoryItem.updateMany({
+      where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
+      data:  { quantity: 1 },
+    });
+    console.log(`[boot] clamped ${overstuffed.length} unlock inventory row(s) to quantity 1`);
+  } catch (err) {
+    console.error('[boot] clampUnlockQuantities failed:', err);
+  }
+}
+
 const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
+  void clampUnlockQuantities();
 });
 
 // ---- Proactive shop tick ----

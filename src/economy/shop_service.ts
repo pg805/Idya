@@ -6,7 +6,7 @@ import type { ShopItemListing, ShopConfig } from './shop_loader.js';
 import { loadShop } from './shop_loader.js';
 import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
 import { buildPricingContext, type PricingContext, type Side } from './price_resolver.js';
-import { ITEMS } from './items.js';
+import { ITEMS, isUnlock } from './items.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -237,6 +237,18 @@ export async function buyItem(
 ): Promise<{ success: boolean; message: string }> {
   if (item.buy == null) return { success: false, message: 'Not for sale.' };
 
+  // Unlock items: one copy per character, ever. Reject duplicates and clamp
+  // the request to a single item even if the player asked for more.
+  if (isUnlock(item.id)) {
+    const existing = await prisma.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
+    });
+    if (existing && existing.quantity >= 1) {
+      return { success: false, message: 'You already have one.' };
+    }
+    quantity = 1;
+  }
+
   if (!item.infinite) {
     const state = await prisma.shopItemState.findUniqueOrThrow({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
@@ -298,6 +310,7 @@ export async function sellItem(
   quantity: number,
 ): Promise<{ success: boolean; message: string }> {
   if (item.sell == null) return { success: false, message: "This shop doesn't buy that." };
+  if (isUnlock(item.id)) return { success: false, message: "You can't part with that." };
 
   const state = await prisma.shopItemState.findUniqueOrThrow({
     where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
