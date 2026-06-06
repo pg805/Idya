@@ -8,6 +8,7 @@
   // params" behavior of the server.
   let available = { enemies: [], weapons: [], versions: [] };
   let selected  = { enemies: null, weapons: null, versions: null };
+  let firstMover = 'either'; // 'either' | 'player' | 'enemy'
   let groupBy   = 'enemy'; // 'enemy' | 'weapon'
   let lastData  = null;
   let versionDefaultsApplied = false;
@@ -23,6 +24,7 @@
     if (selected.enemies)  parts.push('enemies='  + encodeURIComponent([...selected.enemies].join(',')));
     if (selected.weapons)  parts.push('weapons='  + encodeURIComponent([...selected.weapons].join(',')));
     if (selected.versions) parts.push('versions=' + encodeURIComponent([...selected.versions].join(',')));
+    if (firstMover !== 'either') parts.push('first_mover=' + firstMover);
     return parts.length > 0 ? '?' + parts.join('&') : '';
   }
 
@@ -133,6 +135,13 @@
   }
 
   function fmtOrDash(v, digits = 1) { return v == null ? '—' : v.toFixed(digits); }
+  function pctOrDash(v) { return v == null ? '—' : pctFmt(v); }
+  function durFmt(s) {
+    if (s == null) return '—';
+    if (s < 60) return s.toFixed(0) + 's';
+    const m = Math.floor(s / 60); const r = Math.round(s - m * 60);
+    return `${m}m${r.toString().padStart(2, '0')}s`;
+  }
 
   function groupsHtml(groups, breakdownLabel) {
     if (groups.length === 0) return `<p class="ds-empty">No battles match these filters.</p>`;
@@ -144,24 +153,34 @@
           <td class="ds-num">${b.wins}</td>
           <td class="ds-num">${pctFmt(b.win_rate)}</td>
           <td class="ds-num">${fmtOrDash(b.avg_hp_left)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_enemy_hp_left)}</td>
           <td class="ds-num">${fmtOrDash(b.avg_dpr, 2)}</td>
           <td class="ds-num">${fmtOrDash(b.avg_dtr, 2)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_crits, 2)}</td>
+          <td class="ds-num">${pctOrDash(b.aimed_hit_rate)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_restores, 1)}</td>
+          <td class="ds-num">${durFmt(b.avg_duration_s)}</td>
         </tr>`).join('');
       return `
         <section class="ds-enemy-card">
           <header>
             <h3>${esc(g.name)}</h3>
-            <span class="ds-enemy-meta">${g.total} battles · ${pctFmt(g.win_rate)} win · HP ${fmtOrDash(g.avg_hp_left)} · DPR ${fmtOrDash(g.avg_dpr, 2)} · DTR ${fmtOrDash(g.avg_dtr, 2)}</span>
+            <span class="ds-enemy-meta">${g.total} battles · ${pctFmt(g.win_rate)} win · HP ${fmtOrDash(g.avg_hp_left)} / EHP ${fmtOrDash(g.avg_enemy_hp_left)} · DPR ${fmtOrDash(g.avg_dpr, 2)} / DTR ${fmtOrDash(g.avg_dtr, 2)} · ${durFmt(g.avg_duration_s)}</span>
           </header>
-          <table class="ds-table">
+          <div class="ds-table-wrap"><table class="ds-table">
             <thead><tr>
               <th>${breakdownLabel}</th><th>Battles</th><th>Wins</th><th>Win %</th>
-              <th title="Average HP left on wins">HP Left</th>
+              <th title="Average player HP left on wins">HP Left</th>
+              <th title="Average enemy HP left on losses">Enemy HP</th>
               <th title="Damage dealt per round (avg)">DPR</th>
               <th title="Damage taken per round (avg)">DTR</th>
+              <th title="Average attack-crit triggers per battle">Crits</th>
+              <th title="Aimed attacks that landed / aimed attacks attempted">Aim %</th>
+              <th title="Average resource-restore actions per battle">Restores</th>
+              <th title="Average real-time battle duration">Duration</th>
             </tr></thead>
             <tbody>${rows}</tbody>
-          </table>
+          </table></div>
         </section>`;
     }).join('');
   }
@@ -183,6 +202,11 @@
         <div class="ds-filter-row"><span class="ds-filter-label">Versions</span><div class="ds-chips">${versionChips}</div></div>
         <div class="ds-filter-row"><span class="ds-filter-label">Enemies</span><div class="ds-chips">${enemyChips}</div></div>
         <div class="ds-filter-row"><span class="ds-filter-label">Weapons</span><div class="ds-chips">${weaponChips}</div></div>
+        <div class="ds-filter-row"><span class="ds-filter-label">First mover</span><div class="ds-chips">
+          ${['either', 'player', 'enemy'].map(v => `
+            <button class="ds-chip ${firstMover === v ? 'ds-chip-on' : ''}" data-firstmover="${v}">${v[0].toUpperCase() + v.slice(1)}</button>
+          `).join('')}
+        </div></div>
       </div>
       <div class="ds-group-bar">
         <span class="ds-filter-label">Group by</span>
@@ -199,7 +223,12 @@
     `;
 
     root.querySelectorAll('.ds-chip').forEach(btn => {
-      btn.addEventListener('click', () => toggleInSet(btn.dataset.filter, btn.dataset.value));
+      if (btn.dataset.firstmover) {
+        // First-mover is a mutually-exclusive radio, not a multi-select set.
+        btn.addEventListener('click', () => { firstMover = btn.dataset.firstmover; refetch(); });
+      } else {
+        btn.addEventListener('click', () => toggleInSet(btn.dataset.filter, btn.dataset.value));
+      }
     });
     root.querySelectorAll('.ds-toggle').forEach(btn => {
       btn.addEventListener('click', () => { groupBy = btn.dataset.group; render(); });
@@ -215,6 +244,7 @@
   function unmount() {
     available = { enemies: [], weapons: [], versions: [] };
     selected  = { enemies: null, weapons: null, versions: null };
+    firstMover = 'either';
     groupBy   = 'enemy';
     versionDefaultsApplied = false;
     lastData  = null;

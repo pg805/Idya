@@ -25,6 +25,13 @@ export class CombatantState {
     // Reads at game_over to populate damage_dealt/damage_received on BattleLog.
     // Heals don't count (they go up, not down), which matches "damage taken".
     damage_taken = 0
+    // Per-battle action counters for the dev stats page. Only the player's
+    // counters are read; enemies have them too but go unused — keeping the
+    // type symmetric avoids a separate PlayerState class.
+    attack_crits = 0
+    aimed_attempted = 0
+    aimed_hit = 0
+    restores = 0
 
     constructor(
         name: string,

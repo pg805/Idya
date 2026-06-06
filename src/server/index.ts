@@ -883,10 +883,21 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   // BattleLog rows are tiny (~10 scalar cols, no joins). Even after a year of
   // play this stays well under a megabyte, so we pull everything once and
   // aggregate in JS — keeps the filter logic simple and the SQL boring.
+  // first_mover filter: 'player' / 'enemy' / absent (= either, no filter).
+  const firstMoverFilter = (() => {
+    const v = req.query.first_mover;
+    if (v === 'player' || v === 'enemy') return v;
+    return null;
+  })();
+
   const rows = await prisma.battleLog.findMany({
     select: {
       enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true,
-      player_hp_left: true, damage_dealt: true, damage_received: true, rounds_count: true,
+      started_at: true, ended_at: true,
+      player_hp_left: true, enemy_hp_left: true,
+      damage_dealt: true, damage_received: true, rounds_count: true,
+      crit_count: true, aimed_attempted: true, aimed_hit: true, restores: true,
+      player_went_first: true,
     },
   });
 
@@ -905,6 +916,8 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     if (enemyFilter   && !enemyFilter.includes(r.enemy)) return false;
     if (weaponFilter  && !weaponFilter.includes(w))      return false;
     if (versionFilter && !versionFilter.includes(v))     return false;
+    if (firstMoverFilter === 'player' && r.player_went_first !== true)  return false;
+    if (firstMoverFilter === 'enemy'  && r.player_went_first !== false) return false;
     return true;
   });
 
@@ -915,13 +928,32 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   // toggling Group By on the client is a pure presentation change.
   type Cell = {
     total: number; wins: number;
-    // Sums + counts so we can average HP-left over wins only and DPR/DTR over
-    // every row with a recorded rounds count. Legacy rows (pre-0.2.0) leave
-    // the four metric columns null, so we filter them out of the denominators.
+    // Sums + counts so we can take averages that ignore legacy NULL columns.
+    // Each metric has its own denominator because different metrics are
+    // populated on different rows: hp_left only on wins, enemy_hp_left only
+    // on losses, DPR/DTR only on rows with rounds_count, etc.
     hp_left_sum: number; hp_left_n: number;
+    enemy_hp_left_sum: number; enemy_hp_left_n: number;
     dpr_sum: number; dpr_n: number;
     dtr_sum: number; dtr_n: number;
+    crit_sum: number; crit_n: number;
+    aimed_attempted_sum: number; aimed_hit_sum: number;
+    restores_sum: number; restores_n: number;
+    duration_sum: number; duration_n: number;
   };
+  function newCell(): Cell {
+    return {
+      total: 0, wins: 0,
+      hp_left_sum: 0, hp_left_n: 0,
+      enemy_hp_left_sum: 0, enemy_hp_left_n: 0,
+      dpr_sum: 0, dpr_n: 0,
+      dtr_sum: 0, dtr_n: 0,
+      crit_sum: 0, crit_n: 0,
+      aimed_attempted_sum: 0, aimed_hit_sum: 0,
+      restores_sum: 0, restores_n: 0,
+      duration_sum: 0, duration_n: 0,
+    };
+  }
   const matchup: Record<string, Record<string, Cell>> = {};
 
   for (const r of filtered) {
@@ -929,12 +961,16 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
     weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
     const byW = matchup[r.enemy] ??= {};
-    const c   = byW[w] ??= { total: 0, wins: 0, hp_left_sum: 0, hp_left_n: 0, dpr_sum: 0, dpr_n: 0, dtr_sum: 0, dtr_n: 0 };
+    const c   = byW[w] ??= newCell();
     c.total += 1;
     if (r.outcome === 'win') c.wins += 1;
     if (r.outcome === 'win' && r.player_hp_left != null) {
       c.hp_left_sum += r.player_hp_left;
       c.hp_left_n   += 1;
+    }
+    if (r.outcome === 'loss' && r.enemy_hp_left != null) {
+      c.enemy_hp_left_sum += r.enemy_hp_left;
+      c.enemy_hp_left_n   += 1;
     }
     if (r.rounds_count != null && r.rounds_count > 0) {
       if (r.damage_dealt != null) {
@@ -946,6 +982,25 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
         c.dtr_n   += 1;
       }
     }
+    if (r.crit_count != null) {
+      c.crit_sum += r.crit_count;
+      c.crit_n   += 1;
+    }
+    if (r.aimed_attempted != null && r.aimed_hit != null) {
+      c.aimed_attempted_sum += r.aimed_attempted;
+      c.aimed_hit_sum       += r.aimed_hit;
+    }
+    if (r.restores != null) {
+      c.restores_sum += r.restores;
+      c.restores_n   += 1;
+    }
+    if (r.ended_at && r.started_at) {
+      const dur = (r.ended_at.getTime() - r.started_at.getTime()) / 1000;
+      if (dur > 0 && dur < 60 * 60 * 24) { // skip absurd outliers
+        c.duration_sum += dur;
+        c.duration_n   += 1;
+      }
+    }
   }
 
   const enemyNames  = loadEnemyNames();
@@ -955,30 +1010,48 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   type Row = {
     key: string; name: string;
     total: number; wins: number; win_rate: number;
-    avg_hp_left: number | null; avg_dpr: number | null; avg_dtr: number | null;
+    avg_hp_left: number | null; avg_enemy_hp_left: number | null;
+    avg_dpr: number | null; avg_dtr: number | null;
+    avg_crits: number | null; aimed_hit_rate: number | null;
+    avg_restores: number | null; avg_duration_s: number | null;
   };
   function row(key: string, name: string, c: Cell): Row {
     return {
       key, name,
-      total:       c.total,
-      wins:        c.wins,
-      win_rate:    c.total > 0 ? c.wins / c.total : 0,
-      avg_hp_left: c.hp_left_n > 0 ? c.hp_left_sum / c.hp_left_n : null,
-      avg_dpr:     c.dpr_n     > 0 ? c.dpr_sum     / c.dpr_n     : null,
-      avg_dtr:     c.dtr_n     > 0 ? c.dtr_sum     / c.dtr_n     : null,
+      total:             c.total,
+      wins:              c.wins,
+      win_rate:          c.total > 0 ? c.wins / c.total : 0,
+      avg_hp_left:       c.hp_left_n        > 0 ? c.hp_left_sum        / c.hp_left_n        : null,
+      avg_enemy_hp_left: c.enemy_hp_left_n  > 0 ? c.enemy_hp_left_sum  / c.enemy_hp_left_n  : null,
+      avg_dpr:           c.dpr_n            > 0 ? c.dpr_sum            / c.dpr_n            : null,
+      avg_dtr:           c.dtr_n            > 0 ? c.dtr_sum            / c.dtr_n            : null,
+      avg_crits:         c.crit_n           > 0 ? c.crit_sum           / c.crit_n           : null,
+      aimed_hit_rate:    c.aimed_attempted_sum > 0 ? c.aimed_hit_sum / c.aimed_attempted_sum : null,
+      avg_restores:      c.restores_n       > 0 ? c.restores_sum       / c.restores_n       : null,
+      avg_duration_s:    c.duration_n       > 0 ? c.duration_sum       / c.duration_n       : null,
     };
   }
   function groupTotals(cells: Cell[]): Cell {
     return cells.reduce((a, b) => ({
-      total:       a.total + b.total,
-      wins:        a.wins + b.wins,
-      hp_left_sum: a.hp_left_sum + b.hp_left_sum,
-      hp_left_n:   a.hp_left_n + b.hp_left_n,
-      dpr_sum:     a.dpr_sum + b.dpr_sum,
-      dpr_n:       a.dpr_n + b.dpr_n,
-      dtr_sum:     a.dtr_sum + b.dtr_sum,
-      dtr_n:       a.dtr_n + b.dtr_n,
-    }), { total: 0, wins: 0, hp_left_sum: 0, hp_left_n: 0, dpr_sum: 0, dpr_n: 0, dtr_sum: 0, dtr_n: 0 });
+      total:               a.total + b.total,
+      wins:                a.wins + b.wins,
+      hp_left_sum:         a.hp_left_sum + b.hp_left_sum,
+      hp_left_n:           a.hp_left_n + b.hp_left_n,
+      enemy_hp_left_sum:   a.enemy_hp_left_sum + b.enemy_hp_left_sum,
+      enemy_hp_left_n:     a.enemy_hp_left_n + b.enemy_hp_left_n,
+      dpr_sum:             a.dpr_sum + b.dpr_sum,
+      dpr_n:               a.dpr_n + b.dpr_n,
+      dtr_sum:             a.dtr_sum + b.dtr_sum,
+      dtr_n:               a.dtr_n + b.dtr_n,
+      crit_sum:            a.crit_sum + b.crit_sum,
+      crit_n:              a.crit_n + b.crit_n,
+      aimed_attempted_sum: a.aimed_attempted_sum + b.aimed_attempted_sum,
+      aimed_hit_sum:       a.aimed_hit_sum + b.aimed_hit_sum,
+      restores_sum:        a.restores_sum + b.restores_sum,
+      restores_n:          a.restores_n + b.restores_n,
+      duration_sum:        a.duration_sum + b.duration_sum,
+      duration_n:          a.duration_n + b.duration_n,
+    }), newCell());
   }
 
   const perEnemy = Object.entries(matchup).map(([enemyKey, byW]) => {
@@ -3058,6 +3131,15 @@ async function logBattlePerEnemy(
   const playerHpLeft    = playerState?.health ?? 0;
   const damageReceived  = playerState?.damage_taken ?? 0;
   const roundsCount     = meta.rounds.filter(r => r.turn > 0).length;
+  const critCount       = playerState?.attack_crits ?? 0;
+  const aimedAttempted  = playerState?.aimed_attempted ?? 0;
+  const aimedHit        = playerState?.aimed_hit ?? 0;
+  const restores        = playerState?.restores ?? 0;
+  // Lower initiativeRank = acts sooner. Player went first iff their rank
+  // is the lowest of any combatant in the session.
+  const playerCombatant = session.combatants.find(c => c.id === 'player-1');
+  const minEnemyRank    = enemies.reduce((m, e) => Math.min(m, e.initiativeRank), Number.POSITIVE_INFINITY);
+  const playerWentFirst = playerCombatant != null && playerCombatant.initiativeRank < minEnemyRank;
   const korelShareBase  = Math.trunc(korelDelta / enemies.length);
   const korelRemainder  = korelDelta - korelShareBase * enemies.length;
 
@@ -3065,24 +3147,31 @@ async function logBattlePerEnemy(
     const c = enemies[i];
     const enemyState = session.meta.get(c.id)?.state;
     const damageDealt = enemyState?.damage_taken ?? 0;
+    const enemyHpLeft = enemyState?.health ?? 0;
     // Strip the A/B suffix so all rows for the same enemy type aggregate
     // under one key in the dev stats page.
     const baseName = c.name.replace(/ [A-Z]$/, '');
     const korelForRow = korelShareBase + (i === 0 ? korelRemainder : 0);
     const battleLog = await prisma.battleLog.create({ data: {
-      discord_id:      meta.discordUserId,
-      character_id:    characterId,
-      enemy:           baseName,
+      discord_id:        meta.discordUserId,
+      character_id:      characterId,
+      enemy:             baseName,
       outcome,
-      korel_delta:     korelForRow,
-      loot:            i === 0 ? lootSummary : null,
-      started_at:      meta.startedAt,
-      version:         APP_VERSION,
-      weapon_key:      meta.weaponKey,
-      player_hp_left:  playerHpLeft,
-      damage_dealt:    damageDealt,
-      damage_received: damageReceived,
-      rounds_count:    roundsCount,
+      korel_delta:       korelForRow,
+      loot:              i === 0 ? lootSummary : null,
+      started_at:        meta.startedAt,
+      version:           APP_VERSION,
+      weapon_key:        meta.weaponKey,
+      player_hp_left:    playerHpLeft,
+      enemy_hp_left:     enemyHpLeft,
+      damage_dealt:      damageDealt,
+      damage_received:   damageReceived,
+      rounds_count:      roundsCount,
+      crit_count:        critCount,
+      aimed_attempted:   aimedAttempted,
+      aimed_hit:         aimedHit,
+      restores,
+      player_went_first: playerWentFirst,
     }}).catch(() => null);
     // Round log is shared across the battle; only attach it once.
     if (battleLog && i === 0 && meta.rounds.length > 0) {

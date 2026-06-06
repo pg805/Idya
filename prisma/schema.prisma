@@ -87,12 +87,21 @@ model BattleLog {
   weapon_key   String?
   // Per-battle metrics for the dev stats page. NULL on pre-0.2.0 rows.
   // Multi-enemy battles emit one row per enemy; player-side metrics
-  // (player_hp_left, damage_received, rounds_count) repeat across rows.
-  player_hp_left   Int?
-  damage_dealt     Int?
-  damage_received  Int?
-  rounds_count     Int?
-  rounds           BattleRoundLog?
+  // (player_hp_left, damage_received, rounds_count, crit_count,
+  // aimed_attempted, aimed_hit, restores, player_went_first) repeat
+  // across rows. Enemy-side metrics (damage_dealt, enemy_hp_left) are
+  // per-enemy.
+  player_hp_left     Int?
+  enemy_hp_left      Int?
+  damage_dealt       Int?
+  damage_received    Int?
+  rounds_count       Int?
+  crit_count         Int?
+  aimed_attempted    Int?
+  aimed_hit          Int?
+  restores           Int?
+  player_went_first  Boolean?
+  rounds             BattleRoundLog?
 }
 
 model BattleRoundLog {

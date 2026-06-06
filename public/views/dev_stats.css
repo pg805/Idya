@@ -121,6 +121,8 @@
 .ds-enemy-card h3 { font-size: 0.95rem; color: var(--gold); }
 .ds-enemy-meta { font-size: 0.75rem; color: var(--text-faint); }
 
+.ds-table-wrap { overflow-x: auto; }
+
 .ds-table {
   width: 100%;
   border-collapse: collapse;
