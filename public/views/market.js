@@ -129,8 +129,8 @@
           <h3>${esc(shop.name)}</h3>
           <span class="mk-shop-meta">${shop.items.length} item${shop.items.length === 1 ? '' : 's'}</span>
         </header>
-        ${itemsTableHtml(commodities, 'Commodities', '(normal price ↔ hot-demand price)')}
-        ${itemsTableHtml(valuables,   'Valuables',   '(low ↔ high range)')}
+        ${itemsTableHtml(commodities, 'Commodities', '(absolute floor ↔ ceiling — current usually sits near the floor)')}
+        ${itemsTableHtml(valuables,   'Valuables',   '(absolute floor ↔ ceiling — current floats mid-range)')}
       </section>`;
   }
 
@@ -151,7 +151,7 @@
     root.innerHTML = `
       <header class="mk-head">
         <h1 class="mk-title">Market</h1>
-        <p class="mk-sub-line">Live prices across every shop. The buy/sell ranges show where each item can naturally swing during regular trading — actual prices can briefly drift outside on heavy trading.</p>
+        <p class="mk-sub-line">Live prices across every shop. The buy/sell ranges show the absolute band the price can ever swing within — current prices will move inside, but never outside, these bounds.</p>
       </header>
       <div class="mk-filters">
         <div class="mk-filter-row"><span class="mk-filter-label">Shops</span><div class="mk-chips">${chipsHtml('shops', shops)}</div></div>

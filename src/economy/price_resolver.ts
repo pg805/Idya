@@ -18,32 +18,13 @@ import { loadShop, type ShopItemListing } from './shop_loader.js';
 import { loadAllRecipes, type Recipe } from './recipe_loader.js';
 import { effectiveMultiplier, xToMultiplier, clamp } from './shop_math.js';
 
-// The logistic map x_{t+1} = R·x·(1−x) has a single stable fixed point at
-// (R−1)/R when R ≤ 3, but at R > 3 the fixed point becomes unstable and
-// x settles into a period-2 cycle bouncing between two values:
-//
-//   x± = ((R+1) ± √((R+1)(R−3))) / (2R)
-//
-// For our purposes (valuables with R up to 3.99), the period-2 envelope is
-// what determines the actual price extremes — using the fixed point alone
-// underestimates the range. R can range from item.r to item.r_max, so the
-// lowest x reached is the period-2 minimum at R_max, and the highest is
-// the period-2 maximum at R_max (since both diverge from the fixed point
-// as R climbs).
-function expectedXRange(rBase: number, rMax: number): { min: number; max: number } {
-  const fixedAt = (r: number) => Math.max(0, (r - 1) / r);
-  if (rMax <= 3) {
-    return { min: fixedAt(rBase), max: fixedAt(rMax) };
-  }
-  const disc  = Math.max(0, (rMax + 1) * (rMax - 3));
-  const sqrtD = Math.sqrt(disc);
-  const xMinus = ((rMax + 1) - sqrtD) / (2 * rMax);
-  const xPlus  = ((rMax + 1) + sqrtD) / (2 * rMax);
-  return {
-    min: Math.min(fixedAt(rBase), xMinus),
-    max: Math.max(fixedAt(rBase), xPlus),
-  };
-}
+// The xToMultiplier curve bottoms at 0.25 (x=0) and peaks at 4 (x=1). The
+// expected price range uses these absolute bounds for everything — equilibrium
+// math underestimated the lower bound on prod where heavy selling pressure
+// pushes x well below the R curve's resting point, and the absolute band is
+// the only honest "the price can never escape this" answer.
+const MULT_MIN = 0.25;
+const MULT_MAX = 4;
 
 export type Side = 'buy' | 'sell';
 export interface PriceRange { min: number; max: number; }
@@ -145,15 +126,11 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const entry = itemIndex.get(itemId);
     if (!entry) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
 
-    // Structural range only — uses the item's R settings to compute the
-    // logistic envelope and turns x directly into a multiplier. Skips
-    // effectiveMultiplier so neither current stock nor stock_influence
-    // sneaks in; the range is meant to be a stable reference players use
-    // to read where the current price sits, not something that moves
-    // around with state.
-    const xRange = expectedXRange(entry.listing.r, entry.listing.r_max);
-    const minMult = xToMultiplier(clamp(xRange.min, 0, 1));
-    const maxMult = xToMultiplier(clamp(xRange.max, 0, 1));
+    // Absolute multiplier bounds — independent of R settings, stock, or
+    // current x. For crafted items, each ingredient's own range composes
+    // naturally through the recursive call below.
+    const minMult = MULT_MIN;
+    const maxMult = MULT_MAX;
 
     const recipe = craftedIndex.get(itemId);
     let range: PriceRange | null;
