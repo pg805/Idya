@@ -16,12 +16,19 @@ import fs from 'fs';
 import prisma from '../database/prisma.js';
 import { loadShop, type ShopItemListing } from './shop_loader.js';
 import { loadAllRecipes, type Recipe } from './recipe_loader.js';
-import { effectiveMultiplier } from './shop_math.js';
+import { effectiveMultiplier, xToMultiplier, clamp } from './shop_math.js';
 
 export type Side = 'buy' | 'sell';
+export interface PriceRange { min: number; max: number; }
 
 export interface PricingContext {
   currentPrice(itemId: string, side: Side): Promise<number | null>;
+  // Expected price range using the R curve's equilibrium x values. The floor
+  // is xToMultiplier((R - 1) / R) — what an item with no demand settles to —
+  // and the ceiling is xToMultiplier((R_max - 1) / R_max) — peak demand
+  // equilibrium. Transaction shocks can briefly push beyond, but this is the
+  // "honest day-to-day band" players should see.
+  currentRange(itemId: string, side: Side): Promise<PriceRange | null>;
   recipeFor(itemId: string): Recipe | undefined;
   shopOf(itemId: string): { shopKey: string; listing: ShopItemListing } | undefined;
 }
@@ -100,8 +107,62 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     return price;
   }
 
+  const rangeMemo = new Map<string, PriceRange | null>();
+
+  async function currentRange(itemId: string, side: Side, visited = new Set<string>()): Promise<PriceRange | null> {
+    const key = `${itemId}:${side}`;
+    if (rangeMemo.has(key)) return rangeMemo.get(key) ?? null;
+    if (visited.has(itemId)) return null;
+    visited.add(itemId);
+
+    const entry = itemIndex.get(itemId);
+    if (!entry) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
+
+    // Equilibrium x bounds for this item's R curve, then turn them into
+    // multipliers. Stock_influence is left at its current value because it
+    // describes the structural shape of the curve for this item, not a
+    // transient state — and current stock isn't an "expected range" input.
+    const state = await prisma.shopItemState.findUnique({
+      where: { shop_id_item_id: { shop_id: entry.shopKey, item_id: itemId } },
+    });
+    const stock = state?.stock ?? Math.floor(entry.listing.stock_max / 2);
+    const minX = clamp((entry.listing.r - 1) / entry.listing.r, 0, 1);
+    const maxX = clamp((entry.listing.r_max - 1) / entry.listing.r_max, 0, 1);
+    const minMult = effectiveMultiplier(entry.listing, minX, stock);
+    const maxMult = effectiveMultiplier(entry.listing, maxX, stock);
+
+    const recipe = craftedIndex.get(itemId);
+    let range: PriceRange | null;
+    if (recipe) {
+      let inputMin = 0, inputMax = 0;
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (!ingrId) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
+        const ingrRange = await currentRange(ingrId, side, visited);
+        if (!ingrRange) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
+        inputMin += ingrRange.min * ingr.quantity;
+        inputMax += ingrRange.max * ingr.quantity;
+      }
+      const margin = side === 'buy' ? recipe.margin_buy : recipe.margin_sell;
+      const outputQty = recipe.output.quantity ?? 1;
+      range = {
+        min: (inputMin / outputQty) * margin * minMult,
+        max: (inputMax / outputQty) * margin * maxMult,
+      };
+    } else {
+      const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
+      if (base == null) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
+      range = { min: base * minMult, max: base * maxMult };
+    }
+
+    rangeMemo.set(key, range);
+    visited.delete(itemId);
+    return range;
+  }
+
   return {
     currentPrice: (itemId, side) => currentPrice(itemId, side),
+    currentRange: (itemId, side) => currentRange(itemId, side),
     recipeFor: (itemId) => craftedIndex.get(itemId),
     shopOf: (itemId) => itemIndex.get(itemId),
   };

@@ -30,6 +30,7 @@ import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
+import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
 import { ITEMS } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
@@ -822,6 +823,80 @@ app.get('/api/info/reference', (_req: Request, res: Response) => {
 
 app.get('/api/info/about', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
+});
+
+// Public market overview: every shop item's current price, expected R-curve
+// range, and how long until the daily tick rolls. Useful for players watching
+// for cheap buying windows or peak selling opportunities. Recomputes per
+// request — no caching, since prices only meaningfully change on tick.
+app.get('/api/info/market', async (_req: Request, res: Response) => {
+  const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
+  const TICK_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  type MarketRow = {
+    shop_id:           string;
+    shop_name:         string;
+    item_id:           string;
+    item_name:         string;
+    item_type:         string;
+    source:            'raw' | 'recipe';
+    recipe_id:         string | null;
+    current_buy:       number | null;
+    current_sell:      number | null;
+    min_expected_buy:  number | null;
+    max_expected_buy:  number | null;
+    min_expected_sell: number | null;
+    max_expected_sell: number | null;
+    last_tick:         string | null;
+    seconds_to_next_tick: number | null;
+  };
+  const rows: MarketRow[] = [];
+
+  for (const file of fs.readdirSync(SHOP_DIR).filter(f => f.endsWith('.yaml'))) {
+    const shopKey = file.replace(/\.yaml$/, '');
+    let config;
+    try { config = loadShop(shopKey, SHOP_DIR); }
+    catch { continue; }
+
+    for (const item of config.items) {
+      const recipe = ctx.recipeFor(item.id);
+      const [curBuy, curSell, rangeBuy, rangeSell, state] = await Promise.all([
+        ctx.currentPrice(item.id, 'buy'),
+        ctx.currentPrice(item.id, 'sell'),
+        ctx.currentRange(item.id, 'buy'),
+        ctx.currentRange(item.id, 'sell'),
+        prisma.shopItemState.findUnique({
+          where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+        }),
+      ]);
+
+      const lastTick = state?.last_tick ?? null;
+      const secondsToNextTick = lastTick
+        ? Math.max(0, Math.round((lastTick.getTime() + TICK_MS - now) / 1000))
+        : null;
+
+      rows.push({
+        shop_id:           shopKey,
+        shop_name:         config.name,
+        item_id:           item.id,
+        item_name:         ITEMS[item.id]?.name ?? item.id,
+        item_type:         ITEMS[item.id]?.type ?? 'unknown',
+        source:            recipe ? 'recipe' : 'raw',
+        recipe_id:         recipe?.id ?? null,
+        current_buy:       curBuy  == null ? null : Math.round(curBuy),
+        current_sell:      curSell == null ? null : Math.round(curSell),
+        min_expected_buy:  rangeBuy?.min  != null ? Math.round(rangeBuy.min)  : null,
+        max_expected_buy:  rangeBuy?.max  != null ? Math.round(rangeBuy.max)  : null,
+        min_expected_sell: rangeSell?.min != null ? Math.round(rangeSell.min) : null,
+        max_expected_sell: rangeSell?.max != null ? Math.round(rangeSell.max) : null,
+        last_tick:         lastTick ? lastTick.toISOString() : null,
+        seconds_to_next_tick: secondsToNextTick,
+      });
+    }
+  }
+
+  res.json({ items: rows });
 });
 
 // ---- Dev Stats ----
