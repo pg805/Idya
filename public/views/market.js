@@ -9,6 +9,14 @@
   let selected = { shops: null, categories: null };
   let timerHandle = null;
 
+  // Mirror the order shops appear in the sidebar so cards line up with
+  // navigation. Shops not in the list fall to the end alphabetically.
+  const SHOP_ORDER = ['general_store', 'blacksmith', 'lumberjack', 'enchanting_shop', 'temple'];
+  function shopRank(shopId) {
+    const i = SHOP_ORDER.indexOf(shopId);
+    return i === -1 ? SHOP_ORDER.length : i;
+  }
+
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -28,7 +36,9 @@
   function availableShops() {
     const seen = new Map();
     for (const r of rows) if (!seen.has(r.shop_id)) seen.set(r.shop_id, r.shop_name);
-    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => shopRank(a.id) - shopRank(b.id));
   }
   const CATEGORIES = [
     { id: 'commodity', name: 'Commodities' },
@@ -59,7 +69,7 @@
     });
   }
 
-  function rowsByShop() {
+  function shopsInOrder() {
     const filtered = filteredRows();
     const byShop = new Map();
     for (const r of filtered) {
@@ -69,7 +79,7 @@
     for (const shop of byShop.values()) {
       shop.items.sort((a, b) => a.item_name.localeCompare(b.item_name));
     }
-    return byShop;
+    return [...byShop.values()].sort((a, b) => shopRank(a.id) - shopRank(b.id));
   }
 
   async function loadData() {
@@ -83,34 +93,7 @@
     render();
   }
 
-  function commodityRowsHtml(items) {
-    if (items.length === 0) return '';
-    const trs = items.map(r => `
-      <tr>
-        <td>${esc(r.item_name)}${r.source === 'recipe' ? '<span class="mk-tag">crafted</span>' : ''}</td>
-        <td class="mk-num">${fmtPrice(r.current_buy)}</td>
-        <td class="mk-num mk-hi">${fmtPrice(r.max_expected_buy)}</td>
-        <td class="mk-num">${fmtPrice(r.current_sell)}</td>
-        <td class="mk-num mk-hi">${fmtPrice(r.max_expected_sell)}</td>
-        <td class="mk-num mk-countdown" data-seconds="${r.seconds_to_next_tick ?? ''}">${fmtCountdown(r.seconds_to_next_tick)}</td>
-      </tr>
-    `).join('');
-    return `
-      <h4 class="mk-sub">Commodities <span class="mk-hint">(current price vs hot-demand ceiling)</span></h4>
-      <table class="mk-table">
-        <thead><tr>
-          <th>Item</th>
-          <th class="mk-th-num">Buy</th>
-          <th class="mk-th-num" title="Buy price if demand spikes">Hot buy</th>
-          <th class="mk-th-num">Sell</th>
-          <th class="mk-th-num" title="Sell price if demand spikes">Hot sell</th>
-          <th class="mk-th-num">Next tick</th>
-        </tr></thead>
-        <tbody>${trs}</tbody>
-      </table>`;
-  }
-
-  function valuableRowsHtml(items) {
+  function itemsTableHtml(items, label) {
     if (items.length === 0) return '';
     const trs = items.map(r => `
       <tr>
@@ -123,7 +106,7 @@
       </tr>
     `).join('');
     return `
-      <h4 class="mk-sub">Valuables <span class="mk-hint">(low ↔ high range)</span></h4>
+      <h4 class="mk-sub">${label}</h4>
       <table class="mk-table">
         <thead><tr>
           <th>Item</th>
@@ -146,8 +129,8 @@
           <h3>${esc(shop.name)}</h3>
           <span class="mk-shop-meta">${shop.items.length} item${shop.items.length === 1 ? '' : 's'}</span>
         </header>
-        ${commodities.length > 0 ? commodityRowsHtml(commodities) : ''}
-        ${valuables.length > 0 ? valuableRowsHtml(valuables) : ''}
+        ${itemsTableHtml(commodities, 'Commodities')}
+        ${itemsTableHtml(valuables,   'Valuables')}
       </section>`;
   }
 
@@ -163,13 +146,12 @@
     if (!root) return;
 
     const shops = availableShops();
-    const byShop = rowsByShop();
-    const cards = [...byShop.values()].map(shopCardHtml).join('');
+    const cards = shopsInOrder().map(shopCardHtml).join('');
 
     root.innerHTML = `
       <header class="mk-head">
         <h1 class="mk-title">Market</h1>
-        <p class="mk-sub-line">Live prices across every shop. Commodities show the resting price and the ceiling demand can push them to. Valuables float in a low–high band.</p>
+        <p class="mk-sub-line">Live prices across every shop. The buy/sell ranges show where each item can naturally swing during regular trading — actual prices can briefly drift outside on heavy trading.</p>
       </header>
       <div class="mk-filters">
         <div class="mk-filter-row"><span class="mk-filter-label">Shops</span><div class="mk-chips">${chipsHtml('shops', shops)}</div></div>
