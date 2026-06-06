@@ -93,7 +93,7 @@
     body.innerHTML = `
       <header class="mk-head">
         <h1 class="mk-title">Market</h1>
-        <p class="mk-sub">Live prices across every shop. Expected ranges are the floor and ceiling the R curve naturally settles between — actual prices can briefly drift outside these on heavy trading.</p>
+        <p class="mk-sub">Live prices across every shop. Expected ranges are the floor and ceiling during regular trading — actual prices can briefly drift outside these on heavy trading.</p>
       </header>
       <div class="mk-filters">${shopChips}</div>
       <div class="mk-table-wrap">
