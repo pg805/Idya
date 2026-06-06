@@ -123,6 +123,11 @@ ships here instead.
   spins up a fresh one. Client redirects on app init.
 - `game.js` bounces to `/app/` on `"Session not found"`, so a dead
   `/battle/X` URL self-heals into a fresh tutorial via the layout flow.
+- Tutorial enemy now starts at pattern index 0 instead of randomizing
+  like live hunts do. Fendalok's per-turn asides time off the YAML's
+  intended action sequence; the random start was desyncing them.
+  `loadEnemy` gained a `randomizePatternStart?: boolean` option (true
+  by default) so live hunts keep their variety.
 
 ### Dev stats page (`/app/dev/stats`)
 
