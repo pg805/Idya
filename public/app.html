@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="/views/hunt.css">
   <link rel="stylesheet" href="/views/trade.css">
   <link rel="stylesheet" href="/views/create.css">
+  <link rel="stylesheet" href="/views/dev_stats.css">
   <link rel="stylesheet" href="/tour.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
@@ -59,6 +60,10 @@
         <a class="nav-link" data-path="/reference">Reference</a>
         <a class="nav-link" data-path="/about">About</a>
       </div>
+      <div class="nav-group nav-group-dev" hidden>
+        <p class="nav-label">Dev</p>
+        <a class="nav-link" data-path="/dev/stats">Battle Stats</a>
+      </div>
     </nav>
 
     <main id="app-content"></main>
@@ -85,6 +90,7 @@
   <script src="/views/trade.js"></script>
   <script src="/views/trade-start.js"></script>
   <script src="/views/create.js"></script>
+  <script src="/views/dev_stats.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

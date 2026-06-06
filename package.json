@@ -17,7 +17,8 @@
     "build": "tsc --project tsconfig.json",
     "lint": "eslint . --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "simulate": "npm run build && node ./lib/tools/simulate.js"
+    "simulate": "npm run build && node ./lib/tools/simulate.js",
+    "sim:save": "npm run build && node -e \"const v=require('./package.json').version; require('child_process').execSync('node ./lib/tools/simulate.js --json docs/sim/'+v+'.json',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

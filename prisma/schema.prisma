@@ -82,6 +82,9 @@ model BattleLog {
   loot         String?
   started_at   DateTime
   ended_at     DateTime        @default(now())
+  // Filterable on the dev stats page. NULL on pre-0.2.0 rows.
+  version      String?
+  weapon_key   String?
   rounds       BattleRoundLog?
 }
 

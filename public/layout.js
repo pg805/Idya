@@ -22,6 +22,9 @@ async function mountLayout({ title } = {}) {
     if (res.ok) layoutData = await res.json();
   } catch (_) {}
   renderLayout();
+  // Reveal the dev-only sidebar group once we know who's logged in.
+  const devGroup = document.querySelector('.nav-group-dev');
+  if (devGroup) devGroup.hidden = !layoutData?.is_dev;
   window.dispatchEvent(new CustomEvent('layout-changed'));
 }
 

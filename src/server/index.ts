@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -823,6 +823,142 @@ app.get('/api/info/about', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
 });
 
+// ---- Dev Stats ----
+// Pre-0.2.0 rows have NULL version/weapon_key; they bucket under these labels
+// in the filter UI so legacy data stays selectable instead of disappearing.
+const PRE_VERSION_LABEL = 'pre-0.2.0';
+const UNKNOWN_WEAPON_LABEL = 'unknown';
+
+function loadWeaponNames(): Record<string, string> {
+  const dir = join(__dirname, '../../database/weapons');
+  const out: Record<string, string> = {};
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
+    const key = file.replace('.yaml', '');
+    try {
+      const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+      const weapon = (raw['Weapon'] as Record<string, unknown> | undefined);
+      out[key] = (weapon?.['Name'] as string) ?? key;
+    } catch { out[key] = key; }
+  }
+  return out;
+}
+
+function loadEnemyNames(): Record<string, string> {
+  const dir = join(__dirname, '../../database/enemies');
+  const out: Record<string, string> = {};
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
+    const key = file.replace('.yaml', '');
+    try {
+      const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+      out[key] = (raw['Name'] as string) ?? key;
+    } catch { out[key] = key; }
+  }
+  return out;
+}
+
+function loadSimForVersion(version: string): unknown | null {
+  // Sim JSON is regenerated on version bump (npm run sim:save) and committed
+  // under docs/sim/. We only render it on the dev environment because numbers
+  // change with balance tuning and showing them on prod would confuse players
+  // who can see anything routed through the auth-gated APIs in the browser.
+  if (process.env.NODE_ENV === 'production') return null;
+  const path = join(__dirname, `../../docs/sim/${version}.json`);
+  if (!fs.existsSync(path)) return null;
+  try { return JSON.parse(fs.readFileSync(path, 'utf-8')); } catch { return null; }
+}
+
+app.get('/api/dev/stats', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const parseList = (v: unknown): string[] | null => {
+    if (typeof v !== 'string' || v.trim() === '') return null;
+    return v.split(',').map(s => s.trim()).filter(Boolean);
+  };
+  const enemyFilter   = parseList(req.query.enemies);
+  const weaponFilter  = parseList(req.query.weapons);
+  const versionFilter = parseList(req.query.versions);
+
+  // BattleLog rows are tiny (~10 scalar cols, no joins). Even after a year of
+  // play this stays well under a megabyte, so we pull everything once and
+  // aggregate in JS — keeps the filter logic simple and the SQL boring.
+  const rows = await prisma.battleLog.findMany({
+    select: { enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true },
+  });
+
+  const seenVersions = new Set<string>();
+  const seenWeapons  = new Set<string>();
+  const seenEnemies  = new Set<string>();
+  for (const r of rows) {
+    seenVersions.add(r.version ?? PRE_VERSION_LABEL);
+    seenWeapons.add(r.weapon_key ?? UNKNOWN_WEAPON_LABEL);
+    seenEnemies.add(r.enemy);
+  }
+
+  const filtered = rows.filter(r => {
+    const v = r.version ?? PRE_VERSION_LABEL;
+    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    if (enemyFilter   && !enemyFilter.includes(r.enemy)) return false;
+    if (weaponFilter  && !weaponFilter.includes(w))      return false;
+    if (versionFilter && !versionFilter.includes(v))     return false;
+    return true;
+  });
+
+  const enemyHistogram:  Record<string, number> = {};
+  const weaponHistogram: Record<string, number> = {};
+  type EnemyAgg = { total: number; wins: number; korel_total: number; per_weapon: Record<string, { total: number; wins: number }> };
+  const perEnemy: Record<string, EnemyAgg> = {};
+
+  for (const r of filtered) {
+    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
+    weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
+    const agg = perEnemy[r.enemy] ??= { total: 0, wins: 0, korel_total: 0, per_weapon: {} };
+    agg.total += 1;
+    if (r.outcome === 'win') agg.wins += 1;
+    agg.korel_total += r.korel_delta;
+    const wa = agg.per_weapon[w] ??= { total: 0, wins: 0 };
+    wa.total += 1;
+    if (r.outcome === 'win') wa.wins += 1;
+  }
+
+  const enemyNames  = loadEnemyNames();
+  const weaponNames = loadWeaponNames();
+  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+
+  res.json({
+    available: {
+      enemies:  [...seenEnemies].sort().map(k => ({ key: k, name: enemyNames[k]  ?? k })),
+      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponNames[k] ?? k })),
+      versions: [...seenVersions].sort((a, b) => a === PRE_VERSION_LABEL ? -1 : b === PRE_VERSION_LABEL ? 1 : a.localeCompare(b, undefined, { numeric: true })),
+    },
+    histograms: {
+      enemies:  Object.entries(enemyHistogram).map(([key, count]) => ({ key, name: enemyNames[key]  ?? key, count })).sort((a, b) => b.count - a.count),
+      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponNames[key] ?? key, count })).sort((a, b) => b.count - a.count),
+    },
+    per_enemy: Object.entries(perEnemy).map(([enemyKey, agg]) => ({
+      key:        enemyKey,
+      name:       enemyNames[enemyKey] ?? enemyKey,
+      total:      agg.total,
+      wins:       agg.wins,
+      losses:     agg.total - agg.wins,
+      win_rate:   agg.total > 0 ? agg.wins / agg.total : 0,
+      avg_korel:  agg.total > 0 ? agg.korel_total / agg.total : 0,
+      per_weapon: Object.entries(agg.per_weapon).map(([wk, wa]) => ({
+        key:      wk,
+        name:     weaponNames[wk] ?? wk,
+        total:    wa.total,
+        wins:     wa.wins,
+        win_rate: wa.total > 0 ? wa.wins / wa.total : 0,
+      })).sort((a, b) => b.total - a.total),
+    })).sort((a, b) => b.total - a.total),
+    total_battles: filtered.length,
+    sim:           loadSimForVersion(APP_VERSION),
+    app_version:   APP_VERSION,
+  });
+});
+
 // ---- Hunt ----
 
 function loadEnemySummary(enemyKey: EnemyKey): { name: string; health: number; drops: Array<{ item_id: string; name: string; type: string; field: number[] }> } | null {
@@ -929,7 +1065,7 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
   const rounds: { turn: number; log: string[] }[] = huntSession.initiativeLog.length > 0
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: new Date(), rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -1153,6 +1289,7 @@ app.get('/api/layout', async (req: Request, res: Response) => {
     spriteToken:   char.sprite_token,
     spriteCdn:     worldConfig.sprite_cdn,
     korel:         dbUser?.korel ?? 0,
+    is_dev:        isDev(discordId),
     professions: Object.fromEntries(
       PROFESSIONS.map(p => [p, {
         label:    PROFESSION_NAMES[p],
@@ -2546,6 +2683,7 @@ io.on('connection', (socket: Socket) => {
             enemy: meta.enemyName, outcome: 'win',
             korel_delta: korelEarned, loot: rewardSummary,
             started_at: meta.startedAt,
+            version: APP_VERSION, weapon_key: meta.weaponKey,
           }}).catch(() => null);
           if (winLog && meta.rounds.length > 0) {
             await prisma.battleRoundLog.create({ data: { battle_id: winLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
@@ -2600,6 +2738,7 @@ io.on('connection', (socket: Socket) => {
             discord_id: meta.discordUserId, character_id: char.id,
             enemy: meta.enemyName, outcome: 'loss',
             korel_delta: -fee, started_at: meta.startedAt,
+            version: APP_VERSION, weapon_key: meta.weaponKey,
           }}).catch(() => null);
           if (lossLog && meta.rounds.length > 0) {
             await prisma.battleRoundLog.create({ data: { battle_id: lossLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
@@ -2660,7 +2799,7 @@ io.on('connection', (socket: Socket) => {
       const freshRounds: { turn: number; log: string[] }[] = fresh.initiativeLog.length > 0
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: freshRounds });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: new Date(), rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -2897,7 +3036,7 @@ async function bootstrapNewCharacter(
   const tutorialRounds: { turn: number; log: string[] }[] = charSession.initiativeLog.length > 0
     ? [{ turn: 0, log: charSession.initiativeLog }]
     : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: tutorialRounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: new Date(), rounds: tutorialRounds });
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 
