@@ -1,5 +1,45 @@
 /* View: Hunt — bait card grid */
 
+.hunt-active {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hunt-active h2 {
+  font-size: 0.7rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hunt-active-list { display: flex; flex-direction: column; gap: 6px; }
+.hunt-active-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+}
+.hunt-active-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hunt-active-name { color: var(--text-2); font-size: 0.85rem; }
+.hunt-active-meta { color: var(--text-faint); font-size: 0.7rem; }
+.hunt-active-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.hunt-resume, .hunt-forfeit {
+  font-size: 0.72rem;
+  padding: 5px 12px;
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+.hunt-resume { background: var(--gold-dim); color: var(--bg-deep); border-color: var(--gold-dim); }
+.hunt-resume:hover { filter: brightness(1.1); }
+.hunt-forfeit { background: transparent; color: var(--text-faint); }
+.hunt-forfeit:hover { color: #e08070; border-color: #6e3a35; }
+
+
 #hunt-body {
   max-width: 1100px;
   margin: 0 auto;

@@ -54,6 +54,16 @@
   font-family: monospace;
   flex-shrink: 0;
 }
+.inv-tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  padding: 2px 7px;
+  background: var(--bg-deep);
+  color: var(--gold-dim);
+  border: 1px solid var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 .inv-meta {
   font-size: 0.68rem;
   color: var(--text-faint);

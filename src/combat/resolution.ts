@@ -154,6 +154,13 @@ export function resolveIntents(
       return;
     }
 
+    // Counters for the dev stats page. Resource-restore turns (cost < 0)
+    // tell us if the weapon's resource economy is too tight; aimed-attempt
+    // and aimed-hit feed the "kiting / aimed-attack hit rate" metric.
+    if (action.cost < 0) actorMeta.state.restores += 1;
+    const isDamagingAttack = action.type === ActionType.Strike || action.type === ActionType.DamageOverTime;
+    if (action.aimed && isDamagingAttack) actorMeta.state.aimed_attempted += 1;
+
     if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
       pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
       return;
@@ -190,9 +197,11 @@ export function resolveIntents(
 
       const targetMeta = session.meta.get(occupant.id);
       if (!targetMeta) return;
+      if (isDamagingAttack) actorMeta.state.aimed_hit += 1;
       pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(occupant.id)?.action.type === 'special') {
+        actorMeta.state.attack_crits += 1;
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
@@ -214,6 +223,7 @@ export function resolveIntents(
       pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
       if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
           intents.get(target.id)?.action.type === 'special') {
+        actorMeta.state.attack_crits += 1;
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
@@ -235,6 +245,8 @@ export function resolveIntents(
           log.push(deathKind === 'dot'
             ? `${c.name} is defeated by damage over time!`
             : `${c.name} is defeated!`);
+          const dyingMeta = session.meta.get(c.id);
+          if (dyingMeta) session.deadCombatants.push({ combatant: c, meta: dyingMeta });
           session.meta.delete(c.id);
           return false;
         }
@@ -293,6 +305,8 @@ export function resolveIntents(
     if (c.hp <= 0) {
       const team = session.teams.find(t => t.id === c.teamId);
       if (team) team.combatants = team.combatants.filter(x => x.id !== c.id);
+      const dyingMeta = session.meta.get(c.id);
+      if (dyingMeta) session.deadCombatants.push({ combatant: c, meta: dyingMeta });
       session.meta.delete(c.id);
       log.push(`${c.name} is defeated by damage over time!`);
       const alive = session.teams.filter(t => t.combatants.length > 0);

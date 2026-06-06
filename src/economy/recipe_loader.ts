@@ -26,7 +26,13 @@ export interface Recipe {
   required_level: number;
   ingredients:    RecipeIngredient[];
   output:         RecipeOutput;
+  // Shop pricing margins applied on top of (Σ ingredient × qty). Default 1.1
+  // for both — "10% over input cost" baseline; recipes can override.
+  margin_buy:     number;
+  margin_sell:    number;
 }
+
+const DEFAULT_MARGIN = 1.1;
 
 export function loadAllRecipes(recipesDir: string): Recipe[] {
   if (!fs.existsSync(recipesDir)) return [];
@@ -58,6 +64,8 @@ export function loadAllRecipes(recipesDir: string): Recipe[] {
           kind:       out['kind']       as 'minor' | 'major' | undefined,
           category:   out['category']   as 'physical' | 'arcane' | 'elemental' | undefined,
         },
+        margin_buy:  (r['margin_buy']  as number | undefined) ?? DEFAULT_MARGIN,
+        margin_sell: (r['margin_sell'] as number | undefined) ?? DEFAULT_MARGIN,
       });
     }
   }

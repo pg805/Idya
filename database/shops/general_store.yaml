@@ -1,4 +1,4 @@
-Name: The General Store
+Name: The Fifth Regiment General Store
 NPC: Dolan
 Title: Shopkeeper
 Greeting: "Dolan glances up from behind the counter. 'Take a look around.'"
@@ -18,6 +18,17 @@ Items:
 
   - id: sulfolk_bait
     Base_Buy: 5
+    Base_Sell: null
+    R: 1.0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: tin_bait
+    Base_Buy: 3
     Base_Sell: null
     R: 1.0
     R_Max: 2.5

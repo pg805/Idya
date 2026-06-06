@@ -1,10 +1,27 @@
 import fs from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import prisma from '../database/prisma.js';
 import type { ShopItemListing, ShopConfig } from './shop_loader.js';
 import { loadShop } from './shop_loader.js';
 import { clamp, currentR, logisticStep, xToMultiplier, effectiveMultiplier } from './shop_math.js';
-import { ITEMS } from './items.js';
+import { buildPricingContext, type PricingContext, type Side } from './price_resolver.js';
+import { ITEMS, isUnlock } from './items.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+
+// Default search paths so callers don't have to thread directories through —
+// the only places we call from are the running server (lib/) and the cli
+// test harness, both of which use the same layout.
+const SHOPS_DIR_DEFAULT   = join(__dirname, '../../database/shops');
+const RECIPES_DIR_DEFAULT = join(__dirname, '../../database/recipes');
+
+// Selling a crafted item only partly counts toward ingredient demand —
+// the shop now stocks the crafted form, not the inputs. 0.5× felt right
+// for "still involves the materials" without making sell-side dominate.
+const INGREDIENT_PROPAGATION_BUY  = 1.0;
+const INGREDIENT_PROPAGATION_SELL = 0.5;
 
 const TICK_INTERVAL_MS    = 24 * 60 * 60 * 1000;
 const DESTOCK_INTERVAL_MS = 60 * 60 * 1000;  // hourly overflow flush, decoupled from daily price tick
@@ -124,24 +141,72 @@ export async function tickAllDue(shopDir: string): Promise<number> {
 }
 
 export async function getPrices(shopKey: string, config: ShopConfig): Promise<PricedItem[]> {
-  const results: PricedItem[] = [];
-
+  // First pass: make sure every item in this shop is ticked/destocked so the
+  // resolver reads up-to-date x/stock state. Cross-shop ingredient lookups
+  // hit whatever state those items have — they get their own tick when
+  // someone visits that shop (or via the background tickAllDue sweep).
   for (const item of config.items) {
     let state = await getOrCreateState(shopKey, item);
     state = await maybeHourlyDestock(shopKey, item, state);
-    state = await maybeTickDaily(shopKey, item, state);
+    await maybeTickDaily(shopKey, item, state);
+  }
 
-    const mult = effectiveMultiplier(item, state.x, state.stock);
+  // One pricing context per request — the resolver memoizes inside it so
+  // shared ingredients (thuvel showing up in four recipes) only get priced
+  // once.
+  const ctx = buildPricingContext(SHOPS_DIR_DEFAULT, RECIPES_DIR_DEFAULT);
+  const results: PricedItem[] = [];
+
+  for (const item of config.items) {
+    const state = await prisma.shopItemState.findUniqueOrThrow({
+      where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+    });
+    const [buyPrice, sellPrice] = await Promise.all([
+      ctx.currentPrice(item.id, 'buy'),
+      ctx.currentPrice(item.id, 'sell'),
+    ]);
 
     results.push({
       ...item,
-      buy:           item.base_buy  != null ? Math.round(item.base_buy  * mult) : undefined,
-      sell:          item.base_sell != null ? Math.round(item.base_sell * mult) : undefined,
+      buy:           buyPrice  == null ? undefined : Math.round(buyPrice),
+      sell:          sellPrice == null ? undefined : Math.round(sellPrice),
       current_stock: state.stock,
     });
   }
 
   return results;
+}
+
+// When a crafted item changes hands, the implicit demand for its components
+// flows through to their recent_volume. Buying hiruos pulls thuvel demand
+// up (full effect); selling hiruos back to the shop nudges thuvel demand
+// up half as hard (the shop now stocks hiruos, not raw thuvel, so the
+// ingredient market only partly cares).
+async function propagateToIngredients(
+  itemId: string,
+  quantity: number,
+  side: Side,
+  ctx: PricingContext,
+) {
+  const recipe = ctx.recipeFor(itemId);
+  if (!recipe) return;
+  const factor = side === 'buy' ? INGREDIENT_PROPAGATION_BUY : INGREDIENT_PROPAGATION_SELL;
+  for (const ingr of recipe.ingredients) {
+    const ingrId = ingr.item_id ?? ingr.weapon_id;
+    if (!ingrId) continue;
+    const ingrShop = ctx.shopOf(ingrId);
+    if (!ingrShop) continue;
+    const bump = Math.round(quantity * ingr.quantity * factor);
+    if (bump <= 0) continue;
+    await prisma.shopItemState.update({
+      where: { shop_id_item_id: { shop_id: ingrShop.shopKey, item_id: ingrId } },
+      data:  { recent_volume: { increment: BigInt(bump) } },
+    }).catch(() => {}); // missing ShopItemState shouldn't break the parent transaction
+    // Recurse: if the ingredient is itself crafted (e.g., a tier-3 recipe
+    // taking tier-2 outputs), its components feel the pull too. Bounded by
+    // the recipe DAG so this terminates.
+    await propagateToIngredients(ingrId, quantity * ingr.quantity, side, ctx);
+  }
 }
 
 async function applyTransactionShock(shopKey: string, item: ShopItemListing, quantity: number, isBuy: boolean) {
@@ -171,6 +236,18 @@ export async function buyItem(
   quantity: number,
 ): Promise<{ success: boolean; message: string }> {
   if (item.buy == null) return { success: false, message: 'Not for sale.' };
+
+  // Unlock items: one copy per character, ever. Reject duplicates and clamp
+  // the request to a single item even if the player asked for more.
+  if (isUnlock(item.id)) {
+    const existing = await prisma.inventoryItem.findUnique({
+      where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
+    });
+    if (existing && existing.quantity >= 1) {
+      return { success: false, message: 'You already have one.' };
+    }
+    quantity = 1;
+  }
 
   if (!item.infinite) {
     const state = await prisma.shopItemState.findUniqueOrThrow({
@@ -219,6 +296,8 @@ export async function buyItem(
 
   if (result.success) {
     await applyTransactionShock(shopKey, item, quantity, true);
+    const ctx = buildPricingContext(SHOPS_DIR_DEFAULT, RECIPES_DIR_DEFAULT);
+    await propagateToIngredients(item.id, quantity, 'buy', ctx);
   }
   return result;
 }
@@ -231,6 +310,7 @@ export async function sellItem(
   quantity: number,
 ): Promise<{ success: boolean; message: string }> {
   if (item.sell == null) return { success: false, message: "This shop doesn't buy that." };
+  if (isUnlock(item.id)) return { success: false, message: "You can't part with that." };
 
   const state = await prisma.shopItemState.findUniqueOrThrow({
     where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
@@ -277,6 +357,8 @@ export async function sellItem(
 
   if (result.success) {
     await applyTransactionShock(shopKey, item, actualQty, false);
+    const ctx = buildPricingContext(SHOPS_DIR_DEFAULT, RECIPES_DIR_DEFAULT);
+    await propagateToIngredients(item.id, actualQty, 'sell', ctx);
   }
   return result;
 }

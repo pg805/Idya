@@ -28,10 +28,39 @@ src/
 
 database/
 ├── config.json          # Bot token (CLIENT_TOKEN)
-├── weapons/             # Weapon JSON definitions
-├── enemies/             # Enemy JSON definitions
-└── players/             # (unused)
+├── weapons/             # Weapon YAML definitions
+├── enemies/             # Enemy YAML definitions
+├── shops/               # Shop YAML definitions
+└── recipes/             # Crafting recipe YAML
+
+docs/                    # All markdown — dev docs and SPA-served content
+├── CHANGELOG.md         # Detailed dev changelog
+├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
+├── PRD.md               # Vision / product requirements
+├── alpha_checklist.md   # TODOs before alpha
+├── battle-ideas.md      # Design ideas / future work for combat
+├── npc-dialogue-system.md
+├── rules.md
+├── demo.md
+├── reference.md         # Served at /api/info/reference (Reference info page)
+├── about.md             # Served at /api/info/about (About info page)
+└── lore/
+    ├── world.md         # Designer-facing world doc — NOT served
+    ├── world_player.md  # Served at /api/info/lore (Lore info page)
+    └── names.md         # Name pool
 ```
+
+### Which markdown files are player-facing?
+
+Only the three loaded by `/api/info/*` endpoints in `src/server/index.ts`:
+
+| File | Endpoint | SPA route |
+|---|---|---|
+| `docs/reference.md` | `/api/info/reference` | `/app/reference` |
+| `docs/about.md` | `/api/info/about` | `/app/about` |
+| `docs/lore/world_player.md` | `/api/info/lore` | `/app/lore` |
+
+Everything else under `docs/` is dev-only. When adding a new doc, decide first whether it's player-facing — if so, wire a `/api/info/*` endpoint to it and add a sidebar link in `public/app.html` + route in `public/app.js`.
 
 ## Key Concepts
 
@@ -85,7 +114,7 @@ Bot token goes in `database/config.json`:
 - Classes: `PascalCase` with underscores (`Player_Character`)
 - Methods: `camelCase`
 - JSON files: `snake_case`
-- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=Debuff, 5=Heal, 6=DOT, 7=Reflect, 8=Shield
+- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=DOT, 5=Debuff, 6=Heal, 7=Reflect, 8=Shield
 - Action templates use placeholders: `<User>`, `<Target>`, `<Damage>`
 - `Aimed: false` is the in-game term **reactive** — attack fires without targeting a specific tile
 - `Aimed: true` is the in-game term **aimed** — player selects a target tile before the attack resolves

@@ -1,4 +1,13 @@
-export type ItemType = 'material' | 'valuable' | 'consumable';
+export type ItemType = 'material' | 'valuable' | 'consumable' | 'unlock';
+
+// Items of type 'unlock' are permanent — once a character owns one, the
+// quantity is always 1 and they can't sell, trade, give away, or consume it.
+// They're typically issued by NPCs/shops to gate access to content (hunting a
+// specific enemy, entering a place, etc.). Hunt start checks the bait type
+// and skips consumption if it's an unlock.
+export function isUnlock(itemId: string): boolean {
+  return ITEMS[itemId]?.type === 'unlock';
+}
 
 export type ItemDef = { name: string; description: string; type: ItemType };
 
@@ -38,13 +47,14 @@ export const ITEMS: Record<string, ItemDef> = {
     wand_base_alloy:      { name: 'Wand Base (Alloy)',    description: 'A rod of refined alloy. Channels arcane energy with exceptional precision.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
-    swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones. Draws lithkem swallows out of the trees.',   type: 'consumable' },
+    swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },
     sulfolk_bait: { name: 'Sulfolk Bait',  description: 'A bundle of fresh-cut branches. Sulfolk can\'t resist investigating.',                  type: 'consumable' },
     wyrm_bait:    { name: 'Wyrm Bait',     description: 'A chunk of raw talamite ore. Talwyrm are drawn to the mineral scent.',                  type: 'consumable' },
     deer_bait:    { name: 'Deer Bait',     description: 'A pouch of dried herbs from the forest floor. Daefen deer follow the smell for miles.', type: 'consumable' },
     toad_bait:    { name: 'Toad Bait',     description: 'A jar of murky pond water. Maetoads surface when they smell their own.',                type: 'consumable' },
     bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
     tar_bait:     { name: 'Tar Bait',      description: 'A pungent slick of black resin. Golnosar nest in tar pools and rise when they smell their own.', type: 'consumable' },
+    tin_bait:     { name: 'Tin Bait',      description: 'A rattling pouch of polished tin shavings. Tinpul mistake the sound for one of their own.', type: 'consumable' },
 
     // Misc materials sold at the general store
     card_deck:    { name: 'Card Deck',     description: 'A simple deck of cards with the Chae emperor, Gustavus, as the king. Common in town, occasionally enchanted by those who know how.', type: 'material'   },
@@ -60,4 +70,23 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
     bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
     lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
+
+    // Enemy trophies — permanent character-bound mementos granted on the
+    // first defeat of each enemy. The defeated-count shown on each is queried
+    // live from BattleLog, not stored on the item. Map enemy_key → trophy_id
+    // is just `${enemy_key}_trophy`.
+    lithkem_swallow_trophy: { name: 'Swallow Trophy', description: 'A bronzed feather from your first lithkem swallow kill.',                  type: 'unlock' },
+    sulfolk_trophy:         { name: 'Sulfolk Trophy', description: 'A dried husk pulled from a fallen sulfolk. The plant matter still moves a little.', type: 'unlock' },
+    talwyrm_trophy:         { name: 'Talwyrm Trophy', description: 'A polished crystal tooth, mounted on a worn cord.',                       type: 'unlock' },
+    daefen_deer_trophy:     { name: 'Daefen Deer Trophy', description: 'A small ember of antler — the fire never quite went out.',           type: 'unlock' },
+    maetoad_trophy:         { name: 'Maetoad Trophy', description: 'A dried Maek-gland on a leather thong. Still faintly warm.',              type: 'unlock' },
+    golnosar_trophy:        { name: 'Golnosar Trophy', description: 'A sliver of hardened tar, pressed into the shape of a coin.',            type: 'unlock' },
+    melbear_trophy:         { name: 'Melbear Trophy', description: 'A single claw from a melbear, wrapped at the base in dyed sinew.',        type: 'unlock' },
+    tinpul_trophy:          { name: 'Tinpul Trophy', description: 'A flattened scrap of tin, beaten thin enough to wear.',                    type: 'unlock' },
 };
+
+// Convention used by the trophy grant + inventory enrichment paths.
+export function trophyIdFor(enemyKey: string): string { return `${enemyKey}_trophy`; }
+export function enemyKeyFromTrophy(trophyId: string): string | null {
+  return trophyId.endsWith('_trophy') ? trophyId.slice(0, -'_trophy'.length) : null;
+}

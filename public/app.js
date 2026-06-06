@@ -23,6 +23,9 @@ function routeFromPath(path) {
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/create')               return { viewName: 'create',  params: {} };
   if (path === '/weapon-stats')         return { viewName: 'weapons', params: {} };
+  if (path === '/market')               return { viewName: 'market', params: {} };
+  if (path === '/stats')                return { viewName: 'stats', params: {} };
+  if (path === '/dev/stats')            return { viewName: 'dev_stats', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
   const t = path.match(/^\/trade\/([^/]+)$/);
@@ -81,6 +84,13 @@ window.addEventListener('popstate', () => {
 (async function init() {
   await claimAuthFromUrl();
   await mountLayout({ title: 'Idya' });
+  // Tutorial resilience: if /api/layout handed back a tutorial session,
+  // hop straight into it. Don't loop if the user is already on /battle.
+  const layoutData = window.getLayoutData?.();
+  if (layoutData?.tutorial_session_id && !location.pathname.startsWith('/battle/')) {
+    location.href = `/battle/${layoutData.tutorial_session_id}`;
+    return;
+  }
   await navigate(viewPathFromUrl(), { push: false });
   // After the layout + first view are in the DOM, trigger the sidebar walkthrough
   // when the URL forces it (?tour=1, set by the tutorial's Go to Town link).

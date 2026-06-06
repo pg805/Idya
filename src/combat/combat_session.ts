@@ -91,6 +91,10 @@ export class CombatSession {
   // every join_session so refreshers / late-joiners see it too, and
   // persisted as a synthetic "turn 0" entry in the battle log.
   initiativeLog: string[] = [];
+  // Snapshots of combatants removed by the reaper mid-battle. Lets the
+  // game_over handler read per-enemy damage / HP / etc. even after the
+  // turn loop has cleaned them out of teams and meta.
+  readonly deadCombatants: Array<{ combatant: Combatant; meta: CombatantMeta }> = [];
 
   constructor(id: string, boardConfig: BoardConfig, teams: Team[]) {
     this.id = id;

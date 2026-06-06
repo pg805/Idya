@@ -39,14 +39,68 @@
   }
 
   async function loadData() {
-    const res = await fetch('/api/hunt');
+    // Two fetches in parallel — hunt info (baits, tutorial status) and the
+    // user's active battles (returns [] for users with no in-flight session).
+    const [huntRes, activeRes] = await Promise.all([
+      fetch('/api/hunt'),
+      fetch('/api/active-battles'),
+    ]);
     const body = document.getElementById('hunt-body');
-    if (!res.ok) {
+    if (!huntRes.ok) {
       body.innerHTML = `<p class="hunt-empty">Could not load hunt info.</p>`;
       return;
     }
-    data = await res.json();
+    data = await huntRes.json();
+    data.active_battles = activeRes.ok ? (await activeRes.json()).battles : [];
     render();
+  }
+
+  function ageText(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    return `${d}d ago`;
+  }
+
+  function activeBattlesHtml(battles) {
+    if (!battles || battles.length === 0) return '';
+    const rows = battles.map(b => `
+      <div class="hunt-active-row" data-session="${esc(b.session_id)}">
+        <div class="hunt-active-info">
+          <span class="hunt-active-name">${b.is_tutorial ? 'Tutorial — ' : ''}${esc(b.enemy_name)}</span>
+          <span class="hunt-active-meta">${b.rounds} round${b.rounds === 1 ? '' : 's'} · last move ${ageText(b.last_activity_at)}</span>
+        </div>
+        <div class="hunt-active-actions">
+          <button class="hunt-resume" data-session="${esc(b.session_id)}">Resume</button>
+          ${b.is_tutorial ? '' : `<button class="hunt-forfeit" data-session="${esc(b.session_id)}">Forfeit</button>`}
+        </div>
+      </div>
+    `).join('');
+    return `
+      <section class="hunt-active">
+        <h2>Active battles</h2>
+        <div class="hunt-active-list">${rows}</div>
+      </section>
+    `;
+  }
+
+  function bindActiveBattleButtons(root) {
+    root.querySelectorAll('.hunt-resume').forEach(btn => {
+      btn.addEventListener('click', () => { location.href = `/battle/${btn.dataset.session}`; });
+    });
+    root.querySelectorAll('.hunt-forfeit').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Forfeit this battle?')) return;
+        btn.disabled = true;
+        const res = await fetch(`/api/active-battles/${btn.dataset.session}/forfeit`, { method: 'POST' });
+        if (res.ok) await loadData();
+        else btn.disabled = false;
+      });
+    });
   }
 
   function render() {
@@ -58,8 +112,10 @@
           <h1 class="hunt-title">Sulkupa Forest</h1>
           <p class="hunt-sub">The forest is closed to you for now.</p>
         </header>
-        <p class="hunt-empty">Talk to Fendalok first — use <code>/battle</code> in Discord to begin the tutorial.</p>
+        ${activeBattlesHtml(data.active_battles)}
+        <p class="hunt-empty">Finish the tutorial first.</p>
       `;
+      bindActiveBattleButtons(body);
       return;
     }
 
@@ -112,6 +168,7 @@
         <h1 class="hunt-title">Sulkupa Forest</h1>
         <p class="hunt-sub">Pick a bait. One bait is consumed each hunt.</p>
       </header>
+      ${activeBattlesHtml(data.active_battles)}
       <div class="hunt-grid">${cardsHtml}</div>
       <p id="hunt-error" class="hunt-error" hidden></p>
     `;
@@ -119,6 +176,7 @@
     body.querySelectorAll('.hunt-start').forEach(btn => {
       btn.addEventListener('click', () => startHunt(btn.dataset.bait, btn, btn.dataset.count ? parseInt(btn.dataset.count, 10) : 1));
     });
+    bindActiveBattleButtons(body);
     bindNav(body);
   }
 

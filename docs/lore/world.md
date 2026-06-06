@@ -45,6 +45,23 @@ Player characters are Chae or Ketulvu by origin, arriving in Sulku'it with littl
 
 ---
 
+## Places
+
+Canonical names for the locations in and around Sulku'it. The YAML `Name:` field on each shop should match these — drift here is the kind of bug that surfaces on info pages months later (the Market page in 0.2.0 surfaced exactly this).
+
+| Place | Canonical name | Notes |
+|---|---|---|
+| Town hunting grounds | **Sulkupa Forest** | The forest the Hunt page describes. |
+| General store | **The Fifth Regiment General Store** | Dolan's shop. Named for his old 5th Division. |
+| Blacksmith | **Barrel Hopp Blacksmith** | Kethalis's smithy. |
+| Lumberjack | **Velvet Hat Lumberjack** | Vetha's workshop. |
+| Enchanting shop | **Sidaev Tome Enchanting Shop** | Lomis's shop — half workshop, half library. |
+| Temple | **Temple Ketul** | Lithona tends it. |
+
+Sidebar nav uses the short category labels ("Blacksmith", "Lumberjack", etc.) for navigation. Those are intentional shorthand — they're NOT the shop names.
+
+---
+
 ## NPCs
 
 ---

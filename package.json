@@ -4,7 +4,7 @@
   "//3": "updating this file will download and update your packages",
   "name": "idya",
   "type": "module",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "RPG Bot",
   "author": "pg805",
   "main": "./src/discord/init.ts",
@@ -17,7 +17,9 @@
     "build": "tsc --project tsconfig.json",
     "lint": "eslint . --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "simulate": "npm run build && node ./lib/tools/simulate.js"
+    "simulate": "npm run build && node ./lib/tools/simulate.js",
+    "sim:save": "npm run build && node -e \"const v=require('./package.json').version; require('child_process').execSync('node ./lib/tools/simulate.js --json docs/sim/'+v+'.json',{stdio:'inherit'})\"",
+    "price:smoke": "npm run build && node ./lib/tools/price_smoke.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

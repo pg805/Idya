@@ -2,6 +2,8 @@
 (function() {
   let data = null;
 
+  // Unlock items live on the dedicated Stats page now; we hide them here so
+  // the inventory stays focused on tradeable / usable stuff.
   const TYPE_LABEL = { material: 'Materials', consumable: 'Consumables', valuable: 'Valuables' };
   const TYPE_ORDER = ['material', 'consumable', 'valuable'];
 

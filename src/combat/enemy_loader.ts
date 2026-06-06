@@ -51,6 +51,10 @@ export function loadEnemy(file: string, options: {
   teamId: string;
   pos: { x: number; y: number };
   movementRange?: number;
+  // Tutorial battles need a fixed starting pattern index so the lessons play
+  // out in the order the YAML lays them out. Real hunts randomize so two of
+  // the same enemy don't telegraph identical actions.
+  randomizePatternStart?: boolean;
 }): { combatant: Combatant; meta: CombatantMeta; lootTable: LootTable } {
   const data = yaml.load(fs.readFileSync(file, 'utf-8')) as EnemyData;
 
@@ -87,8 +91,10 @@ export function loadEnemy(file: string, options: {
 
   // Start at a random index in the pattern so two of the same enemy on the
   // same board don't telegraph identical actions every turn — adds variety
-  // and makes second-enemy spawns feel different from the first.
-  const startIndex = pattern.field.length > 0
+  // and makes second-enemy spawns feel different from the first. Tutorials
+  // opt out so the lesson plays in YAML order.
+  const randomize = options.randomizePatternStart ?? true;
+  const startIndex = randomize && pattern.field.length > 0
     ? Math.floor(Math.random() * pattern.field.length)
     : 0;
 

@@ -5,13 +5,18 @@ import { reachableTiles } from './movement.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
 
-interface ResolvedEntry {
+export interface ResolvedEntry {
   choice: ActionChoice;
   actionIndex: number;
   action: Action;
 }
 
-function findAffordableEntry(meta: CombatantMeta): ResolvedEntry | null {
+// Walks the AI's pattern starting from the current index, returning the first
+// entry the AI can afford to use right now. Exported so the telegraph code can
+// reuse it — the telegraph must show what the AI will *actually* do, not just
+// the action at the current pattern index (which might be unaffordable and
+// will get skipped during intent generation).
+export function findAffordableEntry(meta: CombatantMeta): ResolvedEntry | null {
   const { weapon, pattern, patternIndex, state } = meta;
 
   for (let i = 0; i < pattern.length; i++) {
@@ -77,17 +82,11 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
     };
   }
 
-  const finalPos = moveTo ?? ai.pos;
-  const distAfterMove = chebyshevDist(finalPos, target.pos);
-
-  if (distAfterMove > action.range) {
-    return {
-      combatantId: ai.id,
-      moveTo,
-      action: { type: 'pass', actionIndex: 0, targetPos: null },
-    };
-  }
-
+  // Let out-of-range actions fire and miss instead of silently passing —
+  // resolution.ts already pays the resource cost and logs an "out of range"
+  // line for both aimed and reactive paths, which is the right user-facing
+  // feedback. The AI commits to the pattern entry; bad positioning is its
+  // own punishment.
   return {
     combatantId: ai.id,
     moveTo,

@@ -240,14 +240,58 @@ function printTable(weapons: { key: string; name: string; level: number; weapon:
     console.log(`  N = ${N.toLocaleString()} battles per matchup\n`);
 }
 
+// ---- JSON dump ----
+// `--json <path>` skips the stdout table and writes a canonical sim file the
+// dev stats page can render. Schema is intentionally flat (one row per
+// weapon × enemy) so the UI can pivot without re-deriving anything.
+function dumpJson(
+    weapons: { key: string; name: string; level: number; weapon: Weapon }[],
+    enemies: { key: string; data: EnemyData }[],
+    outPath: string,
+) {
+    const matchups: Array<{ weapon_key: string; weapon_name: string; weapon_level: number; enemy_key: string; enemy_name: string; enemy_level: number; enemy_hp: number } & Stats> = [];
+    for (const w of weapons) {
+        for (const e of enemies) {
+            const results: BattleResult[] = [];
+            for (let i = 0; i < N; i++) results.push(runBattle(w.weapon, e.data));
+            const s = aggregate(results);
+            matchups.push({
+                weapon_key: w.key, weapon_name: w.name, weapon_level: w.level,
+                enemy_key:  e.key, enemy_name:  e.data.Name, enemy_level: e.data.Level ?? 0, enemy_hp: e.data.Health,
+                ...s,
+            });
+        }
+    }
+    const payload = {
+        n_per_matchup: N,
+        max_rounds:    MAX_ROUNDS,
+        aim_hit_chance: AIM_HIT_CHANCE,
+        generated_at:  new Date().toISOString(),
+        matchups,
+    };
+    const dir = dirname(outPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(payload, null, 2));
+    console.log(`Wrote ${matchups.length} matchups to ${outPath}`);
+}
+
 // ---- Main ----
 
 const weapons = loadWeapons();
 const enemies = loadEnemies();
 
-console.log(`\nLoaded ${weapons.length} weapons, ${enemies.length} enemies`);
-console.log(`Running ${N.toLocaleString()} × ${weapons.length} × ${enemies.length} = ${(N * weapons.length * enemies.length).toLocaleString()} battles...\n`);
+const jsonFlag = process.argv.indexOf('--json');
+if (jsonFlag !== -1 && process.argv[jsonFlag + 1]) {
+    const outPath = process.argv[jsonFlag + 1];
+    console.log(`\nSimulating ${weapons.length} × ${enemies.length} matchups → ${outPath}`);
+    const start = Date.now();
+    dumpJson(weapons, enemies, outPath);
+    console.log(`Done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+} else {
+    console.log(`\nLoaded ${weapons.length} weapons, ${enemies.length} enemies`);
+    console.log(`Running ${N.toLocaleString()} × ${weapons.length} × ${enemies.length} = ${(N * weapons.length * enemies.length).toLocaleString()} battles...\n`);
 
-const start = Date.now();
-printTable(weapons, enemies);
-console.log(`Done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+    const start = Date.now();
+    printTable(weapons, enemies);
+    console.log(`Done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+}

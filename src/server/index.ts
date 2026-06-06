@@ -23,15 +23,16 @@ import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_sessio
 import { CombatantState } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
-import { generateAIIntent } from '../combat/ai.js';
+import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
+import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
-import { ITEMS } from '../economy/items.js';
+import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
@@ -53,7 +54,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; startedAt: Date; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -149,20 +150,16 @@ const TELEGRAPH: Record<string, Record<string, string>> = {
 function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[]): string {
   if (meta.pattern.length === 0 || enemies.length === 0) return '';
 
-  const entry = meta.pattern[meta.patternIndex];
-  const { weapon } = meta;
+  // Use the same affordability walk the AI does so the telegraph reflects the
+  // action that will actually fire — not whatever happens to be at the current
+  // pattern index (which the AI may skip because it can't afford it).
+  const resolved = findAffordableEntry(meta);
+  if (!resolved) return '';
 
-  const category =
-    entry.type === PatternActionType.Defend  ? 'defend'  :
-    entry.type === PatternActionType.Attack  ? 'attack'  : 'special';
+  const { choice, action } = resolved;
 
-  let action = null;
-  if (entry.type === PatternActionType.Defend)  action = weapon.defend[entry.index]  ?? null;
-  if (entry.type === PatternActionType.Attack)  action = weapon.attack[entry.index]  ?? null;
-  if (entry.type === PatternActionType.Special) action = weapon.special[entry.index] ?? null;
-
-  if (!action || SELF_TARGET_TYPES.has(action.type)) {
-    return TELEGRAPH[category].holding;
+  if (SELF_TARGET_TYPES.has(action.type)) {
+    return TELEGRAPH[choice].holding;
   }
 
   const nearest = enemies.reduce((a, b) =>
@@ -170,7 +167,7 @@ function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant
   );
   const dist = chebyshevDist(ai.pos, nearest.pos);
   const movement = dist <= action.range ? 'holding' : 'closing';
-  return TELEGRAPH[category][movement];
+  return TELEGRAPH[choice][movement];
 }
 
 function refreshTelegraphs(session: CombatSession): void {
@@ -185,7 +182,7 @@ function refreshTelegraphs(session: CombatSession): void {
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear', 'tinpul'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
@@ -196,6 +193,7 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
   toad_bait:    'maetoad',
   tar_bait:     'golnosar',
   bear_bait:    'melbear',
+  tin_bait:     'tinpul',
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 
@@ -482,6 +480,9 @@ function createSession(
       teamId: 'team-b',
       pos: layout.enemySpawns[i],
       movementRange: 2,
+      // Tutorial enemies always start at pattern index 0 so the lesson
+      // plays in the intended order (Fendalok's asides time off it).
+      randomizePatternStart: !isTutorial,
     });
     if (suffix !== null) {
       loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
@@ -816,15 +817,481 @@ function parseMarkdownSections(absPath: string): Array<{ title: string; body: st
 }
 
 app.get('/api/info/lore', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/lore/world_player.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/lore/world_player.md')) });
 });
 
 app.get('/api/info/reference', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/reference.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/reference.md')) });
 });
 
 app.get('/api/info/about', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/about.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
+});
+
+// Public market overview: every shop item's current price, expected R-curve
+// range, and how long until the daily tick rolls. Useful for players watching
+// for cheap buying windows or peak selling opportunities. Recomputes per
+// request — no caching, since prices only meaningfully change on tick.
+app.get('/api/info/market', async (_req: Request, res: Response) => {
+  const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
+  const TICK_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  // Item market category. Raw items use ITEMS[].type ('material' / 'consumable'
+  // → commodity; 'valuable' → valuable). Crafted items inherit: a recipe is a
+  // valuable if any ingredient walks back to a valuable, otherwise commodity.
+  // Memoized so a deep chain (kustaff → quarterstaff → sulwood) doesn't get
+  // re-classified per request.
+  const categoryMemo = new Map<string, 'commodity' | 'valuable'>();
+  function categoryOf(itemId: string, visited = new Set<string>()): 'commodity' | 'valuable' {
+    if (categoryMemo.has(itemId)) return categoryMemo.get(itemId)!;
+    if (visited.has(itemId)) return 'commodity';
+    visited.add(itemId);
+    const recipe = ctx.recipeFor(itemId);
+    let cat: 'commodity' | 'valuable';
+    if (recipe) {
+      cat = 'commodity';
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (!ingrId) continue;
+        if (categoryOf(ingrId, visited) === 'valuable') { cat = 'valuable'; break; }
+      }
+    } else {
+      const t = ITEMS[itemId]?.type;
+      cat = t === 'valuable' ? 'valuable' : 'commodity';
+    }
+    categoryMemo.set(itemId, cat);
+    visited.delete(itemId);
+    return cat;
+  }
+
+  type MarketRow = {
+    shop_id:           string;
+    shop_name:         string;
+    item_id:           string;
+    item_name:         string;
+    item_type:         string;
+    category:          'commodity' | 'valuable';
+    source:            'raw' | 'recipe';
+    recipe_id:         string | null;
+    current_buy:       number | null;
+    current_sell:      number | null;
+    min_expected_buy:  number | null;
+    max_expected_buy:  number | null;
+    min_expected_sell: number | null;
+    max_expected_sell: number | null;
+    last_tick:         string | null;
+    seconds_to_next_tick: number | null;
+  };
+  const rows: MarketRow[] = [];
+
+  for (const file of fs.readdirSync(SHOP_DIR).filter(f => f.endsWith('.yaml'))) {
+    const shopKey = file.replace(/\.yaml$/, '');
+    let config;
+    try { config = loadShop(shopKey, SHOP_DIR); }
+    catch { continue; }
+
+    for (const item of config.items) {
+      // Unlock items don't belong on the price overview — they have no
+      // tradeable value and live in the "claim once and keep forever" lane.
+      if (isUnlock(item.id)) continue;
+      const recipe = ctx.recipeFor(item.id);
+      const [curBuy, curSell, rangeBuy, rangeSell, state] = await Promise.all([
+        ctx.currentPrice(item.id, 'buy'),
+        ctx.currentPrice(item.id, 'sell'),
+        ctx.currentRange(item.id, 'buy'),
+        ctx.currentRange(item.id, 'sell'),
+        prisma.shopItemState.findUnique({
+          where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
+        }),
+      ]);
+
+      const lastTick = state?.last_tick ?? null;
+      const secondsToNextTick = lastTick
+        ? Math.max(0, Math.round((lastTick.getTime() + TICK_MS - now) / 1000))
+        : null;
+
+      rows.push({
+        shop_id:           shopKey,
+        shop_name:         config.name,
+        item_id:           item.id,
+        item_name:         ITEMS[item.id]?.name ?? item.id,
+        item_type:         ITEMS[item.id]?.type ?? 'unknown',
+        category:          categoryOf(item.id),
+        source:            recipe ? 'recipe' : 'raw',
+        recipe_id:         recipe?.id ?? null,
+        current_buy:       curBuy  == null ? null : Math.round(curBuy),
+        current_sell:      curSell == null ? null : Math.round(curSell),
+        min_expected_buy:  rangeBuy?.min  != null ? Math.round(rangeBuy.min)  : null,
+        max_expected_buy:  rangeBuy?.max  != null ? Math.round(rangeBuy.max)  : null,
+        min_expected_sell: rangeSell?.min != null ? Math.round(rangeSell.min) : null,
+        max_expected_sell: rangeSell?.max != null ? Math.round(rangeSell.max) : null,
+        last_tick:         lastTick ? lastTick.toISOString() : null,
+        seconds_to_next_tick: secondsToNextTick,
+      });
+    }
+  }
+
+  res.json({ items: rows });
+});
+
+// ---- Dev Stats ----
+// Pre-0.2.0 rows have NULL version/weapon_key; they bucket under these labels
+// in the filter UI so legacy data stays selectable instead of disappearing.
+const PRE_VERSION_LABEL = 'pre-0.2.0';
+const UNKNOWN_WEAPON_LABEL = 'unknown';
+
+function loadWeaponNames(): Record<string, string> {
+  const dir = join(__dirname, '../../database/weapons');
+  const out: Record<string, string> = {};
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
+    const key = file.replace('.yaml', '');
+    try {
+      const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+      const weapon = (raw['Weapon'] as Record<string, unknown> | undefined);
+      out[key] = (weapon?.['Name'] as string) ?? key;
+    } catch { out[key] = key; }
+  }
+  return out;
+}
+
+function loadEnemyNames(): Record<string, string> {
+  const dir = join(__dirname, '../../database/enemies');
+  const out: Record<string, string> = {};
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
+    const key = file.replace('.yaml', '');
+    try {
+      const raw = yaml.load(fs.readFileSync(join(dir, file), 'utf-8')) as Record<string, unknown>;
+      out[key] = (raw['Name'] as string) ?? key;
+    } catch { out[key] = key; }
+  }
+  return out;
+}
+
+function loadSimForVersion(version: string): unknown | null {
+  // Sim JSON is regenerated on version bump (npm run sim:save) and committed
+  // under docs/sim/. We only render it on the dev environment because numbers
+  // change with balance tuning and showing them on prod would confuse players
+  // who can see anything routed through the auth-gated APIs in the browser.
+  if (process.env.NODE_ENV === 'production') return null;
+  const path = join(__dirname, `../../docs/sim/${version}.json`);
+  if (!fs.existsSync(path)) return null;
+  try { return JSON.parse(fs.readFileSync(path, 'utf-8')); } catch { return null; }
+}
+
+app.get('/api/dev/stats', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const parseList = (v: unknown): string[] | null => {
+    if (typeof v !== 'string' || v.trim() === '') return null;
+    return v.split(',').map(s => s.trim()).filter(Boolean);
+  };
+  const enemyFilter   = parseList(req.query.enemies);
+  const weaponFilter  = parseList(req.query.weapons);
+  const versionFilter = parseList(req.query.versions);
+
+  // BattleLog rows are tiny (~10 scalar cols, no joins). Even after a year of
+  // play this stays well under a megabyte, so we pull everything once and
+  // aggregate in JS — keeps the filter logic simple and the SQL boring.
+  // first_mover filter: 'player' / 'enemy' / absent (= either, no filter).
+  const firstMoverFilter = (() => {
+    const v = req.query.first_mover;
+    if (v === 'player' || v === 'enemy') return v;
+    return null;
+  })();
+
+  const rows = await prisma.battleLog.findMany({
+    select: {
+      enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true,
+      started_at: true, ended_at: true,
+      player_hp_left: true, enemy_hp_left: true,
+      damage_dealt: true, damage_received: true, rounds_count: true,
+      crit_count: true, aimed_attempted: true, aimed_hit: true, restores: true,
+      player_went_first: true,
+    },
+  });
+
+  const seenVersions = new Set<string>();
+  const seenWeapons  = new Set<string>();
+  const seenEnemies  = new Set<string>();
+  for (const r of rows) {
+    seenVersions.add(r.version ?? PRE_VERSION_LABEL);
+    seenWeapons.add(r.weapon_key ?? UNKNOWN_WEAPON_LABEL);
+    seenEnemies.add(r.enemy);
+  }
+
+  const filtered = rows.filter(r => {
+    const v = r.version ?? PRE_VERSION_LABEL;
+    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    if (enemyFilter   && !enemyFilter.includes(r.enemy)) return false;
+    if (weaponFilter  && !weaponFilter.includes(w))      return false;
+    if (versionFilter && !versionFilter.includes(v))     return false;
+    if (firstMoverFilter === 'player' && r.player_went_first !== true)  return false;
+    if (firstMoverFilter === 'enemy'  && r.player_went_first !== false) return false;
+    return true;
+  });
+
+  const enemyHistogram:  Record<string, number> = {};
+  const weaponHistogram: Record<string, number> = {};
+  // Build a flat matchup table first, then pivot into per-enemy and per-weapon
+  // groupings. Keeping one source of truth means the two views can't drift —
+  // toggling Group By on the client is a pure presentation change.
+  type Cell = {
+    total: number; wins: number; forfeits: number;
+    // Sums + counts so we can take averages that ignore legacy NULL columns.
+    // Each metric has its own denominator because different metrics are
+    // populated on different rows: hp_left only on wins, enemy_hp_left only
+    // on losses, DPR/DTR only on rows with rounds_count, etc.
+    hp_left_sum: number; hp_left_n: number;
+    enemy_hp_left_sum: number; enemy_hp_left_n: number;
+    dpr_sum: number; dpr_n: number;
+    dtr_sum: number; dtr_n: number;
+    crit_sum: number; crit_n: number;
+    aimed_attempted_sum: number; aimed_hit_sum: number;
+    restores_sum: number; restores_n: number;
+    duration_sum: number; duration_n: number;
+  };
+  function newCell(): Cell {
+    return {
+      total: 0, wins: 0, forfeits: 0,
+      hp_left_sum: 0, hp_left_n: 0,
+      enemy_hp_left_sum: 0, enemy_hp_left_n: 0,
+      dpr_sum: 0, dpr_n: 0,
+      dtr_sum: 0, dtr_n: 0,
+      crit_sum: 0, crit_n: 0,
+      aimed_attempted_sum: 0, aimed_hit_sum: 0,
+      restores_sum: 0, restores_n: 0,
+      duration_sum: 0, duration_n: 0,
+    };
+  }
+  const matchup: Record<string, Record<string, Cell>> = {};
+
+  for (const r of filtered) {
+    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
+    weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
+    const byW = matchup[r.enemy] ??= {};
+    const c   = byW[w] ??= newCell();
+    c.total += 1;
+    if (r.outcome === 'win')     c.wins += 1;
+    if (r.outcome === 'forfeit') c.forfeits += 1;
+    if (r.outcome === 'win' && r.player_hp_left != null) {
+      c.hp_left_sum += r.player_hp_left;
+      c.hp_left_n   += 1;
+    }
+    if (r.outcome === 'loss' && r.enemy_hp_left != null) {
+      c.enemy_hp_left_sum += r.enemy_hp_left;
+      c.enemy_hp_left_n   += 1;
+    }
+    if (r.rounds_count != null && r.rounds_count > 0) {
+      if (r.damage_dealt != null) {
+        c.dpr_sum += r.damage_dealt / r.rounds_count;
+        c.dpr_n   += 1;
+      }
+      if (r.damage_received != null) {
+        c.dtr_sum += r.damage_received / r.rounds_count;
+        c.dtr_n   += 1;
+      }
+    }
+    if (r.crit_count != null) {
+      c.crit_sum += r.crit_count;
+      c.crit_n   += 1;
+    }
+    if (r.aimed_attempted != null && r.aimed_hit != null) {
+      c.aimed_attempted_sum += r.aimed_attempted;
+      c.aimed_hit_sum       += r.aimed_hit;
+    }
+    if (r.restores != null) {
+      c.restores_sum += r.restores;
+      c.restores_n   += 1;
+    }
+    if (r.ended_at && r.started_at) {
+      const dur = (r.ended_at.getTime() - r.started_at.getTime()) / 1000;
+      if (dur > 0 && dur < 60 * 60 * 24) { // skip absurd outliers
+        c.duration_sum += dur;
+        c.duration_n   += 1;
+      }
+    }
+  }
+
+  const enemyNames  = loadEnemyNames();
+  const weaponNames = loadWeaponNames();
+  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+
+  type Row = {
+    key: string; name: string;
+    total: number; wins: number; forfeits: number; win_rate: number;
+    avg_hp_left: number | null; avg_enemy_hp_left: number | null;
+    avg_dpr: number | null; avg_dtr: number | null;
+    avg_crits: number | null; aimed_hit_rate: number | null;
+    avg_restores: number | null; avg_duration_s: number | null;
+  };
+  function row(key: string, name: string, c: Cell): Row {
+    return {
+      key, name,
+      total:             c.total,
+      wins:              c.wins,
+      forfeits:          c.forfeits,
+      win_rate:          c.total > 0 ? c.wins / c.total : 0,
+      avg_hp_left:       c.hp_left_n        > 0 ? c.hp_left_sum        / c.hp_left_n        : null,
+      avg_enemy_hp_left: c.enemy_hp_left_n  > 0 ? c.enemy_hp_left_sum  / c.enemy_hp_left_n  : null,
+      avg_dpr:           c.dpr_n            > 0 ? c.dpr_sum            / c.dpr_n            : null,
+      avg_dtr:           c.dtr_n            > 0 ? c.dtr_sum            / c.dtr_n            : null,
+      avg_crits:         c.crit_n           > 0 ? c.crit_sum           / c.crit_n           : null,
+      aimed_hit_rate:    c.aimed_attempted_sum > 0 ? c.aimed_hit_sum / c.aimed_attempted_sum : null,
+      avg_restores:      c.restores_n       > 0 ? c.restores_sum       / c.restores_n       : null,
+      avg_duration_s:    c.duration_n       > 0 ? c.duration_sum       / c.duration_n       : null,
+    };
+  }
+  function groupTotals(cells: Cell[]): Cell {
+    return cells.reduce((a, b) => ({
+      total:               a.total + b.total,
+      wins:                a.wins + b.wins,
+      forfeits:            a.forfeits + b.forfeits,
+      hp_left_sum:         a.hp_left_sum + b.hp_left_sum,
+      hp_left_n:           a.hp_left_n + b.hp_left_n,
+      enemy_hp_left_sum:   a.enemy_hp_left_sum + b.enemy_hp_left_sum,
+      enemy_hp_left_n:     a.enemy_hp_left_n + b.enemy_hp_left_n,
+      dpr_sum:             a.dpr_sum + b.dpr_sum,
+      dpr_n:               a.dpr_n + b.dpr_n,
+      dtr_sum:             a.dtr_sum + b.dtr_sum,
+      dtr_n:               a.dtr_n + b.dtr_n,
+      crit_sum:            a.crit_sum + b.crit_sum,
+      crit_n:              a.crit_n + b.crit_n,
+      aimed_attempted_sum: a.aimed_attempted_sum + b.aimed_attempted_sum,
+      aimed_hit_sum:       a.aimed_hit_sum + b.aimed_hit_sum,
+      restores_sum:        a.restores_sum + b.restores_sum,
+      restores_n:          a.restores_n + b.restores_n,
+      duration_sum:        a.duration_sum + b.duration_sum,
+      duration_n:          a.duration_n + b.duration_n,
+    }), newCell());
+  }
+
+  const perEnemy = Object.entries(matchup).map(([enemyKey, byW]) => {
+    const cells = Object.values(byW);
+    const totals = groupTotals(cells);
+    return {
+      ...row(enemyKey, enemyNames[enemyKey] ?? enemyKey, totals),
+      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponNames[wk] ?? wk, c)).sort((a, b) => b.total - a.total),
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  // Same data, pivoted: outer key is weapon, inner breakdown is enemy.
+  const byWeapon: Record<string, Record<string, Cell>> = {};
+  for (const [ek, byW] of Object.entries(matchup)) {
+    for (const [wk, c] of Object.entries(byW)) {
+      (byWeapon[wk] ??= {})[ek] = c;
+    }
+  }
+  const perWeapon = Object.entries(byWeapon).map(([weaponKey, byE]) => {
+    const cells = Object.values(byE);
+    const totals = groupTotals(cells);
+    return {
+      ...row(weaponKey, weaponNames[weaponKey] ?? weaponKey, totals),
+      breakdown: Object.entries(byE).map(([ek, c]) => row(ek, enemyNames[ek] ?? ek, c)).sort((a, b) => b.total - a.total),
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  res.json({
+    available: {
+      enemies:  [...seenEnemies].sort().map(k => ({ key: k, name: enemyNames[k]  ?? k })),
+      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponNames[k] ?? k })),
+      versions: [...seenVersions].sort((a, b) => a === PRE_VERSION_LABEL ? -1 : b === PRE_VERSION_LABEL ? 1 : a.localeCompare(b, undefined, { numeric: true })),
+    },
+    histograms: {
+      enemies:  Object.entries(enemyHistogram).map(([key, count]) => ({ key, name: enemyNames[key]  ?? key, count })).sort((a, b) => b.count - a.count),
+      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponNames[key] ?? key, count })).sort((a, b) => b.count - a.count),
+    },
+    per_enemy:     perEnemy,
+    per_weapon:    perWeapon,
+    total_battles: filtered.length,
+    sim:           loadSimForVersion(APP_VERSION),
+    app_version:   APP_VERSION,
+  });
+});
+
+// ---- Active battles ----
+// Sessions live in-memory only (sessions Map + sessionMeta Map). We don't
+// persist them — bot restarts intentionally drop everything. To prevent
+// stale sessions from piling up, anything that hasn't seen a submit_intent
+// in 7 days gets auto-forfeited the next time a list/lookup runs.
+const FORFEIT_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function forfeitSession(sessionId: string, reason: 'user' | 'timeout'): Promise<void> {
+  const session = sessions.get(sessionId);
+  const meta    = sessionMeta.get(sessionId);
+  if (!session || !meta) return;
+  // Tutorial forfeits don't write BattleLog (the tutorial doesn't count as a
+  // real fight) — but they still get cleaned up.
+  if (!meta.isTutorial) {
+    const chars = await charRepo.list(meta.discordUserId).catch(() => []);
+    const char = chars[0];
+    if (char) {
+      await logBattlePerEnemy(session, meta, char.id, 'forfeit', 0, reason === 'timeout' ? 'auto-forfeit (inactive 7d)' : null).catch(() => {});
+    }
+  }
+  sessions.delete(sessionId);
+  sessionMeta.delete(sessionId);
+  io.to(sessionId).emit('game_over', { winner: null, reason: 'forfeit' });
+}
+
+// Sweep all expired sessions. Called at the top of any read that lists
+// active battles, so the user can't see a stale entry that's already past
+// the cutoff. Cheap — Map iteration over an in-memory collection that's
+// always small in practice.
+async function sweepExpiredSessions(): Promise<void> {
+  const cutoff = Date.now() - FORFEIT_TIMEOUT_MS;
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.lastActivityAt.getTime() < cutoff) {
+      await forfeitSession(id, 'timeout');
+    }
+  }
+}
+
+function listActiveSessions(discordId: string): Array<{ session_id: string; enemy_name: string; is_tutorial: boolean; started_at: string; last_activity_at: string; rounds: number }> {
+  const out: Array<{ session_id: string; enemy_name: string; is_tutorial: boolean; started_at: string; last_activity_at: string; rounds: number }> = [];
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.discordUserId !== discordId) continue;
+    if (m.endedAt) continue; // finished battles get hidden immediately, even though
+                             // the 10-min cleanup timer keeps them in memory for the
+                             // reward UI to stay rendered.
+    out.push({
+      session_id:       id,
+      enemy_name:       m.enemyName,
+      is_tutorial:      m.isTutorial,
+      started_at:       m.startedAt.toISOString(),
+      last_activity_at: m.lastActivityAt.toISOString(),
+      rounds:           m.rounds.filter(r => r.turn > 0).length,
+    });
+  }
+  // Tutorial first (so it stays anchored), then most-recent activity at top.
+  out.sort((a, b) => {
+    if (a.is_tutorial !== b.is_tutorial) return a.is_tutorial ? -1 : 1;
+    return b.last_activity_at.localeCompare(a.last_activity_at);
+  });
+  return out;
+}
+
+app.get('/api/active-battles', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  await sweepExpiredSessions();
+  res.json({ battles: listActiveSessions(discordId) });
+});
+
+app.post('/api/active-battles/:sessionId/forfeit', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const sessionId = String(req.params.sessionId);
+  const meta = sessionMeta.get(sessionId);
+  if (!meta || meta.discordUserId !== discordId) {
+    res.status(404).json({ error: 'No such battle.' });
+    return;
+  }
+  await forfeitSession(sessionId, 'user');
+  res.json({ ok: true });
 });
 
 // ---- Hunt ----
@@ -896,11 +1363,14 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     return;
   }
 
+  const baitIsUnlock = isUnlock(bait_id);
   const consumed = await prisma.$transaction(async tx => {
     const inv = await tx.inventoryItem.findUnique({
       where: { character_id_item_id: { character_id: char.id, item_id: bait_id } },
     });
     if (!inv || inv.quantity < 1) return false;
+    // Unlock items aren't consumed — owning one is the permit, not a charge.
+    if (baitIsUnlock) return true;
     if (inv.quantity === 1) {
       await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: bait_id } } });
     } else {
@@ -933,7 +1403,8 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
   const rounds: { turn: number; log: string[] }[] = huntSession.initiativeLog.length > 0
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, startedAt: new Date(), rounds });
+  const now = new Date();
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -1108,13 +1579,39 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
     prisma.user.findUnique({ where: { discord_id: discordId } }),
   ]);
 
-  const itemList = items.map(i => ({
-    item_id:     i.item_id,
-    name:        ITEMS[i.item_id]?.name        ?? i.item.name,
-    description: ITEMS[i.item_id]?.description ?? i.item.description,
-    type:        ITEMS[i.item_id]?.type        ?? 'material',
-    quantity:    i.quantity,
-  }));
+  // Trophy enrichment: each unlock item ending in '_trophy' shows a live
+  // "defeated N times" count from BattleLog. Batched as one groupBy query
+  // so the cost is constant regardless of how many trophies the player has.
+  const trophyIds      = items.map(i => i.item_id).filter(id => ITEMS[id]?.type === 'unlock' && enemyKeyFromTrophy(id) !== null);
+  const trophyEnemyMap = new Map<string, string>(); // trophyId → enemyName for the BattleLog lookup
+  for (const id of trophyIds) {
+    const ek = enemyKeyFromTrophy(id);
+    if (!ek) continue;
+    const summary = loadEnemySummary(ek as EnemyKey);
+    if (summary) trophyEnemyMap.set(id, summary.name);
+  }
+  const enemyNames = [...trophyEnemyMap.values()];
+  const winCounts  = enemyNames.length > 0
+    ? await prisma.battleLog.groupBy({
+        by: ['enemy'],
+        where: { character_id: char.id, outcome: 'win', enemy: { in: enemyNames } },
+        _count: { enemy: true },
+      })
+    : [];
+  const winsByEnemy = new Map(winCounts.map(c => [c.enemy, c._count.enemy]));
+
+  const itemList = items.map(i => {
+    const enemyName     = trophyEnemyMap.get(i.item_id);
+    const defeatedCount = enemyName ? (winsByEnemy.get(enemyName) ?? 0) : undefined;
+    return {
+      item_id:        i.item_id,
+      name:           ITEMS[i.item_id]?.name        ?? i.item.name,
+      description:    ITEMS[i.item_id]?.description ?? i.item.description,
+      type:           ITEMS[i.item_id]?.type        ?? 'material',
+      quantity:       i.quantity,
+      defeated_count: defeatedCount,
+    };
+  });
 
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
@@ -1151,12 +1648,24 @@ app.get('/api/layout', async (req: Request, res: Response) => {
   for (const p of profRows) profLevels[p.profession] = p.level;
   const combined = profRows.reduce((sum, p) => sum + p.level, 0);
 
+  // Tutorial resilience: if the player has a character but never finished
+  // the tutorial AND nothing is in memory for them (closed tab, bot restart,
+  // 7-day timeout), spin up a fresh tutorial session. The client redirects
+  // to it on app init. Resume-in-progress is also a valid outcome here —
+  // findActiveTutorialSession returns the existing id if one's still alive.
+  let tutorialSessionId: string | null = null;
+  if (!dbUser?.tutorial_complete) {
+    tutorialSessionId = findActiveTutorialSession(discordId) ?? startTutorialSession(discordId, char.sprite_token);
+  }
+
   res.json({
     authenticated: true,
     characterName: char.name,
     spriteToken:   char.sprite_token,
     spriteCdn:     worldConfig.sprite_cdn,
     korel:         dbUser?.korel ?? 0,
+    is_dev:        isDev(discordId),
+    tutorial_session_id: tutorialSessionId,
     professions: Object.fromEntries(
       PROFESSIONS.map(p => [p, {
         label:    PROFESSION_NAMES[p],
@@ -2433,9 +2942,17 @@ io.on('connection', (socket: Socket) => {
     const isTut = sessionMeta.get(sessionId)?.isTutorial ?? false;
     socket.emit('session_joined', { playerTeamId: 'team-a', isTutorial: isTut });
     socket.emit('session_state', session.toState());
-    // Initiative rolls happen at session creation. Replay them on every
-    // join so refreshers + late-joiners see them at the top of their log.
-    if (session.initiativeLog.length > 0) {
+    // Replay every captured round to a (re)joining client so the combat
+    // log isn't empty when a player resumes mid-battle from the Hunt page.
+    // meta.rounds already includes turn 0 (the initiative roll) plus every
+    // turn's log lines, in order.
+    const replayMeta = sessionMeta.get(sessionId);
+    if (replayMeta && replayMeta.rounds.length > 0) {
+      for (const round of replayMeta.rounds) {
+        socket.emit('turn_result', { log: round.log });
+      }
+    } else if (session.initiativeLog.length > 0) {
+      // Fallback for sessions older than rounds-tracking (test session, etc.)
       socket.emit('turn_result', { log: session.initiativeLog });
     }
     if (isTut) {
@@ -2478,7 +2995,10 @@ io.on('connection', (socket: Socket) => {
     io.to(sessionId).emit('turn_result', { log: result.log });
 
     const tutMeta = sessionMeta.get(sessionId);
-    if (tutMeta) tutMeta.rounds.push({ turn: session.turn, log: result.log });
+    if (tutMeta) {
+      tutMeta.rounds.push({ turn: session.turn, log: result.log });
+      tutMeta.lastActivityAt = new Date();
+    }
     if (tutMeta?.isTutorial && !result.winner) {
       const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
         1: {
@@ -2517,6 +3037,7 @@ io.on('connection', (socket: Socket) => {
         }
         io.to(sessionId).emit('session_state', session.toState());
         io.to(sessionId).emit('game_over', { winner: 'team-a' });
+        tutMeta.endedAt = new Date();
         await prisma.user.update({
           where: { discord_id: tutMeta.discordUserId },
           data: { tutorial_complete: true },
@@ -2532,6 +3053,10 @@ io.on('connection', (socket: Socket) => {
     if (result.winner) {
       io.to(sessionId).emit('game_over', { winner: result.winner });
       const meta = sessionMeta.get(sessionId);
+      // Stamp ended_at so the active-battles list hides this session before
+      // the 10-minute cleanup timer fires (timer can't run shorter — players
+      // need the reward UI to stay rendered).
+      if (meta) meta.endedAt = new Date();
 
       if (meta && result.winner === 'team-a') {
         const chars = await charRepo.list(meta.discordUserId);
@@ -2545,15 +3070,7 @@ io.on('connection', (socket: Socket) => {
           const rewards = await grantAllLoot(meta.discordUserId, char.id, meta.lootTables, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
           korelEarned = rewards?.currency ?? 0;
-          const winLog = await prisma.battleLog.create({ data: {
-            discord_id: meta.discordUserId, character_id: char.id,
-            enemy: meta.enemyName, outcome: 'win',
-            korel_delta: korelEarned, loot: rewardSummary,
-            started_at: meta.startedAt,
-          }}).catch(() => null);
-          if (winLog && meta.rounds.length > 0) {
-            await prisma.battleRoundLog.create({ data: { battle_id: winLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
-          }
+          await logBattlePerEnemy(session, meta, char.id, 'win', korelEarned, rewardSummary);
         }
         if (meta.isTutorial) {
           await prisma.user.update({
@@ -2600,14 +3117,7 @@ io.on('connection', (socket: Socket) => {
           }}).catch(() => {});
         }
         if (char) {
-          const lossLog = await prisma.battleLog.create({ data: {
-            discord_id: meta.discordUserId, character_id: char.id,
-            enemy: meta.enemyName, outcome: 'loss',
-            korel_delta: -fee, started_at: meta.startedAt,
-          }}).catch(() => null);
-          if (lossLog && meta.rounds.length > 0) {
-            await prisma.battleRoundLog.create({ data: { battle_id: lossLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
-          }
+          await logBattlePerEnemy(session, meta, char.id, 'loss', -fee, null);
         }
         const feeMsg = fee > 0 ? `Healing fee: −${fee} Korel` : 'No healing fee.';
         io.to(sessionId).emit('reward_result', { summary: feeMsg });
@@ -2664,7 +3174,8 @@ io.on('connection', (socket: Socket) => {
       const freshRounds: { turn: number; log: string[] }[] = fresh.initiativeLog.length > 0
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, startedAt: new Date(), rounds: freshRounds });
+      const nowReset = new Date();
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -2708,7 +3219,9 @@ io.on('connection', (socket: Socket) => {
     const player = session?.players.find(p => p.discordId === discordId);
     if (!session || !player || player.locked) return;
     player.offer = {
-      items:   (offer.items ?? []).filter(o => o.quantity > 0),
+      // Drop unlock items defensively in case a client sends them — they're
+      // permanent character-bound and can't change hands.
+      items:   (offer.items ?? []).filter(o => o.quantity > 0 && !isUnlock(o.itemId)),
       weapons: (offer.weapons ?? [])
         .filter((w): w is TradeWeaponEntry => !!w && typeof w.id === 'string')
         .map(w => ({ id: w.id, name: String(w.name ?? 'weapon'), bonus: Number(w.bonus) || 0 })),
@@ -2814,10 +3327,76 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+// Retroactively grant trophy items to characters who already have wins in
+// BattleLog from before the trophy system existed. Idempotent — the upsert
+// path's update:{} is a no-op, so re-running just walks the list and finds
+// everything already in place. Bounded by character count × enemy count
+// (small) so the boot cost is fine.
+async function backfillTrophies(): Promise<void> {
+  try {
+    const ENEMY_KEY_BY_NAME = new Map<string, string>();
+    for (const file of fs.readdirSync(join(__dirname, '../../database/enemies')).filter(f => f.endsWith('.yaml') && !f.startsWith('tutorial_'))) {
+      const ek = file.replace('.yaml', '');
+      const summary = loadEnemySummary(ek as EnemyKey);
+      if (summary) ENEMY_KEY_BY_NAME.set(summary.name, ek);
+    }
+    const winRows = await prisma.battleLog.groupBy({
+      by: ['character_id', 'enemy'],
+      where: { outcome: 'win' },
+      _count: { _all: true },
+    });
+    let granted = 0;
+    for (const row of winRows) {
+      const enemyKey = ENEMY_KEY_BY_NAME.get(row.enemy);
+      if (!enemyKey) continue;
+      const trophyId = trophyIdFor(enemyKey);
+      if (!ITEMS[trophyId]) continue;
+      await prisma.item.upsert({
+        where:  { id: trophyId },
+        update: {},
+        create: { id: trophyId, name: ITEMS[trophyId].name, description: ITEMS[trophyId].description },
+      }).catch(() => {});
+      const r = await prisma.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: row.character_id, item_id: trophyId } },
+        update: {},
+        create: { character_id: row.character_id, item_id: trophyId, quantity: 1 },
+      }).catch(() => null);
+      if (r) granted += 1;
+    }
+    if (granted > 0) console.log(`[boot] trophy backfill walked ${winRows.length} (char × enemy) pair(s)`);
+  } catch (err) {
+    console.error('[boot] backfillTrophies failed:', err);
+  }
+}
+
+// One-time pass at boot to enforce the "unlock items have quantity 1" rule.
+// Players had piles of swallow_bait before it changed to an unlock type;
+// this clamps them all down on the next boot. Idempotent — running again
+// when nothing's wrong is a no-op.
+async function clampUnlockQuantities(): Promise<void> {
+  try {
+    const unlockIds = Object.entries(ITEMS).filter(([_, v]) => v.type === 'unlock').map(([k]) => k);
+    if (unlockIds.length === 0) return;
+    const overstuffed = await prisma.inventoryItem.findMany({
+      where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
+    });
+    if (overstuffed.length === 0) return;
+    await prisma.inventoryItem.updateMany({
+      where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
+      data:  { quantity: 1 },
+    });
+    console.log(`[boot] clamped ${overstuffed.length} unlock inventory row(s) to quantity 1`);
+  } catch (err) {
+    console.error('[boot] clampUnlockQuantities failed:', err);
+  }
+}
+
 const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
+  void clampUnlockQuantities();
+  void backfillTrophies();
 });
 
 // ---- Proactive shop tick ----
@@ -2855,6 +3434,105 @@ function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
 }
 
+// Writes one BattleLog row per enemy fought, so multi-enemy spawns show
+// 2 sulfolk in the dev stats instead of 1 "sulfolk encounter". Player-side
+// metrics (hp_left, damage_received, rounds_count) are duplicated across
+// rows — they describe the battle, not the enemy. korel_delta is split
+// evenly among rows so SUM stays accurate.
+async function logBattlePerEnemy(
+  session: CombatSession,
+  meta: NonNullable<ReturnType<typeof sessionMeta.get>>,
+  characterId: string,
+  outcome: 'win' | 'loss' | 'forfeit',
+  korelDelta: number,
+  lootSummary: string | null,
+): Promise<void> {
+  // The reaper deletes dead combatants from session.meta + team rosters
+  // mid-battle, so by the time game_over fires the winning side is the only
+  // one still in session.combatants. Read both pools to get the full roster.
+  const allCombatants = [
+    ...session.combatants.map(c => ({ combatant: c, state: session.meta.get(c.id)?.state })),
+    ...session.deadCombatants.map(d => ({ combatant: d.combatant, state: d.meta.state })),
+  ];
+  const playerEntry = allCombatants.find(e => e.combatant.id === 'player-1');
+  const enemies     = allCombatants.filter(e => e.combatant.isAI);
+  if (enemies.length === 0) return;
+
+  const playerState     = playerEntry?.state;
+  const playerHpLeft    = playerState?.health ?? 0;
+  const damageReceived  = playerState?.damage_taken ?? 0;
+  const roundsCount     = meta.rounds.filter(r => r.turn > 0).length;
+  const critCount       = playerState?.attack_crits ?? 0;
+  const aimedAttempted  = playerState?.aimed_attempted ?? 0;
+  const aimedHit        = playerState?.aimed_hit ?? 0;
+  const restores        = playerState?.restores ?? 0;
+  // Lower initiativeRank = acts sooner. Player went first iff their rank
+  // is the lowest of any combatant in the session.
+  const minEnemyRank    = enemies.reduce((m, e) => Math.min(m, e.combatant.initiativeRank), Number.POSITIVE_INFINITY);
+  const playerWentFirst = playerEntry != null && playerEntry.combatant.initiativeRank < minEnemyRank;
+  const korelShareBase  = Math.trunc(korelDelta / enemies.length);
+  const korelRemainder  = korelDelta - korelShareBase * enemies.length;
+
+  for (let i = 0; i < enemies.length; i++) {
+    const { combatant: c, state: enemyState } = enemies[i];
+    const damageDealt = enemyState?.damage_taken ?? 0;
+    const enemyHpLeft = enemyState?.health ?? 0;
+    // Strip the A/B suffix so all rows for the same enemy type aggregate
+    // under one key in the dev stats page.
+    const baseName = c.name.replace(/ [A-Z]$/, '');
+    const korelForRow = korelShareBase + (i === 0 ? korelRemainder : 0);
+    const battleLog = await prisma.battleLog.create({ data: {
+      discord_id:        meta.discordUserId,
+      character_id:      characterId,
+      enemy:             baseName,
+      outcome,
+      korel_delta:       korelForRow,
+      loot:              i === 0 ? lootSummary : null,
+      started_at:        meta.startedAt,
+      version:           APP_VERSION,
+      weapon_key:        meta.weaponKey,
+      player_hp_left:    playerHpLeft,
+      enemy_hp_left:     enemyHpLeft,
+      damage_dealt:      damageDealt,
+      damage_received:   damageReceived,
+      rounds_count:      roundsCount,
+      crit_count:        critCount,
+      aimed_attempted:   aimedAttempted,
+      aimed_hit:         aimedHit,
+      restores,
+      player_went_first: playerWentFirst,
+    }}).catch(() => null);
+    // Round log is shared across the battle; only attach it once.
+    if (battleLog && i === 0 && meta.rounds.length > 0) {
+      await prisma.battleRoundLog.create({ data: {
+        battle_id: battleLog.id,
+        rounds: meta.rounds as unknown as Prisma.InputJsonValue,
+      } }).catch(() => {});
+    }
+  }
+
+  // Trophy grant on real wins (not tutorial, not losses, not forfeits).
+  // First win for this enemy unlocks the trophy item; subsequent wins are
+  // no-ops since unlock items are quantity 1. The "defeated N times" count
+  // shown on the inventory page is queried live from BattleLog at render
+  // time, so the item only ever needs to be granted once.
+  if (outcome === 'win' && !meta.isTutorial) {
+    const trophyId = trophyIdFor(meta.enemyKey);
+    if (ITEMS[trophyId]) {
+      await prisma.item.upsert({
+        where:  { id: trophyId },
+        update: {},
+        create: { id: trophyId, name: ITEMS[trophyId].name, description: ITEMS[trophyId].description },
+      }).catch(() => {});
+      await prisma.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: characterId, item_id: trophyId } },
+        update: {}, // already owned — no-op
+        create: { character_id: characterId, item_id: trophyId, quantity: 1 },
+      }).catch(() => {});
+    }
+  }
+}
+
 function buildWelcomeEmbed(
   mention: string,
   opts: { link?: string } = {},
@@ -2880,6 +3558,30 @@ function buildWelcomeEmbed(
   };
 }
 
+// Spin up a fresh tutorial session for an existing character. Returns the
+// session id. Used by bootstrapNewCharacter and by /api/layout when an
+// existing player returns to /app with tutorial_complete=false but no
+// active tutorial in memory (e.g., they closed the tab before finishing).
+function startTutorialSession(discordId: string, spriteKey: string | null): string {
+  const sessionId = Math.random().toString(36).slice(2, 10);
+  const playerSprite = spriteKey ? `${HOST}/sprites/${spriteKey}.png` : undefined;
+  const { session: tutSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
+  sessions.set(sessionId, tutSession);
+  const tutorialRounds: { turn: number; log: string[] }[] = tutSession.initiativeLog.length > 0
+    ? [{ turn: 0, log: tutSession.initiativeLog }]
+    : [];
+  const now = new Date();
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
+  return sessionId;
+}
+
+function findActiveTutorialSession(discordId: string): string | null {
+  for (const [id, m] of sessionMeta.entries()) {
+    if (m.discordUserId === discordId && m.isTutorial && !m.endedAt) return id;
+  }
+  return null;
+}
+
 // Character creation + tutorial-session bootstrap. Used by /api/character/create.
 async function bootstrapNewCharacter(
   discordId: string,
@@ -2894,14 +3596,7 @@ async function bootstrapNewCharacter(
   if (existing.length > 0) return { ok: false, error: 'You already have a character.' };
 
   await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
-  const playerSprite = `${HOST}/sprites/${input.spriteKey}.png`;
-  const sessionId = Math.random().toString(36).slice(2, 10);
-  const { session: charSession, lootTables, enemyName } = createSession(sessionId, 'lithkem_swallow', playerSprite, 'Hero', 'branch', true);
-  sessions.set(sessionId, charSession);
-  const tutorialRounds: { turn: number; log: string[] }[] = charSession.initiativeLog.length > 0
-    ? [{ turn: 0, log: charSession.initiativeLog }]
-    : [];
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, startedAt: new Date(), rounds: tutorialRounds });
+  const sessionId = startTutorialSession(discordId, input.spriteKey);
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
 

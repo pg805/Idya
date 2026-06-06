@@ -2,6 +2,18 @@
 
 Condensed, player-facing changelog posted to the #updates channel on each new release. For full detail see `docs/CHANGELOG.md`.
 
+## 0.1.6 — 2026-06-06
+
+- New enemy: **Tinpul** (Lv 1). Squishy little tin shooter — pokes from range, panics into melee, shields up when cornered. Pulled by Tin Bait at the general store.
+- New page in the Info sidebar: **Market**. See current buy/sell prices for every shop and the band each item can swing within. Live countdown to the next daily price update.
+- Hunt page now shows your **active battles** with Resume + Forfeit buttons. Forfeiting costs the bait but nothing else.
+- Battles auto-forfeit after a week of inactivity, so old sessions don't pile up.
+- Tutorial no longer strands you if you close the tab — the next time you open Idya it picks a fresh tutorial up for you.
+- Crafted items at the shops now follow their ingredient prices. Cheaper materials → cheaper crafted goods; demand on a finished item pulls demand on its inputs.
+- **Swallow Bait** is now a permanent permit instead of a single-use item. Pick one up free from Dolan, keep it forever, hunt swallows whenever. Existing piles will collapse down to a single permit on the next bot restart.
+- **Enemy trophies**: defeat any enemy for the first time and you'll keep a permanent trophy that tracks how many times you've defeated it. Past wins count — your existing defeats get credited automatically. Trophies upgrade in tiers as your defeat count grows: **Bronze** at 100, **Silver** at 300, **Gold** at 1000.
+- New **Stats** page in the sidebar shows all your trophies and permanent unlocks in one place.
+
 ## 0.1.5 — 2026-06-05
 
 - New info pages: **Lore**, **Reference**, and **About** in the sidebar.

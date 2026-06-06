@@ -3,6 +3,174 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.1.6 — 2026-06-06
+
+The "active battles, market page, economy plumbing" release. 0.2.0 is being
+held for a full combat stats overhaul; everything that was queued for it
+ships here instead.
+
+### New enemy
+
+- **Tinpul** (Lv 1, 10 HP). Squishy ranged shooter — pokes with Pea Shot
+  (range 4, reactive) on the approach, then panics into melee Tin Punch
+  when closed. Special is Harden Tin (shield 7 / 2 rounds + 4 block on
+  Tin Drink). Crit applies Tin Coating, a Physical/Mental debuff for 4
+  over 2 rounds. Drops sulwood, crude talamite, and rarely lifgem (~3%).
+  Pulled by **Tin Bait** at the general store (3 korel).
+
+### Recipe-driven shop pricing
+
+- Crafted item prices now derive from their ingredient prices instead of
+  reading a fixed YAML base. `final_price = Σ(ingredient_price × qty) × margin × R_mult`
+  with `margin_buy` / `margin_sell` per recipe (default 1.1). Raw items
+  keep `base × R_mult`. Fixes the thuvel-6 / hiruos-47 free-lunch where
+  crafting and selling was a guaranteed profit regardless of materials
+  market.
+- Cross-shop ingredient lookups work transparently — kustaff at the
+  enchanter pulls its quarterstaff price from the lumberjack on demand.
+- Buying a crafted item now bumps ingredient `recent_volume` (full
+  effect on buy, 0.5× on sell), so demand on hiruos pulls thuvel demand
+  up too. The chain reaction propagates through the recipe DAG.
+- `npm run price:smoke` walks every shop and dumps prices for sanity-
+  checking after margin tuning.
+
+### Market page (public, `/app/market`)
+
+- New sidebar entry in the Info section showing every shop's current
+  buy/sell prices plus a band the price can swing within.
+- Cards per shop, ordered to match the sidebar (General Store →
+  Blacksmith → Lumberjack → Enchanting Shop).
+- Each card splits into **Commodities** and **Valuables** sub-tables —
+  commodities sit near the floor under selling pressure, valuables float
+  mid-range.
+- Multi-select filter chips for Shop and Category at the top.
+- Live-ticking countdown to the next daily price update per row.
+- Crafted items inherit category from their ingredients: any valuable
+  in the recipe chain promotes the output to valuable; otherwise
+  commodity.
+- Price ranges use **absolute multiplier bounds** (`base × [0.25, 4]`)
+  so current price always sits inside. Equilibrium / period-2 math
+  underestimated the floor under heavy selling pressure.
+
+### Unlock items
+
+- New item type: `unlock`. Permanent, character-bound, quantity always 1.
+  Can't sell, can't trade, doesn't get consumed on use.
+- **Swallow Bait** converted from consumable to unlock. Pick it up free
+  from the General Store (future tutorial flow), keep it forever, use
+  it to hunt swallows without consumption.
+- Boot-time one-shot clamp lowers any pre-existing inventory rows of
+  unlock items to quantity 1 — idempotent across restarts.
+- Surfaces: market hides unlocks (no tradeable value), inventory tags
+  them as 'permanent' in their own section, trade picker filters them
+  out, shop sell flatly refuses, hunt-start skips the consumption step.
+
+### Enemy trophies
+
+- One unlock-type trophy item per enemy (`{enemy_key}_trophy`). Granted
+  on first non-tutorial win for that enemy; subsequent wins are no-ops
+  since unlocks are quantity 1.
+- The "defeated N times" count shown next to each trophy comes from a
+  live BattleLog `groupBy` at render time — no per-item quantity
+  tracking. Batch query so cost stays constant regardless of how many
+  trophies the character holds.
+- Boot-time backfill grants trophies retroactively for any historical
+  wins, so existing characters get credit for past defeats. Idempotent
+  via the same upsert/update:{} pattern as the swallow bait clamp.
+
+### Stats page
+
+- New sidebar entry (`/app/stats`) between Inventory and Hunt.
+  Permanent items (trophies + keepsakes) moved here from the Inventory
+  page so Inventory stays focused on tradeable/usable stuff.
+- Trophies render as a grid of cards sorted by defeat count descending;
+  keepsakes get a separate section with the "permanent" tag.
+
+### Trophy tiers
+
+- Pure-CSS tier theming on trophy cards keyed off the live defeat count:
+  - `1–99` → no tier (default look)
+  - `100–299` → **Bronze**
+  - `300–999` → **Silver**
+  - `1000+` → **Gold**
+- Tier border, name color, and a small badge next to the trophy name.
+  No new data — the same defeated_count query drives the visual upgrade
+  as soon as a threshold is crossed.
+
+### Active battle tracking
+
+- Hunt page now lists the player's in-flight battles with **Resume** +
+  **Forfeit** buttons. Tutorial pinned to the top, then most-recent
+  activity. Sessions are in-memory only (bot restart drops them — no
+  phantom rows in `BattleLog` since rows only get written at `game_over`).
+- Auto-forfeit after 7 days of inactivity. Sweep runs on every list
+  fetch, so a stale session can't outlive the cutoff.
+- Forfeit endpoint writes `outcome='forfeit'` per enemy (no korel
+  penalty per design); bait is already consumed at hunt start so no
+  refund either.
+- `game_over` stamps `sessionMeta.endedAt`, so finished battles disappear
+  from the active list immediately even though the 10-minute reward-UI
+  cleanup timer is still ticking.
+- `join_session` now replays every captured round to the rejoining
+  socket (not just the initiative line), so the combat log fills in
+  when a player resumes mid-battle.
+
+### Tutorial resilience
+
+- `/api/layout` returns a `tutorial_session_id` when the player has a
+  character but `tutorial_complete=false`. If no active tutorial session
+  exists in memory (closed tab, bot restart, 7-day timeout), the server
+  spins up a fresh one. Client redirects on app init.
+- `game.js` bounces to `/app/` on `"Session not found"`, so a dead
+  `/battle/X` URL self-heals into a fresh tutorial via the layout flow.
+- Tutorial enemy now starts at pattern index 0 instead of randomizing
+  like live hunts do. Fendalok's per-turn asides time off the YAML's
+  intended action sequence; the random start was desyncing them.
+  `loadEnemy` gained a `randomizePatternStart?: boolean` option (true
+  by default) so live hunts keep their variety.
+
+### Dev stats page (`/app/dev/stats`)
+
+- New dev-only page (sidebar entry gated by `is_dev` on `/api/layout`)
+  showing aggregated battle data straight from `BattleLog`.
+- Filters: Versions / Enemies / Weapons multi-select chips; First-mover
+  tri-state radio (Either / Player / Enemy); pre-0.2.0 legacy bucket
+  off by default.
+- Group by Enemy or Weapon (pure presentation toggle — server returns
+  both pivots of one matchup table).
+- Metrics per row: Battles, Wins, Forfeits, Win %, Avg HP Left (wins
+  only), Avg Enemy HP Left (losses only), DPR, DTR, Crits, Aim %,
+  Restores, Duration. New schema columns on `BattleLog`:
+  `player_hp_left`, `enemy_hp_left`, `damage_dealt`, `damage_received`,
+  `rounds_count`, `crit_count`, `aimed_attempted`, `aimed_hit`,
+  `restores`, `player_went_first`, `version`, `weapon_key`.
+- Multi-enemy battles now emit one `BattleLog` row per enemy so the
+  histograms count "absolute enemies fought" instead of "bait used."
+  Player-side metrics (HP, rounds, crits, aim) duplicate across the
+  rows; per-enemy metrics (damage dealt, HP left) split.
+- Sim integration: `npm run sim:save` writes a canonical Monte-Carlo
+  payload to `docs/sim/{version}.json`. Endpoint serves it on non-prod
+  only; page renders a weapon × enemy win-rate grid when present.
+
+### Combat instrumentation
+
+- `CombatantState` gained `damage_taken`, `attack_crits`, `aimed_attempted`,
+  `aimed_hit`, `restores` counters. `resolution.ts` increments them at
+  the right hook points so the dev stats page has real signal to read.
+- `CombatSession.deadCombatants` snapshots `{combatant, meta}` on each
+  reap so `logBattlePerEnemy` (which runs at `game_over`, after every
+  loser has been cleaned out) can still attribute per-enemy damage and
+  HP-left.
+
+### Doc + repo hygiene
+
+- All markdown unified under `docs/` (was split across `database/docs/`
+  and `database/lore/`). Player-facing docs are exclusively the three
+  served by `/api/info/*`: `reference.md`, `about.md`,
+  `lore/world_player.md`. Everything else under `docs/` is dev-only.
+- `CLAUDE.md` action type table corrected (4=DOT, 5=Debuff — was
+  swapped).
+
 ## 0.1.5 — 2026-06-05
 
 The "fill in the docs and rebuild combat for teams" release. Three new info
