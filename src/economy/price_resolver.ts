@@ -145,16 +145,15 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const entry = itemIndex.get(itemId);
     if (!entry) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
 
-    // The logistic envelope (fixed point for R ≤ 3, period-2 cycle for R > 3)
-    // sets the x bounds; stock_influence stays at the current stock level
-    // because it's a structural shape of the item's curve, not a transient.
-    const state = await prisma.shopItemState.findUnique({
-      where: { shop_id_item_id: { shop_id: entry.shopKey, item_id: itemId } },
-    });
-    const stock = state?.stock ?? Math.floor(entry.listing.stock_max / 2);
+    // Structural range only — uses the item's R settings to compute the
+    // logistic envelope and turns x directly into a multiplier. Skips
+    // effectiveMultiplier so neither current stock nor stock_influence
+    // sneaks in; the range is meant to be a stable reference players use
+    // to read where the current price sits, not something that moves
+    // around with state.
     const xRange = expectedXRange(entry.listing.r, entry.listing.r_max);
-    const minMult = effectiveMultiplier(entry.listing, clamp(xRange.min, 0, 1), stock);
-    const maxMult = effectiveMultiplier(entry.listing, clamp(xRange.max, 0, 1), stock);
+    const minMult = xToMultiplier(clamp(xRange.min, 0, 1));
+    const maxMult = xToMultiplier(clamp(xRange.max, 0, 1));
 
     const recipe = craftedIndex.get(itemId);
     let range: PriceRange | null;
