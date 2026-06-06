@@ -35,17 +35,17 @@
 
     const unlocks = (data.items ?? []).filter(i => i.type === 'unlock');
     // Trophies — item_id convention is `${enemy_key}_trophy`. Anything else
-    // is a "permit" — the catch-all bucket for non-combat unlocks (swallow
+    // is a "keepsake" — the catch-all bucket for non-combat unlocks (swallow
     // bait permit, future location keys, etc.).
-    const trophies = unlocks.filter(i => i.item_id.endsWith('_trophy'));
-    const permits  = unlocks.filter(i => !i.item_id.endsWith('_trophy'));
+    const trophies  = unlocks.filter(i => i.item_id.endsWith('_trophy'));
+    const keepsakes = unlocks.filter(i => !i.item_id.endsWith('_trophy'));
 
     if (unlocks.length === 0) {
       body.innerHTML = `
         <header class="stats-head">
           <h1 class="stats-title">Stats</h1>
         </header>
-        <p class="stats-empty">No permanent items yet. Defeat an enemy to earn a trophy, or pick up a permit from a shop.</p>
+        <p class="stats-empty">No permanent items yet. Defeat an enemy to earn a trophy, or pick up a keepsake from a shop.</p>
       `;
       return;
     }
@@ -72,13 +72,13 @@
       `;
     }
 
-    if (permits.length > 0) {
-      permits.sort((a, b) => a.name.localeCompare(b.name));
+    if (keepsakes.length > 0) {
+      keepsakes.sort((a, b) => a.name.localeCompare(b.name));
       sections += `
         <section class="stats-section">
-          <h2 class="stats-section-label">Permits</h2>
+          <h2 class="stats-section-label">Keepsakes</h2>
           <div class="stats-grid">
-            ${permits.map(p => `
+            ${keepsakes.map(p => `
               <div class="stats-card">
                 <div class="stats-card-head">
                   <h3 class="stats-card-name">${esc(p.name)}</h3>
@@ -95,7 +95,7 @@
     body.innerHTML = `
       <header class="stats-head">
         <h1 class="stats-title">Stats</h1>
-        <p class="stats-sub">Permanent items you've earned. Trophies show how many times you've defeated each enemy; permits unlock recurring activities.</p>
+        <p class="stats-sub">Permanent items you've earned. Trophies show how many times you've defeated each enemy; keepsakes unlock recurring activities.</p>
       </header>
       ${sections}
     `;

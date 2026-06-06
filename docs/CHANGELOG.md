@@ -81,10 +81,10 @@ ships here instead.
 ### Stats page
 
 - New sidebar entry (`/app/stats`) between Inventory and Hunt.
-  Permanent items (trophies + permits) moved here from the Inventory
+  Permanent items (trophies + keepsakes) moved here from the Inventory
   page so Inventory stays focused on tradeable/usable stuff.
 - Trophies render as a grid of cards sorted by defeat count descending;
-  permits get a separate section with the "permanent" tag.
+  keepsakes get a separate section with the "permanent" tag.
 
 ### Active battle tracking
 
