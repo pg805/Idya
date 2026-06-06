@@ -32,7 +32,7 @@ import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
-import { ITEMS, isUnlock } from '../economy/items.js';
+import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed,
@@ -54,7 +54,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -1401,7 +1401,7 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -1576,13 +1576,39 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
     prisma.user.findUnique({ where: { discord_id: discordId } }),
   ]);
 
-  const itemList = items.map(i => ({
-    item_id:     i.item_id,
-    name:        ITEMS[i.item_id]?.name        ?? i.item.name,
-    description: ITEMS[i.item_id]?.description ?? i.item.description,
-    type:        ITEMS[i.item_id]?.type        ?? 'material',
-    quantity:    i.quantity,
-  }));
+  // Trophy enrichment: each unlock item ending in '_trophy' shows a live
+  // "defeated N times" count from BattleLog. Batched as one groupBy query
+  // so the cost is constant regardless of how many trophies the player has.
+  const trophyIds      = items.map(i => i.item_id).filter(id => ITEMS[id]?.type === 'unlock' && enemyKeyFromTrophy(id) !== null);
+  const trophyEnemyMap = new Map<string, string>(); // trophyId → enemyName for the BattleLog lookup
+  for (const id of trophyIds) {
+    const ek = enemyKeyFromTrophy(id);
+    if (!ek) continue;
+    const summary = loadEnemySummary(ek as EnemyKey);
+    if (summary) trophyEnemyMap.set(id, summary.name);
+  }
+  const enemyNames = [...trophyEnemyMap.values()];
+  const winCounts  = enemyNames.length > 0
+    ? await prisma.battleLog.groupBy({
+        by: ['enemy'],
+        where: { character_id: char.id, outcome: 'win', enemy: { in: enemyNames } },
+        _count: { enemy: true },
+      })
+    : [];
+  const winsByEnemy = new Map(winCounts.map(c => [c.enemy, c._count.enemy]));
+
+  const itemList = items.map(i => {
+    const enemyName     = trophyEnemyMap.get(i.item_id);
+    const defeatedCount = enemyName ? (winsByEnemy.get(enemyName) ?? 0) : undefined;
+    return {
+      item_id:        i.item_id,
+      name:           ITEMS[i.item_id]?.name        ?? i.item.name,
+      description:    ITEMS[i.item_id]?.description ?? i.item.description,
+      type:           ITEMS[i.item_id]?.type        ?? 'material',
+      quantity:       i.quantity,
+      defeated_count: defeatedCount,
+    };
+  });
 
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
@@ -3146,7 +3172,7 @@ io.on('connection', (socket: Socket) => {
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
       const nowReset = new Date();
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -3298,6 +3324,48 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+// Retroactively grant trophy items to characters who already have wins in
+// BattleLog from before the trophy system existed. Idempotent — the upsert
+// path's update:{} is a no-op, so re-running just walks the list and finds
+// everything already in place. Bounded by character count × enemy count
+// (small) so the boot cost is fine.
+async function backfillTrophies(): Promise<void> {
+  try {
+    const ENEMY_KEY_BY_NAME = new Map<string, string>();
+    for (const file of fs.readdirSync(join(__dirname, '../../database/enemies')).filter(f => f.endsWith('.yaml') && !f.startsWith('tutorial_'))) {
+      const ek = file.replace('.yaml', '');
+      const summary = loadEnemySummary(ek as EnemyKey);
+      if (summary) ENEMY_KEY_BY_NAME.set(summary.name, ek);
+    }
+    const winRows = await prisma.battleLog.groupBy({
+      by: ['character_id', 'enemy'],
+      where: { outcome: 'win' },
+      _count: { _all: true },
+    });
+    let granted = 0;
+    for (const row of winRows) {
+      const enemyKey = ENEMY_KEY_BY_NAME.get(row.enemy);
+      if (!enemyKey) continue;
+      const trophyId = trophyIdFor(enemyKey);
+      if (!ITEMS[trophyId]) continue;
+      await prisma.item.upsert({
+        where:  { id: trophyId },
+        update: {},
+        create: { id: trophyId, name: ITEMS[trophyId].name, description: ITEMS[trophyId].description },
+      }).catch(() => {});
+      const r = await prisma.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: row.character_id, item_id: trophyId } },
+        update: {},
+        create: { character_id: row.character_id, item_id: trophyId, quantity: 1 },
+      }).catch(() => null);
+      if (r) granted += 1;
+    }
+    if (granted > 0) console.log(`[boot] trophy backfill walked ${winRows.length} (char × enemy) pair(s)`);
+  } catch (err) {
+    console.error('[boot] backfillTrophies failed:', err);
+  }
+}
+
 // One-time pass at boot to enforce the "unlock items have quantity 1" rule.
 // Players had piles of swallow_bait before it changed to an unlock type;
 // this clamps them all down on the next boot. Idempotent — running again
@@ -3325,6 +3393,7 @@ httpServer.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
   void clampUnlockQuantities();
+  void backfillTrophies();
 });
 
 // ---- Proactive shop tick ----
@@ -3438,6 +3507,27 @@ async function logBattlePerEnemy(
       } }).catch(() => {});
     }
   }
+
+  // Trophy grant on real wins (not tutorial, not losses, not forfeits).
+  // First win for this enemy unlocks the trophy item; subsequent wins are
+  // no-ops since unlock items are quantity 1. The "defeated N times" count
+  // shown on the inventory page is queried live from BattleLog at render
+  // time, so the item only ever needs to be granted once.
+  if (outcome === 'win' && !meta.isTutorial) {
+    const trophyId = trophyIdFor(meta.enemyKey);
+    if (ITEMS[trophyId]) {
+      await prisma.item.upsert({
+        where:  { id: trophyId },
+        update: {},
+        create: { id: trophyId, name: ITEMS[trophyId].name, description: ITEMS[trophyId].description },
+      }).catch(() => {});
+      await prisma.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: characterId, item_id: trophyId } },
+        update: {}, // already owned — no-op
+        create: { character_id: characterId, item_id: trophyId, quantity: 1 },
+      }).catch(() => {});
+    }
+  }
 }
 
 function buildWelcomeEmbed(
@@ -3478,7 +3568,7 @@ function startTutorialSession(discordId: string, spriteKey: string | null): stri
     ? [{ turn: 0, log: tutSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
   return sessionId;
 }
 

@@ -70,4 +70,23 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
     bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
     lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
+
+    // Enemy trophies — permanent character-bound mementos granted on the
+    // first defeat of each enemy. The defeated-count shown on each is queried
+    // live from BattleLog, not stored on the item. Map enemy_key → trophy_id
+    // is just `${enemy_key}_trophy`.
+    lithkem_swallow_trophy: { name: 'Swallow Trophy', description: 'A bronzed feather from your first lithkem swallow kill.',                  type: 'unlock' },
+    sulfolk_trophy:         { name: 'Sulfolk Trophy', description: 'A dried husk pulled from a fallen sulfolk. The plant matter still moves a little.', type: 'unlock' },
+    talwyrm_trophy:         { name: 'Talwyrm Trophy', description: 'A polished crystal tooth, mounted on a worn cord.',                       type: 'unlock' },
+    daefen_deer_trophy:     { name: 'Daefen Deer Trophy', description: 'A small ember of antler — the fire never quite went out.',           type: 'unlock' },
+    maetoad_trophy:         { name: 'Maetoad Trophy', description: 'A dried Maek-gland on a leather thong. Still faintly warm.',              type: 'unlock' },
+    golnosar_trophy:        { name: 'Golnosar Trophy', description: 'A sliver of hardened tar, pressed into the shape of a coin.',            type: 'unlock' },
+    melbear_trophy:         { name: 'Melbear Trophy', description: 'A single claw from a melbear, wrapped at the base in dyed sinew.',        type: 'unlock' },
+    tinpul_trophy:          { name: 'Tinpul Trophy', description: 'A flattened scrap of tin, beaten thin enough to wear.',                    type: 'unlock' },
 };
+
+// Convention used by the trophy grant + inventory enrichment paths.
+export function trophyIdFor(enemyKey: string): string { return `${enemyKey}_trophy`; }
+export function enemyKeyFromTrophy(trophyId: string): string | null {
+  return trophyId.endsWith('_trophy') ? trophyId.slice(0, -'_trophy'.length) : null;
+}
