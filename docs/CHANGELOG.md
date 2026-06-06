@@ -70,13 +70,21 @@ ships here instead.
 - One unlock-type trophy item per enemy (`{enemy_key}_trophy`). Granted
   on first non-tutorial win for that enemy; subsequent wins are no-ops
   since unlocks are quantity 1.
-- The "defeated N times" count shown next to each trophy in the
-  inventory comes from a live BattleLog `groupBy` at render time —
-  no per-item quantity tracking. Batch query so cost stays constant
-  regardless of how many trophies the character holds.
+- The "defeated N times" count shown next to each trophy comes from a
+  live BattleLog `groupBy` at render time — no per-item quantity
+  tracking. Batch query so cost stays constant regardless of how many
+  trophies the character holds.
 - Boot-time backfill grants trophies retroactively for any historical
   wins, so existing characters get credit for past defeats. Idempotent
   via the same upsert/update:{} pattern as the swallow bait clamp.
+
+### Stats page
+
+- New sidebar entry (`/app/stats`) between Inventory and Hunt.
+  Permanent items (trophies + permits) moved here from the Inventory
+  page so Inventory stays focused on tradeable/usable stuff.
+- Trophies render as a grid of cards sorted by defeat count descending;
+  permits get a separate section with the "permanent" tag.
 
 ### Active battle tracking
 

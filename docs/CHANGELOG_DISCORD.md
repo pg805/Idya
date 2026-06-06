@@ -11,7 +11,8 @@ Condensed, player-facing changelog posted to the #updates channel on each new re
 - Tutorial no longer strands you if you close the tab — the next time you open Idya it picks a fresh tutorial up for you.
 - Crafted items at the shops now follow their ingredient prices. Cheaper materials → cheaper crafted goods; demand on a finished item pulls demand on its inputs.
 - **Swallow Bait** is now a permanent permit instead of a single-use item. Pick one up free from Dolan, keep it forever, hunt swallows whenever. Existing piles will collapse down to a single permit on the next bot restart.
-- **Enemy trophies**: defeat any enemy for the first time and you'll keep a permanent trophy in your inventory. Each one shows how many times you've defeated that enemy. Past wins count — your existing defeats get credited automatically.
+- **Enemy trophies**: defeat any enemy for the first time and you'll keep a permanent trophy that tracks how many times you've defeated it. Past wins count — your existing defeats get credited automatically.
+- New **Stats** page in the sidebar shows all your trophies and permanent unlocks in one place.
 
 ## 0.1.5 — 2026-06-05
 

@@ -2,8 +2,10 @@
 (function() {
   let data = null;
 
-  const TYPE_LABEL = { material: 'Materials', consumable: 'Consumables', valuable: 'Valuables', unlock: 'Unlocks' };
-  const TYPE_ORDER = ['unlock', 'material', 'consumable', 'valuable'];
+  // Unlock items live on the dedicated Stats page now; we hide them here so
+  // the inventory stays focused on tradeable / usable stuff.
+  const TYPE_LABEL = { material: 'Materials', consumable: 'Consumables', valuable: 'Valuables' };
+  const TYPE_ORDER = ['material', 'consumable', 'valuable'];
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -63,20 +65,12 @@
       sectionsHtml += `<section class="inv-section">
         <h2 class="inv-section-label">${TYPE_LABEL[t]}</h2>
         <div class="inv-list">
-          ${list.map(i => {
-            let rhs;
-            if (i.type === 'unlock' && typeof i.defeated_count === 'number') {
-              rhs = `<span class="inv-tag">defeated ${i.defeated_count.toLocaleString()}×</span>`;
-            } else if (i.type === 'unlock') {
-              rhs = `<span class="inv-tag">permanent</span>`;
-            } else {
-              rhs = `×${i.quantity.toLocaleString()}`;
-            }
-            return `<div class="inv-row" title="${esc(i.description)}">
+          ${list.map(i => `
+            <div class="inv-row" title="${esc(i.description)}">
               <span class="inv-name">${esc(i.name)}</span>
-              <span class="inv-qty">${rhs}</span>
-            </div>`;
-          }).join('')}
+              <span class="inv-qty">×${i.quantity.toLocaleString()}</span>
+            </div>
+          `).join('')}
         </div>
       </section>`;
     }
