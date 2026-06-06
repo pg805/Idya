@@ -65,6 +65,16 @@ socket.on('disconnect', () => {
   connStatusEl.className = 'disconnected';
 });
 
+// Server emits this with { message: 'Session X not found' } when the player
+// reconnects to a battle whose in-memory state is gone — typically a bot
+// restart, or a forfeit/cleanup from another tab. Bounce to /app so the
+// layout endpoint can spin up a fresh tutorial (or land them on /character).
+socket.on('error', ({ message }) => {
+  if (message && message.toLowerCase().includes('not found')) {
+    location.href = '/app/';
+  }
+});
+
 socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
   playerTeamId = tid;
   isTutorial = tutorial;
