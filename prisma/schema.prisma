@@ -85,7 +85,14 @@ model BattleLog {
   // Filterable on the dev stats page. NULL on pre-0.2.0 rows.
   version      String?
   weapon_key   String?
-  rounds       BattleRoundLog?
+  // Per-battle metrics for the dev stats page. NULL on pre-0.2.0 rows.
+  // Multi-enemy battles emit one row per enemy; player-side metrics
+  // (player_hp_left, damage_received, rounds_count) repeat across rows.
+  player_hp_left   Int?
+  damage_dealt     Int?
+  damage_received  Int?
+  rounds_count     Int?
+  rounds           BattleRoundLog?
 }
 
 model BattleRoundLog {

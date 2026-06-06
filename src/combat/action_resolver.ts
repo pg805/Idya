@@ -60,6 +60,7 @@ function apply_hostile_actions(
             const damage = Math.max(damage_roll - target.block - target.shield.value + attacker.buff.value - attacker.debuff.value, 0);
             const hp_before = target.health;
             target.health = Math.max(target.health - damage, 0);
+            target.damage_taken += hp_before - target.health;
 
             const block_detail  = target.block + target.shield.value > 0 ? `  blocked ${target.block + target.shield.value}` : '';
             const buff_detail   = attacker.buff.value   ? `  +${attacker.buff.value} buff`    : '';
@@ -127,6 +128,7 @@ function apply_reflect(actor: CombatantState, damage: number): string {
     if (damage <= 0) return '';
     const hp_before = actor.health;
     actor.health = Math.max(actor.health - damage, 0);
+    actor.damage_taken += hp_before - actor.health;
     return `\n${damage} damage reflected to <User>  |  <User> HP: ${hp_before} → ${actor.health}`;
 }
 

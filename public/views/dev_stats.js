@@ -132,6 +132,8 @@
       </section>`;
   }
 
+  function fmtOrDash(v, digits = 1) { return v == null ? '—' : v.toFixed(digits); }
+
   function groupsHtml(groups, breakdownLabel) {
     if (groups.length === 0) return `<p class="ds-empty">No battles match these filters.</p>`;
     return groups.map(g => {
@@ -140,18 +142,24 @@
           <td>${esc(b.name)}</td>
           <td class="ds-num">${b.total}</td>
           <td class="ds-num">${b.wins}</td>
-          <td class="ds-num">${b.losses}</td>
           <td class="ds-num">${pctFmt(b.win_rate)}</td>
-          <td class="ds-num">${b.avg_korel.toFixed(1)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_hp_left)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_dpr, 2)}</td>
+          <td class="ds-num">${fmtOrDash(b.avg_dtr, 2)}</td>
         </tr>`).join('');
       return `
         <section class="ds-enemy-card">
           <header>
             <h3>${esc(g.name)}</h3>
-            <span class="ds-enemy-meta">${g.total} battles · ${g.wins}W ${g.losses}L · ${pctFmt(g.win_rate)} win · ${g.avg_korel.toFixed(1)} avg korel</span>
+            <span class="ds-enemy-meta">${g.total} battles · ${pctFmt(g.win_rate)} win · HP ${fmtOrDash(g.avg_hp_left)} · DPR ${fmtOrDash(g.avg_dpr, 2)} · DTR ${fmtOrDash(g.avg_dtr, 2)}</span>
           </header>
           <table class="ds-table">
-            <thead><tr><th>${breakdownLabel}</th><th>Battles</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Avg Korel</th></tr></thead>
+            <thead><tr>
+              <th>${breakdownLabel}</th><th>Battles</th><th>Wins</th><th>Win %</th>
+              <th title="Average HP left on wins">HP Left</th>
+              <th title="Damage dealt per round (avg)">DPR</th>
+              <th title="Damage taken per round (avg)">DTR</th>
+            </tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </section>`;

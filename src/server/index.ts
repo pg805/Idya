@@ -884,7 +884,10 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   // play this stays well under a megabyte, so we pull everything once and
   // aggregate in JS — keeps the filter logic simple and the SQL boring.
   const rows = await prisma.battleLog.findMany({
-    select: { enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true },
+    select: {
+      enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true,
+      player_hp_left: true, damage_dealt: true, damage_received: true, rounds_count: true,
+    },
   });
 
   const seenVersions = new Set<string>();
@@ -910,7 +913,15 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   // Build a flat matchup table first, then pivot into per-enemy and per-weapon
   // groupings. Keeping one source of truth means the two views can't drift —
   // toggling Group By on the client is a pure presentation change.
-  type Cell = { total: number; wins: number; korel_total: number };
+  type Cell = {
+    total: number; wins: number;
+    // Sums + counts so we can average HP-left over wins only and DPR/DTR over
+    // every row with a recorded rounds count. Legacy rows (pre-0.2.0) leave
+    // the four metric columns null, so we filter them out of the denominators.
+    hp_left_sum: number; hp_left_n: number;
+    dpr_sum: number; dpr_n: number;
+    dtr_sum: number; dtr_n: number;
+  };
   const matchup: Record<string, Record<string, Cell>> = {};
 
   for (const r of filtered) {
@@ -918,33 +929,56 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
     weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
     const byW = matchup[r.enemy] ??= {};
-    const c   = byW[w] ??= { total: 0, wins: 0, korel_total: 0 };
+    const c   = byW[w] ??= { total: 0, wins: 0, hp_left_sum: 0, hp_left_n: 0, dpr_sum: 0, dpr_n: 0, dtr_sum: 0, dtr_n: 0 };
     c.total += 1;
     if (r.outcome === 'win') c.wins += 1;
-    c.korel_total += r.korel_delta;
+    if (r.outcome === 'win' && r.player_hp_left != null) {
+      c.hp_left_sum += r.player_hp_left;
+      c.hp_left_n   += 1;
+    }
+    if (r.rounds_count != null && r.rounds_count > 0) {
+      if (r.damage_dealt != null) {
+        c.dpr_sum += r.damage_dealt / r.rounds_count;
+        c.dpr_n   += 1;
+      }
+      if (r.damage_received != null) {
+        c.dtr_sum += r.damage_received / r.rounds_count;
+        c.dtr_n   += 1;
+      }
+    }
   }
 
   const enemyNames  = loadEnemyNames();
   const weaponNames = loadWeaponNames();
   weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
 
-  type Row = { key: string; name: string; total: number; wins: number; losses: number; win_rate: number; avg_korel: number };
+  type Row = {
+    key: string; name: string;
+    total: number; wins: number; win_rate: number;
+    avg_hp_left: number | null; avg_dpr: number | null; avg_dtr: number | null;
+  };
   function row(key: string, name: string, c: Cell): Row {
     return {
       key, name,
-      total:    c.total,
-      wins:     c.wins,
-      losses:   c.total - c.wins,
-      win_rate: c.total > 0 ? c.wins / c.total : 0,
-      avg_korel: c.total > 0 ? c.korel_total / c.total : 0,
+      total:       c.total,
+      wins:        c.wins,
+      win_rate:    c.total > 0 ? c.wins / c.total : 0,
+      avg_hp_left: c.hp_left_n > 0 ? c.hp_left_sum / c.hp_left_n : null,
+      avg_dpr:     c.dpr_n     > 0 ? c.dpr_sum     / c.dpr_n     : null,
+      avg_dtr:     c.dtr_n     > 0 ? c.dtr_sum     / c.dtr_n     : null,
     };
   }
   function groupTotals(cells: Cell[]): Cell {
     return cells.reduce((a, b) => ({
       total:       a.total + b.total,
       wins:        a.wins + b.wins,
-      korel_total: a.korel_total + b.korel_total,
-    }), { total: 0, wins: 0, korel_total: 0 });
+      hp_left_sum: a.hp_left_sum + b.hp_left_sum,
+      hp_left_n:   a.hp_left_n + b.hp_left_n,
+      dpr_sum:     a.dpr_sum + b.dpr_sum,
+      dpr_n:       a.dpr_n + b.dpr_n,
+      dtr_sum:     a.dtr_sum + b.dtr_sum,
+      dtr_n:       a.dtr_n + b.dtr_n,
+    }), { total: 0, wins: 0, hp_left_sum: 0, hp_left_n: 0, dpr_sum: 0, dpr_n: 0, dtr_sum: 0, dtr_n: 0 });
   }
 
   const perEnemy = Object.entries(matchup).map(([enemyKey, byW]) => {
@@ -2709,16 +2743,7 @@ io.on('connection', (socket: Socket) => {
           const rewards = await grantAllLoot(meta.discordUserId, char.id, meta.lootTables, meta.enemyName).catch(() => null);
           rewardSummary = rewards?.summary ?? 'No drops.';
           korelEarned = rewards?.currency ?? 0;
-          const winLog = await prisma.battleLog.create({ data: {
-            discord_id: meta.discordUserId, character_id: char.id,
-            enemy: meta.enemyName, outcome: 'win',
-            korel_delta: korelEarned, loot: rewardSummary,
-            started_at: meta.startedAt,
-            version: APP_VERSION, weapon_key: meta.weaponKey,
-          }}).catch(() => null);
-          if (winLog && meta.rounds.length > 0) {
-            await prisma.battleRoundLog.create({ data: { battle_id: winLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
-          }
+          await logBattlePerEnemy(session, meta, char.id, 'win', korelEarned, rewardSummary);
         }
         if (meta.isTutorial) {
           await prisma.user.update({
@@ -2765,15 +2790,7 @@ io.on('connection', (socket: Socket) => {
           }}).catch(() => {});
         }
         if (char) {
-          const lossLog = await prisma.battleLog.create({ data: {
-            discord_id: meta.discordUserId, character_id: char.id,
-            enemy: meta.enemyName, outcome: 'loss',
-            korel_delta: -fee, started_at: meta.startedAt,
-            version: APP_VERSION, weapon_key: meta.weaponKey,
-          }}).catch(() => null);
-          if (lossLog && meta.rounds.length > 0) {
-            await prisma.battleRoundLog.create({ data: { battle_id: lossLog.id, rounds: meta.rounds as unknown as Prisma.InputJsonValue } }).catch(() => {});
-          }
+          await logBattlePerEnemy(session, meta, char.id, 'loss', -fee, null);
         }
         const feeMsg = fee > 0 ? `Healing fee: −${fee} Korel` : 'No healing fee.';
         io.to(sessionId).emit('reward_result', { summary: feeMsg });
@@ -3019,6 +3036,62 @@ function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
 
 function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
+}
+
+// Writes one BattleLog row per enemy fought, so multi-enemy spawns show
+// 2 sulfolk in the dev stats instead of 1 "sulfolk encounter". Player-side
+// metrics (hp_left, damage_received, rounds_count) are duplicated across
+// rows — they describe the battle, not the enemy. korel_delta is split
+// evenly among rows so SUM stays accurate.
+async function logBattlePerEnemy(
+  session: CombatSession,
+  meta: NonNullable<ReturnType<typeof sessionMeta.get>>,
+  characterId: string,
+  outcome: 'win' | 'loss',
+  korelDelta: number,
+  lootSummary: string | null,
+): Promise<void> {
+  const playerState = session.meta.get('player-1')?.state;
+  const enemies = session.combatants.filter(c => c.isAI);
+  if (enemies.length === 0) return;
+
+  const playerHpLeft    = playerState?.health ?? 0;
+  const damageReceived  = playerState?.damage_taken ?? 0;
+  const roundsCount     = meta.rounds.filter(r => r.turn > 0).length;
+  const korelShareBase  = Math.trunc(korelDelta / enemies.length);
+  const korelRemainder  = korelDelta - korelShareBase * enemies.length;
+
+  for (let i = 0; i < enemies.length; i++) {
+    const c = enemies[i];
+    const enemyState = session.meta.get(c.id)?.state;
+    const damageDealt = enemyState?.damage_taken ?? 0;
+    // Strip the A/B suffix so all rows for the same enemy type aggregate
+    // under one key in the dev stats page.
+    const baseName = c.name.replace(/ [A-Z]$/, '');
+    const korelForRow = korelShareBase + (i === 0 ? korelRemainder : 0);
+    const battleLog = await prisma.battleLog.create({ data: {
+      discord_id:      meta.discordUserId,
+      character_id:    characterId,
+      enemy:           baseName,
+      outcome,
+      korel_delta:     korelForRow,
+      loot:            i === 0 ? lootSummary : null,
+      started_at:      meta.startedAt,
+      version:         APP_VERSION,
+      weapon_key:      meta.weaponKey,
+      player_hp_left:  playerHpLeft,
+      damage_dealt:    damageDealt,
+      damage_received: damageReceived,
+      rounds_count:    roundsCount,
+    }}).catch(() => null);
+    // Round log is shared across the battle; only attach it once.
+    if (battleLog && i === 0 && meta.rounds.length > 0) {
+      await prisma.battleRoundLog.create({ data: {
+        battle_id: battleLog.id,
+        rounds: meta.rounds as unknown as Prisma.InputJsonValue,
+      } }).catch(() => {});
+    }
+  }
 }
 
 function buildWelcomeEmbed(

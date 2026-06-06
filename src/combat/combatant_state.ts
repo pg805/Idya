@@ -21,6 +21,10 @@ export class CombatantState {
     debuff:  StatusEffect = { value: 0, rounds: 0 }
     reflect: StatusEffect = { value: 0, rounds: 0 }
     shield:  StatusEffect = { value: 0, rounds: 0 }
+    // Running tally of HP lost across the whole battle (strikes + DOT + reflect).
+    // Reads at game_over to populate damage_dealt/damage_received on BattleLog.
+    // Heals don't count (they go up, not down), which matches "damage taken".
+    damage_taken = 0
 
     constructor(
         name: string,
@@ -75,6 +79,7 @@ export class CombatantState {
         if (this.dot.rounds > 0) {
             const hp_before = this.health;
             this.health = Math.max(this.health - this.dot.value, 0);
+            this.damage_taken += hp_before - this.health;
             this.dot.rounds -= 1;
             action_string += `\n${this.name} takes ${this.dot.value} DOT damage (${this.dot.rounds} round(s) remaining)  |  HP: ${hp_before} → ${this.health}`;
             logger.info(`End of Turn DOT on ${this.name}\nDamage: ${this.dot.value}\nRounds Left: ${this.dot.rounds}\nHealth: ${this.health}`);
