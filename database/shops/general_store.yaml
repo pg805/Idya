@@ -27,6 +27,17 @@ Items:
     Stock_Influence: 0
     Restock_Field: [10]
 
+  - id: tin_bait
+    Base_Buy: 3
+    Base_Sell: null
+    R: 1.0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
   - id: wyrm_bait
     Base_Buy: 8
     Base_Sell: 2

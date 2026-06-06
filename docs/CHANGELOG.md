@@ -3,6 +3,86 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## Unreleased (0.2.0 dev)
+
+### New enemy
+
+- **Tinpul** (Lv 1, 10 HP). Squishy ranged shooter — pokes with Pea Shot
+  (range 4, reactive) on the approach, then panics into melee Tin Punch
+  when closed. Special is Harden Tin (shield 7 / 2 rounds). Crit applies
+  Tin Coating, a Physical/Mental debuff for 4 over 2 rounds. Drops sulwood,
+  crude talamite, and the occasional lifgem. Pulled by **Tin Bait** at the
+  general store (3 korel).
+
+### Active battle tracking
+
+- Hunt page now lists the player's in-flight battles with **Resume** +
+  **Forfeit** buttons. Tutorial pinned to the top, then most-recent
+  activity. Sessions are in-memory only (bot restart drops them — no
+  phantom rows in `BattleLog` since rows only get written at `game_over`).
+- Auto-forfeit after 7 days of inactivity. Sweep runs on every list
+  fetch, so a stale session can't outlive the cutoff.
+- Forfeit endpoint writes `outcome='forfeit'` per enemy (no korel
+  penalty per design); bait is already consumed at hunt start so no
+  refund either.
+- `game_over` stamps `sessionMeta.endedAt`, so finished battles disappear
+  from the active list immediately even though the 10-minute reward-UI
+  cleanup timer is still ticking.
+- `join_session` now replays every captured round to the rejoining
+  socket (not just the initiative line), so the combat log fills in
+  when a player resumes mid-battle.
+
+### Tutorial resilience
+
+- `/api/layout` returns a `tutorial_session_id` when the player has a
+  character but `tutorial_complete=false`. If no active tutorial session
+  exists in memory (closed tab, bot restart, 7-day timeout), the server
+  spins up a fresh one. Client redirects on app init.
+- `game.js` bounces to `/app/` on `"Session not found"`, so a dead
+  `/battle/X` URL self-heals into a fresh tutorial via the layout flow.
+
+### Dev stats page (`/app/dev/stats`)
+
+- New dev-only page (sidebar entry gated by `is_dev` on `/api/layout`)
+  showing aggregated battle data straight from `BattleLog`.
+- Filters: Versions / Enemies / Weapons multi-select chips; First-mover
+  tri-state radio (Either / Player / Enemy); pre-0.2.0 legacy bucket
+  off by default.
+- Group by Enemy or Weapon (pure presentation toggle — server returns
+  both pivots of one matchup table).
+- Metrics per row: Battles, Wins, Forfeits, Win %, Avg HP Left (wins
+  only), Avg Enemy HP Left (losses only), DPR, DTR, Crits, Aim %,
+  Restores, Duration. New schema columns on `BattleLog`:
+  `player_hp_left`, `enemy_hp_left`, `damage_dealt`, `damage_received`,
+  `rounds_count`, `crit_count`, `aimed_attempted`, `aimed_hit`,
+  `restores`, `player_went_first`, `version`, `weapon_key`.
+- Multi-enemy battles now emit one `BattleLog` row per enemy so the
+  histograms count "absolute enemies fought" instead of "bait used."
+  Player-side metrics (HP, rounds, crits, aim) duplicate across the
+  rows; per-enemy metrics (damage dealt, HP left) split.
+- Sim integration: `npm run sim:save` writes a canonical Monte-Carlo
+  payload to `docs/sim/{version}.json`. Endpoint serves it on non-prod
+  only; page renders a weapon × enemy win-rate grid when present.
+
+### Combat instrumentation
+
+- `CombatantState` gained `damage_taken`, `attack_crits`, `aimed_attempted`,
+  `aimed_hit`, `restores` counters. `resolution.ts` increments them at
+  the right hook points so the dev stats page has real signal to read.
+- `CombatSession.deadCombatants` snapshots `{combatant, meta}` on each
+  reap so `logBattlePerEnemy` (which runs at `game_over`, after every
+  loser has been cleaned out) can still attribute per-enemy damage and
+  HP-left.
+
+### Doc + repo hygiene
+
+- All markdown unified under `docs/` (was split across `database/docs/`
+  and `database/lore/`). Player-facing docs are exclusively the three
+  served by `/api/info/*`: `reference.md`, `about.md`,
+  `lore/world_player.md`. Everything else under `docs/` is dev-only.
+- `CLAUDE.md` action type table corrected (4=DOT, 5=Debuff — was
+  swapped).
+
 ## 0.1.5 — 2026-06-05
 
 The "fill in the docs and rebuild combat for teams" release. Three new info

@@ -181,7 +181,7 @@ function refreshTelegraphs(session: CombatSession): void {
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear', 'tinpul'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
@@ -192,6 +192,7 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
   toad_bait:    'maetoad',
   tar_bait:     'golnosar',
   bear_bait:    'melbear',
+  tin_bait:     'tinpul',
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 

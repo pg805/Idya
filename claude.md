@@ -114,7 +114,7 @@ Bot token goes in `database/config.json`:
 - Classes: `PascalCase` with underscores (`Player_Character`)
 - Methods: `camelCase`
 - JSON files: `snake_case`
-- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=Debuff, 5=Heal, 6=DOT, 7=Reflect, 8=Shield
+- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=DOT, 5=Debuff, 6=Heal, 7=Reflect, 8=Shield
 - Action templates use placeholders: `<User>`, `<Target>`, `<Damage>`
 - `Aimed: false` is the in-game term **reactive** — attack fires without targeting a specific tile
 - `Aimed: true` is the in-game term **aimed** — player selects a target tile before the attack resolves
