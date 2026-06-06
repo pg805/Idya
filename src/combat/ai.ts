@@ -82,17 +82,11 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
     };
   }
 
-  const finalPos = moveTo ?? ai.pos;
-  const distAfterMove = chebyshevDist(finalPos, target.pos);
-
-  if (distAfterMove > action.range) {
-    return {
-      combatantId: ai.id,
-      moveTo,
-      action: { type: 'pass', actionIndex: 0, targetPos: null },
-    };
-  }
-
+  // Let out-of-range actions fire and miss instead of silently passing —
+  // resolution.ts already pays the resource cost and logs an "out of range"
+  // line for both aimed and reactive paths, which is the right user-facing
+  // feedback. The AI commits to the pattern entry; bad positioning is its
+  // own punishment.
   return {
     combatantId: ai.id,
     moveTo,
