@@ -86,6 +86,17 @@ ships here instead.
 - Trophies render as a grid of cards sorted by defeat count descending;
   keepsakes get a separate section with the "permanent" tag.
 
+### Trophy tiers
+
+- Pure-CSS tier theming on trophy cards keyed off the live defeat count:
+  - `1–99` → no tier (default look)
+  - `100–299` → **Bronze**
+  - `300–999` → **Silver**
+  - `1000+` → **Gold**
+- Tier border, name color, and a small badge next to the trophy name.
+  No new data — the same defeated_count query drives the visual upgrade
+  as soon as a threshold is crossed.
+
 ### Active battle tracking
 
 - Hunt page now lists the player's in-flight battles with **Resume** +
