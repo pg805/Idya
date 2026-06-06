@@ -834,12 +834,41 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
   const TICK_MS = 24 * 60 * 60 * 1000;
   const now = Date.now();
 
+  // Item market category. Raw items use ITEMS[].type ('material' / 'consumable'
+  // → commodity; 'valuable' → valuable). Crafted items inherit: a recipe is a
+  // valuable if any ingredient walks back to a valuable, otherwise commodity.
+  // Memoized so a deep chain (kustaff → quarterstaff → sulwood) doesn't get
+  // re-classified per request.
+  const categoryMemo = new Map<string, 'commodity' | 'valuable'>();
+  function categoryOf(itemId: string, visited = new Set<string>()): 'commodity' | 'valuable' {
+    if (categoryMemo.has(itemId)) return categoryMemo.get(itemId)!;
+    if (visited.has(itemId)) return 'commodity';
+    visited.add(itemId);
+    const recipe = ctx.recipeFor(itemId);
+    let cat: 'commodity' | 'valuable';
+    if (recipe) {
+      cat = 'commodity';
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (!ingrId) continue;
+        if (categoryOf(ingrId, visited) === 'valuable') { cat = 'valuable'; break; }
+      }
+    } else {
+      const t = ITEMS[itemId]?.type;
+      cat = t === 'valuable' ? 'valuable' : 'commodity';
+    }
+    categoryMemo.set(itemId, cat);
+    visited.delete(itemId);
+    return cat;
+  }
+
   type MarketRow = {
     shop_id:           string;
     shop_name:         string;
     item_id:           string;
     item_name:         string;
     item_type:         string;
+    category:          'commodity' | 'valuable';
     source:            'raw' | 'recipe';
     recipe_id:         string | null;
     current_buy:       number | null;
@@ -882,6 +911,7 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
         item_id:           item.id,
         item_name:         ITEMS[item.id]?.name ?? item.id,
         item_type:         ITEMS[item.id]?.type ?? 'unknown',
+        category:          categoryOf(item.id),
         source:            recipe ? 'recipe' : 'raw',
         recipe_id:         recipe?.id ?? null,
         current_buy:       curBuy  == null ? null : Math.round(curBuy),
