@@ -24,6 +24,10 @@ Pattern:
   - [1, 0]   # Defend: Swallow
   - [2, 1]   # Attack: Peck
   - [3, 0]   # Special: Drench
+  - [1, 0]   # Defend: Swallow
+  - [1, 0]   # Defend: Swallow
+  - [2, 0]   # Attack: Spit
+  - [1, 0]   # Defend: Swallow
 Image: ""
 
 Weapon:
