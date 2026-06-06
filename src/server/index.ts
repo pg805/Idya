@@ -812,15 +812,15 @@ function parseMarkdownSections(absPath: string): Array<{ title: string; body: st
 }
 
 app.get('/api/info/lore', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/lore/world_player.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/lore/world_player.md')) });
 });
 
 app.get('/api/info/reference', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/reference.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/reference.md')) });
 });
 
 app.get('/api/info/about', (_req: Request, res: Response) => {
-  res.json({ sections: parseMarkdownSections(join(__dirname, '../../database/docs/about.md')) });
+  res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
 });
 
 // ---- Hunt ----

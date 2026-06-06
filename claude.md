@@ -31,28 +31,36 @@ database/
 ├── weapons/             # Weapon YAML definitions
 ├── enemies/             # Enemy YAML definitions
 ├── shops/               # Shop YAML definitions
-├── recipes/             # Crafting recipe YAML
-├── docs/                # Markdown rendered by SPA info pages (Reference, About)
-└── lore/                # World/NPC lore (designer + player-facing variants)
+└── recipes/             # Crafting recipe YAML
 
-docs/                    # Dev/design docs — NOT served by the app
+docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG.md         # Detailed dev changelog
 ├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
-├── battle-ideas.md      # Design ideas / future work for combat
-├── alpha_checklist.md   # TODOs before alpha
 ├── PRD.md               # Vision / product requirements
-└── ...
+├── alpha_checklist.md   # TODOs before alpha
+├── battle-ideas.md      # Design ideas / future work for combat
+├── npc-dialogue-system.md
+├── rules.md
+├── demo.md
+├── reference.md         # Served at /api/info/reference (Reference info page)
+├── about.md             # Served at /api/info/about (About info page)
+└── lore/
+    ├── world.md         # Designer-facing world doc — NOT served
+    ├── world_player.md  # Served at /api/info/lore (Lore info page)
+    └── names.md         # Name pool
 ```
 
-### Documentation locations
+### Which markdown files are player-facing?
 
-| Folder | Purpose | Served to players? |
+Only the three loaded by `/api/info/*` endpoints in `src/server/index.ts`:
+
+| File | Endpoint | SPA route |
 |---|---|---|
-| `docs/` | Dev docs: changelog, design ideas, alpha checklist, PRDs, server rules | No |
-| `database/docs/` | Markdown content for SPA info pages (`/app/reference`, `/app/about`) | Yes — via `/api/info/*` |
-| `database/lore/` | World lore — `world.md` is designer-facing, `world_player.md` is the SPA Lore page | `world_player.md` only |
+| `docs/reference.md` | `/api/info/reference` | `/app/reference` |
+| `docs/about.md` | `/api/info/about` | `/app/about` |
+| `docs/lore/world_player.md` | `/api/info/lore` | `/app/lore` |
 
-When adding a new markdown doc, decide first whether it's player-facing (served by SPA) or dev-facing (just in the repo) and place accordingly.
+Everything else under `docs/` is dev-only. When adding a new doc, decide first whether it's player-facing — if so, wire a `/api/info/*` endpoint to it and add a sidebar link in `public/app.html` + route in `public/app.js`.
 
 ## Key Concepts
 
