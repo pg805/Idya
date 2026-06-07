@@ -304,34 +304,40 @@ function renderBoard() {
 
       const obstacle = obstacleMap.get(k);
       const combatant = combatantMap.get(k);
+      const tile = tileMap.get(k);
+      // A destroyed obstacle is walkable rubble — still drawn, but it behaves like
+      // an empty tile (tokens + tiles can sit on it). Only intact/damaged walls block.
+      const solidObstacle = obstacle && obstacle.state !== 'destroyed';
 
       if (obstacle) {
         cell.classList.add('obstacle');
-        cell.dataset.state = obstacle.state;
-      } else if (combatant) {
-        const isOwn = combatant.teamId === playerTeamId;
-        const el = document.createElement('div');
-        el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
-        if (combatant.sprite) {
-          el.style.backgroundImage = `url('${combatant.sprite}')`;
-          el.style.backgroundSize = 'contain';
-          el.style.backgroundRepeat = 'no-repeat';
-          el.style.backgroundPosition = 'center';
-          el.innerHTML = `<span class="combatant-name">${combatant.name}</span>`;
-        } else {
-          const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-          el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
-        }
-        cell.appendChild(el);
+        cell.dataset.state = obstacle.state;   // bottom layer (rubble when destroyed)
       }
 
-      const tile = tileMap.get(k);
-      if (tile) {
-        cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
-        const mark = document.createElement('div');
-        mark.className = 'tile-mark';
-        mark.textContent = (tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : '☠') + tile.value;
-        cell.appendChild(mark);
+      if (!solidObstacle) {
+        if (tile) {  // middle layer: tile tint + mark (z-index in CSS keeps it above rubble)
+          cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
+          const mark = document.createElement('div');
+          mark.className = 'tile-mark';
+          mark.textContent = (tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : '☠') + tile.value;
+          cell.appendChild(mark);
+        }
+        if (combatant) {  // top layer: token
+          const isOwn = combatant.teamId === playerTeamId;
+          const el = document.createElement('div');
+          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
+          if (combatant.sprite) {
+            el.style.backgroundImage = `url('${combatant.sprite}')`;
+            el.style.backgroundSize = 'contain';
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.innerHTML = `<span class="combatant-name">${combatant.name}</span>`;
+          } else {
+            const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
+          }
+          cell.appendChild(el);
+        }
       }
 
       if (k === targetTileKey) {
@@ -340,9 +346,9 @@ function renderBoard() {
         cell.classList.add('target-valid');
       } else if (k === moveTargetKey) {
         cell.classList.add('move-target');
-      } else if (ui.pathTiles.has(k) && !obstacle && !combatant) {
+      } else if (ui.pathTiles.has(k) && !solidObstacle && !combatant) {
         cell.classList.add('path-tile');
-      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !obstacle && !combatant) {
+      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !solidObstacle && !combatant) {
         // Keep reachable highlights up through the whole selecting_move phase
         // (used to clear once moveTo was set) so arrow-key users can see how
         // far they can still go from the current target.

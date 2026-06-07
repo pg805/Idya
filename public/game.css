@@ -129,6 +129,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* Combatant tokens */
 .combatant {
+  position: relative;
+  z-index: 4;           /* tokens render above tiles + tile marks */
   width: 52px;
   height: 52px;
   border-radius: 50%;

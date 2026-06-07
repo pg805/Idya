@@ -50,7 +50,8 @@ export class Board {
     return this.obstacles.get(posKey(pos));
   }
 
-  // Mark an obstacle destroyed (it no longer blocks LOS/movement).
+  // Destroy an obstacle: marks it 'destroyed'. It stays on the board as rubble
+  // (still rendered) but behaves like an empty, walkable tile from then on.
   destroyObstacle(pos: Pos): boolean {
     const obs = this.obstacles.get(posKey(pos));
     if (!obs || obs.state === 'destroyed') return false;
