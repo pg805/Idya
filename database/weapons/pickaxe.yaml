@@ -18,6 +18,7 @@ Defend:
     Damage_Type: Physical
     Damage_Subtype: Sharp
     Value: 5
+    Area: 1
     Cost: 5
     Action_String: "<User> digs a hidey hole — allies standing on it block 5 damage."
   # NEW EFFECT — Buff Tile (Type 10): permanent tile on the caster's square.
@@ -28,6 +29,7 @@ Defend:
     Damage_Type: Physical
     Damage_Subtype: Mental
     Value: 5
+    Area: 1
     Cost: 5
     Action_String: "<User> digs a trench — allies standing on it deal +5 damage."
   - Name: Duck

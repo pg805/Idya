@@ -472,7 +472,9 @@ so they get a boost up to 125.
   15). Walls all L1 weapons 0% in sim. "Bigger hits at L2" — leaning less
   conservative, as intended.
 - 2026-06-07: **New effect: Slow Tile (Type 13, defined-not-wired).** Maetoad's
-  Mire drops a **2×2** of slow tiles; leaving a slow tile costs +1 movement.
+  Bloodmire drops a **2×2** of slow tiles; leaving a slow tile costs +1 movement.
+  Tiles now carry an **`Area`** field (L1 tiles = 1, Bloodmire = 2) that the
+  engine will read for placement size.
   **Placement rule:** aimed → the 2×2 sprays from the targeted tile; reactive →
   the nearest tile with an enemy on it (player & enemy use the same rule).
   **Costing (control, not damage):** value ≈ movement-denied × time-in-zone ×

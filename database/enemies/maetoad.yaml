@@ -86,7 +86,7 @@ Weapon:
     # sprays from the targeted tile; reactive = nearest tile with an enemy on it.
     # Loads inert (default case) for now. When Type 13 lands: add a [3,2] pattern
     # entry and verify the Maek economy.
-    - Name: Mire
+    - Name: Bloodmire
       Type: 13
       Type_Name: Slow Tile
       Damage_Type: Arcane

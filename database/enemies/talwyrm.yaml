@@ -79,6 +79,7 @@ Weapon:
       Damage_Type: Physical
       Damage_Subtype: Sharp
       Value: 5
+      Area: 1
       Cost: 2
       Aimed: true
       Range: 3
