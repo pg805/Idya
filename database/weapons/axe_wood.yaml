@@ -67,7 +67,7 @@ Special:
 
   # NEW EFFECT — Destroy Obstacle (Type 12): target an obstacle in range, destroy
   # it, and AOE its Field to enemies within 1 tile of it. Conditional (needs an
-  # obstacle + an adjacent enemy). Loads as an inert no-op until engine support.
+  # obstacle + an adjacent enemy).
   - Name: Tree Chop
     Type: 12
     Type_Name: Destroy Obstacle

@@ -7,8 +7,20 @@ export enum ActionType {
     Debuff         = 5,
     Heal           = 6,
     Reflect        = 7,
-    Shield         = 8
+    Shield         = 8,
+    // Board-effect types (0.2.0 positional layer)
+    BlockTile      = 9,   // permanent tile; allies standing on it gain block = value each round
+    BuffTile       = 10,  // permanent tile; allies standing on it gain +value to attack rolls
+    HazardTile     = 11,  // permanent tile; opposing units that enter it take value damage
+    DestroyObstacle = 12, // destroy a targeted obstacle, AOE its field to enemies within 1
 }
+
+// Tile-creating actions place a tile on the caster's own square — no target.
+export const TILE_TYPES = new Set<number>([
+    ActionType.BlockTile,
+    ActionType.BuffTile,
+    ActionType.HazardTile,
+]);
 
 export const SELF_TARGET_TYPES = new Set<number>([
     ActionType.Block,

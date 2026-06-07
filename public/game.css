@@ -82,6 +82,16 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .cell.obstacle[data-state="destroyed"] { background: #1a1510; }
 .cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #333; }
 
+/* Board-effect tiles (0.2.0). Tint the cell; combatant/marks sit on top. */
+.cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(80,150,230,0.7);  background: rgba(40,90,150,0.28); }
+.cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(220,180,60,0.7);  background: rgba(150,120,30,0.28); }
+.cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
+.cell .tile-mark {
+  position: absolute; bottom: 1px; right: 2px;
+  font-size: 0.6rem; font-weight: bold; line-height: 1;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.95); pointer-events: none; z-index: 3;
+}
+
 /* Reachable highlight — palette buy-blue */
 .cell.reachable {
   background: var(--buy-bg);

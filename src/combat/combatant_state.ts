@@ -16,6 +16,9 @@ export class CombatantState {
     resource_current: number
     resistances: Record<string, number>
     block = 0
+    // Transient +damage from standing on a friendly buff tile this round. Set at
+    // the start of each action phase, cleared at end_round (like block).
+    tileBuff = 0
     dot:     StatusEffect = { value: 0, rounds: 0 }
     buff:    StatusEffect = { value: 0, rounds: 0 }
     debuff:  StatusEffect = { value: 0, rounds: 0 }
@@ -82,6 +85,7 @@ export class CombatantState {
     end_round(): string {
         let action_string = '';
         this.block = 0;
+        this.tileBuff = 0;
 
         if (this.dot.rounds > 0) {
             const hp_before = this.health;

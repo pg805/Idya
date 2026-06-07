@@ -57,7 +57,7 @@ function apply_hostile_actions(
             reflect = true;
             const roll_mode = target.get_roll_mode(action);
             const damage_roll = (action as Strike).field.get_result_with_mode(roll_mode);
-            const damage = Math.max(damage_roll - target.block - target.shield.value + attacker.buff.value - attacker.debuff.value, 0);
+            const damage = Math.max(damage_roll - target.block - target.shield.value + attacker.buff.value + attacker.tileBuff - attacker.debuff.value, 0);
             const hp_before = target.health;
             target.health = Math.max(target.health - damage, 0);
             target.damage_taken += hp_before - target.health;

@@ -12,6 +12,8 @@ import Heal from './action/heal.js';
 import Strike from './action/strike.js';
 import Reflect from './action/reflect.js';
 import Shield from './action/shield.js';
+import TileAction from './action/tile_action.js';
+import DestroyObstacle from './action/destroy_obstacle.js';
 
 type ActionData = {
     'Name': string,
@@ -63,6 +65,17 @@ function from_json(action_object: ActionData): Action {
         case 8:
             logger.info(`Adding Shield to Weapon: ${action_object['Name']}`);
             action = new Shield(action_object['Name'], action_object['Action_String'], action_object['Value'], action_object['Rounds']);
+            break;
+        case 9:
+        case 10:
+        case 11:
+            logger.info(`Adding Tile (${action_object['Type']}) to Weapon: ${action_object['Name']}`);
+            action = new TileAction(action_object['Name'], action_object['Action_String'], action_object['Type'], action_object['Value']);
+            action.type_name = action_object['Type_Name'];
+            break;
+        case 12:
+            logger.info(`Adding Destroy Obstacle to Weapon: ${action_object['Name']}`);
+            action = new DestroyObstacle(action_object['Name'], action_object['Action_String'], new Result_Field(action_object['Field']));
             break;
         default:
             action = new Action('Error', 'Error');

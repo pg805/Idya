@@ -11,7 +11,7 @@ Resource:
 Defend:
   # NEW EFFECT — Block Tile (Type 9): drops a permanent tile on the caster's
   # square. Allies standing on it gain block = Value each round. Overwrites any
-  # tile already there. Needs engine support (CreateTile, board-tile state).
+  # tile already there.
   - Name: Hidey Hole
     Type: 9
     Type_Name: Block Tile

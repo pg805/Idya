@@ -3,7 +3,9 @@ import { CombatIntent } from './intent.js';
 import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action } from './action_resolver.js';
-import { SELF_TARGET_TYPES, ActionType } from '../weapon/action.js';
+import { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
+import TileAction from '../weapon/action/tile_action.js';
+import DestroyObstacle from '../weapon/action/destroy_obstacle.js';
 import { reachableTiles } from './movement.js';
 
 export interface ResolutionResult {
@@ -139,6 +141,23 @@ export function resolveIntents(
     log.push(`${c.name} moves (${old.x},${old.y}) → (${c.pos.x},${c.pos.y}).`);
   }
 
+  // Hazard tiles: a combatant that moved onto an opposing team's hazard tile
+  // takes its damage on entry. (Death is reaped during the action phase below.)
+  for (const [id, intent] of intents) {
+    if (!intent.moveTo || blocked.has(id)) continue;
+    const c = session.combatants.find(c => c.id === id);
+    if (!c) continue;
+    const tile = session.board.getTile(c.pos);
+    if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
+    const meta = session.meta.get(c.id);
+    if (!meta) continue;
+    const before = meta.state.health;
+    meta.state.health = Math.max(meta.state.health - tile.value, 0);
+    meta.state.damage_taken += before - meta.state.health;
+    c.hp = meta.state.health;
+    log.push(`${c.name} steps onto a hazard tile and takes ${tile.value}!  |  HP: ${before} → ${c.hp}`);
+  }
+
   // --- Action phase ---
   // Ordered: defend → attack → special. Within each category, player(s) before AI.
   // After every individual action we sync HP, remove dead combatants, and end the
@@ -170,6 +189,43 @@ export function resolveIntents(
 
     if (action.cost > 0 && action.cost > actorMeta.state.resource_current) {
       log.push(`${actor.name} cannot afford ${action.name}.`);
+      return;
+    }
+
+    // --- Board-effect actions (0.2.0 positional layer) ---
+    // Tile creators drop a permanent tile on the actor's own square.
+    if (TILE_TYPES.has(action.type)) {
+      actorMeta.state.apply_cost(action);
+      const kind = action.type === ActionType.BlockTile ? 'block'
+                 : action.type === ActionType.BuffTile  ? 'buff' : 'hazard';
+      session.board.setTile({ pos: { ...actor.pos }, teamId: actor.teamId, kind, value: (action as TileAction).value });
+      log.push(`${actor.name} — ${action.name}: drops a ${kind} tile at (${actor.pos.x},${actor.pos.y}).`);
+      return;
+    }
+
+    // Destroy Obstacle: aimed at an obstacle in range; destroy it and AOE its
+    // field to enemies within 1 tile of the wreck. Resistances apply; the blast
+    // bypasses block/shield.
+    if (action.type === ActionType.DestroyObstacle) {
+      actorMeta.state.apply_cost(action);
+      const targetPos = intent.action.targetPos;
+      if (!targetPos) { log.push(`${actor.name}'s ${action.name} — no target.`); return; }
+      const dist = chebyshevDist(actor.pos, targetPos);
+      if (dist > action.range) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — out of range (dist ${dist}).`); return; }
+      if (!session.board.destroyObstacle(targetPos)) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — no obstacle there, misses.`); return; }
+      const field = (action as DestroyObstacle).field;
+      log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
+      const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
+      for (const v of victims) {
+        const vMeta = session.meta.get(v.id);
+        if (!vMeta || vMeta.state.health <= 0) continue;
+        const mode = vMeta.state.get_roll_mode(action);
+        const dmg = field.get_result_with_mode(mode);
+        const before = vMeta.state.health;
+        vMeta.state.health = Math.max(vMeta.state.health - dmg, 0);
+        vMeta.state.damage_taken += before - vMeta.state.health;
+        log.push(`  shrapnel hits ${v.name} for ${dmg}  |  HP: ${before} → ${vMeta.state.health}`);
+      }
       return;
     }
 
@@ -283,6 +339,18 @@ export function resolveIntents(
   const orderedIds = [...snapshot]
     .sort((a, b) => a.initiativeRank - b.initiativeRank)
     .map(c => c.id);
+
+  // Standing on a friendly tile grants its effect for this round, before any
+  // attack lands: block tiles add to block (stacks with a defend), buff tiles
+  // feed strike damage via tileBuff. Recomputed each round; cleared at end_round.
+  for (const c of session.combatants) {
+    const tile = session.board.getTile(c.pos);
+    if (!tile || tile.teamId !== c.teamId) continue;
+    const meta = session.meta.get(c.id);
+    if (!meta) continue;
+    if (tile.kind === 'block')     meta.state.block += tile.value;
+    else if (tile.kind === 'buff') meta.state.tileBuff = tile.value;
+  }
 
   const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];
 

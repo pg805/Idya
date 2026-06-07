@@ -26,21 +26,22 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
 
   const canSelf = (a: { type: number; targeted: boolean }) =>
     a.targeted && (a.type === ActionType.Heal || a.type === ActionType.Buff);
+  const obstacleTgt = (a: { type: number }) => a.type === ActionType.DestroyObstacle;
 
   for (let i = 0; i < weapon.defend.length; i++) {
     const a = weapon.defend[i];
     const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'defend', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), range: a.range, cost: a.cost });
+    actions.push({ label: a.name, choice: 'defend', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
   }
   for (let i = 0; i < weapon.attack.length; i++) {
     const a = weapon.attack[i];
     const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'attack', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), range: a.range, cost: a.cost });
+    actions.push({ label: a.name, choice: 'attack', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
   }
   for (let i = 0; i < weapon.special.length; i++) {
     const a = weapon.special[i];
     const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'special', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), range: a.range, cost: a.cost });
+    actions.push({ label: a.name, choice: 'special', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
   }
 
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions };

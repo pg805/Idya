@@ -238,8 +238,13 @@ function computeTargetableTiles(actionInfo, fromPos) {
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       const k = `${x},${y}`;
-      if (obstacleSet.has(k)) continue;
       const d = chebyshev(fromPos, { x, y });
+      // Destroy Obstacle targets the obstacles themselves (any intact one in range).
+      if (actionInfo.targetsObstacle) {
+        if (obstacleSet.has(k) && d >= 1 && d <= actionInfo.range) tiles.add(k);
+        continue;
+      }
+      if (obstacleSet.has(k)) continue;
       const minDist = actionInfo.canTargetSelf ? 0 : 1;
       if (d >= minDist && d <= actionInfo.range) {
         if (d === 0 || actionInfo.range === 1 || hasLineOfSight(fromPos, { x, y }, state.board)) {
@@ -282,6 +287,7 @@ function renderBoard() {
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
   const combatantMap = new Map(state.combatants.map(c => [`${c.pos.x},${c.pos.y}`, c]));
+  const tileMap = new Map((state.board.tiles || []).map(t => [`${t.pos.x},${t.pos.y}`, t]));
   const moveTargetKey = ui.moveTo ? `${ui.moveTo.x},${ui.moveTo.y}` : null;
   const selectedKey = ui.selected ? `${ui.selected.pos.x},${ui.selected.pos.y}` : null;
   const targetTileKey = ui.targetTile ? `${ui.targetTile.x},${ui.targetTile.y}` : null;
@@ -317,6 +323,15 @@ function renderBoard() {
           el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
         }
         cell.appendChild(el);
+      }
+
+      const tile = tileMap.get(k);
+      if (tile) {
+        cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
+        const mark = document.createElement('div');
+        mark.className = 'tile-mark';
+        mark.textContent = (tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : '☠') + tile.value;
+        cell.appendChild(mark);
       }
 
       if (k === targetTileKey) {

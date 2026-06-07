@@ -12,10 +12,21 @@ export interface BoardConfig {
   obstacles: Obstacle[];
 }
 
+// Board-effect tiles (0.2.0 positional layer). Permanent; placing on an occupied
+// square overwrites the existing tile.
+export type TileKind = 'block' | 'buff' | 'hazard';
+export interface Tile {
+  pos: Pos;
+  teamId: string;   // tile's owner team — allies benefit (block/buff), foes trigger (hazard)
+  kind: TileKind;
+  value: number;
+}
+
 export class Board {
   readonly width: number;
   readonly height: number;
   private obstacles: Map<string, Obstacle>;
+  private tiles: Map<string, Tile> = new Map();
 
   constructor(config: BoardConfig) {
     this.width = config.width;
@@ -39,11 +50,29 @@ export class Board {
     return this.obstacles.get(posKey(pos));
   }
 
+  // Mark an obstacle destroyed (it no longer blocks LOS/movement).
+  destroyObstacle(pos: Pos): boolean {
+    const obs = this.obstacles.get(posKey(pos));
+    if (!obs || obs.state === 'destroyed') return false;
+    obs.state = 'destroyed';
+    return true;
+  }
+
+  // --- Tiles ---
+  setTile(tile: Tile): void {
+    this.tiles.set(posKey(tile.pos), { ...tile, pos: { ...tile.pos } });
+  }
+
+  getTile(pos: Pos): Tile | undefined {
+    return this.tiles.get(posKey(pos));
+  }
+
   toJSON() {
     return {
       width: this.width,
       height: this.height,
       obstacles: Array.from(this.obstacles.values()),
+      tiles: Array.from(this.tiles.values()),
     };
   }
 }

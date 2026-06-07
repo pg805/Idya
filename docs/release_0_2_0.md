@@ -433,3 +433,11 @@ they assume the new budget exists so we can cost the new abilities.
   Ld2; not budgeted — matchup-dependent, roughly neutral): Swallow weak Physical /
   resist Water, Tinpul weak Earth, Sulfolk weak Fire / resist Plant+Water, Talwyrm
   resist Arcane. Visible effect: Branch vs Swallow 69%→95% (Physical weakness).
+- 2026-06-07: **Tile/obstacle engine built** — types 9-12 are now live (no longer
+  inert). Tiles on `Board` (setTile/getTile, serialized in `board.toJSON().tiles`);
+  block/buff applied at action-phase start (buff via `CombatantState.tileBuff` into
+  strike damage), hazard checked in the move phase, Destroy Obstacle in the action
+  phase with `ActionInfo.targetsObstacle` driving UI targeting. New action classes
+  `tile_action.ts` / `destroy_obstacle.ts`; UI renders tiles + obstacle-aim
+  (`public/game.js`, `game.css`). Verified by `src/tools/test_tiles.ts` (block
+  absorbs, buff +5 over Mine's cap, hazard-on-enter, destroy+AOE — all pass).

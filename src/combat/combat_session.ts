@@ -13,6 +13,7 @@ export interface ActionInfo {
   aimed: boolean;
   targeted: boolean;      // true for Heal/Buff that can target any combatant incl. friendlies
   canTargetSelf: boolean; // true for Heal/Buff — own tile is a valid target
+  targetsObstacle?: boolean; // true for Destroy Obstacle — target an obstacle tile, not a combatant
   range: number;
   cost: number;
 }

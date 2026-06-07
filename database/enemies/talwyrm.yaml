@@ -72,8 +72,7 @@ Weapon:
       Cost: 2
       Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."
     # NEW EFFECT — Hazard Tile (Type 11): permanent tile on the caster's square;
-    # opposing units that ENTER it (incl. moving through) take Value. Needs engine
-    # support (CreateTile hazard mode) — loads as an inert no-op until then.
+    # opposing units that ENTER it (checked in the move phase) take Value.
     - Name: Crystal Remnants
       Type: 11
       Type_Name: Hazard Tile
