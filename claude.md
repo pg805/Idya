@@ -179,9 +179,9 @@ Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units
 ### Recipe Progression
 | Level | LJ | BS | EN |
 |-------|----|----|-----|
-| 1 | Quarterstaff | Dagger | Spellbook (TBD) |
+| 1 | Quarterstaff | Dagger | Deck of Cards (L1 base; see 0.2.0 doc) |
 | 2 | Treated sulwood (smelt) + Quarterstaff (Treated, +atk) | Talamite (smelt) + Dagger (Talamite, +atk) | Hiruos (smelt) |
-| 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Deck of Cards, Mental Cage |
+| 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Spellbook, Mental Cage |
 | 4 | — (budget +3) | — (budget +3) | Physical enchant: sharp/blunt, +1 (costs 3 thuvel + 6 hiruos) |
 | 5 | — (budget +4) | — (budget +4) | Arcane enchant: mental/force, +1 |
 | 6 | — (budget +5) | — (budget +5) | Elemental enchant: fire/water/earth/wind/plant, +1 |

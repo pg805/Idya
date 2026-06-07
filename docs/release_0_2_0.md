@@ -204,6 +204,22 @@ budget(L) = 25 · L · (L+3) / 2
 L = ( −3 + √(9 + 8·budget/25) ) / 2
 ```
 
+**Integer level = floor(L)**, which gives a **Level 0** for free: the whole
+budget band `[0, 50)` below the first curve anchor. That's the starter / tutorial
+floor — no new curve needed, it's just "everything under L1." So a unit at
+budget 43 is L0, a unit at 51 is L1. The starter trio live here:
+
+| Unit | Budget | L (continuous) | **Level** |
+|------|--------|----------------|-----------|
+| Tinpul | 29.3 | 0.64 | **0** |
+| Branch | 41.8 | 0.87 | **0** |
+| Lithkem Swallow | 43.0 | 0.88 | **0** |
+| Deck of Cards | 51.0 | 1.02 | **1** |
+
+Note the Deck is **L1, not L2** — by budget it's the same band as Branch/Swallow,
+just at the top. Its L2-*looking* `[22]` burst is the glass-cannon illusion: big
+numbers, paper HP, nets to L1. Power (budget) sets the tier, not the damage face.
+
 ### Worked examples (L1, μ = 4.5)
 
 Attacks = EV × range × aim; defenses = prevented(V) [× rounds × 0.5]; combined by
