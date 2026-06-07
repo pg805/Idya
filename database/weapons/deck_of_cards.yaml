@@ -1,7 +1,7 @@
 Name: Deck of Cards
 Description: The cards in this deck are razor sharp and fly with precision. An worthy weapon for any adventurer.
-Level: 3
-HP: 25
+Level: 1
+HP: 15
 Weight: 0
 
 Resource:
@@ -48,9 +48,9 @@ Attack Crit:
     Type_Name: Debuff
     Damage_Type: Arcane
     Damage_Subtype: Mental
-    Value: 6
+    Value: 2
     Rounds: 2
-    Action_String: "<User> pulls a joker and throws it at <Target>, debuffing <Target>'s attack by 6 for 2 rounds."
+    Action_String: "<User> pulls a joker and throws it at <Target>, debuffing <Target>'s attack by 2 for 2 rounds."
 
 Special:
   - Name: Suit

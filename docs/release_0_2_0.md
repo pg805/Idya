@@ -34,8 +34,11 @@ Three threads, in order of dependency:
 - **Budget** — the design-time stat-point pool for a weapon or enemy at a
   given level. Each point of HP, each unit of action value, and each unit
   of expected damage costs 1 budget point.
-- **Max roll** — the cap on a single attack-action's damage field value at
-  a given level. Caps how big a hit can be.
+- **Max roll** — the *default* cap on a single attack-action's damage field value
+  at a given level. Caps how big a hit can be. A **soft** guideline, not a hard
+  rule: a weapon can take an explicit exception to swing bigger if its identity
+  earns it (e.g. Deck of Cards — a glass cannon that pays for oversized burst with
+  paper HP). The cap keeps *most* content readable; exceptions are deliberate.
 
 ## Scale curve
 
@@ -81,9 +84,12 @@ Per weapon / enemy at level L:
 | Bucket | % of budget | Notes |
 |--------|-------------|-------|
 | HP | ~50-60% | Defines durability. Tunable per identity (tank vs glass cannon). |
-| Attack EV (sum across actions) | ~20-25% | Sum of expected values × frequency weights. |
-| Defend / Special action values | ~10-15% | Block, shield, buff/debuff strengths. |
+| Attack / offense | ~20-25% | Costed via the one-slot rule (best + 0.25·rest + crit), not a raw sum — see *Costing actions*. |
+| Defend / Special | ~10-15% | Block, shield, buff/debuff — costed at capped prevention. |
 | Cost / utility (Range, AOE flags, etc.) | ~10% | Once tile/movement abilities ship, these get explicit costs. |
+
+> These percentages predate the one-slot + capped-prevention costing and need
+> re-deriving — see *Re-baselining* under Open questions.
 
 These are *guidelines, not laws*. A "tank" enemy might go 75% HP / 15% attack;
 a "glass cannon" might go 30% HP / 50% attack. The budget is the constraint —
@@ -94,61 +100,145 @@ identity decides the allocation.
 To check a weapon/enemy against its budget, every component is priced in budget
 points. HP is 1:1. Actions are priced by what they reliably deliver.
 
-### Attack actions: the reliability discount
+### Attack actions: expected value
 
-An attack does **not** pay its raw expected value. It pays an EV scaled down by
-how unreliable the roll is, using the **coefficient of variation** (CV — the
-spread relative to the average):
+An attack pays its **expected value** — the mean of its Field — times its range
+and targeting multipliers. No variance discount: sim measurement (see
+*Calibration* below) shows realized damage tracks EV regardless of spread,
+because variance doesn't move the mean.
 
 ```
-CV   = stdev / EV
-cost = EV / (1 + k × CV)        (equivalently EV² / (EV + k × stdev))
+cost = EV × range_mult × aim_mult        EV = mean(Field)
 ```
 
-- `EV` = mean of the Field array.
-- `stdev` = **population** standard deviation of the Field array (divide by N).
-- `k` = reliability knob, **start at 1**. Higher k discounts swing harder; lower
-  forgives it.
+| Factor | Rule | Values (tunable) |
+|--------|------|------------------|
+| `range_mult` | `1 + r·(Range − 1)`, r = 0.1 | R1 → 1.0, R2 → 1.1, R6 → 1.5 |
+| `aim_mult` | reactive > 1 > aimed | reactive ×1.1, aimed ×0.9, crit ×1.0 |
 
-A swingy field buys less budget because it's less reliable. A flat `[5]` pays the
-full 5; the cost asymptotes toward 0 as variance climbs but **never reaches it**
-— so there's no hard floor and no information thrown away at the tail (a swingier
-field always costs strictly less than a less swingy one).
+- **Reactive** (`Aimed: false`) costs more — auto-resolves, reliable.
+- **Aimed** (`Aimed: true`) costs less — you commit to a tile and can whiff.
+  `aim_mult` should ≈ the rate aimed attacks actually land in skilled play.
+- **DOT** multiplies by its duration too: `EV × range × aim × rounds`.
 
-| Field | EV | stdev | Cost (k=1) |
-|-------|----|-------|-----------|
-| `[5]` | 5 | 0 | 5.00 |
-| `[4,5,6]` | 5 | 0.82 | 4.30 |
-| `[1,5,9]` | 5 | 3.27 | 3.02 |
-| `[0,5,5,10]` | 5 | 3.54 | 2.93 |
-| `[0,0,0,20]` | 5 | 8.66 | 1.83 |
+Dropped the earlier CV / variance discount — it under-charged swingy attacks for
+damage they actually deliver (sim: Tin Punch `[…,10,10]` was charged 3.9 but
+deals its full EV 5.5). See decision log.
 
-Rejected the subtractive form `EV − k·stdev`: stdev is unbounded, so for any k a
-swingy enough field drives it negative, forcing a hard `max(0, …)` floor — which
-also flattens every tail field to the same 0 no matter how swingy. The
-multiplicative CV form needs no floor and stays monotonic. (Also rejected
-`EV − variance/2`: squared units blow up negative even faster.)
+### Crits are costed at full value
 
-### Non-attack actions
+A crit (`attack_crit`) only fires when the actor Attacks while the target
+Specials the same turn — tempting to discount as "conditional damage." We don't.
+**Budget is planned around optimal play**, and against a known enemy pattern the
+player controls when the crit lands: they read the incoming Special and time the
+Attack to trigger it. A controllable tool isn't a random low-probability event,
+so it pays full freight (`EV × range`, no aim, no probability multiplier). The
+reverse — an enemy critting the player — requires pattern-prediction AI to
+realize, which is the AI's job to earn, not the budget's to discount. Rejected a
+flat `crit ×0.5`. (A non-strike crit — e.g. a crit debuff — is costed by its own
+type's formula below, then added at full.)
 
-Priced by effect magnitude, not variance (their values are fixed):
+### Defensive actions: capped prevention
 
-| Action | Cost |
-|--------|------|
-| Block | `Value` |
-| Shield / Buff / Debuff / DOT | `Value × Rounds` (full duration counts) |
-| Resource restore | token (~1) — it enables a cycle, not a direct stat |
+A block / shield / debuff doesn't pay its face value — it pays what it actually
+*prevents*, and prevention is capped at the attacker's roll (`min(value, roll)`),
+not the full value. Modeling the attacker's roll as uniform around the reference
+attack EV `μ` collapses that to a closed form (no expectation at calc time):
 
-### Worked examples (L1, budget 50)
+```
+prevented(V) = V − V² / (4μ)          μ ≈ reference attack EV ≈ max_roll / 2
 
-**Lithkem Swallow** — HP 30 + Swallow ~1 + Fly 5 + Spit 2.82 + Peck 2.43 +
-Splash 4.04 + Drench (3×2=6) ≈ **51.3** → right at the L1 cap. On target, and
-the baseline the rest of the L1 roster is tuned against.
+block            cost = prevented(V)
+shield / debuff  cost = prevented(V) × rounds × 0.5
+```
 
-**Tinpul** — HP 10 + Tin Drink ~5 + Pea Shot 0.92 + Tin Punch 2.25 +
-Tin Coating (4×2=8) + Harden Tin (7×2=14) ≈ **40.2** → ~10 under cap. Its
-identity ("minimal attack, big shield, low HP") is honest, but it's leaving
-budget on the table. (0.2.0 retune in progress — see below.)
+- `μ` scales with level (L1: max_roll 10 → μ ≈ 5; calibration used 4.5).
+- **block ×1** — protects the same round it's cast, catches ~100% of the hit.
+- **shield / debuff ×rounds×0.5** — protects *future* rounds, ~50% catch each
+  (set after this round's attacks; may overlap turns the foe doesn't attack).
+- Resource restore = token (~1) — enables a cycle, not a direct stat.
+
+Plug-in table (μ = 4.5):
+
+| V | prevented(V) = V − V²/18 |
+|---|---|
+| 2 | 1.78 |
+| 4 | 3.11 |
+| 5 | 3.61 |
+| 6 | 4.00 |
+| 8 | 4.44 |
+
+Replaced the old `value × rounds`, which over-valued multi-round effects 2-3×:
+the sim showed Drench `5×2` prevents ~3.7, not 10, and a shield the unit dies
+before reaching prevents nothing.
+
+### Combining actions: one slot per turn
+
+HP is a *stock* — you hold all of it at once, so it costs 1:1. Actions are a
+*flow* gated by **one action per turn**, so a kit's action cost is **not** the
+sum of every action — summing would price breadth as if you could use everything
+at once. Instead:
+
+```
+action_cost = best_action + 0.25 × (sum of all other actions) + Σ(crits at full)
+```
+
+- `best_action` = the single most expensive action in the kit, **any role**. You
+  mostly spend your turn on your best tool, so it pays full.
+- Every other action pays **0.25** — situational coverage (a backup, a different
+  range/type), not additive throughput. `0.25` is the coverage knob, tunable.
+- **Crits add at full, separately.** A crit isn't a turn choice — it's a rider
+  that fires on top of an attack turn (crit resolves, then the main attack), so
+  it's extra value, not a substitute for your slot.
+
+Not role-bucketed: there's one slot total per turn, so only one action across the
+whole kit pays full. Two cheap attacks now cost far less than one big attack —
+correct, since you only act once per turn.
+
+### From budget to level
+
+Invert the curve to read a unit's level from its budget:
+
+```
+budget(L) = 25 · L · (L+3) / 2
+L = ( −3 + √(9 + 8·budget/25) ) / 2
+```
+
+### Worked examples (L1, μ = 4.5)
+
+Attacks = EV × range × aim; defenses = prevented(V) [× rounds × 0.5]; combined by
+the one-slot rule, then mapped to a level.
+
+**Branch** — HP 30 + [ best Two-Handed Swing 5.10 + 0.25·(Swing 4.95 +
+Pick Up 1.78) → 1.68 + Leaf Swipe crit 5.00 ] ≈ **41.8** → **L0.87**.
+
+**Lithkem Swallow** — HP 30 + [ best Spit 4.46 + 0.25·(Peck 3.58 + Fly 3.61 +
+Drench 3.61 + Swallow 0) → 2.70 + Splash crit 5.87 ] ≈ **43.0** → **L0.88**.
+
+**Tinpul** — HP 15 + [ best Tin Punch 6.05 + 0.25·(Pea Shot 3.80 + Tin Drink 3.11
++ Harden Tin 4.44) → 2.84 + Tin Coating crit 5.42 ] ≈ **29.3** → **L0.64**.
+
+All three are sub-L1 starter units. Tinpul is the outlier — 15 HP can't carry the
+kit once the shield/crit are priced at real prevention; it needs HP or a stronger
+primary to reach L1.
+
+**Deck of Cards** (the **L1 Enchanter base weapon**) — HP 15 + [ best Spades
+23.76 + 0.25·(Rank 9.65 + Ace 11.88 + Suit 17.16 + Shuffle 3.11 = 41.80) → 10.45
++ Joker crit 1.78 ] ≈ **51.0** → **L1.0**. A ranged glass cannon: oversized burst
+(`[22]` Spades) on 15 HP, taking an explicit **max-roll exception**. Range is
+under-credited at r=0.1, so it plays a touch above L1 once kiting matters —
+accepted: against equal-or-longer range it's fine, and the fragility is the price.
+(Pulled down from its old L3 label; Spellbook moves up to a higher Enchanter
+level — recipe ladder re-peg TBD.)
+
+### Calibration
+
+The defensive constants (the `× 0.5` catch rate and the uniform-roll model behind
+`prevented(V)`) and the "attacks ≈ EV" result come from
+`src/tools/action_value.ts`, which runs the real resolution order (defend →
+attack → special, in initiative order, with a turn-1 regain) and measures
+realized damage / prevention per action. Formula vs measured, within ~2%:
+Fly block 5 → 3.61 (3.68), Tin Drink 4 → 3.11 (3.01), Drench 5×2 → 3.61 (3.67).
 
 ## Rank ↔ Level mapping
 
@@ -192,6 +282,12 @@ actually buys in the new currency by then.
 
 ## Open questions
 
+- **Re-baselining after the one-slot rule.** Costing actions as `best + 0.25·rest
+  + crit` rescales offense down: the Swallow baseline drops from ~51 to ~43, so a
+  "full" L1 enemy now reads ~43 against a 50 cap. Decide: refill the baseline
+  enemies up to the cap (more HP / stronger actions), or lower the curve's budget
+  numbers to match the new scale? Either way, re-derive the allocation %s — the
+  "HP 50-60% / Attack 20-25%" split was written for summed action costs.
 - **Roll mode at high level.** Crit and weakness rolls currently produce a
   4-dice-take-highest result. With max roll = 100 at L10, a `[0, 25, 50, 75,
   100]` Field gives Hd4 results clustered near 100 — does the variance still
@@ -222,9 +318,40 @@ they assume the new budget exists so we can cost the new abilities.
 - 2026-06-06: **1:1 rank-to-level mapping** anchored to 10 of each, though
   the question of "5 distinct combat tiers covered by 10 ranks vs. 10
   distinct combat tiers" is still open.
-- 2026-06-06: Adopted **reliability-discounted attack cost**
-  `cost = EV / (1 + k·CV)` where `CV = stdev/EV`, k=1, population stdev. Chosen
-  over the subtractive `EV − k·stdev` because subtraction needs a hard floor
-  (unbounded stdev) that flattens the whole tail to 0; the multiplicative CV form
-  asymptotes toward 0 without ever flooring, so a swingier field always costs
-  strictly less. `k` is the reliability knob, tuned after the retune pass.
+- 2026-06-06: ~~Adopted **reliability-discounted attack cost** `EV / (1 + k·CV)`~~
+  **— SUPERSEDED below.** Sim measurement showed realized damage tracks EV
+  regardless of variance, so the CV discount under-charged swingy attacks.
+- 2026-06-06: Attack **range and targeting are multipliers**, not additive:
+  `range_mult = 1 + 0.1·(Range−1)`, `aim_mult` reactive ×1.1 / aimed ×0.9 /
+  crit ×1.0. Multiplicative because their value scales with the attack's damage.
+  Coefficients are starting values, tuned after the retune pass.
+- 2026-06-06: **Crits costed at full value** (no conditional-fire discount).
+  Budget is planned around optimal play; against known patterns the player
+  controls crit timing, so it's a reliable tool, not a random payoff. Rejected
+  flat `crit ×0.5`.
+- 2026-06-06: Actions combine by the **one-slot-per-turn rule**, not a sum:
+  `best_action + 0.25·(rest) + Σ(crits at full)`. HP is a stock (1:1); actions
+  are a flow gated to one/turn, so breadth ≠ concurrency. Not role-bucketed —
+  one slot total, so the single best action across the whole kit pays full.
+  Coverage factor 0.25 is tunable.
+- 2026-06-06: **Attacks costed at EV** (`EV × range × aim`), variance discount
+  dropped. Sim-measured realized damage ≈ EV regardless of spread — variance
+  doesn't move the mean. Replaces the CV model above.
+- 2026-06-06: **Defensive actions costed at capped prevention**, not face value:
+  `prevented(V) = V − V²/(4μ)`; block = prevented(V), shield/debuff =
+  prevented(V) × rounds × 0.5. Derived from the `min(value, roll)` cap (uniform
+  roll model) and calibrated to sim realized values (within ~2%). Replaces the
+  old `value × rounds`, which over-valued multi-round effects 2-3×.
+- 2026-06-06: Sim resolution **fixed to match `resolution.ts`** — action phase
+  runs defend → attack → special in initiative order (1d100 − weight), with a
+  **turn-1 regain** for both sides (combatants start ≥1 tile apart, so nobody
+  attacks turn 1). The old per-combatant sequencing made enemy blocks worthless
+  (reset before any attack), undervaluing every defensive kit.
+- 2026-06-06: **Range coefficient locked at r = 0.1** (R3 → ×1.2) for now.
+  Known to under-credit pure ranged kits (positioning isn't priced), but accepted:
+  a ranged weapon is strong yet fine against equal-or-longer range, and it pays
+  in fragility. Revisit if/when spatial value gets an explicit term.
+- 2026-06-06: **Deck of Cards re-tiered L3 → L1** as the Enchanter base weapon
+  (HP 25→15, Joker debuff 6→2). Lands at ~51 budget = L1.0. Takes an explicit
+  **max-roll exception** (keeps its thematic `[22]` burst). Spellbook moves to a
+  higher Enchanter level; recipe ladder re-peg still TBD.

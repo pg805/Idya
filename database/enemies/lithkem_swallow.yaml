@@ -64,7 +64,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Elemental
       Damage_Subtype: Water
-      Field: [1, 4, 5, 7]
+      Field: [1, 1, 4, 5, 6, 10]
       Cost: 2
       Aimed: true
       Range: 2
@@ -74,7 +74,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [1, 3, 3, 3, 4, 4, 6]
+      Field: [1, 2, 2, 3, 3, 4, 5, 6]
       Cost: 1
       Aimed: false
       Range: 1
@@ -96,11 +96,11 @@ Weapon:
       Type_Name: Debuff
       Damage_Type: Elemental
       Damage_Subtype: Water
-      Value: 3
+      Value: 5
       Rounds: 2
       Cost: 3
       Aimed: true
       Range: 2
-      Action_String: "<User> drenches <Target>, debuffing their attack by 3 for 2 rounds."
+      Action_String: "<User> drenches <Target>, debuffing their attack by 5 for 2 rounds."
 
   Special Crit: []

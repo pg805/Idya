@@ -65,6 +65,13 @@ function choosePlayerAction(weapon: Weapon, state: CombatantState): ActionChoice
 
 // ---- Enemy strategy: follow pattern ----
 
+// Turn-1 regain: combatants start ≥1 tile apart, so nobody can attack round 1.
+// Both spend it regaining (restore action) or holding.
+function chooseRegain(weapon: Weapon): ActionChoice {
+    for (const a of [...weapon.defend, ...weapon.special]) if (a.cost < 0) return { action: a, category: weapon.defend.includes(a) ? 'defend' : 'special' };
+    return { action: weapon.defend[0], category: 'defend' };
+}
+
 function chooseEnemyAction(weapon: Weapon, state: CombatantState, pattern: PatternEntry[], idx: number): ActionChoice & { nextIdx: number } {
     for (let i = 0; i < pattern.length; i++) {
         const entry = pattern[(idx + i) % pattern.length];
@@ -97,6 +104,11 @@ type BattleResult = {
     damageToPlayer: number;
 };
 
+const initScore = (weight: number) => Math.floor(Math.random() * 100) + 1 - weight;
+
+// Mirrors resolution.ts: action phase runs defend → attack → special, each in
+// initiative order (1d100 − weight, rolled once per battle, player wins ties).
+// Resolving all defends before any attack is what makes blocks actually work.
 function runBattle(pWeapon: Weapon, eData: EnemyData): BattleResult {
     const player   = new CombatantState('Player', pWeapon.hp || 50, pWeapon.resource_name, pWeapon.resource_max);
     const eWeapon  = Weapon.from_json(eData.Weapon as any);
@@ -107,39 +119,56 @@ function runBattle(pWeapon: Weapon, eData: EnemyData): BattleResult {
     let damageToEnemy  = 0;
     let damageToPlayer = 0;
 
+    const playerFirst = initScore((pWeapon as any).weight ?? 0) >= initScore((eWeapon as any).weight ?? 0);
+
     for (let round = 0; round < MAX_ROUNDS; round++) {
-        const pChoice = choosePlayerAction(pWeapon, player);
-        const eChoice = chooseEnemyAction(eWeapon, enemy, pattern, eIdx);
-        eIdx = eChoice.nextIdx;
+        // Round 0 is the approach: both regain, enemy pattern does not advance.
+        const pChoice = round === 0 ? chooseRegain(pWeapon) : choosePlayerAction(pWeapon, player);
+        let eChoice: ActionChoice;
+        if (round === 0) { eChoice = chooseRegain(eWeapon); }
+        else { const ec = chooseEnemyAction(eWeapon, enemy, pattern, eIdx); eIdx = ec.nextIdx; eChoice = ec; }
 
-        const playerHits = aimedHits(pChoice.action);
-        const enemyHits  = aimedHits(eChoice.action);
+        const sides = [
+            { self: player, foe: enemy,  choice: pChoice, hits: aimedHits(pChoice.action), crit: pWeapon.attack_crit[0] ?? null, foeCat: eChoice.category, isPlayer: true  },
+            { self: enemy,  foe: player, choice: eChoice, hits: aimedHits(eChoice.action), crit: eWeapon.attack_crit[0] ?? null, foeCat: pChoice.category, isPlayer: false },
+        ];
+        const order = playerFirst ? [sides[0], sides[1]] : [sides[1], sides[0]];
 
-        // Crit: player attacks, enemy specials → attack_crit fires first.
-        // Skipped if the player's main attack would miss its aim.
-        if (playerHits && pChoice.category === 'attack' && eChoice.category === 'special' && pWeapon.attack_crit.length > 0) {
-            const ehpBefore = enemy.health;
-            resolve_action(player, enemy, [pWeapon.attack_crit[0]]);
-            damageToEnemy += ehpBefore - enemy.health;
+        // Action phase: defend → attack → special, initiative order within each.
+        for (const phase of ['defend', 'attack', 'special'] as const) {
+            for (const s of order) {
+                if (s.choice.category !== phase) continue;
+                if (s.self.health <= 0 || s.foe.health <= 0) continue;
+
+                const foeBefore = s.foe.health;
+                if (s.hits) {
+                    resolve_action(s.self, s.foe, [s.choice.action]);
+                    // crit fires after the main attack when the target intended a special
+                    if (phase === 'attack' && s.crit && s.foeCat === 'special' && s.foe.health > 0) {
+                        resolve_action(s.self, s.foe, [s.crit]);
+                    }
+                } else {
+                    s.self.apply_cost(s.choice.action);
+                }
+                const dealt = Math.max(0, foeBefore - s.foe.health);
+                if (s.isPlayer) damageToEnemy += dealt; else damageToPlayer += dealt;
+
+                if (s.foe.health <= 0) {
+                    return { winner: s.isPlayer ? 'player' : 'enemy', rounds: round + 1, playerHpLeft: player.health, damageToEnemy, damageToPlayer };
+                }
+            }
         }
 
-        // Player action
-        const ehp = enemy.health;
-        const php = player.health;
-        if (playerHits) resolve_action(player, enemy, [pChoice.action]);
-        else            player.apply_cost(pChoice.action);
-        damageToEnemy  += Math.max(0, ehp - enemy.health);
-        if (enemy.health <= 0) return { winner: 'player', rounds: round + 1, playerHpLeft: player.health, damageToEnemy, damageToPlayer };
-
-        // Enemy action
-        if (enemyHits) resolve_action(enemy, player, [eChoice.action]);
-        else           enemy.apply_cost(eChoice.action);
-        damageToPlayer += Math.max(0, php - player.health);
-        if (player.health <= 0) return { winner: 'enemy', rounds: round + 1, playerHpLeft: 0, damageToEnemy, damageToPlayer };
-
-        player.end_round();
-        enemy.end_round();
-        damageToPlayer += Math.max(0, php - player.health); // capture any DOT
+        // End of round: tick DOT / status in initiative order.
+        for (const s of order) {
+            const before = s.self.health;
+            s.self.end_round();
+            const dot = Math.max(0, before - s.self.health);
+            if (s.isPlayer) damageToPlayer += dot; else damageToEnemy += dot;
+            if (s.self.health <= 0) {
+                return { winner: s.isPlayer ? 'enemy' : 'player', rounds: round + 1, playerHpLeft: player.health, damageToEnemy, damageToPlayer };
+            }
+        }
     }
 
     return { winner: 'timeout', rounds: MAX_ROUNDS, playerHpLeft: player.health, damageToEnemy, damageToPlayer };
@@ -277,8 +306,18 @@ function dumpJson(
 
 // ---- Main ----
 
-const weapons = loadWeapons();
-const enemies = loadEnemies();
+// `--weapons key1,key2` / `--enemies key1,key2` restrict the run to specific
+// weapon / enemy files (by key). Omit either to run the full set.
+function argFilter(flag: string): Set<string> | null {
+    const i = process.argv.indexOf(flag);
+    return i !== -1 && process.argv[i + 1] ? new Set(process.argv[i + 1].split(',')) : null;
+}
+
+const weaponFilter = argFilter('--weapons');
+const weapons = weaponFilter ? loadWeapons().filter(w => weaponFilter.has(w.key)) : loadWeapons();
+
+const enemyFilter = argFilter('--enemies');
+const enemies = enemyFilter ? loadEnemies().filter(e => enemyFilter.has(e.key)) : loadEnemies();
 
 const jsonFlag = process.argv.indexOf('--json');
 if (jsonFlag !== -1 && process.argv[jsonFlag + 1]) {
