@@ -319,7 +319,7 @@ function renderBoard() {
           cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
           const mark = document.createElement('div');
           mark.className = 'tile-mark';
-          mark.textContent = (tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : '☠') + tile.value;
+          mark.textContent = tile.value;   // kind is conveyed by the tint colour
           cell.appendChild(mark);
         }
         if (combatant) {  // top layer: token
