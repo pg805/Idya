@@ -1,6 +1,6 @@
 Name: Talwyrm
-Health: 40
-Level: 2
+Health: 35
+Level: 1
 Loot:
   Items:
     - id: crude_talamite
@@ -12,6 +12,7 @@ Loot:
 Pattern:
   - [1, 0]   # Defend: Dig
   - [2, 0]   # Attack: Tail Whip
+  - [3, 1]   # Special: Crystal Remnants
   - [2, 0]   # Attack: Tail Whip
   - [3, 0]   # Special: Crystalize
 Image: ""
@@ -22,7 +23,7 @@ Weapon:
   Weight: 0
   Resource:
     Name: Talam
-    Max: 4
+    Max: 6
 
   Defend:
     - Name: Dig
@@ -30,9 +31,9 @@ Weapon:
       Type_Name: Block
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Value: 20
-      Cost: -4
-      Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 4 Talam."
+      Value: 15
+      Cost: -6
+      Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 6 Talam."
 
   Defend Crit: []
 
@@ -68,5 +69,16 @@ Weapon:
       Rounds: 3
       Cost: 2
       Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."
+    # NEW EFFECT — Hazard Tile (Type 11): permanent tile on the caster's square;
+    # opposing units that ENTER it (incl. moving through) take Value. Needs engine
+    # support (CreateTile hazard mode) — loads as an inert no-op until then.
+    - Name: Crystal Remnants
+      Type: 11
+      Type_Name: Hazard Tile
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Value: 5
+      Cost: 2
+      Action_String: "<User> leaves jagged crystal remnants behind — foes that enter the tile take 5 damage."
 
   Special Crit: []
