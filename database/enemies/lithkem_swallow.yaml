@@ -52,7 +52,7 @@ Weapon:
       Type_Name: Block
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Value: 5
+      Value: 4
       Cost: 1
       Action_String: "<User> takes to the air, blocking <Damage> damage."
 
