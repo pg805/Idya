@@ -132,5 +132,18 @@ console.log('\nDestroy obstacle (axe Tree Chop):');
   check(hp(s, 'E') < before, `adjacent enemy took AOE (${before}→${hp(s, 'E')})`);
 }
 
+// ---- Test 5: Aimed hazard placed under a foe triggers on drop ----
+console.log('\nAimed hazard placed under a foe (Talwyrm Crystal Remnants):');
+{
+  const wyrm = enemyWeapon('talwyrm.yaml');
+  const P = mk('P', 'A', { x: 3, y: 1 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 5, y: 1 }, wyrm, true);
+  const s = session(EMPTY, [P, Eu]);
+  const before = hp(s, 'P');
+  resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 1, null, { x: 3, y: 1 })]]));
+  check(!!s.board.getTile({ x: 3, y: 1 }), 'hazard placed at the targeted tile (3,1)');
+  check(hp(s, 'P') === before - 5, `hazard erupts under P on drop (${before}→${hp(s, 'P')})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

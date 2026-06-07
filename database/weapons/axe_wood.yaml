@@ -35,7 +35,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 5, 10, 12]
+    Field: [0, 4, 8, 10]
     Cost: 2
     Aimed: false
     Range: 1

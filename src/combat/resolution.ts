@@ -198,8 +198,26 @@ export function resolveIntents(
       actorMeta.state.apply_cost(action);
       const kind = action.type === ActionType.BlockTile ? 'block'
                  : action.type === ActionType.BuffTile  ? 'buff' : 'hazard';
-      session.board.setTile({ pos: { ...actor.pos }, teamId: actor.teamId, kind, value: (action as TileAction).value });
-      log.push(`${actor.name} — ${action.name}: drops a ${kind} tile at (${actor.pos.x},${actor.pos.y}).`);
+      const value = (action as TileAction).value;
+      // Aimed tiles (e.g. hazards) land on a targeted square in range; otherwise
+      // the tile drops on the caster's own square (pickaxe block/buff zones).
+      let placePos = { ...actor.pos };
+      const tp = intent.action.targetPos;
+      if (action.aimed && tp && chebyshevDist(actor.pos, tp) <= action.range) placePos = { ...tp };
+      session.board.setTile({ pos: placePos, teamId: actor.teamId, kind, value });
+      log.push(`${actor.name} — ${action.name}: drops a ${kind} tile at (${placePos.x},${placePos.y}).`);
+      // A hazard dropped under an opposing combatant counts as entering it.
+      if (kind === 'hazard') {
+        const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === placePos.x && c.pos.y === placePos.y);
+        const vMeta = victim ? session.meta.get(victim.id) : undefined;
+        if (victim && vMeta && vMeta.state.health > 0) {
+          const before = vMeta.state.health;
+          vMeta.state.health = Math.max(vMeta.state.health - value, 0);
+          vMeta.state.damage_taken += before - vMeta.state.health;
+          victim.hp = vMeta.state.health;
+          log.push(`  it erupts under ${victim.name} for ${value}!  |  HP: ${before} → ${victim.hp}`);
+        }
+      }
       return;
     }
 

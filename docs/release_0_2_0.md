@@ -441,3 +441,13 @@ they assume the new budget exists so we can cost the new abilities.
   `tile_action.ts` / `destroy_obstacle.ts`; UI renders tiles + obstacle-aim
   (`public/game.js`, `game.css`). Verified by `src/tools/test_tiles.ts` (block
   absorbs, buff +5 over Mine's cap, hazard-on-enter, destroy+AOE — all pass).
+- 2026-06-07: **Hazard tiles can be aimed** — Talwyrm's Crystal Remnants is now
+  `Aimed: true, Range: 3`; aimed tiles land on a targeted square (AI aims at the
+  nearest foe) and **dropping a hazard under an occupant counts as entering it**
+  (immediate hit). Pickaxe block/buff tiles stay self-placed.
+- 2026-06-07: **Axe Chop trimmed** `[0,5,10,12]→[0,4,8,10]` (felt overtuned in
+  play). Budget barely moves (~51→50.7) because Chop sits in the 0.25 bucket —
+  but it's the *every-turn workhorse*, so the in-play damage drop is what's felt.
+  **Model note:** the one-slot rule under-weights a weapon's reliably-used attack
+  when a bigger *situational* action (Tree Chop) is the "best" — the workhorse is
+  the real damage in play. Worth revisiting how weapons pick their full-cost slot.

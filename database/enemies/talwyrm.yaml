@@ -80,6 +80,8 @@ Weapon:
       Damage_Subtype: Sharp
       Value: 5
       Cost: 2
-      Action_String: "<User> leaves jagged crystal remnants behind — foes that enter the tile take 5 damage."
+      Aimed: true
+      Range: 3
+      Action_String: "<User> erupts jagged crystal remnants under <Target> — foes that enter the tile take 5 damage."
 
   Special Crit: []
