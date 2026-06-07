@@ -126,15 +126,14 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const entry = itemIndex.get(itemId);
     if (!entry) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
 
-    // Absolute multiplier bounds — independent of R settings, stock, or
-    // current x. For crafted items, each ingredient's own range composes
-    // naturally through the recursive call below.
-    const minMult = MULT_MIN;
-    const maxMult = MULT_MAX;
-
     const recipe = craftedIndex.get(itemId);
     let range: PriceRange | null;
     if (recipe) {
+      // Crafted items: range = (Σ input range × qty) × margin. We do NOT
+      // additionally apply this item's own R-curve [0.25, 4] multiplier,
+      // because the inputs' ranges already span that whole spectrum — doing
+      // both would compound 0.25 × 0.25 and produce absurdly low floors
+      // (spellbook sell collapsing to 6 when 4 thuvel alone are worth 20).
       let inputMin = 0, inputMax = 0;
       for (const ingr of recipe.ingredients) {
         const ingrId = ingr.item_id ?? ingr.weapon_id;
@@ -147,13 +146,15 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
       const margin = side === 'buy' ? recipe.margin_buy : recipe.margin_sell;
       const outputQty = recipe.output.quantity ?? 1;
       range = {
-        min: (inputMin / outputQty) * margin * minMult,
-        max: (inputMax / outputQty) * margin * maxMult,
+        min: (inputMin / outputQty) * margin,
+        max: (inputMax / outputQty) * margin,
       };
     } else {
+      // Raw items: absolute multiplier bounds independent of R settings,
+      // stock, or current x.
       const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
       if (base == null) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
-      range = { min: base * minMult, max: base * maxMult };
+      range = { min: base * MULT_MIN, max: base * MULT_MAX };
     }
 
     rangeMemo.set(key, range);
