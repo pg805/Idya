@@ -90,15 +90,7 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   return {
     combatantId: ai.id,
     moveTo,
-    action: {
-      type: choice,
-      actionIndex,
-      targetPos: action.aimed ? { ...target.pos } : null,
-      // Mirror what the player gets: aimed AI attacks track their picked
-      // target through the move phase, so a player moving off the aimed
-      // tile doesn't auto-dodge an enemy aimed swing either.
-      targetCombatantId: action.aimed ? target.id : undefined,
-    },
+    action: { type: choice, actionIndex, targetPos: action.aimed ? { ...target.pos } : null },
   };
 }
 
