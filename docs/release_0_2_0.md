@@ -458,3 +458,26 @@ they assume the new budget exists so we can cost the new abilities.
   every-turn workhorse. Budget ~52.9→52.5 (Mine's in the 0.25 bucket, so the
   felt change > the budget change). Still ~2.5 over the L1 cap — accepted for now
   (budget as guide, then playtest).
+
+## Level 2 (in progress)
+
+L2 target: budget 125, max_roll 20, μ=10, H_base=75. The old roster was tuned on
+the legacy scale; under the new math most "L3"-labelled enemies recost to ~L1.8,
+so they get a boost up to 125.
+
+- 2026-06-07: **Maetoad → L2 (~126.5).** HP 100; Tongue Lash buffed
+  `[5,5,6,8,14,14,15,18,20,22]` (EV 12.7 — a big reactive workhorse, lands in the
+  0.25 bucket so budget < felt), Maekeav `[5,10,15,15,20,20,25,30]` (best, max-roll
+  exception), Bloodlet `[3,4,6,10,12]`, Wound crit (DOT) `[2,3,5]→[3,5,7]` (×3 =
+  15). Walls all L1 weapons 0% in sim. "Bigger hits at L2" — leaning less
+  conservative, as intended.
+- 2026-06-07: **New effect: Slow Tile (Type 13, defined-not-wired).** Maetoad's
+  Mire drops a **2×2** of slow tiles; leaving a slow tile costs +1 movement.
+  **Placement rule:** aimed → the 2×2 sprays from the targeted tile; reactive →
+  the nearest tile with an enemy on it (player & enemy use the same rule).
+  **Costing (control, not damage):** value ≈ movement-denied × time-in-zone ×
+  conditional. One slow tile ≈ a denied move-point (~1.5 budget); the 2×2 is
+  coverage (the foe stands on one at a time) so net ≈ 2-3 effective tiles ×
+  conditional → **~5 budget**, calibrate by playtest. **Engine TODO:** tile kind
+  `slow` + movement-cost hook in `movement.ts`/`moveCost`/`reachableTiles`,
+  multi-tile (2×2) placement, cost-model entry, UI tint.
