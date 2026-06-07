@@ -12,6 +12,9 @@ model User {
   korel              Int         @default(0)
   tutorial_complete  Boolean     @default(false)
   created_at         DateTime    @default(now())
+  // When true, Discord announcements that name the player use a <@id> ping
+  // instead of the bare character name. Default false (quieter for most).
+  ping_on_action     Boolean     @default(false)
   characters         Character[]
 }
 

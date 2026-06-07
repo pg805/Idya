@@ -828,6 +828,33 @@ app.get('/api/info/about', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
 });
 
+// ---- Settings ----
+// Per-user preferences. New columns get added to the User table as features
+// land; the endpoint returns a flat object the client can render against.
+
+app.get('/api/settings', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const u = await prisma.user.findUnique({
+    where: { discord_id: discordId },
+    select: { ping_on_action: true },
+  });
+  res.json({ ping_on_action: u?.ping_on_action ?? false });
+});
+
+app.post('/api/settings', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const body = req.body ?? {};
+  const update: { ping_on_action?: boolean } = {};
+  if (typeof body.ping_on_action === 'boolean') update.ping_on_action = body.ping_on_action;
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: 'No valid settings in request.' }); return;
+  }
+  await prisma.user.update({ where: { discord_id: discordId }, data: update }).catch(() => {});
+  res.json({ ok: true, ...update });
+});
+
 // Public market overview: every shop item's current price, expected R-curve
 // range, and how long until the daily tick rolls. Useful for players watching
 // for cheap buying windows or peak selling opportunities. Recomputes per
@@ -1928,9 +1955,10 @@ app.post('/api/shop/:shopKey/buy', async (req: Request, res: Response) => {
   const buyResult = await buyItem(shopKey, item, chars[0].id, discordId, quantity);
   res.json(buyResult);
   if (buyResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> bought **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** from ${config.npc}.`,
+      `${mention} bought **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** from ${config.npc}.`,
     );
   }
 });
@@ -1953,9 +1981,10 @@ app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
   const sellResult = await sellItem(shopKey, item, chars[0].id, discordId, quantity);
   res.json(sellResult);
   if (sellResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> sold **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+      `${mention} sold **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
     );
   }
 });
@@ -1980,9 +2009,10 @@ app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
   const sellAllResult = await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity);
   res.json(sellAllResult);
   if (sellAllResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> sold their **${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+      `${mention} sold their **${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
     );
   }
 });
@@ -2258,7 +2288,8 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   res.json(result);
 
   if (result.success) {
-    const ping = formatCartPing(discordId, config.npc, (result as unknown as {
+    const mention = await playerMention(discordId, chars[0].name);
+    const ping = formatCartPing(mention, config.npc, (result as unknown as {
       buys: typeof buyLines; sells: typeof sellLines;
       buyWeapons: typeof weaponBuyLines; sellWeapons: typeof weaponSellLines;
     }));
@@ -2267,7 +2298,7 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
 });
 
 function formatCartPing(
-  discordId: string,
+  mention: string,
   npc: string,
   result: {
     buys:        Array<{ name: string; quantity: number }>;
@@ -2276,7 +2307,7 @@ function formatCartPing(
     sellWeapons: Array<{ name: string; bonus_count: number }>;
   },
 ): string {
-  const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
+  const lines: string[] = [`${mention} at ${npc}'s shop:`];
   for (const b of result.buys)        lines.push(`- bought ${b.quantity}× ${b.name}`);
   for (const w of result.buyWeapons)  lines.push(`- bought ${w.quantity > 1 ? `${w.quantity}× ` : ''}${w.name}`);
   for (const s of result.sells)       lines.push(`- sold ${s.quantity}× ${s.name}`);
@@ -2458,9 +2489,10 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
 
   res.json(result);
   if (result.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     const pingMsg = qty > 1
-      ? `<@${discordId}> crafted **${qty}× ${recipe.name}**!`
-      : `<@${discordId}> crafted a **${recipe.name}**!`;
+      ? `${mention} crafted **${qty}× ${recipe.name}**!`
+      : `${mention} crafted a **${recipe.name}**!`;
     void pingChannel(PROFESSION_CHANNEL[recipe.profession], pingMsg);
   }
 });
@@ -2692,9 +2724,10 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
 
   res.json(result);
   if (result.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       PROFESSION_CHANNEL[profession],
-      `<@${discordId}> upgraded **${raw.Name}** — ${action}!`,
+      `${mention} upgraded **${raw.Name}** — ${action}!`,
     );
   }
 });
@@ -2927,9 +2960,10 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
 
   res.json(result);
   if (result.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       PROFESSION_CHANNEL.enchanter,
-      `<@${discordId}> enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
+      `${mention} enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
     );
   }
 });
@@ -3098,9 +3132,10 @@ io.on('connection', (socket: Socket) => {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
+              const mention = await playerMention(meta.discordUserId, char?.name ?? 'A hunter');
               const msg = rewardSummary !== 'No drops.'
-                ? `<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`
-                : `<@${meta.discordUserId}> returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
+                ? `${mention} returns from the forest!\n${rewardSummary}`
+                : `${mention} returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
               await (ch as import('discord.js').TextChannel).send(msg);
             } else {
               console.warn('Battle win ping: forest channel not found or not text-based', worldConfig.channels.forest);
@@ -3134,9 +3169,10 @@ io.on('connection', (socket: Socket) => {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
+              const mention = await playerMention(meta.discordUserId, char?.name ?? 'A hunter');
               const msg = fee > 0
-                ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
-                : `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
+                ? `${mention} was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
+                : `${mention} was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
               await (ch as import('discord.js').TextChannel).send(msg);
             } else {
               console.warn('Battle loss ping: forest channel not found or not text-based', worldConfig.channels.forest);
@@ -3441,6 +3477,20 @@ function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
 
 function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
+}
+
+// Returns the right way to identify a player in a Discord channel post,
+// based on their ping_on_action setting:
+//   true  → "<@discordId>" (actual ping, notifies them)
+//   false → "**Character Name**" (bold name, no ping — the default)
+// Welcome / first-character flows still hard-code the ping since the user
+// hasn't picked a character name yet at that point.
+async function playerMention(discordId: string, charName: string): Promise<string> {
+  const u = await prisma.user.findUnique({
+    where: { discord_id: discordId },
+    select: { ping_on_action: true },
+  }).catch(() => null);
+  return u?.ping_on_action ? `<@${discordId}>` : `**${charName}**`;
 }
 
 // Writes one BattleLog row per enemy fought, so multi-enemy spawns show
@@ -3899,7 +3949,12 @@ if (discordToken) {
     if (sub === 'giveitem') {
       const target   = interaction.options.getUser('user', true);
       const itemId   = interaction.options.getString('item', true).toLowerCase().trim();
-      const quantity = interaction.options.getInteger('quantity') ?? 1;
+      const rawQty   = interaction.options.getInteger('quantity') ?? 1;
+      // Clamp to a sane range. The Discord integer option type accepts up to
+      // 2^53, which overflows our INT4 column at 2^31; cap at 1 million —
+      // anything larger is a typo, not a legitimate admin grant.
+      const QTY_MAX  = 1_000_000;
+      const quantity = Math.max(1, Math.min(QTY_MAX, rawQty));
       const itemDef = ITEMS[itemId];
       if (!itemDef) {
         await interaction.reply({ content: `No item found with ID \`${itemId}\`.`, flags: MessageFlags.Ephemeral });
@@ -3910,6 +3965,17 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
+      // Cap against the existing stack so an increment can't push past QTY_MAX
+      // either. Belt-and-suspenders on the INT4 column.
+      const existing = await prisma.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
+      });
+      const wouldBe = (existing?.quantity ?? 0) + quantity;
+      const effectiveQty = wouldBe > QTY_MAX ? Math.max(0, QTY_MAX - (existing?.quantity ?? 0)) : quantity;
+      if (effectiveQty <= 0) {
+        await interaction.reply({ content: `${target.username} already has ${(existing?.quantity ?? 0).toLocaleString()}× ${itemDef.name}, at or above the cap.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
       await prisma.item.upsert({
         where:  { id: itemId },
         update: {},
@@ -3917,10 +3983,10 @@ if (discordToken) {
       });
       await prisma.inventoryItem.upsert({
         where:  { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
-        update: { quantity: { increment: quantity } },
-        create: { character_id: chars[0].id, item_id: itemId, quantity },
+        update: { quantity: { increment: effectiveQty } },
+        create: { character_id: chars[0].id, item_id: itemId, quantity: effectiveQty },
       });
-      await interaction.reply({ content: `Gave ${quantity}× **${itemDef.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `Gave ${effectiveQty}× **${itemDef.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
     if (sub === 'giveprofession') {
       const target     = interaction.options.getUser('user', true);

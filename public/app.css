@@ -36,6 +36,10 @@ body {
   gap: 2px;
 }
 
+/* The HTML `hidden` attribute defaults to display:none, but that's
+   overridden by .nav-group's explicit display:flex. Restore the intent. */
+.nav-group[hidden] { display: none; }
+
 .nav-label {
   font-size: 0.65rem;
   color: var(--text-faint);
