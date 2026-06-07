@@ -114,7 +114,8 @@ Bot token goes in `database/config.json`:
 - Classes: `PascalCase` with underscores (`Player_Character`)
 - Methods: `camelCase`
 - JSON files: `snake_case`
-- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=DOT, 5=Debuff, 6=Heal, 7=Reflect, 8=Shield
+- Action type IDs: 1=Strike, 2=Block, 3=Buff, 4=DOT, 5=Debuff, 6=Heal, 7=Reflect, 8=Shield, 9=Block Tile, 10=Buff Tile, 11=Hazard Tile (planned), 12=Destroy Obstacle (planned)
+- Board-effect types (9+) are the 0.2.0 positional layer: 9/10 drop a permanent tile on the caster's square (allies on it gain block/buff each round); 11 drops a tile that damages opposing units that enter it; 12 destroys an obstacle and AOEs adjacent enemies. **These need engine support (board-tile state in `combat_session.ts`, resolution hooks in `resolution.ts`, a `CreateTile`/`DestroyObstacle` action path, and targeting UI) — the YAML exists ahead of the code.**
 - Action templates use placeholders: `<User>`, `<Target>`, `<Damage>`
 - `Aimed: false` is the in-game term **reactive** — attack fires without targeting a specific tile
 - `Aimed: true` is the in-game term **aimed** — player selects a target tile before the attack resolves
@@ -179,7 +180,7 @@ Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units
 ### Recipe Progression
 | Level | LJ | BS | EN |
 |-------|----|----|-----|
-| 1 | Quarterstaff | Dagger | Deck of Cards (L1 base; see 0.2.0 doc) |
+| 1 | Quarterstaff → Axe (rework, TBD) | Pickaxe (L1 base; see 0.2.0 doc) | Deck of Cards (L1 base; see 0.2.0 doc) |
 | 2 | Treated sulwood (smelt) + Quarterstaff (Treated, +atk) | Talamite (smelt) + Dagger (Talamite, +atk) | Hiruos (smelt) |
 | 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Spellbook, Mental Cage |
 | 4 | — (budget +3) | — (budget +3) | Physical enchant: sharp/blunt, +1 (costs 3 thuvel + 6 hiruos) |

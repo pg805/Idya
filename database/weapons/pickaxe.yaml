@@ -1,0 +1,76 @@
+Name: Pickaxe
+Description: A sturdy miner's pickaxe. Shapes the ground as much as it strikes.
+Level: 1
+HP: 30
+Weight: 0
+
+Resource:
+  Name: Dirt
+  Max: 10
+
+Defend:
+  # NEW EFFECT — Block Tile (Type 9): drops a permanent tile on the caster's
+  # square. Allies standing on it gain block = Value each round. Overwrites any
+  # tile already there. Needs engine support (CreateTile, board-tile state).
+  - Name: Hidey Hole
+    Type: 9
+    Type_Name: Block Tile
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Value: 5
+    Cost: 5
+    Action_String: "<User> digs a hidey hole — allies standing on it block 5 damage."
+  # NEW EFFECT — Buff Tile (Type 10): permanent tile on the caster's square.
+  # Allies standing on it deal +Value to their attack rolls (flat, not stacking).
+  - Name: Trench Warfare
+    Type: 10
+    Type_Name: Buff Tile
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 5
+    Cost: 5
+    Action_String: "<User> digs a trench — allies standing on it deal +5 damage."
+  - Name: Duck
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 5
+    Cost: 1
+    Action_String: "<User> ducks behind their pickaxe, blocking <Damage> damage."
+
+Defend Crit: []
+
+Attack:
+  - Name: Mine
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [0, 4, 6, 7, 8, 9]
+    Cost: 2
+    Aimed: false
+    Range: 1
+    Action_String: "<User> mines into <Target> for <Damage> damage."
+
+Attack Crit:
+  - Name: Struck Gold
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [3, 6, 9]
+    Range: 1
+    Action_String: "<User> struck gold, slamming <Target> for <Damage> damage."
+
+Special:
+  - Name: Dirt Coating
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Cost: -10
+    Action_String: "<User> coats themselves in dirt, blocking <Damage> damage and restoring 10 Dirt."
+
+Special Crit: []
