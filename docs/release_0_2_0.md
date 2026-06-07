@@ -493,3 +493,13 @@ so they get a boost up to 125.
   ×1.0) and add `aoe_mult = 1 + 0.15×(Area−1)` (×1.3 for 3×3). Engine: shares the
   multi-tile/area placement work with the slow-tile — **not wired yet** (`Area`
   ignored by the loader for now).
+- 2026-06-07: **Sulwood Sword → L2 (~109 budget, plays L2).** HP 45→75, Parry
+  block 7→18, Slash `[5..15]` (EV 10 reactive workhorse), Thrust
+  `[5,8,10,12,15,18,21,23,25]` (EV 15.2, best), crit unchanged. Sim: 100% vs L1
+  enemies, **65% vs both L2 enemies** — a real same-tier fight.
+- 2026-06-07: **Calibration target for L2 weapons = ~60-70% vs same-tier enemies,
+  not the 125 budget number.** The sword plays L2 at only ~109 because the one-slot
+  rule undervalues the reactive workhorse (Slash EV 10 sits in the 0.25 bucket).
+  Forcing weapons to literal 125 overshoots. **Budget = rough guide; the sim's
+  same-tier win% is the truth** — expect reactive-heavy weapons to land ~10-15%
+  under the cap and play right.
