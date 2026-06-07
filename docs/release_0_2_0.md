@@ -94,34 +94,40 @@ identity decides the allocation.
 To check a weapon/enemy against its budget, every component is priced in budget
 points. HP is 1:1. Actions are priced by what they reliably deliver.
 
-### Attack actions: the variance discount
+### Attack actions: the reliability discount
 
-An attack does **not** pay its raw expected value. It pays an EV discounted by
-how unreliable the roll is:
+An attack does **not** pay its raw expected value. It pays an EV scaled down by
+how unreliable the roll is, using the **coefficient of variation** (CV — the
+spread relative to the average):
 
 ```
-cost = max(0, EV − k × stdev)
+CV   = stdev / EV
+cost = EV / (1 + k × CV)        (equivalently EV² / (EV + k × stdev))
 ```
 
 - `EV` = mean of the Field array.
 - `stdev` = **population** standard deviation of the Field array (divide by N).
-- `k` = reliability knob, **start at 1**. Higher k punishes swing harder; lower
+- `k` = reliability knob, **start at 1**. Higher k discounts swing harder; lower
   forgives it.
 
-A swingy field buys less budget because it's less reliable. A flat `[5]` pays
-the full 5; a coinflip `[0,0,0,20]` pays nothing.
+A swingy field buys less budget because it's less reliable. A flat `[5]` pays the
+full 5; the cost asymptotes toward 0 as variance climbs but **never reaches it**
+— so there's no hard floor and no information thrown away at the tail (a swingier
+field always costs strictly less than a less swingy one).
 
 | Field | EV | stdev | Cost (k=1) |
 |-------|----|-------|-----------|
-| `[5]` | 5 | 0 | 5 |
-| `[4,5,6]` | 5 | 0.82 | 4.18 |
-| `[1,5,9]` | 5 | 3.27 | 1.73 |
-| `[0,0,0,20]` | 5 | 8.66 | 0 (floored) |
-| `[0,5,5,10]` | 5 | 3.54 | 1.46 |
+| `[5]` | 5 | 0 | 5.00 |
+| `[4,5,6]` | 5 | 0.82 | 4.30 |
+| `[1,5,9]` | 5 | 3.27 | 3.02 |
+| `[0,5,5,10]` | 5 | 3.54 | 2.93 |
+| `[0,0,0,20]` | 5 | 8.66 | 1.83 |
 
-Rejected `EV − variance/2`: variance is in squared units, so it goes sharply
-negative at the extremes (`[0,0,0,20]` → −32.5). Stdev shares EV's units, so the
-subtraction stays sane.
+Rejected the subtractive form `EV − k·stdev`: stdev is unbounded, so for any k a
+swingy enough field drives it negative, forcing a hard `max(0, …)` floor — which
+also flattens every tail field to the same 0 no matter how swingy. The
+multiplicative CV form needs no floor and stays monotonic. (Also rejected
+`EV − variance/2`: squared units blow up negative even faster.)
 
 ### Non-attack actions
 
@@ -135,13 +141,14 @@ Priced by effect magnitude, not variance (their values are fixed):
 
 ### Worked examples (L1, budget 50)
 
-**Lithkem Swallow** — HP 30 + Swallow ~1 + Fly 5 + Spit 2.08 + Peck 2.03 +
-Splash 3.63 + Drench (3×2=6) ≈ **49.7** → right at the L1 cap. On target.
+**Lithkem Swallow** — HP 30 + Swallow ~1 + Fly 5 + Spit 2.82 + Peck 2.43 +
+Splash 4.04 + Drench (3×2=6) ≈ **51.3** → right at the L1 cap. On target, and
+the baseline the rest of the L1 roster is tuned against.
 
-**Tinpul** — HP 10 + Tin Drink ~5 + Pea Shot 0.54 + Tin Punch 1.66 +
-Tin Coating (4×2=8) + Harden Tin (7×2=14) ≈ **39.2** → ~10 under cap. Its
+**Tinpul** — HP 10 + Tin Drink ~5 + Pea Shot 0.92 + Tin Punch 2.25 +
+Tin Coating (4×2=8) + Harden Tin (7×2=14) ≈ **40.2** → ~10 under cap. Its
 identity ("minimal attack, big shield, low HP") is honest, but it's leaving
-budget on the table. Push HP 10 → 20 to hit cap, or keep it deliberately light.
+budget on the table. (0.2.0 retune in progress — see below.)
 
 ## Rank ↔ Level mapping
 
@@ -215,6 +222,9 @@ they assume the new budget exists so we can cost the new abilities.
 - 2026-06-06: **1:1 rank-to-level mapping** anchored to 10 of each, though
   the question of "5 distinct combat tiers covered by 10 ranks vs. 10
   distinct combat tiers" is still open.
-- 2026-06-06: Adopted **variance-discounted attack cost** `max(0, EV − k·stdev)`,
-  k=1, population stdev. Rejected `EV − variance/2` (squared units → blows up
-  negative at extremes). `k` is the reliability knob, tuned after the retune pass.
+- 2026-06-06: Adopted **reliability-discounted attack cost**
+  `cost = EV / (1 + k·CV)` where `CV = stdev/EV`, k=1, population stdev. Chosen
+  over the subtractive `EV − k·stdev` because subtraction needs a hard floor
+  (unbounded stdev) that flattens the whole tail to 0; the multiplicative CV form
+  asymptotes toward 0 without ever flooring, so a swingier field always costs
+  strictly less. `k` is the reliability knob, tuned after the retune pass.

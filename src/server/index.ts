@@ -2063,8 +2063,20 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   for (const b of buys) {
     const item = findItem(b.itemId);
     if (!item || item.buy == null) { res.json({ success: false, message: `${b.itemId} is not for sale.` }); return; }
-    totalCost += item.buy * b.quantity;
-    buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: b.quantity, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
+    // Unlock items: quantity is hard-capped at 1, and if the character
+    // already owns one the line silently drops. Players can put 5 in the
+    // cart without seeing an error; the cart just resolves to 1 (or 0)
+    // for that line at checkout.
+    let qty = b.quantity;
+    if (isUnlock(b.itemId)) {
+      const existing = await prisma.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: charId, item_id: b.itemId } },
+      });
+      if (existing && existing.quantity >= 1) continue; // already owned, skip
+      qty = 1;
+    }
+    totalCost += item.buy * qty;
+    buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: qty, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
   }
 
   // Weapon buys — each unit creates a new CharacterWeapon instance.
