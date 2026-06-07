@@ -76,7 +76,7 @@ Special:
     Field: [7, 8, 11, 16, 19, 20]
     Cost: 3
     Aimed: true
-    Range: 2
+    Range: 1
     Action_String: "<User> splits a nearby obstacle apart, showering everything within a tile for <Damage> damage."
 
 Special Crit: []
