@@ -451,3 +451,7 @@ they assume the new budget exists so we can cost the new abilities.
   **Model note:** the one-slot rule under-weights a weapon's reliably-used attack
   when a bigger *situational* action (Tree Chop) is the "best" — the workhorse is
   the real damage in play. Worth revisiting how weapons pick their full-cost slot.
+- 2026-06-07: **Pickaxe tiles trimmed** — Hidey Hole block 5→4, Trench Warfare
+  buff 5→4 (felt overtuned in play). Same theme: tiles were budgeted at N=3
+  (partial camping), but full-camping realizes more, so the per-round payoff was
+  above budget. Buffed Mine was ~10.7 EV/turn; now ~9.7. Budget ~52.9→50.7.

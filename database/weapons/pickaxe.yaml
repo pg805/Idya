@@ -17,9 +17,9 @@ Defend:
     Type_Name: Block Tile
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Value: 5
+    Value: 4
     Cost: 5
-    Action_String: "<User> digs a hidey hole — allies standing on it block 5 damage."
+    Action_String: "<User> digs a hidey hole — allies standing on it block 4 damage."
   # NEW EFFECT — Buff Tile (Type 10): permanent tile on the caster's square.
   # Allies standing on it deal +Value to their attack rolls (flat, not stacking).
   - Name: Trench Warfare
@@ -27,9 +27,9 @@ Defend:
     Type_Name: Buff Tile
     Damage_Type: Physical
     Damage_Subtype: Mental
-    Value: 5
+    Value: 4
     Cost: 5
-    Action_String: "<User> digs a trench — allies standing on it deal +5 damage."
+    Action_String: "<User> digs a trench — allies standing on it deal +4 damage."
   - Name: Duck
     Type: 2
     Type_Name: Block
