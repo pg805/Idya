@@ -98,7 +98,28 @@ identity decides the allocation.
 ## Costing actions
 
 To check a weapon/enemy against its budget, every component is priced in budget
-points. HP is 1:1. Actions are priced by what they reliably deliver.
+points. HP is near-1:1 (with diminishing returns above the 60% mark — see below).
+Actions are priced by what they reliably deliver.
+
+### HP cost (diminishing above 60%)
+
+Power is really **HP × offense** (multiplicative): your total output ≈
+rounds-survived × DPR ≈ `(HP / DTR) × DPR`. The budget combines them *additively*,
+which would overrate the two degenerate shapes — the all-HP wall (survives forever,
+can't win) and the all-offense glass cannon (dies first). HP also has genuine
+diminishing returns: a fight only lasts so long, so HP beyond "enough to survive
+it" is wasted (doubly so with no offense to spend the extra rounds). So HP pays
+full price up to the 60%-of-budget mark, half price above:
+
+```
+H_base  = 0.6 × budget(L)              (L1: 30, L2: 75, …; L0 HP is low, ignore)
+hp_cost = HP                            if HP ≤ H_base
+        = H_base + (HP − H_base) × 0.5  if HP > H_base
+```
+
+Only tanks feel it (e.g. a 40-HP L1 pays 35, not 40), freeing room to buy the
+offense a tank needs to actually threaten. **The discount makes teeth *affordable*
+— it doesn't grant them; a no-offense wall is still a free win regardless.**
 
 ### Attack actions: expected value
 
@@ -179,7 +200,8 @@ before reaching prevents nothing.
 
 ### Combining actions: one slot per turn
 
-HP is a *stock* — you hold all of it at once, so it costs 1:1. Actions are a
+HP is a *stock* — you hold all of it at once, so it costs near-1:1 (diminishing
+above 60%, see *HP cost* above). Actions are a
 *flow* gated by **one action per turn**, so a kit's action cost is **not** the
 sum of every action — summing would price breadth as if you could use everything
 at once. Instead:
@@ -392,3 +414,14 @@ they assume the new budget exists so we can cost the new abilities.
   Splash crit → `[1,2]`, ~28.3 (top of L0). Tinpul HP 10 + dropped Tin Punch's
   `10,10` + crit bumped to 5×4, ~21.6 (paper body, over-cap shield does the
   work). Sim: Branch 69% vs Swallow / 94% vs Tinpul; Deck 100% vs both.
+- 2026-06-07: **HP cost now diminishes above 60%** (`H_base = 0.6×budget(L)`,
+  excess at ×0.5; L1+ only, L0 stays full). Power is really HP × offense
+  (multiplicative); the additive budget overrated pure-HP walls. Surfaced by
+  Sulfolk: a 40-HP all-defense tank priced "L1" but lost 100% even to L0 Branch
+  in a 30-round slog. Discount frees tanks to afford teeth (doesn't grant them).
+- 2026-06-07: **Sulfolk → L1 regen-tank.** HP 40 (costs 35 diminished), Regrow
+  6, Shield Arm 7, Camouflage 4×3, Scratch `[0,3,4,5,6,8]`, Claws crit `[4,5,7]`.
+  ~49.9 budget. **Bite came from the pattern, not the fields** — attacks bumped
+  3/14 (21%) → 5/10 (50%). Enemy threat ≈ pattern-attack-frequency × attack EV,
+  *separate from budget* (aim ~40-50% attack turns for a real fight; seen now on
+  Swallow, Tinpul, Sulfolk). Sim: Branch 1% / Deck 78% / Pickaxe 95% vs Sulfolk.
