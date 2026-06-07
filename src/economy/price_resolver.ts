@@ -16,13 +16,13 @@ import fs from 'fs';
 import prisma from '../database/prisma.js';
 import { loadShop, type ShopItemListing } from './shop_loader.js';
 import { loadAllRecipes, type Recipe } from './recipe_loader.js';
-import { effectiveMultiplier, xToMultiplier, clamp } from './shop_math.js';
+import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from './shop_math.js';
 
-// The xToMultiplier curve bottoms at 0.25 (x=0) and peaks at 4 (x=1). The
-// expected price range uses these absolute bounds for everything — equilibrium
-// math underestimated the lower bound on prod where heavy selling pressure
-// pushes x well below the R curve's resting point, and the absolute band is
-// the only honest "the price can never escape this" answer.
+// Raw items: xToMultiplier bottoms at 0.25 (x=0) and peaks at 4 (x=1).
+// Crafted items: craftedMultiplier (tighter band) bottoms at 0.9 and peaks
+// at 2.1 — the multiplier is the "cost of crafting" markup floating with
+// demand, not a wide commodity swing. Crafted prices and ranges are
+// anchored to inputs × this narrow band.
 const MULT_MIN = 0.25;
 const MULT_MAX = 4;
 
@@ -78,17 +78,18 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const state = await prisma.shopItemState.findUnique({
       where: { shop_id_item_id: { shop_id: entry.shopKey, item_id: itemId } },
     });
-    // No state yet means the item has never been touched at this shop; treat
-    // mult as neutral (1.0) so an unvisited item still produces a sensible
-    // price the first time it's queried.
-    const mult = state
-      ? effectiveMultiplier(entry.listing, state.x, state.stock)
-      : 1.0;
 
     const recipe = craftedIndex.get(itemId);
 
     let price: number | null;
     if (recipe) {
+      // Crafted items use the tighter [0.9, 2.1] multiplier band. Per-recipe
+      // margin scalars are ignored — the multiplier IS the margin, floating
+      // around 1.5× at the R=2.0 resting equilibrium. Unvisited items get
+      // a neutral 1.5 (the midpoint) so first-query prices stay sensible.
+      const mult = state
+        ? effectiveCraftedMultiplier(entry.listing, state.x, state.stock)
+        : (CRAFTED_MULT_MIN + CRAFTED_MULT_MAX) / 2;
       let inputCost = 0;
       for (const ingr of recipe.ingredients) {
         const ingrId = ingr.item_id ?? ingr.weapon_id;
@@ -97,14 +98,13 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
         if (ingrPrice == null) { memo.set(key, null); visited.delete(itemId); return null; }
         inputCost += ingrPrice * ingr.quantity;
       }
-      const margin = side === 'buy' ? recipe.margin_buy : recipe.margin_sell;
       const outputQty = recipe.output.quantity ?? 1;
-      // Margin and multiplier ride on top of (input cost / output quantity).
-      // outputQty > 1 only really applies to smelt recipes that produce more
-      // than one item per cast; right now everything outputs 1, but keep the
-      // math honest.
-      price = (inputCost / outputQty) * margin * mult;
+      price = (inputCost / outputQty) * mult;
     } else {
+      // Raw items: existing wide R-curve multiplier (xToMultiplier).
+      const mult = state
+        ? effectiveMultiplier(entry.listing, state.x, state.stock)
+        : 1.0;
       const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
       if (base == null) { memo.set(key, null); visited.delete(itemId); return null; }
       price = base * mult;
@@ -129,11 +129,10 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     const recipe = craftedIndex.get(itemId);
     let range: PriceRange | null;
     if (recipe) {
-      // Crafted items: range = (Σ input range × qty) × margin. We do NOT
-      // additionally apply this item's own R-curve [0.25, 4] multiplier,
-      // because the inputs' ranges already span that whole spectrum — doing
-      // both would compound 0.25 × 0.25 and produce absurdly low floors
-      // (spellbook sell collapsing to 6 when 4 thuvel alone are worth 20).
+      // Crafted items: range = (Σ input range × qty) × crafted-mult band.
+      // The crafted mult band is [0.9, 2.1] — the "cost of crafting" markup
+      // — applied on top of input swings. Per-recipe margin scalars are
+      // ignored here, same as in currentPrice.
       let inputMin = 0, inputMax = 0;
       for (const ingr of recipe.ingredients) {
         const ingrId = ingr.item_id ?? ingr.weapon_id;
@@ -143,15 +142,13 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
         inputMin += ingrRange.min * ingr.quantity;
         inputMax += ingrRange.max * ingr.quantity;
       }
-      const margin = side === 'buy' ? recipe.margin_buy : recipe.margin_sell;
       const outputQty = recipe.output.quantity ?? 1;
       range = {
-        min: (inputMin / outputQty) * margin,
-        max: (inputMax / outputQty) * margin,
+        min: (inputMin / outputQty) * CRAFTED_MULT_MIN,
+        max: (inputMax / outputQty) * CRAFTED_MULT_MAX,
       };
     } else {
-      // Raw items: absolute multiplier bounds independent of R settings,
-      // stock, or current x.
+      // Raw items: absolute multiplier bounds (wide [0.25, 4]).
       const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
       if (base == null) { rangeMemo.set(key, null); visited.delete(itemId); return null; }
       range = { min: base * MULT_MIN, max: base * MULT_MAX };

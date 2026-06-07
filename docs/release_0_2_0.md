@@ -89,6 +89,60 @@ These are *guidelines, not laws*. A "tank" enemy might go 75% HP / 15% attack;
 a "glass cannon" might go 30% HP / 50% attack. The budget is the constraint —
 identity decides the allocation.
 
+## Costing actions
+
+To check a weapon/enemy against its budget, every component is priced in budget
+points. HP is 1:1. Actions are priced by what they reliably deliver.
+
+### Attack actions: the variance discount
+
+An attack does **not** pay its raw expected value. It pays an EV discounted by
+how unreliable the roll is:
+
+```
+cost = max(0, EV − k × stdev)
+```
+
+- `EV` = mean of the Field array.
+- `stdev` = **population** standard deviation of the Field array (divide by N).
+- `k` = reliability knob, **start at 1**. Higher k punishes swing harder; lower
+  forgives it.
+
+A swingy field buys less budget because it's less reliable. A flat `[5]` pays
+the full 5; a coinflip `[0,0,0,20]` pays nothing.
+
+| Field | EV | stdev | Cost (k=1) |
+|-------|----|-------|-----------|
+| `[5]` | 5 | 0 | 5 |
+| `[4,5,6]` | 5 | 0.82 | 4.18 |
+| `[1,5,9]` | 5 | 3.27 | 1.73 |
+| `[0,0,0,20]` | 5 | 8.66 | 0 (floored) |
+| `[0,5,5,10]` | 5 | 3.54 | 1.46 |
+
+Rejected `EV − variance/2`: variance is in squared units, so it goes sharply
+negative at the extremes (`[0,0,0,20]` → −32.5). Stdev shares EV's units, so the
+subtraction stays sane.
+
+### Non-attack actions
+
+Priced by effect magnitude, not variance (their values are fixed):
+
+| Action | Cost |
+|--------|------|
+| Block | `Value` |
+| Shield / Buff / Debuff / DOT | `Value × Rounds` (full duration counts) |
+| Resource restore | token (~1) — it enables a cycle, not a direct stat |
+
+### Worked examples (L1, budget 50)
+
+**Lithkem Swallow** — HP 30 + Swallow ~1 + Fly 5 + Spit 2.08 + Peck 2.03 +
+Splash 3.63 + Drench (3×2=6) ≈ **49.7** → right at the L1 cap. On target.
+
+**Tinpul** — HP 10 + Tin Drink ~5 + Pea Shot 0.54 + Tin Punch 1.66 +
+Tin Coating (4×2=8) + Harden Tin (7×2=14) ≈ **39.2** → ~10 under cap. Its
+identity ("minimal attack, big shield, low HP") is honest, but it's leaving
+budget on the table. Push HP 10 → 20 to hit cap, or keep it deliberately light.
+
 ## Rank ↔ Level mapping
 
 **1:1 across 10 levels.**
@@ -161,3 +215,6 @@ they assume the new budget exists so we can cost the new abilities.
 - 2026-06-06: **1:1 rank-to-level mapping** anchored to 10 of each, though
   the question of "5 distinct combat tiers covered by 10 ranks vs. 10
   distinct combat tiers" is still open.
+- 2026-06-06: Adopted **variance-discounted attack cost** `max(0, EV − k·stdev)`,
+  k=1, population stdev. Rejected `EV − variance/2` (squared units → blows up
+  negative at extremes). `k` is the reliability knob, tuned after the retune pass.
