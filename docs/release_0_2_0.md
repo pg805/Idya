@@ -483,3 +483,13 @@ so they get a boost up to 125.
   conditional → **~5 budget**, calibrate by playtest. **Engine TODO:** tile kind
   `slow` + movement-cost hook in `movement.ts`/`moveCost`/`reachableTiles`,
   multi-tile (2×2) placement, cost-model entry, UI tint.
+- 2026-06-07: **Daefen Deer → L2 (~116, plays L2).** HP 80→75, Horn Crash
+  `[6,8,12,12,12,20,20,22,30]` (EV 15.8 reactive workhorse — 0.25 bucket, budget <
+  felt; fires 4/8 turns), Horn Burn crit `[5,6,10,14,14,20,25]`, Rain → **3×3 AoE
+  DOT** (`Area: 3`). Walls all L1 weapons 0%. ~9 under the 125 cap by budget but
+  effectively L2 in play (the conservative reactive-workhorse gap again).
+- 2026-06-07: **`Area` generalized to attacks (AoE).** `Area: N` on an attack/DOT
+  hits an N×N zone. Costing: drop the aimed discount (an AoE is ~unmissable → aim
+  ×1.0) and add `aoe_mult = 1 + 0.15×(Area−1)` (×1.3 for 3×3). Engine: shares the
+  multi-tile/area placement work with the slow-tile — **not wired yet** (`Area`
+  ignored by the loader for now).

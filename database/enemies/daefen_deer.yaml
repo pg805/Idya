@@ -1,6 +1,6 @@
 Name: Daefen Deer
-Health: 80
-Level: 3
+Health: 75
+Level: 2
 Loot:
   Items:
     - id: thuvel
@@ -55,7 +55,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [0, 4, 6, 8, 12, 12, 12]
+      Field: [6, 8, 12, 12, 12, 20, 20, 22, 30]
       Cost: 2
       Aimed: false
       Range: 1
@@ -67,7 +67,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Elemental
       Damage_Subtype: Fire
-      Field: [0, 4, 5, 6, 10, 14, 14]
+      Field: [5, 6, 10, 14, 14, 20, 25]
       Range: 1
       Action_String: "<User>'s burning horns scorch <Target> for <Damage> damage."
 
@@ -79,9 +79,10 @@ Weapon:
       Damage_Subtype: Water
       Field: [3, 5, 7]
       Rounds: 3
+      Area: 3
       Cost: 3
       Aimed: true
       Range: 3
-      Action_String: "<User> calls down rain on <Target>, dealing <Damage> damage for 3 rounds."
+      Action_String: "<User> calls down rain over a 3x3 area, dealing <Damage> damage for 3 rounds."
 
   Special Crit: []
