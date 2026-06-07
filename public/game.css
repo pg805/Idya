@@ -88,9 +88,10 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
 .cell .tile-mark {
   position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem; font-weight: bold; line-height: 1;
-  color: rgba(255,255,255,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center; gap: 1px;
+  font-size: 1.05rem; font-weight: bold; line-height: 1;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  opacity: 0.7;                        /* fades the symbol + value together */
   pointer-events: none; z-index: 2;   /* behind the token (z-index 4) */
 }
 
