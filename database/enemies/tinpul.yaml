@@ -1,6 +1,8 @@
 Name: Tinpul
 Health: 10
 Level: 0
+Resistances:
+  Earth: 1.25
 Loot:
   Items:
     - id: sulwood

@@ -425,3 +425,11 @@ they assume the new budget exists so we can cost the new abilities.
   3/14 (21%) → 5/10 (50%). Enemy threat ≈ pattern-attack-frequency × attack EV,
   *separate from budget* (aim ~40-50% attack turns for a real fight; seen now on
   Swallow, Tinpul, Sulfolk). Sim: Branch 1% / Deck 78% / Pickaxe 95% vs Sulfolk.
+- 2026-06-07: **Sulwood Axe → LJ L1 base** (~51): HP 55→30, Heavy Swing
+  `[2,7,15]`, Arterial Cut crit `[4,7,10]`, Chop kept `[0,5,10,12]`, + new
+  **Tree Chop** (Type 12 Destroy Obstacle, `[7,8,11,16,19,20]`, costed EV×0.7
+  conditional). Standard heavy-hitter + 1 gimmick, vs the gimmicky pickaxe/deck.
+- 2026-06-07: **Enemy resistances** added (weakness score >1 → Hd4, resist <1 →
+  Ld2; not budgeted — matchup-dependent, roughly neutral): Swallow weak Physical /
+  resist Water, Tinpul weak Earth, Sulfolk weak Fire / resist Plant+Water, Talwyrm
+  resist Arcane. Visible effect: Branch vs Swallow 69%→95% (Physical weakness).

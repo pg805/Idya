@@ -1,6 +1,10 @@
 Name: Sulfolk
 Health: 40
 Level: 1
+Resistances:
+  Fire: 1.25
+  Plant: 0.75
+  Water: 0.75
 Loot:
   Items:
     - id: sulwood

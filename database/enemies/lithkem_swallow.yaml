@@ -13,8 +13,8 @@ Loot:
       type: material
       Field: [0, 0, 0, 0, 1, 2]
 Resistances:
-  Sharp: 1.25
-  Elemental: 0.75
+  Physical: 1.25
+  Water: 0.75
 Pattern:
   - [1, 1]   # Defend: Fly
   - [1, 1]   # Defend: Fly

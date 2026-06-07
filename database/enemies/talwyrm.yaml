@@ -1,6 +1,8 @@
 Name: Talwyrm
 Health: 35
 Level: 1
+Resistances:
+  Arcane: 0.75
 Loot:
   Items:
     - id: crude_talamite
