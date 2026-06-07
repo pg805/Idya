@@ -1,5 +1,5 @@
 Name: Lithkem Swallow
-Health: 30
+Health: 20
 Level: 0
 Loot:
   Items:
@@ -86,7 +86,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Elemental
       Damage_Subtype: Water
-      Field: [3, 6, 7]
+      Field: [1, 2]
       Range: 2
       Action_String: "<User> splashes <Target> for <Damage> damage."
 

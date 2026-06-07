@@ -1,7 +1,7 @@
 Name: Branch
 Description: A sturdy fallen branch. Not much, but it'll do.
 Level: 0
-HP: 30
+HP: 20
 Weight: 0
 
 Resource:
@@ -26,7 +26,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [1, 2, 4, 5, 7, 8]
+    Field: [1, 2, 3, 4]
     Cost: 2
     Aimed: false
     Range: 1
@@ -38,7 +38,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [4, 5, 6]
+    Field: [1, 2]
     Cost: 0
     Aimed: false
     Range: 1
@@ -50,7 +50,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [2, 3, 5, 6, 8, 10]
+    Field: [1, 2, 3, 4, 5]
     Cost: 3
     Aimed: true
     Range: 1

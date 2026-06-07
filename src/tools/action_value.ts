@@ -46,8 +46,9 @@ function bump(unit: string, action: string, kind: string, uses: number, realized
 
 // ---- helpers ----
 const ev = (f: number[]) => f.reduce((a, b) => a + b, 0) / f.length;
-const MU = 4.5;                                       // reference attack EV at L1 (≈ max_roll/2)
-const prevented = (V: number) => V - (V * V) / (4 * MU);
+const MU = 2.5;                                       // reference attack EV at L0 (max_roll 5 / 2); these three units are L0
+// Capped prevention: value beyond 2μ is wasted (attacker rolls cap at the field).
+const prevented = (V: number) => (V >= 2 * MU ? MU : V - (V * V) / (4 * MU));
 
 // Budget cost per the locked 0.2.0 formula:
 //   attack  = EV × range × aim          (no variance discount)

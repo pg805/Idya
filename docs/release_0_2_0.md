@@ -146,27 +146,32 @@ not the full value. Modeling the attacker's roll as uniform around the reference
 attack EV `μ` collapses that to a closed form (no expectation at calc time):
 
 ```
-prevented(V) = V − V² / (4μ)          μ ≈ reference attack EV ≈ max_roll / 2
+prevented(V) = V − V²/(4μ)   for V ≤ 2μ;   else μ     (cap: value past 2μ is wasted)
 
 block            cost = prevented(V)
 shield / debuff  cost = prevented(V) × rounds × 0.5
 ```
 
-- `μ` scales with level (L1: max_roll 10 → μ ≈ 5; calibration used 4.5).
+- **`μ` scales with level**: `μ = max_roll / 2`, and `max_roll = 10·L` (L0 floor
+  of 5). So μ = 2.5 (L0), 5 (L1), 10 (L2), … At higher tiers attacks hit harder,
+  so a given block value covers less of the (bigger) roll.
+- **The cap bites at low tiers**: at L0 (μ=2.5, 2μ=5) any value ≥5 just prevents
+  μ=2.5 — an 8-shield is no better than a 5-shield, since L0 attacks rarely
+  exceed 5.
 - **block ×1** — protects the same round it's cast, catches ~100% of the hit.
 - **shield / debuff ×rounds×0.5** — protects *future* rounds, ~50% catch each
   (set after this round's attacks; may overlap turns the foe doesn't attack).
 - Resource restore = token (~1) — enables a cycle, not a direct stat.
 
-Plug-in table (μ = 4.5):
+Plug-in table:
 
-| V | prevented(V) = V − V²/18 |
-|---|---|
-| 2 | 1.78 |
-| 4 | 3.11 |
-| 5 | 3.61 |
-| 6 | 4.00 |
-| 8 | 4.44 |
+| V | prevented @ μ=2.5 (L0) | prevented @ μ=5 (L1) |
+|---|---|---|
+| 2 | 1.60 | 1.80 |
+| 4 | 2.40 | 3.20 |
+| 5 | 2.50 (cap) | 3.75 |
+| 6 | 2.50 (cap) | 4.20 |
+| 8 | 2.50 (cap) | 4.80 |
 
 Replaced the old `value × rounds`, which over-valued multi-round effects 2-3×:
 the sim showed Drench `5×2` prevents ~3.7, not 10, and a shield the unit dies
@@ -207,40 +212,46 @@ L = ( −3 + √(9 + 8·budget/25) ) / 2
 **Integer level = floor(L)**, which gives a **Level 0** for free: the whole
 budget band `[0, 50)` below the first curve anchor. That's the starter / tutorial
 floor — no new curve needed, it's just "everything under L1." So a unit at
-budget 43 is L0, a unit at 51 is L1. The starter trio live here:
+budget 25 is L0, a unit at 51 is L1. The starter trio live here, tuned to ~half
+the Deck so the first craft is a clear ~2× upgrade:
 
 | Unit | Budget | L (continuous) | **Level** |
 |------|--------|----------------|-----------|
-| Tinpul | 29.3 | 0.64 | **0** |
-| Branch | 41.8 | 0.87 | **0** |
-| Lithkem Swallow | 43.0 | 0.88 | **0** |
+| Tinpul | 21.6 | 0.49 | **0** |
+| Branch | 25.3 | 0.57 | **0** |
+| Lithkem Swallow | 28.3 | 0.62 | **0** |
 | Deck of Cards | 51.0 | 1.02 | **1** |
 
 Note the Deck is **L1, not L2** — by budget it's the same band as Branch/Swallow,
 just at the top. Its L2-*looking* `[22]` burst is the glass-cannon illusion: big
 numbers, paper HP, nets to L1. Power (budget) sets the tier, not the damage face.
 
-### Worked examples (L1, μ = 4.5)
+### Worked examples
 
 Attacks = EV × range × aim; defenses = prevented(V) [× rounds × 0.5]; combined by
 the one-slot rule, then mapped to a level.
 
-**Branch** — HP 30 + [ best Two-Handed Swing 5.10 + 0.25·(Swing 4.95 +
-Pick Up 1.78) → 1.68 + Leaf Swipe crit 5.00 ] ≈ **41.8** → **L0.87**.
+**Branch** (L0, μ=2.5) — HP 20 + [ best Swing 2.75 + 0.25·(Two-Handed Swing 2.70
++ Pick Up 1.60) → 1.08 + Leaf Swipe crit 1.50 ] ≈ **25.3** → **L0**. Small numbers
+but keeps all four action types — it's the tutorial weapon.
 
-**Lithkem Swallow** — HP 30 + [ best Spit 4.46 + 0.25·(Peck 3.58 + Fly 3.61 +
-Drench 3.61 + Swallow 0) → 2.70 + Splash crit 5.87 ] ≈ **43.0** → **L0.88**.
+**Lithkem Swallow** (L0, μ=2.5) — HP 20 + [ best Spit 4.46 + 0.25·(Peck 3.58 +
+Fly 2.50 + Drench 2.50 + Swallow 0) → 2.15 + Splash crit 1.65 ] ≈ **28.3** →
+**L0**. Top of the L0 band — the toughest starter foe.
 
-**Tinpul** — HP 15 + [ best Tin Punch 6.05 + 0.25·(Pea Shot 3.80 + Tin Drink 3.11
-+ Harden Tin 4.44) → 2.84 + Tin Coating crit 5.42 ] ≈ **29.3** → **L0.64**.
+**Tinpul** (L0, μ=2.5) — HP 10 + [ best Tin Punch 4.40 + 0.25·(Pea Shot 3.79 +
+Tin Drink 2.40 + Harden Tin 2.50) → 2.17 + Tin Coating crit 5.00 ] ≈ **21.6** →
+**L0**. Really low HP; the over-cap shield trivialises L0 attacks, so it tanks on
+a paper body.
 
-All three are sub-L1 starter units. Tinpul is the outlier — 15 HP can't carry the
-kit once the shield/crit are priced at real prevention; it needs HP or a stronger
-primary to reach L1.
+The trio sit at ~22-28 (Level 0), ~half the Deck so the first craft
+(Deck/Dagger/Quarterstaff ~50, L1) is a clear ~2× upgrade — Branch → Deck. Sim
+confirms the gap: Branch wins only 69% vs Swallow, but the Deck stomps it 100% in
+~5 rounds.
 
 **Deck of Cards** (the **L1 Enchanter base weapon**) — HP 15 + [ best Spades
-23.76 + 0.25·(Rank 9.65 + Ace 11.88 + Suit 17.16 + Shuffle 3.11 = 41.80) → 10.45
-+ Joker crit 1.78 ] ≈ **51.0** → **L1.0**. A ranged glass cannon: oversized burst
+23.76 + 0.25·(Rank 9.65 + Ace 11.88 + Suit 17.16 + Shuffle 3.20 = 41.89) → 10.47
++ Joker crit 1.80 ] ≈ **51.0** → **L1.0** (μ=5). A ranged glass cannon: oversized burst
 (`[22]` Spades) on 15 HP, taking an explicit **max-roll exception**. Range is
 under-credited at r=0.1, so it plays a touch above L1 once kiting matters —
 accepted: against equal-or-longer range it's fine, and the fragility is the price.
@@ -253,8 +264,9 @@ The defensive constants (the `× 0.5` catch rate and the uniform-roll model behi
 `prevented(V)`) and the "attacks ≈ EV" result come from
 `src/tools/action_value.ts`, which runs the real resolution order (defend →
 attack → special, in initiative order, with a turn-1 regain) and measures
-realized damage / prevention per action. Formula vs measured, within ~2%:
-Fly block 5 → 3.61 (3.68), Tin Drink 4 → 3.11 (3.01), Drench 5×2 → 3.61 (3.67).
+realized damage / prevention per action. Formula vs measured (L0, μ=2.5), within
+~2%: Fly block 5 → 2.50 (2.51), Tin Drink 4 → 2.40 (2.29), Drench 5×2 → 2.50
+(2.48), Spit attack → 4.46 (4.51), Leaf crit → 1.50 (1.53).
 
 ## Rank ↔ Level mapping
 
@@ -371,3 +383,12 @@ they assume the new budget exists so we can cost the new abilities.
   (HP 25→15, Joker debuff 6→2). Lands at ~51 budget = L1.0. Takes an explicit
   **max-roll exception** (keeps its thematic `[22]` burst). Spellbook moves to a
   higher Enchanter level; recipe ladder re-peg still TBD.
+- 2026-06-06: **μ scales per level** — `μ = max_roll/2` (L0=2.5, L1=5, L2=10…),
+  with the `prevented(V)` cap (`V>2μ → μ`) made explicit. At L0 this means
+  oversized blocks/shields/debuffs (value ≥5) all cap at 2.5.
+- 2026-06-06: **Starter trio retuned into Level 0** (~half the Deck, so Branch →
+  Deck/Dagger/Quarterstaff is a ~2× upgrade): Branch HP 20 + small fields, all
+  actions kept (tutorial weapon), Leaf crit → `[1,2]`, ~25.3. Swallow HP 20,
+  Splash crit → `[1,2]`, ~28.3 (top of L0). Tinpul HP 10 + dropped Tin Punch's
+  `10,10` + crit bumped to 5×4, ~21.6 (paper body, over-cap shield does the
+  work). Sim: Branch 69% vs Swallow / 94% vs Tinpul; Deck 100% vs both.
