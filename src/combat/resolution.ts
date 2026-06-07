@@ -97,11 +97,22 @@ export function resolveIntents(
 
     const reachable = reachableTiles(c.pos, c.movementRange, session.board, allOccupied);
 
+    // Pick the reachable tile that: (1) gets us closest to the original
+    // destination, (2) uses the fewest steps among equally-close options.
+    // Without the second tiebreak, the AI would "teleport" past blockers
+    // — e.g., enemy at (6,4) blocked from (5,3) would land at (6,2) when
+    // (6,3) is equally close to the goal and one step shorter.
     let bestDist = chebyshevDist(c.pos, originalDest);
+    let bestStepCost = Infinity;
     let bestPos: { x: number; y: number } | null = null;
     for (const pos of reachable.values()) {
       const d = chebyshevDist(pos, originalDest);
-      if (d <= bestDist) { bestDist = d; bestPos = pos; }
+      const stepCost = chebyshevDist(c.pos, pos);
+      if (d < bestDist || (d === bestDist && stepCost < bestStepCost)) {
+        bestDist = d;
+        bestStepCost = stepCost;
+        bestPos = pos;
+      }
     }
 
     if (bestPos) {
