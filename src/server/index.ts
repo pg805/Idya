@@ -3034,6 +3034,15 @@ io.on('connection', (socket: Socket) => {
       }
     }
 
+    // Snapshot the combatant occupying the aimed tile at submit time. If the
+    // target moves during the move phase, the aimed attack will track them.
+    if (intent.action.targetPos) {
+      const occupant = session.combatants.find(c =>
+        c.pos.x === intent.action.targetPos!.x && c.pos.y === intent.action.targetPos!.y && c.id !== intent.combatantId
+      );
+      if (occupant) intent.action.targetCombatantId = occupant.id;
+    }
+
     session.pendingIntents.set(intent.combatantId, intent);
     if (!session.allHumansSubmitted()) return;
 

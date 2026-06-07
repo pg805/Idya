@@ -186,7 +186,16 @@ export function resolveIntents(
     }
 
     if (action.aimed) {
-      const targetPos = intent.action.targetPos;
+      // If a combatant was on the aimed tile at intent time, follow them to
+      // their *current* position — they may have been displaced by the move
+      // phase (e.g. by a player winning a contested tile). If the captured
+      // target is gone (dead and reaped), fall through to the original tile,
+      // which will commit-to-empty-space below.
+      let targetPos = intent.action.targetPos;
+      if (intent.action.targetCombatantId) {
+        const tracked = session.combatants.find(c => c.id === intent.action.targetCombatantId);
+        if (tracked) targetPos = tracked.pos;
+      }
       if (!targetPos) return;
 
       const dist = chebyshevDist(actor.pos, targetPos);
@@ -203,7 +212,7 @@ export function resolveIntents(
         return;
       }
 
-      const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+      const occupant = session.combatants.find(c => c.pos.x === targetPos!.x && c.pos.y === targetPos!.y);
       if (!occupant) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — commits to empty space, misses.`);
