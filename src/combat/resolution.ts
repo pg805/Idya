@@ -28,10 +28,18 @@ export function resolveIntents(
   const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
 
   // --- Move phase ---
-  // Use initiative rank to resolve which combatant wins a contested tile.
-  // Initiative ranks are unique (0..N-1), so winners.length is always 1 —
-  // no genuine ties are possible.
-  const movePriority = (id: string) => snapshot.find(c => c.id === id)?.initiativeRank ?? Infinity;
+  // Tile contests resolve in two layers:
+  //   1. Players always beat AI. A player and an enemy both wanting the
+  //      same square hands it to the player every time, regardless of
+  //      initiative — keeps aimed-attack windows under player control.
+  //   2. Within the player pool (PVP / co-op later) or within the AI pool,
+  //      initiative rank breaks the tie. Lower rank = sooner = wins.
+  const movePriority = (id: string) => {
+    const c = snapshot.find(c => c.id === id);
+    if (!c) return Infinity;
+    const teamRank = c.isAI ? 10_000 : 0; // any AI is greater than any player
+    return teamRank + c.initiativeRank;
+  };
 
   const byDest = new Map<string, string[]>();
   for (const [id, intent] of intents) {
