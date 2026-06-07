@@ -53,7 +53,7 @@ Special:
     Field: [5, 8, 10, 12, 15, 18, 21, 23, 25]
     Cost: 1
     Aimed: true
-    Range: 1
+    Range: 2
     Action_String: "<User> commits to a precise lunge at <Target>, dealing <Damage> damage."
 
   - Name: Hone
