@@ -55,7 +55,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [3, 6, 8, 9, 9, 9]
+      Field: [3, 6, 8, 9]
       Range: 1
       Action_String: "<User> chomps into <Target> for <Damage> damage."
 
