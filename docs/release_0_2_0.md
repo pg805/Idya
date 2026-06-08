@@ -424,7 +424,15 @@ they assume the new budget exists so we can cost the new abilities.
   destination. Movement was effectively a teleport (checked only the landing
   tile); `findPath` now reconstructs the traversed path so a unit walking a line
   of hazard tiles takes each one. Fixes a deer crossing 3 Dig-Trap pits for one
-  hit. (AI doesn't yet *avoid* hazards in pathing — possible follow-up.)
+  hit.
+- 2026-06-07: **Units route around hazards (and slow) like difficult terrain.**
+  `searchLabels` does a Pareto (cost, hazard) search; `findPath` now takes the
+  least-hazard route to a destination (so the *actual* move dodges pits when it
+  can) and `reachableDanger` lets the AI rank destinations by hazard taken to
+  reach them. Order: close distance > least hazard > avoid slow > cheapest path.
+  Distance still wins, so a unit wades through a pit when that's the only advance.
+  Players auto-dodge too (no path-picking UI, so least-hazard is the friendly
+  default).
 - 2026-06-07: **AI routes around slow tiles.** `reachableCosts` exposes path cost;
   the AI tiebreaks equally-close destinations toward non-slow tiles, then cheaper
   (fewer slow crossings) paths. Closing distance still wins, so it wades through

@@ -181,7 +181,7 @@ export function resolveIntents(
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
     const from = { ...c.pos };
-    const path = findPath(from, intent.moveTo, c.movementRange, session.board, new Set()) ?? [intent.moveTo];
+    const path = findPath(from, intent.moveTo, c.movementRange, session.board, new Set(), c.teamId) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
     log.push(`${c.name} moves to (${c.pos.x},${c.pos.y})`);
