@@ -1,7 +1,7 @@
 Name: Wand
 Description: A slender sulwood rod attuned to the elements. Bolts share a source but land differently.
 Level: 3
-HP: 15
+HP: 70
 Weight: 0
 
 Resource:
@@ -14,10 +14,10 @@ Defend:
     Type_Name: Shield
     Damage_Type: Arcane
     Damage_Subtype: Mental
-    Value: 5
+    Value: 20
     Rounds: 2
     Cost: 0
-    Action_String: "<User> raises their wand and conjures a shimmering ward, shielding against 5 damage for 2 rounds."
+    Action_String: "<User> raises their wand and conjures a shimmering ward, shielding against 20 damage for 2 rounds."
 
 Defend Crit: []
 
@@ -27,7 +27,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Fire
-    Field: [1, 5, 9]
+    Field: [11, 15, 19]
     Cost: 1
     Aimed: false
     Range: 2
@@ -38,7 +38,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Water
-    Field: [2, 4, 9]
+    Field: [12, 14, 19]
     Cost: 1
     Aimed: false
     Range: 2
@@ -49,7 +49,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Earth
-    Field: [1, 6, 8]
+    Field: [11, 16, 18]
     Cost: 1
     Aimed: false
     Range: 2
@@ -60,7 +60,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Wind
-    Field: [2, 6, 8]
+    Field: [12, 16, 18]
     Cost: 1
     Aimed: false
     Range: 2
@@ -72,7 +72,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Blunt
-    Field: [4, 15, 26]
+    Field: [19, 30, 41]
     Cost: 0
     Aimed: false
     Range: 2
