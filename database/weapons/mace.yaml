@@ -1,7 +1,7 @@
 Name: Mace
 Description: A dense talamite mace. Once it gets moving, hard to stop — and hard to get away from.
-Level: 3
-HP: 80
+Level: 2
+HP: 100
 Weight: 0
 
 Resource:
@@ -26,11 +26,12 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [1, 1, 2, 9, 9, 10]
+    Field: [3, 3, 4, 11, 11, 14]
     Cost: 2
     Aimed: true
-    Range: 2
-    Action_String: "<User> heaves their mace into <Target>, dealing <Damage> damage."
+    Range: 1
+    Area: 2
+    Action_String: "<User> heaves their mace into <Target> and the ground around them, dealing <Damage> damage."
 
 Attack Crit:
   - Name: Heavyweight
@@ -38,7 +39,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [1, 1, 2, 12, 12, 14]
+    Field: [4, 4, 5, 12, 12, 16]
     Cost: 0
     Aimed: false
     Range: 2
@@ -50,7 +51,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [0, 2, 2, 15, 15, 20]
+    Field: [4, 5, 5, 15, 15, 22]
     Cost: 3
     Aimed: false
     Range: 1

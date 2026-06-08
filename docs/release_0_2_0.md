@@ -503,3 +503,12 @@ so they get a boost up to 125.
   Forcing weapons to literal 125 overshoots. **Budget = rough guide; the sim's
   same-tier win% is the truth** — expect reactive-heavy weapons to land ~10-15%
   under the cap and play right.
+- 2026-06-07: **Mace → L2 (~111.5).** HP 80→100, Skull Crush `[4,5,5,15,15,22]`,
+  Heavyweight crit `[4,4,5,12,12,16]`, Slam `[3,3,4,11,11,14]` made a **2×2 AoE,
+  R1** (sticky "hard to escape" via coverage, not a separate slow). Bimodal
+  momentum fields kept.
+- 2026-06-07: **The sim can't judge positional/AoE weapons.** It's non-spatial,
+  so an aimed AoE reads as a 50%-miss single-target attack (Mace sims 3-21% vs L2
+  but plays far better — the 2×2 lands reliably). For AoE/tile weapons, **playtest
+  is the only check**; budget is the guide. `cost_report.ts` added: costs the whole
+  weapon roster at a chosen level (`node lib/tools/cost_report.js 2`), with slots.
