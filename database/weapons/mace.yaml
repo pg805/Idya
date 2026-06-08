@@ -38,7 +38,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [3, 3, 4, 11, 11, 14]
+    Field: [3, 3, 4, 18, 18, 20]
     Cost: 2
     Aimed: true
     Range: 1
@@ -51,7 +51,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [4, 4, 5, 12, 12, 16]
+    Field: [4, 4, 5, 20, 20, 24]
     Cost: 0
     Aimed: false
     Range: 2
@@ -63,7 +63,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [4, 5, 5, 15, 15, 22]
+    Field: [4, 5, 5, 25, 25, 30]
     Cost: 3
     Aimed: false
     Range: 1
