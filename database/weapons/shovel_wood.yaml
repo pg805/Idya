@@ -1,7 +1,7 @@
 ﻿Name: Sulwood Shovel
 Description: A rusty shovel with a few knicks in the cutting edge. It has obviously served another fighter well.
-Level: 3
-HP: 60
+Level: 2
+HP: 90
 Weight: 0
 
 Resource:
@@ -14,9 +14,9 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 7
+    Value: 14
     Cost: -2  # restores 2 stamina
-    Action_String: "<User> enters a defensive pose, preparing to block 7 damage."
+    Action_String: "<User> enters a defensive pose, preparing to block 14 damage."
 
 Defend Crit: []
 
@@ -26,7 +26,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [0, 3, 4, 5, 5, 5, 5, 6, 8, 10]
+    Field: [5, 6, 8, 8, 8, 8, 10, 14, 16]
     Cost: -2  # restores 2 stamina
     Aimed: false
     Range: 1
@@ -36,7 +36,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [15]
+    Field: [20]
     Cost: 3  # costs 3 stamina
     Aimed: true
     Range: 1
@@ -48,19 +48,20 @@ Attack Crit:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 7
-    Action_String: "<User> recovers to a defensive position, preparing to block 7 damage."
+    Value: 14
+    Action_String: "<User> recovers to a defensive position, preparing to block 14 damage."
 
 Special:
-  - Name: Charge
-    Type: 1
-    Type_Name: Strike
+  - Name: Dig Trap
+    Type: 11
+    Type_Name: Hazard Tile
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [5, 10, 10, 20]
-    Cost: 0
-    Aimed: false
-    Range: 1
-    Action_String: "<User> waits for an opening and strikes <Target>, dealing <Damage> damage."
+    Value: 15
+    Area: 2
+    Aimed: true
+    Range: 2
+    Cost: 3  # costs 3 stamina
+    Action_String: "<User> digs a 2x2 of pits — anything that steps in takes 15 damage."
 
 Special Crit: []
