@@ -6,7 +6,7 @@ import { resolve_action } from './action_resolver.js';
 import { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
 import TileAction from '../weapon/action/tile_action.js';
 import DestroyObstacle from '../weapon/action/destroy_obstacle.js';
-import { reachableTiles } from './movement.js';
+import { reachableTiles, findPath } from './movement.js';
 
 export interface ResolutionResult {
   log: string[];
@@ -173,29 +173,38 @@ export function resolveIntents(
   }
 
   const moveStart = log.length;
+  // Track each mover's traversed path so hazard tiles damage on every square
+  // entered, not just the destination (movement isn't a teleport).
+  const moverPaths = new Map<string, { x: number; y: number }[]>();
   for (const [id, intent] of intents) {
     if (!intent.moveTo || blocked.has(id)) continue;
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
+    const from = { ...c.pos };
+    const path = findPath(from, intent.moveTo, c.movementRange, session.board, new Set()) ?? [intent.moveTo];
+    moverPaths.set(id, path);
     c.pos = intent.moveTo;
     log.push(`${c.name} moves to (${c.pos.x},${c.pos.y})`);
   }
 
-  // Hazard tiles: a combatant that moved onto an opposing team's hazard tile
-  // takes its damage on entry. (Death is reaped during the action phase below.)
-  for (const [id, intent] of intents) {
-    if (!intent.moveTo || blocked.has(id)) continue;
+  // Hazard tiles: a combatant takes damage for each opposing-team hazard square
+  // it enters along its path this turn. (Death is reaped during the action phase
+  // below.) The square it started on doesn't re-trigger.
+  for (const [id, path] of moverPaths) {
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
-    const tile = session.board.getTile(c.pos);
-    if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
     const meta = session.meta.get(c.id);
     if (!meta) continue;
-    const before = meta.state.health;
-    meta.state.health = Math.max(meta.state.health - tile.value, 0);
-    meta.state.damage_taken += before - meta.state.health;
-    c.hp = meta.state.health;
-    log.push(`${c.name} steps on a hazard: −${tile.value} HP`);
+    for (const step of path) {
+      const tile = session.board.getTile(step);
+      if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
+      if (meta.state.health <= 0) break;
+      const before = meta.state.health;
+      meta.state.health = Math.max(meta.state.health - tile.value, 0);
+      meta.state.damage_taken += before - meta.state.health;
+      c.hp = meta.state.health;
+      log.push(`${c.name} steps on a hazard at (${step.x},${step.y}): −${tile.value} HP`);
+    }
   }
   if (log.length > moveStart) log.splice(moveStart, 0, '▸ Move');
 

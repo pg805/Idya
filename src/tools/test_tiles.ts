@@ -250,6 +250,19 @@ console.log('\nAimed slow, out-of-range target → random in-range square, not u
   check(placedSomething === 200, `always places the zone somewhere in range (saw ${placedSomething}/200)`);
 }
 
+// ---- Test 12b: hazard damage applies per square crossed, not just destination ----
+console.log('\nHazard damage applies per square crossed (Dig Trap line):');
+{
+  const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 7, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, Eu]);
+  for (const x of [1, 2, 3]) s.board.setTile({ pos: { x, y: 1 }, teamId: 'B', kind: 'hazard', value: 5 });
+  const before = hp(s, 'P');
+  resolveIntents(s, new Map([['P', act('P', 'pass', 0, { x: 3, y: 1 })], ['E', act('E', 'pass', 0)]]));
+  check(s.combatants.find(c => c.id === 'P')!.pos.x === 3, 'P moved to (3,1)');
+  check(hp(s, 'P') === before - 15, `P took 3 hazards crossing (1,1)(2,1)(3,1): ${before}→${hp(s, 'P')}`);
+}
+
 // ---- Test 13: AI routes around a slow tile when an equal-distance tile is clear ----
 console.log('\nAI prefers a non-slow tile over an equal-distance slow one:');
 {

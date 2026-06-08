@@ -420,6 +420,11 @@ they assume the new budget exists so we can cost the new abilities.
   caster's own tile, when their (pre-move) target ends up out of range. Fixes
   Bloodmire dropping its slow zone under the toad. (Smarter tile targeting is
   still deferred.)
+- 2026-06-07: **Hazard damage applies per square crossed**, not just the
+  destination. Movement was effectively a teleport (checked only the landing
+  tile); `findPath` now reconstructs the traversed path so a unit walking a line
+  of hazard tiles takes each one. Fixes a deer crossing 3 Dig-Trap pits for one
+  hit. (AI doesn't yet *avoid* hazards in pathing — possible follow-up.)
 - 2026-06-07: **AI routes around slow tiles.** `reachableCosts` exposes path cost;
   the AI tiebreaks equally-close destinations toward non-slow tiles, then cheaper
   (fewer slow crossings) paths. Closing distance still wins, so it wades through
