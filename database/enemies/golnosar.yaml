@@ -1,5 +1,5 @@
 Name: Golnosar
-Health: 110
+Health: 150
 Level: 3
 Loot:
   Items:
@@ -23,10 +23,10 @@ Loot:
       Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Tar Drink
+  - [3, 1]   # Special: Tar Pit (slow the approach)
+  - [3, 0]   # Special: Fistar (burn)
   - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
+  - [1, 0]   # Defend: Tar Drink
   - [3, 0]   # Special: Fistar
   - [2, 0]   # Attack: Tar Shot
   - [2, 0]   # Attack: Tar Shot
@@ -58,7 +58,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [0, 1, 2, 5, 6, 7, 8]
+      Field: [10, 11, 12, 14, 15]
       Cost: 1
       Aimed: false
       Range: 1
@@ -66,14 +66,14 @@ Weapon:
 
   Attack Crit:
     - Name: Blind
-      Type: 4
-      Type_Name: DOT
+      Type: 5
+      Type_Name: Debuff
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [10]
+      Value: 14
       Rounds: 3
       Range: 2
-      Action_String: "<User> blinds <Target> with a faceful of tar, dealing <Damage> damage per round for 3 rounds."
+      Action_String: "<User> blinds <Target> with a faceful of tar, debuffing their attack by 14 for 3 rounds."
 
   Special:
     - Name: Fistar
@@ -87,5 +87,17 @@ Weapon:
       Aimed: true
       Range: 4
       Action_String: "<User> ignites a fistar above <Target>, burning for <Damage> damage per round for 5 rounds."
+
+    - Name: Tar Pit
+      Type: 13
+      Type_Name: Slow Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 2
+      Area: 3
+      Aimed: true
+      Range: 3
+      Cost: 3
+      Action_String: "<User> floods a 3x3 area with sticky tar — slogging through it is slow going."
 
   Special Crit: []
