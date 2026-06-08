@@ -1,7 +1,7 @@
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
 import { chebyshevDist } from './board.js';
-import { reachableTiles } from './movement.js';
+import { reachableCosts } from './movement.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
 
@@ -61,14 +61,26 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   const occupied = new Set(
     session.combatants.filter(c => c.id !== ai.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
-  const reachable = reachableTiles(ai.pos, ai.movementRange, session.board, occupied);
+  const reachable = reachableCosts(ai.pos, ai.movementRange, session.board, occupied);
 
+  // Pick the tile that gets closest to the target. Tiebreak to route around slow
+  // tiles: among equally-close tiles, prefer a non-slow destination, then the
+  // cheaper path (fewer slow crossings). Closing distance always wins, so the AI
+  // still wades through slow terrain when that's the only way forward.
+  const isSlow = (pos: { x: number; y: number }) => (session.board.getTile(pos)?.kind === 'slow' ? 1 : 0);
   let bestPos = ai.pos;
   let bestDist = chebyshevDist(ai.pos, target.pos);
+  let bestSlow = isSlow(ai.pos);
+  let bestCost = 0;
 
-  for (const pos of reachable.values()) {
+  for (const { pos, cost } of reachable.values()) {
     const d = chebyshevDist(pos, target.pos);
-    if (d < bestDist) { bestDist = d; bestPos = pos; }
+    const slow = isSlow(pos);
+    const better =
+      d < bestDist ||
+      (d === bestDist && slow < bestSlow) ||
+      (d === bestDist && slow === bestSlow && cost < bestCost);
+    if (better) { bestDist = d; bestSlow = slow; bestCost = cost; bestPos = pos; }
   }
 
   const moveTo = bestPos === ai.pos ? null : bestPos;

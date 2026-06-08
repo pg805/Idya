@@ -9,7 +9,22 @@ export function reachableTiles(
   board: Board,
   occupied: Set<string>,
 ): Map<string, Pos> {
-  const reachable = new Map<string, Pos>();
+  const out = new Map<string, Pos>();
+  for (const [k, v] of reachableCosts(from, range, board, occupied)) out.set(k, v.pos);
+  return out;
+}
+
+// Same BFS, but also returns the cheapest cost to reach each tile. Slow tiles
+// charge +1 to leave, so a path that detours around them costs less — callers
+// (e.g. the AI) can use cost as a tiebreaker to route around difficult terrain
+// while still reaching tiles only available by crossing it.
+export function reachableCosts(
+  from: Pos,
+  range: number,
+  board: Board,
+  occupied: Set<string>,
+): Map<string, { pos: Pos; cost: number }> {
+  const reachable = new Map<string, { pos: Pos; cost: number }>();
   const costs = new Map<string, number>(); // 'x,y:parity' → cost
   costs.set(`${key(from)}:0`, 0);
   const queue: [Pos, number, number][] = [[from, 0, 0]]; // pos, cost, diagParity
@@ -39,7 +54,8 @@ export function reachableTiles(
       if ((costs.get(sk) ?? Infinity) <= newCost) continue;
       if (occupied.has(k)) continue;
       costs.set(sk, newCost);
-      reachable.set(k, n);
+      const existing = reachable.get(k);
+      if (!existing || newCost < existing.cost) reachable.set(k, { pos: n, cost: newCost });
       queue.push([n, newCost, newParity]);
     }
   }

@@ -8,6 +8,8 @@ import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_
 import { CombatantState } from '../combat/combatant_state.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { reachableTiles } from '../combat/movement.js';
+import { generateAIIntent } from '../combat/ai.js';
+import { PatternActionType } from '../infrastructure/pattern.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
 import { CombatIntent } from '../combat/intent.js';
 import { BoardConfig, Pos } from '../combat/board.js';
@@ -246,6 +248,35 @@ console.log('\nAimed slow, out-of-range target → random in-range square, not u
   }
   check(underSelf === 0, `never drops the zone under the caster (saw ${underSelf}/200)`);
   check(placedSomething === 200, `always places the zone somewhere in range (saw ${placedSomething}/200)`);
+}
+
+// ---- Test 13: AI routes around a slow tile when an equal-distance tile is clear ----
+console.log('\nAI prefers a non-slow tile over an equal-distance slow one:');
+{
+  const P = mk('P', 'A', { x: 0, y: 0 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 2, y: 0 }, STRIKER, true);
+  Eu.c.movementRange = 1;
+  Eu.m.pattern = [{ type: PatternActionType.Attack, index: 0 }];
+  const s = session(EMPTY, [P, Eu]);
+  s.board.setTile({ pos: { x: 1, y: 0 }, teamId: 'A', kind: 'slow', value: 2 }); // direct step is slow
+  const intent = generateAIIntent(Eu.c, s);
+  // (1,0) and (1,1) are both dist 1 to target (0,0); (1,0) is slow → expect (1,1)
+  check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `routes to clear (1,1), not slow (1,0) (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
+}
+
+// ---- Test 14: AI still moves through slow when it's the only way forward ----
+console.log('\nAI moves through slow when it must (only closer tile is slow):');
+{
+  // Wall off the flanks at x=1 so (1,1) (slow) is the only tile that closes distance.
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 1, y: 0 }, state: 'intact' }, { pos: { x: 1, y: 2 }, state: 'intact' }] };
+  const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  Eu.c.movementRange = 1;
+  Eu.m.pattern = [{ type: PatternActionType.Attack, index: 0 }];
+  const s = session(board, [P, Eu]);
+  s.board.setTile({ pos: { x: 1, y: 1 }, teamId: 'A', kind: 'slow', value: 2 });
+  const intent = generateAIIntent(Eu.c, s);
+  check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `wades into slow (1,1) to advance (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);

@@ -420,6 +420,10 @@ they assume the new budget exists so we can cost the new abilities.
   caster's own tile, when their (pre-move) target ends up out of range. Fixes
   Bloodmire dropping its slow zone under the toad. (Smarter tile targeting is
   still deferred.)
+- 2026-06-07: **AI routes around slow tiles.** `reachableCosts` exposes path cost;
+  the AI tiebreaks equally-close destinations toward non-slow tiles, then cheaper
+  (fewer slow crossings) paths. Closing distance still wins, so it wades through
+  slow terrain when that's the only way to advance.
 - 2026-06-06: **Starter trio retuned into Level 0** (~half the Deck, so Branch →
   Deck/Dagger/Quarterstaff is a ~2× upgrade): Branch HP 20 + small fields, all
   actions kept (tutorial weapon), Leaf crit → `[1,2]`, ~25.3. Swallow HP 20,
