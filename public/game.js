@@ -135,6 +135,9 @@ function computeReachable(combatant) {
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
+  const slowSet = new Set(
+    (state.board.tiles || []).filter(t => t.kind === 'slow').map(t => `${t.pos.x},${t.pos.y}`)
+  );
   const occupiedSet = new Set(
     state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
@@ -148,13 +151,14 @@ function computeReachable(combatant) {
 
   while (queue.length) {
     const [pos, cost, diagParity] = queue.shift();
+    const slowPenalty = slowSet.has(`${pos.x},${pos.y}`) ? 1 : 0;  // leaving a slow tile costs +1
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         if (dx === 0 && dy === 0) continue;
         const nx = pos.x + dx, ny = pos.y + dy;
         const k = `${nx},${ny}`;
         const isDiag = dx !== 0 && dy !== 0;
-        const stepCost = isDiag ? (diagParity === 0 ? 1 : 2) : 1;
+        const stepCost = (isDiag ? (diagParity === 0 ? 1 : 2) : 1) + slowPenalty;
         const newCost = cost + stepCost;
         const newParity = isDiag ? 1 - diagParity : diagParity;
         const sk = `${k}:${newParity}`;
