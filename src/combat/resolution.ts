@@ -327,6 +327,13 @@ export function resolveIntents(
             continue;
           }
           pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
+          // Crit: attacking into a victim's Special catches them mid-wind-up.
+          if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
+              intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
+            actorMeta.state.attack_crits += 1;
+            log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
+            pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
+          }
         }
         action.cost = savedCost;
         return;

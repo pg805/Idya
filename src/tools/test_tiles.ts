@@ -214,5 +214,19 @@ console.log('\nObstacle shields an AoE victim (Rain):');
   check(s.meta.get('Pb')!.state.dot.rounds === 0, 'shielded victim (behind obstacle) was NOT hit');
 }
 
+// ---- Test 11: AoE attack into a Special crits ----
+console.log('\nAoE attack into a Special crits (Mace Slam):');
+{
+  const mace = Weapon.from_file(join(W, 'mace.yaml'));
+  const toadW = enemyWeapon('maetoad.yaml');   // has specials to set intent type
+  const P = mk('P', 'A', { x: 2, y: 1 }, mace, false);
+  const Eu = mk('E', 'B', { x: 3, y: 1 }, toadW, true);
+  const s = session(EMPTY, [P, Eu]);
+  const before = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 3, y: 1 })], ['E', act('E', 'special', 0, null, { x: 2, y: 1 })]]));
+  check(s.meta.get('P')!.state.attack_crits > 0, 'AoE attack into a Special triggers the crit');
+  check(before - hp(s, 'E') > 0, 'AoE target took damage');
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);
