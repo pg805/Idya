@@ -33,6 +33,24 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #turn-label { color: var(--gold); font-weight: bold; }
 #phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
+/* Forfeit lives at the right edge of the status bar so the rest of the row
+   keeps its centered, conversational feel and the bail-out is one obvious
+   click away. */
+#forfeit-btn {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+#forfeit-btn:hover { color: var(--warn-bright); border-color: var(--warn-dim); }
+#forfeit-btn:disabled,
+#forfeit-btn[hidden] { display: none; }
+
 #main-layout {
   display: flex;
   gap: 20px;

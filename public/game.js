@@ -96,8 +96,28 @@ socket.on('game_over', ({ winner }) => {
   resetUI();
   ui.phase = 'ended';
   appendLog([`━━━ Game Over! ${winnerTeam ? winnerTeam.name + ' wins!' : 'Draw!'} ━━━`], 'turn-divider');
+  const ffBtn = document.getElementById('forfeit-btn');
+  if (ffBtn) ffBtn.hidden = true;
   render();
 });
+
+// ---- Forfeit button ----
+// Lives in the status bar so players always know they can leave a battle
+// without backing out via Hunt. POSTs to the same endpoint the Hunt-page
+// forfeit button uses, then bounces back to /app/.
+(function wireForfeit() {
+  const btn = document.getElementById('forfeit-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!confirm('Forfeit this battle?')) return;
+    btn.disabled = true;
+    const sessionId = window.location.pathname.split('/').pop();
+    try {
+      await fetch(`/api/active-battles/${sessionId}/forfeit`, { method: 'POST' });
+    } catch (_) {}
+    location.href = '/app/';
+  });
+})();
 
 socket.on('reward_result', ({ summary }) => {
   appendLog([summary], 'crit');
