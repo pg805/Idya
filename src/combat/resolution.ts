@@ -61,6 +61,30 @@ function randomTileInRange(
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+// Knock `target` up to `squares` tiles directly away from `from` (8-directional,
+// along the from→target line). Stops early at the board edge, an obstacle, or
+// another unit — no shoving through walls or stacking. Used by the Push rider.
+function knockback(
+  from: { x: number; y: number },
+  target: { id: string; name: string; pos: { x: number; y: number } },
+  squares: number,
+  session: CombatSession,
+  log: string[],
+): void {
+  const dx = Math.sign(target.pos.x - from.x);
+  const dy = Math.sign(target.pos.y - from.y);
+  if (dx === 0 && dy === 0) return;
+  let moved = 0;
+  for (let i = 0; i < squares; i++) {
+    const next = { x: target.pos.x + dx, y: target.pos.y + dy };
+    if (!session.board.inBounds(next) || session.board.isBlocked(next)) break;
+    if (session.combatants.some(c => c.id !== target.id && c.pos.x === next.x && c.pos.y === next.y)) break;
+    target.pos = next;
+    moved++;
+  }
+  if (moved > 0) log.push(`  ${target.name} is knocked back ${moved} square${moved > 1 ? 's' : ''} to (${target.pos.x},${target.pos.y}).`);
+}
+
 export function resolveIntents(
   session: CombatSession,
   intents: Map<string, CombatIntent>,
@@ -380,6 +404,7 @@ export function resolveIntents(
             log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
             pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
           }
+          if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
         }
         action.cost = savedCost;
         return;
@@ -406,6 +431,7 @@ export function resolveIntents(
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
+      if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
     } else {
       const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
       const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
@@ -428,6 +454,7 @@ export function resolveIntents(
         log.push(`★ ${actor.name} lands a critical hit!`);
         pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
       }
+      if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, target, action.push, session, log);
     }
   };
 

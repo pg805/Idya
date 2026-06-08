@@ -342,6 +342,27 @@ console.log('\nMove debuff (Dagger Cut Tendons) caps reach then expires:');
   check(!reach.has('5,1'), 'crippled E cannot reach dist-2 tile (5,1)');
 }
 
+// ---- Test 14c: Push rider knocks the target back, stops at the wall ----
+console.log('\nPush rider knocks target away from attacker (Wand bolt):');
+{
+  const wand = Weapon.from_file(join(W, 'wand.yaml'));
+  const bolt = wand.attack.findIndex(a => a.push > 0);
+  check(bolt >= 0, 'a wand bolt carries Push');
+  // P at (1,1) hits E at (3,1) → E shoved away (+x) to (4,1)
+  const P = mk('P', 'A', { x: 1, y: 1 }, wand, false);
+  const Eu = mk('E', 'B', { x: 3, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, Eu]);
+  resolveIntents(s, new Map([['P', act('P', 'attack', bolt)], ['E', act('E', 'pass', 0)]]));
+  check(s.combatants.find(c => c.id === 'E')!.pos.x === 4, `E knocked from x=3 to x=4 (got ${s.combatants.find(c => c.id === 'E')!.pos.x})`);
+
+  // At the board edge the push fizzles (no shove off-board)
+  const P2 = mk('P', 'A', { x: 5, y: 1 }, wand, false);
+  const E2 = mk('E', 'B', { x: 7, y: 1 }, STRIKER, true);  // already at the x=7 edge (width 8)
+  const s2 = session(EMPTY, [P2, E2]);
+  resolveIntents(s2, new Map([['P', act('P', 'attack', bolt)], ['E', act('E', 'pass', 0)]]));
+  check(s2.combatants.find(c => c.id === 'E')!.pos.x === 7, 'push fizzles at the board edge (stays x=7)');
+}
+
 // ---- Test 15: AI avoids a hazard tile when an equal-distance tile is clear ----
 console.log('\nAI prefers a non-hazard tile over an equal-distance hazard one:');
 {

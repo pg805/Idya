@@ -31,7 +31,8 @@ Attack:
     Cost: 1
     Aimed: false
     Range: 2
-    Action_String: "<User> launches a bolt of flame at <Target>, dealing <Damage> damage."
+    Push: 1
+    Action_String: "<User> launches a bolt of flame at <Target>, dealing <Damage> damage and knocking them back a step."
 
   - Name: Water Bolt
     Type: 1
@@ -42,7 +43,8 @@ Attack:
     Cost: 1
     Aimed: false
     Range: 2
-    Action_String: "<User> hurls a surge of water at <Target>, dealing <Damage> damage."
+    Push: 1
+    Action_String: "<User> hurls a surge of water at <Target>, dealing <Damage> damage and knocking them back a step."
 
   - Name: Earth Bolt
     Type: 1
@@ -53,7 +55,8 @@ Attack:
     Cost: 1
     Aimed: false
     Range: 2
-    Action_String: "<User> flings a shard of stone at <Target>, dealing <Damage> damage."
+    Push: 1
+    Action_String: "<User> flings a shard of stone at <Target>, dealing <Damage> damage and knocking them back a step."
 
   - Name: Wind Bolt
     Type: 1
@@ -64,7 +67,8 @@ Attack:
     Cost: 1
     Aimed: false
     Range: 2
-    Action_String: "<User> sends a blade of wind cutting into <Target>, dealing <Damage> damage."
+    Push: 1
+    Action_String: "<User> sends a blade of wind cutting into <Target>, dealing <Damage> damage and knocking them back a step."
 
 Attack Crit:
   - Name: Elemental Spray

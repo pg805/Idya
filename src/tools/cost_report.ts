@@ -46,7 +46,8 @@ function cost(a: Action, isCrit = false): number {
     const range = 1 + 0.1 * ((a.range ?? 1) - 1);
     const aim = isCrit ? 1.0 : a.aimed ? (a.area > 1 ? 1.0 : 0.9) : 1.1;
     const rounds = t === ActionType.DamageOverTime ? (a as any).rounds : 1;
-    return E * range * aim * aoeMult(a.area) * rounds;
+    // Push rider: ~1.5 budget per square of knockback (rough control estimate).
+    return E * range * aim * aoeMult(a.area) * rounds + (a.push ?? 0) * 1.5;
   }
   if (t === ActionType.Block) return prevented((a as any).value);
   if (t === ActionType.Heal) return (a as any).value;
