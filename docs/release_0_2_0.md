@@ -173,9 +173,13 @@ block            cost = prevented(V)
 shield / debuff  cost = prevented(V) × rounds × 0.5
 ```
 
-- **`μ` scales with level**: `μ = max_roll / 2`, and `max_roll = 10·L` (L0 floor
-  of 5). So μ = 2.5 (L0), 5 (L1), 10 (L2), … At higher tiers attacks hit harder,
-  so a given block value covers less of the (bigger) roll.
+- **`μ` scales with level**, set per-level rather than by a single formula so the
+  damage scale can creep up: **μ = 2.5 (L0), 5 (L1), 15 (L2)**. L2 was bumped from
+  the old `max_roll/2 = 10` to **15** (2026-06-07) — actual L2 attacks land at
+  18–30, so 15 is the honest reference. μ only re-prices *defenses*
+  (block/shield/debuff); attacks are EV-based and μ-independent, so raising it
+  makes mitigation a pricier, more deliberate buy and tilts L2 damage-forward
+  (bigger hits chew HP faster, so piling HP pays off less in play).
 - **The cap bites at low tiers**: at L0 (μ=2.5, 2μ=5) any value ≥5 just prevents
   μ=2.5 — an 8-shield is no better than a 5-shield, since L0 attacks rarely
   exceed 5.
@@ -408,6 +412,14 @@ they assume the new budget exists so we can cost the new abilities.
 - 2026-06-06: **μ scales per level** — `μ = max_roll/2` (L0=2.5, L1=5, L2=10…),
   with the `prevented(V)` cap (`V>2μ → μ`) made explicit. At L0 this means
   oversized blocks/shields/debuffs (value ≥5) all cap at 2.5.
+- 2026-06-07: **L2 μ bumped 10 → 15** (now a per-level table, L1 stays 5). L2
+  attacks already land 18–30, so 15 is the honest reference; it re-prices only
+  defenses and tilts L2 damage-forward. Whole roster re-checked — barely moves
+  (Mace 130.5→130.8, sword ~111). 125 cap with μ=15 confirmed for L2.
+- 2026-06-07: **Aimed tile drops fall back to a random in-range square**, not the
+  caster's own tile, when their (pre-move) target ends up out of range. Fixes
+  Bloodmire dropping its slow zone under the toad. (Smarter tile targeting is
+  still deferred.)
 - 2026-06-06: **Starter trio retuned into Level 0** (~half the Deck, so Branch →
   Deck/Dagger/Quarterstaff is a ~2× upgrade): Branch HP 20 + small fields, all
   actions kept (tutorial weapon), Leaf crit → `[1,2]`, ~25.3. Swallow HP 20,
@@ -461,7 +473,7 @@ they assume the new budget exists so we can cost the new abilities.
 
 ## Level 2 (in progress)
 
-L2 target: budget 125, max_roll 20, μ=10, H_base=75. The old roster was tuned on
+L2 target: budget 125, μ=15 (max_roll ~30), H_base=75. The old roster was tuned on
 the legacy scale; under the new math most "L3"-labelled enemies recost to ~L1.8,
 so they get a boost up to 125.
 
