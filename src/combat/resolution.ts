@@ -181,8 +181,12 @@ export function resolveIntents(
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
     const from = { ...c.pos };
-    // Players walk the cheapest route (the path their green-outline preview shows)
-    // and take the hazards on it; only the AI routes around pits.
+    // Movement is a walk, not a teleport — hazards hit every square entered.
+    // Route choice is a separate axis from that: the AI auto-routes around pits
+    // (avoidHazards), while the player follows their previewed route, which today
+    // is just the cheapest path. Letting the player pick among equal routes (and
+    // thereby choose to dodge) is future work; the green-outline preview is the
+    // source of truth either way, so the damage always matches what's shown.
     const path = findPath(from, intent.moveTo, c.movementRange, session.board, new Set(), c.teamId, c.isAI) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
