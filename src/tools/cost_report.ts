@@ -29,10 +29,14 @@ const HBASE = 0.6 * CAP;                     // HP diminishing threshold
 const ev = (f: number[]) => f.reduce((a, b) => a + b, 0) / f.length;
 const prevented = (v: number) => (v >= 2 * MU ? MU : v - (v * v) / (4 * MU));
 const aoeMult = (area: number) => (area > 1 ? 1 + 0.15 * (area - 1) : 1);
-// Tiles cover area² squares; extra tiles past the first count at half (footprint
-// outruns real effectiveness — overlap, tiles the enemy never steps on).
-const TILE_AREA_EFF = 0.5;
-const tileAreaMult = (area: number) => (area > 1 ? 1 + TILE_AREA_EFF * (area * area - 1) : 1);
+// Area scaling differs by who the tile faces:
+//   enemy-facing (hazard/slow): every one of the area² squares is an independent
+//     threat the foe can step into, so it scales ~area² (extra tiles at half for
+//     overlap / squares the enemy never enters).
+//   self-facing (block/buff): the caster only ever stands on ONE square, so a
+//     bigger zone is just coverage/flexibility — a gentle linear bonus, not area².
+const enemyTileMult = (area: number) => (area > 1 ? 1 + 0.5 * (area * area - 1) : 1);
+const selfTileMult  = (area: number) => (area > 1 ? 1 + 0.25 * (area - 1) : 1);
 
 // Cost a single action in budget points (pre one-slot weighting).
 function cost(a: Action, isCrit = false): number {
@@ -49,10 +53,10 @@ function cost(a: Action, isCrit = false): number {
   if (t === ActionType.Shield || t === ActionType.Debuff) return prevented((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
   if (t === ActionType.Buff) return ((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
   if (t === ActionType.Reflect) return ((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
-  if (t === ActionType.BlockTile) return prevented((a as any).value) * 3 * tileAreaMult(a.area);
-  if (t === ActionType.BuffTile) return (a as any).value * 2 * tileAreaMult(a.area);
-  if (t === ActionType.HazardTile) return (a as any).value * 0.7 * tileAreaMult(a.area);
-  if (t === ActionType.SlowTile) return 5 * tileAreaMult(a.area);  // rough control estimate
+  if (t === ActionType.BlockTile) return prevented((a as any).value) * 3 * selfTileMult(a.area);
+  if (t === ActionType.BuffTile) return (a as any).value * 2 * selfTileMult(a.area);
+  if (t === ActionType.HazardTile) return (a as any).value * 0.7 * enemyTileMult(a.area);
+  if (t === ActionType.SlowTile) return 5 * enemyTileMult(a.area);  // rough control estimate
   if (t === ActionType.MoveDebuff) return ((a as any).rounds ?? 1) * 2;  // unit-attached slow, rough control estimate
   if (t === ActionType.DestroyObstacle) return ev((a as any).field.field) * 0.7;
   return 0;
