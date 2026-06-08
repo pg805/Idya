@@ -20,6 +20,17 @@ function pushLog(log: string[], text: string) {
   }
 }
 
+// N×N block of positions. Odd N is centered on `center`; even N uses `center` as
+// the top-left corner (sprays toward +x/+y) — the tile/AOE placement rule.
+function areaBlock(center: { x: number; y: number }, area: number): { x: number; y: number }[] {
+  const off = Math.floor((area - 1) / 2);
+  const out: { x: number; y: number }[] = [];
+  for (let dx = 0; dx < area; dx++)
+    for (let dy = 0; dy < area; dy++)
+      out.push({ x: center.x - off + dx, y: center.y - off + dy });
+  return out;
+}
+
 export function resolveIntents(
   session: CombatSession,
   intents: Map<string, CombatIntent>,
@@ -197,25 +208,30 @@ export function resolveIntents(
     if (TILE_TYPES.has(action.type)) {
       actorMeta.state.apply_cost(action);
       const kind = action.type === ActionType.BlockTile ? 'block'
-                 : action.type === ActionType.BuffTile  ? 'buff' : 'hazard';
+                 : action.type === ActionType.BuffTile  ? 'buff'
+                 : action.type === ActionType.SlowTile  ? 'slow' : 'hazard';
       const value = (action as TileAction).value;
-      // Aimed tiles (e.g. hazards) land on a targeted square in range; otherwise
-      // the tile drops on the caster's own square (pickaxe block/buff zones).
+      // Aimed tiles (hazard/slow) land on a targeted square in range; otherwise
+      // they drop on the caster's own square (pickaxe block/buff zones). Area > 1
+      // spreads them into an N×N block.
       let placePos = { ...actor.pos };
       const tp = intent.action.targetPos;
       if (action.aimed && tp && chebyshevDist(actor.pos, tp) <= action.range) placePos = { ...tp };
-      session.board.setTile({ pos: placePos, teamId: actor.teamId, kind, value });
-      log.push(`${actor.name} — ${action.name}: drops a ${kind} tile at (${placePos.x},${placePos.y}).`);
+      const cells = areaBlock(placePos, action.area).filter(p => session.board.inBounds(p));
+      for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
+      log.push(`${actor.name} — ${action.name}: drops ${cells.length > 1 ? `a ${action.area}×${action.area} of ${kind} tiles` : `a ${kind} tile`} at (${placePos.x},${placePos.y}).`);
       // A hazard dropped under an opposing combatant counts as entering it.
       if (kind === 'hazard') {
-        const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === placePos.x && c.pos.y === placePos.y);
-        const vMeta = victim ? session.meta.get(victim.id) : undefined;
-        if (victim && vMeta && vMeta.state.health > 0) {
-          const before = vMeta.state.health;
-          vMeta.state.health = Math.max(vMeta.state.health - value, 0);
-          vMeta.state.damage_taken += before - vMeta.state.health;
-          victim.hp = vMeta.state.health;
-          log.push(`  it erupts under ${victim.name} for ${value}!  |  HP: ${before} → ${victim.hp}`);
+        for (const p of cells) {
+          const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === p.x && c.pos.y === p.y);
+          const vMeta = victim ? session.meta.get(victim.id) : undefined;
+          if (victim && vMeta && vMeta.state.health > 0) {
+            const before = vMeta.state.health;
+            vMeta.state.health = Math.max(vMeta.state.health - value, 0);
+            vMeta.state.damage_taken += before - vMeta.state.health;
+            victim.hp = vMeta.state.health;
+            log.push(`  it erupts under ${victim.name} for ${value}!  |  HP: ${before} → ${victim.hp}`);
+          }
         }
       }
       return;
@@ -274,6 +290,29 @@ export function resolveIntents(
       if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
         const rs = actorMeta.state.apply_cost(action);
         log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — no line of sight.`);
+        return;
+      }
+
+      // AOE (Area > 1): hit every enemy in the N×N around the targeted tile. Cost
+      // is paid once; no per-target crit. Bypasses the empty-tile "miss" check.
+      if (action.area > 1) {
+        const cells = new Set(areaBlock(targetPos, action.area).map(p => `${p.x},${p.y}`));
+        const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
+        if (victims.length === 0) {
+          const rs = actorMeta.state.apply_cost(action);
+          log.push(`${actor.name}'s ${action.name}${rs} — the ${action.area}×${action.area} at ${tileStr} catches no one.`);
+          return;
+        }
+        const savedCost = action.cost;
+        actorMeta.state.apply_cost(action);  // pay once
+        action.cost = 0;
+        if (isDamagingAttack) actorMeta.state.aimed_hit += 1;
+        log.push(`${actor.name} — ${action.name}: ${action.area}×${action.area} at ${tileStr} hits ${victims.length}.`);
+        for (const v of victims) {
+          const m = session.meta.get(v.id);
+          if (m && m.state.health > 0) pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
+        }
+        action.cost = savedCost;
         return;
       }
 

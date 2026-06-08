@@ -14,7 +14,7 @@ export interface BoardConfig {
 
 // Board-effect tiles (0.2.0 positional layer). Permanent; placing on an occupied
 // square overwrites the existing tile.
-export type TileKind = 'block' | 'buff' | 'hazard';
+export type TileKind = 'block' | 'buff' | 'hazard' | 'slow';
 export interface Tile {
   pos: Pos;
   teamId: string;   // tile's owner team — allies benefit (block/buff), foes trigger (hazard)

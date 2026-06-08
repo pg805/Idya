@@ -16,10 +16,12 @@ export function reachableTiles(
 
   while (queue.length > 0) {
     const [pos, cost, diagParity] = queue.shift()!;
+    // Leaving a slow tile costs +1 (difficult terrain — affects everyone on it).
+    const slowPenalty = board.getTile(pos)?.kind === 'slow' ? 1 : 0;
     for (const n of neighbors(pos)) {
       const k = key(n);
       const isDiag = n.x !== pos.x && n.y !== pos.y;
-      const stepCost = isDiag ? (diagParity === 0 ? 1 : 2) : 1;
+      const stepCost = (isDiag ? (diagParity === 0 ? 1 : 2) : 1) + slowPenalty;
       const newCost = cost + stepCost;
       const newParity = isDiag ? 1 - diagParity : diagParity;
       const sk = `${k}:${newParity}`;

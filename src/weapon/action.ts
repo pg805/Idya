@@ -13,13 +13,16 @@ export enum ActionType {
     BuffTile       = 10,  // permanent tile; allies standing on it gain +value to attack rolls
     HazardTile     = 11,  // permanent tile; opposing units that enter it take value damage
     DestroyObstacle = 12, // destroy a targeted obstacle, AOE its field to enemies within 1
+    SlowTile       = 13,  // permanent tile; leaving it costs +1 movement (difficult terrain)
 }
 
-// Tile-creating actions place a tile on the caster's own square — no target.
+// Tile-creating actions drop tile(s) on a square (self for block/buff, aimed for
+// hazard/slow). Area > 1 spreads them into an N×N block.
 export const TILE_TYPES = new Set<number>([
     ActionType.BlockTile,
     ActionType.BuffTile,
     ActionType.HazardTile,
+    ActionType.SlowTile,
 ]);
 
 export const SELF_TARGET_TYPES = new Set<number>([
@@ -39,6 +42,7 @@ export default class Action {
     damage_subtype: string = ''
     cost: number = 0
     range: number = 1
+    area: number = 1   // N×N footprint: tiles placed / AOE hit (1 = single tile)
     aimed: boolean = false
     targeted: boolean = false
 

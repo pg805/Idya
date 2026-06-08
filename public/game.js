@@ -319,7 +319,7 @@ function renderBoard() {
           cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
           const mark = document.createElement('div');
           mark.className = 'tile-mark';
-          const sym = tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : '⚠';
+          const sym = tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : tile.kind === 'slow' ? '🐌' : '⚠';
           mark.textContent = `${sym}${tile.value}`;
           cell.appendChild(mark);
         }

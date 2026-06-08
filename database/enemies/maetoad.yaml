@@ -13,6 +13,7 @@ Pattern:
   - [1, 0]   # Defend: Bleed
   - [2, 0]   # Attack: Tongue Lash
   - [2, 0]   # Attack: Tongue Lash
+  - [3, 2]   # Special: Bloodmire (2x2 slow)
   - [3, 0]   # Special: Bloodlet
   - [3, 1]   # Special: Maekeav
   - [3, 0]   # Special: Bloodlet
@@ -24,7 +25,7 @@ Weapon:
   Weight: 0
   Resource:
     Name: Maek
-    Max: 8
+    Max: 10
 
   Defend:
     - Name: Bleed
@@ -33,8 +34,8 @@ Weapon:
       Damage_Type: Arcane
       Damage_Subtype: Mental
       Value: 0
-      Cost: -4
-      Action_String: "<User> bleeds Maek, restoring 4 Maek."
+      Cost: -6
+      Action_String: "<User> bleeds Maek, restoring 6 Maek."
 
   Defend Crit: []
 
@@ -95,7 +96,7 @@ Weapon:
       Area: 2
       Aimed: true
       Range: 3
-      Cost: 3
+      Cost: 2
       Action_String: "<User> floods the ground with Maek, miring a 2x2 area — leaving a mired tile costs 2 movement."
 
   Special Crit: []

@@ -27,6 +27,7 @@ type ActionData = {
     'Damage_Subtype'?: string,
     'Cost'?: number,
     'Range'?: number,
+    'Area'?: number,
     'Aimed'?: boolean,
     'Targeted'?: boolean
 }
@@ -69,6 +70,7 @@ function from_json(action_object: ActionData): Action {
         case 9:
         case 10:
         case 11:
+        case 13:
             logger.info(`Adding Tile (${action_object['Type']}) to Weapon: ${action_object['Name']}`);
             action = new TileAction(action_object['Name'], action_object['Action_String'], action_object['Type'], action_object['Value']);
             action.type_name = action_object['Type_Name'];
@@ -84,6 +86,7 @@ function from_json(action_object: ActionData): Action {
     action.damage_subtype = action_object['Damage_Subtype'] ?? '';
     action.cost           = action_object['Cost']           ?? 0;
     action.range          = action_object['Range']          ?? 1;
+    action.area           = action_object['Area']           ?? 1;
     action.aimed          = action_object['Aimed']          ?? false;
     action.targeted       = action_object['Targeted']       ?? false;
     return action;

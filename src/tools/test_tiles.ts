@@ -7,6 +7,7 @@ for (const t of logger.transports) (t as any).silent = true;
 import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
 import { resolveIntents } from '../combat/resolution.js';
+import { reachableTiles } from '../combat/movement.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
 import { CombatIntent } from '../combat/intent.js';
 import { BoardConfig, Pos } from '../combat/board.js';
@@ -143,6 +144,44 @@ console.log('\nAimed hazard placed under a foe (Talwyrm Crystal Remnants):');
   resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 1, null, { x: 3, y: 1 })]]));
   check(!!s.board.getTile({ x: 3, y: 1 }), 'hazard placed at the targeted tile (3,1)');
   check(hp(s, 'P') === before - 5, `hazard erupts under P on drop (${before}→${hp(s, 'P')})`);
+}
+
+// ---- Test 6: Slow tile (movement cost) ----
+console.log('\nSlow tile (leaving costs +1):');
+{
+  const s = session(EMPTY, []);
+  const plain = reachableTiles({ x: 2, y: 1 }, 2, s.board, new Set());
+  check(plain.has('4,1'), 'control: (4,1) reachable at range 2 (no slow)');
+  s.board.setTile({ pos: { x: 2, y: 1 }, teamId: 'A', kind: 'slow', value: 2 });
+  const slowed = reachableTiles({ x: 2, y: 1 }, 2, s.board, new Set());
+  check(slowed.has('3,1'), 'slow: dist-1 still reachable (step costs 2)');
+  check(!slowed.has('4,1'), 'slow: dist-2 no longer reachable (leave +1 ate the budget)');
+}
+
+// ---- Test 7: Bloodmire drops a 2x2 of slow tiles ----
+console.log('\nBloodmire 2x2 slow placement (Maetoad):');
+{
+  const toad = enemyWeapon('maetoad.yaml');
+  const P = mk('P', 'A', { x: 2, y: 1 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 5, y: 1 }, toad, true);
+  const s = session(EMPTY, [P, Eu]);
+  resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 2, null, { x: 2, y: 1 })]])); // Bloodmire = special 2
+  const cells = ['2,1', '3,1', '2,2', '3,2'];
+  const slowCount = cells.filter(k => { const [x, y] = k.split(',').map(Number); const t = s.board.getTile({ x, y }); return t && t.kind === 'slow'; }).length;
+  check(slowCount === 4, `2x2 placed 4 slow tiles (got ${slowCount})`);
+}
+
+// ---- Test 8: Rain 3x3 AoE DOT hits everyone in the zone ----
+console.log('\nRain 3x3 AoE DOT (Daefen Deer):');
+{
+  const deer = enemyWeapon('daefen_deer.yaml');
+  const P1 = mk('P1', 'A', { x: 2, y: 1 }, STRIKER, false);
+  const P2 = mk('P2', 'A', { x: 3, y: 1 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 6, y: 1 }, deer, true);
+  const s = session(EMPTY, [P1, P2, Eu]);
+  resolveIntents(s, new Map([['P1', act('P1', 'pass', 0)], ['P2', act('P2', 'pass', 0)], ['E', act('E', 'special', 0, null, { x: 3, y: 1 })]])); // Rain = special 0
+  check(s.meta.get('P1')!.state.dot.rounds > 0, 'P1 caught the Rain DOT (in 3x3)');
+  check(s.meta.get('P2')!.state.dot.rounds > 0, 'P2 caught the Rain DOT (in 3x3)');
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
