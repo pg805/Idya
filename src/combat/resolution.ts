@@ -20,14 +20,23 @@ function pushLog(log: string[], text: string) {
   }
 }
 
-// N×N block of positions. Odd N is centered on `center`; even N uses `center` as
-// the top-left corner (sprays toward +x/+y) — the tile/AOE placement rule.
-function areaBlock(center: { x: number; y: number }, area: number): { x: number; y: number }[] {
-  const off = Math.floor((area - 1) / 2);
+// N×N block of positions. Odd N centers on `center`. Even N puts `center` at the
+// corner nearest the caster and sprays *away* from them (so the zone lands ahead
+// of where they aimed). Callers filter out off-board / obstacle squares.
+function areaBlock(center: { x: number; y: number }, area: number, caster: { x: number; y: number }): { x: number; y: number }[] {
   const out: { x: number; y: number }[] = [];
-  for (let dx = 0; dx < area; dx++)
-    for (let dy = 0; dy < area; dy++)
-      out.push({ x: center.x - off + dx, y: center.y - off + dy });
+  if (area % 2 === 1) {
+    const off = (area - 1) / 2;
+    for (let dx = 0; dx < area; dx++)
+      for (let dy = 0; dy < area; dy++)
+        out.push({ x: center.x - off + dx, y: center.y - off + dy });
+  } else {
+    const dirX = Math.sign(center.x - caster.x) || 1;
+    const dirY = Math.sign(center.y - caster.y) || 1;
+    for (let i = 0; i < area; i++)
+      for (let j = 0; j < area; j++)
+        out.push({ x: center.x + dirX * i, y: center.y + dirY * j });
+  }
   return out;
 }
 
@@ -217,7 +226,8 @@ export function resolveIntents(
       let placePos = { ...actor.pos };
       const tp = intent.action.targetPos;
       if (action.aimed && tp && chebyshevDist(actor.pos, tp) <= action.range) placePos = { ...tp };
-      const cells = areaBlock(placePos, action.area).filter(p => session.board.inBounds(p));
+      // Skip off-board and obstacle squares — an intact obstacle blocks the tile.
+      const cells = areaBlock(placePos, action.area, actor.pos).filter(p => session.board.inBounds(p) && !session.board.isBlocked(p));
       for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
       log.push(`${actor.name} — ${action.name}: drops ${cells.length > 1 ? `a ${action.area}×${action.area} of ${kind} tiles` : `a ${kind} tile`} at (${placePos.x},${placePos.y}).`);
       // A hazard dropped under an opposing combatant counts as entering it.
@@ -296,7 +306,7 @@ export function resolveIntents(
       // AOE (Area > 1): hit every enemy in the N×N around the targeted tile. Cost
       // is paid once; no per-target crit. Bypasses the empty-tile "miss" check.
       if (action.area > 1) {
-        const cells = new Set(areaBlock(targetPos, action.area).map(p => `${p.x},${p.y}`));
+        const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
         const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
         if (victims.length === 0) {
           const rs = actorMeta.state.apply_cost(action);

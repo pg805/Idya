@@ -166,9 +166,25 @@ console.log('\nBloodmire 2x2 slow placement (Maetoad):');
   const Eu = mk('E', 'B', { x: 5, y: 1 }, toad, true);
   const s = session(EMPTY, [P, Eu]);
   resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 2, null, { x: 2, y: 1 })]])); // Bloodmire = special 2
-  const cells = ['2,1', '3,1', '2,2', '3,2'];
+  // caster E is at (5,1), so the 2x2 sprays away (toward -x): (2,1),(1,1),(2,2),(1,2)
+  const cells = ['2,1', '1,1', '2,2', '1,2'];
   const slowCount = cells.filter(k => { const [x, y] = k.split(',').map(Number); const t = s.board.getTile({ x, y }); return t && t.kind === 'slow'; }).length;
-  check(slowCount === 4, `2x2 placed 4 slow tiles (got ${slowCount})`);
+  check(slowCount === 4, `2x2 sprays away from caster, 4 slow tiles (got ${slowCount})`);
+  check(!s.board.getTile({ x: 3, y: 1 }), 'no tile toward the caster (3,1) empty');
+}
+
+// ---- Test 9: obstacle blocks a sprayed tile ----
+console.log('\nObstacle blocks a sprayed tile:');
+{
+  const toad = enemyWeapon('maetoad.yaml');
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 1, y: 1 }, state: 'intact' }] };
+  const P = mk('P', 'A', { x: 0, y: 0 }, STRIKER, false);
+  const Eu = mk('E', 'B', { x: 5, y: 1 }, toad, true);
+  const s = session(board, [P, Eu]);
+  resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 2, null, { x: 2, y: 1 })]]));
+  check(!s.board.getTile({ x: 1, y: 1 }), 'no slow tile on the obstacle square (1,1)');
+  const placed = ['2,1', '1,1', '2,2', '1,2'].filter(k => { const [x, y] = k.split(',').map(Number); return !!s.board.getTile({ x, y }); }).length;
+  check(placed === 3, `3 of 4 cells placed, obstacle skipped (got ${placed})`);
 }
 
 // ---- Test 8: Rain 3x3 AoE DOT hits everyone in the zone ----
