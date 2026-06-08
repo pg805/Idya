@@ -266,8 +266,8 @@ console.log('\nHazard damage applies per square crossed when forced through (Dig
   check(hp(s, 'P') === before - 15, `P took 3 hazards crossing (1,1)(2,1)(3,1): ${before}→${hp(s, 'P')}`);
 }
 
-// ---- Test 12c: a PLAYER walks straight through pits (no auto-dodge) ----
-console.log('\nPlayer walks the previewed path through pits, no auto-dodge:');
+// ---- Test 12c: a PLAYER also routes around pits when it can ----
+console.log('\nPlayer routes around pits when an open detour exists:');
 {
   const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);   // player: isAI false
   const Eu = mk('E', 'B', { x: 7, y: 1 }, STRIKER, true);
@@ -275,8 +275,8 @@ console.log('\nPlayer walks the previewed path through pits, no auto-dodge:');
   for (const x of [1, 2, 3]) s.board.setTile({ pos: { x, y: 1 }, teamId: 'B', kind: 'hazard', value: 5 });
   const before = hp(s, 'P');
   resolveIntents(s, new Map([['P', act('P', 'pass', 0, { x: 3, y: 1 })], ['E', act('E', 'pass', 0)]]));
-  check(s.combatants.find(c => c.id === 'P')!.pos.x === 3, 'P reached (3,1)');
-  check(hp(s, 'P') === before - 15, `P took all 3 pits on the cheapest path (no dodge): ${before}→${hp(s, 'P')}`);
+  check(s.combatants.find(c => c.id === 'P')!.pos.x === 3, 'P reached (3,1) via a detour');
+  check(hp(s, 'P') === before - 5, `P dodged (1,1)/(2,1), took only the destination pit: ${before}→${hp(s, 'P')}`);
 }
 
 // ---- Test 12d: findPath mode — AI avoids, player goes cheapest (through) ----

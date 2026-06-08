@@ -172,55 +172,82 @@ function myPlayerCombatant() {
 
 // ---- Movement BFS (mirrors server) ----
 // Diagonals use alternating cost (1-2-1-2): even diagonal in path = 1, odd = 2.
+// Hazard-aware movement search (mirrors server src/combat/movement.ts). Does a
+// Pareto (movement-cost, hazard-damage) search so the previewed path — and the
+// `parents` chain it reconstructs — routes around opposing hazard tiles (and slow,
+// which is baked into cost) when a within-range detour exists. Reachability is
+// unchanged (hazards alter the route, not which tiles are reachable). The server
+// runs the same avoidance, so the green outline matches the damage actually taken.
 function computeReachable(combatant) {
   const { width, height, obstacles } = state.board;
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
-  const slowSet = new Set(
-    (state.board.tiles || []).filter(t => t.kind === 'slow').map(t => `${t.pos.x},${t.pos.y}`)
-  );
+  const tiles = state.board.tiles || [];
+  const slowSet = new Set(tiles.filter(t => t.kind === 'slow').map(t => `${t.pos.x},${t.pos.y}`));
+  const hazardVal = new Map(); // 'x,y' → damage, opposing-team hazard tiles only
+  for (const t of tiles) {
+    if (t.kind === 'hazard' && t.teamId !== combatant.teamId) hazardVal.set(`${t.pos.x},${t.pos.y}`, t.value);
+  }
   const occupiedSet = new Set(
     state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
-  const stateCosts = new Map([[`${startKey}:0`, 0]]); // 'x,y:parity' → cost (BFS correctness)
-  const tileCosts  = new Map([[startKey, 0]]);         // 'x,y' → best cost (parent tracking)
-  const parents = new Map([[startKey, null]]);
-  const queue = [[combatant.pos, 0, 0]]; // pos, cost, diagParity
-  const reachable = new Set();
 
-  while (queue.length) {
-    const [pos, cost, diagParity] = queue.shift();
-    const slowPenalty = slowSet.has(`${pos.x},${pos.y}`) ? 1 : 0;  // leaving a slow tile costs +1
+  // Pareto-optimal (cost, hazard) labels per 'x,y:parity'.
+  const nondom = new Map();
+  const dominated = (k, cost, hazard) => (nondom.get(k) || []).some(l => l.cost <= cost && l.hazard <= hazard);
+  const record = (k, cost, hazard) => {
+    const arr = (nondom.get(k) || []).filter(l => !(cost <= l.cost && hazard <= l.hazard));
+    arr.push({ cost, hazard });
+    nondom.set(k, arr);
+  };
+
+  const best = new Map();    // 'x,y' → {cost, hazard} chosen for display (least hazard, then cost)
+  const parents = new Map([[startKey, null]]);
+  const reachable = new Set();
+  const frontier = [{ pos: combatant.pos, parity: 0, cost: 0, hazard: 0, parentKey: null }];
+
+  while (frontier.length) {
+    frontier.sort((a, b) => a.cost - b.cost || a.hazard - b.hazard);
+    const cur = frontier.shift();
+    const ck = `${cur.pos.x},${cur.pos.y}:${cur.parity}`;
+    if (dominated(ck, cur.cost, cur.hazard)) continue;
+    record(ck, cur.cost, cur.hazard);
+
+    const tk = `${cur.pos.x},${cur.pos.y}`;
+    if (cur.parentKey !== null) {  // skip the origin
+      const prev = best.get(tk);
+      if (!prev || cur.hazard < prev.hazard || (cur.hazard === prev.hazard && cur.cost < prev.cost)) {
+        best.set(tk, { cost: cur.cost, hazard: cur.hazard });
+        parents.set(tk, cur.parentKey);
+        reachable.add(tk);
+      }
+    }
+
+    const slowPenalty = slowSet.has(tk) ? 1 : 0;  // leaving a slow tile costs +1
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = pos.x + dx, ny = pos.y + dy;
+        const nx = cur.pos.x + dx, ny = cur.pos.y + dy;
         const k = `${nx},${ny}`;
         const isDiag = dx !== 0 && dy !== 0;
-        const stepCost = (isDiag ? (diagParity === 0 ? 1 : 2) : 1) + slowPenalty;
-        const newCost = cost + stepCost;
-        const newParity = isDiag ? 1 - diagParity : diagParity;
-        const sk = `${k}:${newParity}`;
+        const stepCost = (isDiag ? (cur.parity === 0 ? 1 : 2) : 1) + slowPenalty;
+        const newCost = cur.cost + stepCost;
+        const newParity = isDiag ? 1 - cur.parity : cur.parity;
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         if (obstacleSet.has(k)) continue;
         // No diagonal corner-cutting (mirrors server-side movement BFS).
         if (isDiag) {
-          const ka = `${pos.x},${ny}`, kb = `${nx},${pos.y}`;
+          const ka = `${cur.pos.x},${ny}`, kb = `${nx},${cur.pos.y}`;
           if (obstacleSet.has(ka) && obstacleSet.has(kb)) continue;
         }
         if (newCost > range) continue;
-        if ((stateCosts.get(sk) ?? Infinity) <= newCost) continue;
         if (occupiedSet.has(k)) continue;
-        stateCosts.set(sk, newCost);
-        if (newCost < (tileCosts.get(k) ?? Infinity)) {
-          tileCosts.set(k, newCost);
-          parents.set(k, `${pos.x},${pos.y}`);
-        }
-        reachable.add(k);
-        queue.push([{ x: nx, y: ny }, newCost, newParity]);
+        const newHazard = cur.hazard + (hazardVal.get(k) || 0);
+        if (dominated(`${k}:${newParity}`, newCost, newHazard)) continue;
+        frontier.push({ pos: { x: nx, y: ny }, parity: newParity, cost: newCost, hazard: newHazard, parentKey: tk });
       }
     }
   }
