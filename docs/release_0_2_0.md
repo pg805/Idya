@@ -425,6 +425,22 @@ they assume the new budget exists so we can cost the new abilities.
   tile); `findPath` now reconstructs the traversed path so a unit walking a line
   of hazard tiles takes each one. Fixes a deer crossing 3 Dig-Trap pits for one
   hit.
+- 2026-06-07: **Budget-model tune-up (mid-playtest review).**
+  - **μ is now formulaic:** `μ = 10L − 5` for L≥1 (5, 15, 25, 35…), 2.5 at L0.
+    Sets **L3 μ = 25** ahead of the talamite weapons (was a hand table).
+  - **Tile Area finally counts.** Tile/hazard costs ignored `Area` entirely (a 2×2
+    Dig Trap cost the same as one pit). Now `× (1 + 0.5·(area²−1))` — footprint is
+    area² tiles, with extra tiles past the first at half value (overlap, tiles the
+    enemy never steps on). The `0.5` is tunable. Moved the Shovel 119 → 129 (its
+    2×2 trap was badly underpriced).
+  - **`cost_report` now prints a win% column** — quick Monte-Carlo (800 battles)
+    vs same-tier enemies, the sim "posterior" beside the budget "prior." Extracted
+    the battle core to `sim_core.ts` (shared by `simulate.ts`). Caveat: non-spatial,
+    so it under-credits ranged/control/AoE the same way the budget does.
+  - Snapshot @ L2: Dagger 63%, Sword 80%, Shovel 88%, Mace 55% (swingy + AoE the
+    sim can't see); un-reworked Spellbook/Quarterstaff/Mental Cage all 0%.
+  - **Deferred (post-playtest):** HP-cost scaling by DPR (so "harmless walls" read
+    weak), and the broader "stat-core vs playtest-gated control layer" split.
 - 2026-06-07: **New effect — Move Debuff (`ActionType 14`).** Unit-attached
   movement cripple (Dagger's Cut Tendons): caps the target's effective movement to
   `Value` for `Rounds` turns. Distinct from the positional slow tile — it follows

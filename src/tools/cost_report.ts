@@ -6,6 +6,7 @@ for (const t of logger.transports) (t as any).silent = true;
 
 import Weapon from '../weapon/weapon.js';
 import Action, { ActionType } from '../weapon/action.js';
+import { runBattle, aggregate, loadEnemies } from './sim_core.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -13,19 +14,25 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEAPONS = join(__dirname, '../../database/weapons');
+const ENEMIES = join(__dirname, '../../database/enemies');
+const SIM_N = 800;  // battles per matchup for the quick win% column (lighter than the full sim)
 
 const L = Number(process.argv[2] ?? 2);
 const CAP = 25 * L * (L + 3) / 2;          // budget(L)
-// μ = reference attack EV defenses are sized against. Per-level so damage scale
-// can creep up faster than the old max_roll=10L curve: L1 stays 5, L2 → 15.
-const MU_TABLE: Record<number, number> = { 0: 2.5, 1: 5, 2: 15 };
-const MU = MU_TABLE[L] ?? (10 * L) / 2;
+// μ = reference attack EV defenses are sized against. Climbs faster than the old
+// max_roll=10L curve so damage scales up: μ = 10L−5 for L≥1 (5, 15, 25, 35…),
+// floored at 2.5 for the L0 band.
+const MU = L <= 0 ? 2.5 : 10 * L - 5;
 const MAXROLL = 2 * MU;
 const HBASE = 0.6 * CAP;                     // HP diminishing threshold
 
 const ev = (f: number[]) => f.reduce((a, b) => a + b, 0) / f.length;
 const prevented = (v: number) => (v >= 2 * MU ? MU : v - (v * v) / (4 * MU));
 const aoeMult = (area: number) => (area > 1 ? 1 + 0.15 * (area - 1) : 1);
+// Tiles cover area² squares; extra tiles past the first count at half (footprint
+// outruns real effectiveness — overlap, tiles the enemy never steps on).
+const TILE_AREA_EFF = 0.5;
+const tileAreaMult = (area: number) => (area > 1 ? 1 + TILE_AREA_EFF * (area * area - 1) : 1);
 
 // Cost a single action in budget points (pre one-slot weighting).
 function cost(a: Action, isCrit = false): number {
@@ -42,10 +49,10 @@ function cost(a: Action, isCrit = false): number {
   if (t === ActionType.Shield || t === ActionType.Debuff) return prevented((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
   if (t === ActionType.Buff) return ((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
   if (t === ActionType.Reflect) return ((a as any).value) * ((a as any).rounds ?? 1) * 0.5;
-  if (t === ActionType.BlockTile) return prevented((a as any).value) * 3;
-  if (t === ActionType.BuffTile) return (a as any).value * 2;
-  if (t === ActionType.HazardTile) return (a as any).value * 0.7;
-  if (t === ActionType.SlowTile) return 5;  // rough control estimate
+  if (t === ActionType.BlockTile) return prevented((a as any).value) * 3 * tileAreaMult(a.area);
+  if (t === ActionType.BuffTile) return (a as any).value * 2 * tileAreaMult(a.area);
+  if (t === ActionType.HazardTile) return (a as any).value * 0.7 * tileAreaMult(a.area);
+  if (t === ActionType.SlowTile) return 5 * tileAreaMult(a.area);  // rough control estimate
   if (t === ActionType.MoveDebuff) return ((a as any).rounds ?? 1) * 2;  // unit-attached slow, rough control estimate
   if (t === ActionType.DestroyObstacle) return ev((a as any).field.field) * 0.7;
   return 0;
@@ -65,9 +72,26 @@ function unitBudget(w: Weapon): { budget: number; hp: number; best: number; crit
 
 const level = (b: number) => (-3 + Math.sqrt(9 + 8 * b / 25)) / 2;
 
-console.log(`\nL${L} filter — cap ${CAP}, μ ${MU}, max_roll ${MAXROLL}, H_base ${HBASE}\n`);
-console.log(`${'Weapon'.padEnd(20)}${'yaml'.padStart(5)}${'HP'.padStart(5)}${'budget'.padStart(9)}${'level'.padStart(7)}${'  vs ' + CAP}`);
-console.log('-'.repeat(60));
+// Same-tier enemies for the win% column: enemies whose Level matches the filter.
+const sameTierEnemies = loadEnemies(ENEMIES).filter(e => (e.data.Level ?? 0) === L);
+
+// Quick sim win% for a weapon vs every same-tier enemy, averaged. null if no
+// same-tier enemy exists to test against. (Non-spatial — undervalues ranged /
+// control / AoE weapons, same blind spot as the budget.)
+function quickWinRate(w: Weapon): number | null {
+  if (sameTierEnemies.length === 0 || w.attack.length === 0) return null;
+  let sum = 0;
+  for (const e of sameTierEnemies) {
+    const results = Array.from({ length: SIM_N }, () => runBattle(w, e.data));
+    sum += aggregate(results).winRate;
+  }
+  return sum / sameTierEnemies.length;
+}
+
+console.log(`\nL${L} filter — cap ${CAP}, μ ${MU}, max_roll ${MAXROLL}, H_base ${HBASE}`);
+console.log(`win% = avg vs same-tier enemies [${sameTierEnemies.map(e => e.data.Name).join(', ') || 'none'}], ${SIM_N} battles each (non-spatial)\n`);
+console.log(`${'Weapon'.padEnd(20)}${'yaml'.padStart(5)}${'HP'.padStart(5)}${'budget'.padStart(9)}${'level'.padStart(7)}${'win%'.padStart(7)}${'  vs ' + CAP}`);
+console.log('-'.repeat(67));
 
 const rows = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml')).map(f => {
   const raw = yaml.load(fs.readFileSync(join(WEAPONS, f), 'utf-8')) as { Level?: number };
@@ -75,7 +99,7 @@ const rows = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml')).map(f => {
   const { budget } = unitBudget(w);
   const names = (arr: Action[]) => arr.map(a => a.name).join(', ') || '—';
   return {
-    name: w.name, yaml: raw.Level ?? 0, hp: w.hp || 0, budget, lvl: level(budget),
+    name: w.name, yaml: raw.Level ?? 0, hp: w.hp || 0, budget, lvl: level(budget), win: quickWinRate(w),
     atk: names(w.attack), crit: names([...w.attack_crit, ...w.defend_crit, ...w.special_crit]),
     spc: names(w.special), def: names(w.defend),
   };
@@ -83,7 +107,8 @@ const rows = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml')).map(f => {
 
 for (const r of rows) {
   const gap = r.budget - CAP;
-  console.log(`${r.name.slice(0, 19).padEnd(20)}${('L' + r.yaml).padStart(5)}${String(r.hp).padStart(5)}${r.budget.toFixed(1).padStart(9)}${('L' + r.lvl.toFixed(2)).padStart(7)}${(gap >= 0 ? '  +' : '  ') + gap.toFixed(1)}`);
+  const win = r.win === null ? '—' : `${(r.win * 100).toFixed(0)}%`;
+  console.log(`${r.name.slice(0, 19).padEnd(20)}${('L' + r.yaml).padStart(5)}${String(r.hp).padStart(5)}${r.budget.toFixed(1).padStart(9)}${('L' + r.lvl.toFixed(2)).padStart(7)}${win.padStart(7)}${(gap >= 0 ? '  +' : '  ') + gap.toFixed(1)}`);
   console.log(`    A: ${r.atk}  |  AC: ${r.crit}  |  S: ${r.spc}  |  D: ${r.def}`);
 }
 console.log('');
