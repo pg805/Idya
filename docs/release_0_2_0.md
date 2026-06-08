@@ -425,6 +425,14 @@ they assume the new budget exists so we can cost the new abilities.
   tile); `findPath` now reconstructs the traversed path so a unit walking a line
   of hazard tiles takes each one. Fixes a deer crossing 3 Dig-Trap pits for one
   hit.
+- 2026-06-07: **New effect — Move Debuff (`ActionType 14`).** Unit-attached
+  movement cripple (Dagger's Cut Tendons): caps the target's effective movement to
+  `Value` for `Rounds` turns. Distinct from the positional slow tile — it follows
+  the unit. `moveDebuff` lives on `CombatantState` (ticks in `end_round`); a shared
+  `effectiveMove(base, state)` helper gates every reach computation (resolution
+  move phase, AI, server move-validation, and the serialized client state so the
+  green preview shrinks). Reactive (auto-targets nearest enemy in range). Costed in
+  cost_report as `rounds × 2` (rough control estimate, like the tile constants).
 - 2026-06-07: **Everyone routes around hazards (and slow) when they can.**
   `searchLabels` does a Pareto (cost, hazard) search. `findPath(avoidHazards=true)`
   takes the least-hazard route to a destination (then cheapest); units wade through

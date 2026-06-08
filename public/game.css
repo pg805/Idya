@@ -312,6 +312,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .badge-buff    { background: var(--teal-bg); color: var(--teal-bright);  border: 1px solid var(--teal-dim); }
 .badge-debuff  { background: var(--warn-bg); color: var(--warn);         border: 1px solid var(--warn-dim); }
 .badge-reflect { background: var(--gold-bg); color: var(--gold);         border: 1px solid var(--gold-dim); }
+.badge-movedebuff { background: var(--warn-bg); color: var(--warn);      border: 1px solid var(--warn-dim); }
 
 /* ---- Combat log ---- */
 #right-col {

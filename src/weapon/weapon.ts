@@ -14,6 +14,7 @@ import Reflect from './action/reflect.js';
 import Shield from './action/shield.js';
 import TileAction from './action/tile_action.js';
 import DestroyObstacle from './action/destroy_obstacle.js';
+import MoveDebuff from './action/move_debuff.js';
 
 type ActionData = {
     'Name': string,
@@ -78,6 +79,10 @@ function from_json(action_object: ActionData): Action {
         case 12:
             logger.info(`Adding Destroy Obstacle to Weapon: ${action_object['Name']}`);
             action = new DestroyObstacle(action_object['Name'], action_object['Action_String'], new Result_Field(action_object['Field']));
+            break;
+        case 14:
+            logger.info(`Adding Move Debuff to Weapon: ${action_object['Name']}`);
+            action = new MoveDebuff(action_object['Name'], action_object['Action_String'], action_object['Value'], action_object['Rounds']);
             break;
         default:
             action = new Action('Error', 'Error');

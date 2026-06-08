@@ -8,6 +8,7 @@ import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_
 import { CombatantState } from '../combat/combatant_state.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { reachableTiles, findPath } from '../combat/movement.js';
+import { effectiveMove } from '../combat/combatant_state.js';
 import { generateAIIntent } from '../combat/ai.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
@@ -318,6 +319,27 @@ console.log('\nAI moves through slow when it must (only closer tile is slow):');
   s.board.setTile({ pos: { x: 1, y: 1 }, teamId: 'A', kind: 'slow', value: 2 });
   const intent = generateAIIntent(Eu.c, s);
   check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `wades into slow (1,1) to advance (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
+}
+
+// ---- Test 14b: Cut Tendons caps the target's movement for its duration ----
+console.log('\nMove debuff (Dagger Cut Tendons) caps reach then expires:');
+{
+  const dagger = Weapon.from_file(join(W, 'dagger.yaml'));
+  const P = mk('P', 'A', { x: 2, y: 1 }, dagger, false);
+  const Eu = mk('E', 'B', { x: 3, y: 1 }, STRIKER, true);  // adjacent, in range 2
+  Eu.c.movementRange = 4;
+  const s = session(EMPTY, [P, Eu]);
+  const cutIdx = dagger.defend.findIndex(a => a.name === 'Cut Tendons');
+  check(cutIdx >= 0, 'Cut Tendons loaded as a defend action');
+  // P uses Cut Tendons (reactive, hits nearest enemy E). Applied at 4 rounds, then
+  // the end-of-turn tick drops it to 3 (same as Debuff/Shield — standard).
+  resolveIntents(s, new Map([['P', act('P', 'defend', cutIdx)], ['E', act('E', 'pass', 0)]]));
+  check(s.meta.get('E')!.state.moveDebuff.rounds === 3, `E movement debuffed, 3 rounds left after the apply-turn tick (got ${s.meta.get('E')!.state.moveDebuff.rounds})`);
+  // Crippled to move 1 (base 4): can reach dist-1 but not dist-2 this turn
+  const eMove = effectiveMove(Eu.c.movementRange, s.meta.get('E')!.state);
+  check(eMove === 1, `E effective move capped to 1 (got ${eMove})`);
+  const reach = reachableTiles(s.combatants.find(c => c.id === 'E')!.pos, eMove, s.board, new Set(['2,1']));
+  check(!reach.has('5,1'), 'crippled E cannot reach dist-2 tile (5,1)');
 }
 
 // ---- Test 15: AI avoids a hazard tile when an equal-distance tile is clear ----

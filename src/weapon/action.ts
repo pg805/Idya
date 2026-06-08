@@ -14,6 +14,7 @@ export enum ActionType {
     HazardTile     = 11,  // permanent tile; opposing units that enter it take value damage
     DestroyObstacle = 12, // destroy a targeted obstacle, AOE its field to enemies within 1
     SlowTile       = 13,  // permanent tile; leaving it costs +1 movement (difficult terrain)
+    MoveDebuff     = 14,  // unit-attached: caps the target's movement range to value for rounds turns
 }
 
 // Tile-creating actions drop tile(s) on a square (self for block/buff, aimed for

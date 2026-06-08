@@ -46,6 +46,7 @@ function cost(a: Action, isCrit = false): number {
   if (t === ActionType.BuffTile) return (a as any).value * 2;
   if (t === ActionType.HazardTile) return (a as any).value * 0.7;
   if (t === ActionType.SlowTile) return 5;  // rough control estimate
+  if (t === ActionType.MoveDebuff) return ((a as any).rounds ?? 1) * 2;  // unit-attached slow, rough control estimate
   if (t === ActionType.DestroyObstacle) return ev((a as any).field.field) * 0.7;
   return 0;
 }

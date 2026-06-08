@@ -560,6 +560,7 @@ function statusBadgesHtml(status) {
   if (status.buff?.rounds > 0)    badges.push(`<span class="badge badge-buff">▲ ${status.buff.value} <i>${status.buff.rounds}r</i></span>`);
   if (status.debuff?.rounds > 0)  badges.push(`<span class="badge badge-debuff">▼ ${status.debuff.value} <i>${status.debuff.rounds}r</i></span>`);
   if (status.reflect?.rounds > 0) badges.push(`<span class="badge badge-reflect">↺ ${status.reflect.value} <i>${status.reflect.rounds}r</i></span>`);
+  if (status.moveDebuff?.rounds > 0) badges.push(`<span class="badge badge-movedebuff">🐌 →${status.moveDebuff.value} <i>${status.moveDebuff.rounds}r</i></span>`);
   return badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
 }
 

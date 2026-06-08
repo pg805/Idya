@@ -1,7 +1,7 @@
 import { Board, Pos, BoardConfig } from './board.js';
 import { CombatIntent } from './intent.js';
 import Weapon from '../weapon/weapon.js';
-import { CombatantState } from './combatant_state.js';
+import { CombatantState, effectiveMove } from './combatant_state.js';
 import { PatternEntry } from '../infrastructure/pattern.js';
 import { assignInitiative } from './initiative.js';
 
@@ -32,6 +32,7 @@ export interface CombatantStatus {
   debuff:  { value: number; rounds: number };
   reflect: { value: number; rounds: number };
   shield:  { value: number; rounds: number };
+  moveDebuff: { value: number; rounds: number };
 }
 
 export interface Combatant {
@@ -131,8 +132,12 @@ export class CombatSession {
         debuff:  { ...s.debuff  },
         reflect: { ...s.reflect },
         shield:  { ...s.shield  },
+        moveDebuff: { ...s.moveDebuff },
       } : undefined;
-      return { ...c, status };
+      // Serialize the *effective* movement range so the client's reach preview
+      // shrinks while a move debuff is active (base range stays on the live object).
+      const movementRange = s ? effectiveMove(c.movementRange, s) : c.movementRange;
+      return { ...c, movementRange, status };
     });
     return {
       id: this.id,

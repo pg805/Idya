@@ -20,7 +20,7 @@ import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from '../discord/world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
-import { CombatantState } from '../combat/combatant_state.js';
+import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
 import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
@@ -3028,7 +3028,9 @@ io.on('connection', (socket: Socket) => {
       const occupied = new Set(
         session.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
       );
-      const reachable = reachableTiles(combatant.pos, combatant.movementRange, session.board, occupied);
+      const vMeta = session.meta.get(combatant.id);
+      const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }

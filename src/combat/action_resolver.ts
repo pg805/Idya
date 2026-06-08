@@ -8,6 +8,7 @@ import Buff from '../weapon/action/buff.js';
 import Heal from '../weapon/action/heal.js';
 import Shield from '../weapon/action/shield.js';
 import Reflect from '../weapon/action/reflect.js';
+import MoveDebuff from '../weapon/action/move_debuff.js';
 import { RollMode } from '../infrastructure/stance.js';
 import { CombatantState } from './combatant_state.js';
 
@@ -124,6 +125,15 @@ function apply_hostile_actions(
             const main = `${lead} — ${action.name}: −${target.debuff.value} atk for ${target.debuff.rounds} rds${resource_string}`;
             target_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
+        }
+
+        if (action.type === ActionType.MoveDebuff) {
+            const resource_string = attacker.apply_cost(action);
+            target.moveDebuff.value  = (action as MoveDebuff).value;
+            target.moveDebuff.rounds = (action as MoveDebuff).rounds;
+            const main = `${lead} — ${action.name}: ${target.name}'s movement capped to ${target.moveDebuff.value} for ${target.moveDebuff.rounds} rds${resource_string}`;
+            target_string += `\n${main}\n  ${action.action_string}`;
+            logger.info(`Resolving Move Debuff on ${target.name}: ${action.name}\nCap: ${target.moveDebuff.value}  Rounds: ${target.moveDebuff.rounds}`);
         }
 
         if (action.type === ActionType.Buff) {

@@ -7,6 +7,7 @@ import { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
 import TileAction from '../weapon/action/tile_action.js';
 import DestroyObstacle from '../weapon/action/destroy_obstacle.js';
 import { reachableTiles, findPath } from './movement.js';
+import { effectiveMove } from './combatant_state.js';
 
 export interface ResolutionResult {
   log: string[];
@@ -145,7 +146,9 @@ export function resolveIntents(
       ...nonBlockedDests,
     ]);
 
-    const reachable = reachableTiles(c.pos, c.movementRange, session.board, allOccupied);
+    const cReachMeta = session.meta.get(id);
+    const cMove = cReachMeta ? effectiveMove(c.movementRange, cReachMeta.state) : c.movementRange;
+    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied);
 
     // Pick the reachable tile that: (1) gets us closest to the original
     // destination, (2) uses the fewest steps among equally-close options.
@@ -186,7 +189,9 @@ export function resolveIntents(
     // exists, and wade through only when forced. The client preview runs the same
     // avoidance, so the green outline matches the damage taken. (Manual route
     // choice — deliberately picking a different equal-cost route — is future work.)
-    const path = findPath(from, intent.moveTo, c.movementRange, session.board, new Set(), c.teamId, true) ?? [intent.moveTo];
+    const moverMeta = session.meta.get(id);
+    const moverRange = moverMeta ? effectiveMove(c.movementRange, moverMeta.state) : c.movementRange;
+    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
     log.push(`${c.name} moves to (${c.pos.x},${c.pos.y})`);
