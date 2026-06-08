@@ -11,6 +11,15 @@ import Reflect from '../weapon/action/reflect.js';
 import { RollMode } from '../infrastructure/stance.js';
 import { CombatantState } from './combatant_state.js';
 
+// Each action produces:
+//   - one MAIN line in the format `<User>[…] — <Name>: <result> [±cost]`
+//     (the source of truth players read to track what happened)
+//   - one FLAVOR line indented underneath (toggleable on the client)
+//   - optional MECHANICS detail for strikes / DOTs (also toggleable, deeper)
+//
+// Self-targeted actions (block, reflect, shield, self-heal/buff) omit the
+// `→ <Target>` segment since the actor is targeting themselves. Hostile
+// actions always include the arrow + target.
 function apply_self_actions(actor: CombatantState, actions: Action[]): string {
     let action_string = '';
 
@@ -18,7 +27,9 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
         if (action.type === ActionType.Block) {
             const resource_string = actor.apply_cost(action);
             actor.block = (action as Block).value;
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string.replace('<Damage>', `${actor.block}`)}`;
+            const main = `<User> — ${action.name}: blocks ${actor.block}${resource_string}`;
+            const flavor = action.action_string.replace('<Damage>', `${actor.block}`);
+            action_string += `\n${main}\n  ${flavor}`;
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${actor.block}`);
         }
 
@@ -26,7 +37,8 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             const resource_string = actor.apply_cost(action);
             actor.reflect.value  = (action as Reflect).value;
             actor.reflect.rounds = (action as Reflect).rounds;
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
+            const main = `<User> — ${action.name}: reflect ${actor.reflect.value} for ${actor.reflect.rounds} rds${resource_string}`;
+            action_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving ${actor.name} Reflect: ${action.name}\nValue: ${actor.reflect.value}  Rounds: ${actor.reflect.rounds}`);
         }
 
@@ -34,7 +46,8 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             const resource_string = actor.apply_cost(action);
             actor.shield.value  = (action as Shield).value;
             actor.shield.rounds = (action as Shield).rounds;
-            action_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
+            const main = `<User> — ${action.name}: shield ${actor.shield.value} for ${actor.shield.rounds} rds${resource_string}`;
+            action_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving ${actor.name} Shield: ${action.name}\nValue: ${actor.shield.value}  Rounds: ${actor.shield.rounds}`);
         }
     }
@@ -50,10 +63,17 @@ function apply_hostile_actions(
     let target_string = '';
     let reflect = false;
 
+    // Hostile lead: actor and target are different, so the arrow appears.
+    // Self-target heals/buffs reach this function via apply_hostile_actions
+    // with attacker === target (resolve_action picks the path), so we also
+    // collapse the arrow when actor is targeting themselves.
+    const lead = (attacker.name === target.name)
+        ? `<User>`
+        : `<User> → <Target>`;
+
     for (const action of actions) {
         if (action.type === ActionType.Strike) {
             const resource_string = attacker.apply_cost(action);
-            const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
             reflect = true;
             const roll_mode = target.get_roll_mode(action);
             const damage_roll = (action as Strike).field.get_result_with_mode(roll_mode);
@@ -62,42 +82,47 @@ function apply_hostile_actions(
             target.health = Math.max(target.health - damage, 0);
             target.damage_taken += hp_before - target.health;
 
-            const block_detail  = target.block + target.shield.value > 0 ? `  blocked ${target.block + target.shield.value}` : '';
-            const buff_detail   = attacker.buff.value   ? `  +${attacker.buff.value} buff`    : '';
-            const debuff_detail = attacker.debuff.value ? `  −${attacker.debuff.value} debuff` : '';
+            const result = damage > 0 ? `−${damage} HP` : (target.block + target.shield.value > 0 ? 'blocked' : '0 dmg');
+            const main = `${lead} — ${action.name}: ${result}${resource_string}`;
+            const flavor = action.action_string.replace('<Damage>', `${damage}`);
+
+            const block_detail  = target.block + target.shield.value > 0 ? ` − ${target.block + target.shield.value} block` : '';
+            const buff_detail   = attacker.buff.value   ? ` + ${attacker.buff.value} buff`    : '';
+            const debuff_detail = attacker.debuff.value ? ` − ${attacker.debuff.value} debuff` : '';
             const resist_detail = roll_mode !== RollMode.One
-                ? `  [${roll_mode === RollMode.Hd4 ? 'weakness' : 'resist'} — ${roll_mode}]` : '';
-            const detail = `\n  Roll: ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}  →  ${damage} damage  |  <Target> HP: ${hp_before} → ${target.health}`;
-            target_string += `\n<User> — ${action.name}${resource_string}${type_string}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+                ? `  [${roll_mode === RollMode.Hd4 ? 'weakness' : 'resist'} ${roll_mode}]` : '';
+            const detail = `\n    roll ${damage_roll}${block_detail}${buff_detail}${debuff_detail}${resist_detail}`;
+
+            target_string += `\n${main}\n  ${flavor}${detail}`;
 
             logger.info(`Resolving Strike on ${target.name}: ${action.name}\nRoll: ${damage_roll} (${roll_mode})  Block: ${target.block}  Shield: ${target.shield.value}  Buff: ${attacker.buff.value}  Debuff: ${attacker.debuff.value}  Damage: ${damage}  HP: ${target.health}`);
         }
 
         if (action.type === ActionType.DamageOverTime) {
             const resource_string = attacker.apply_cost(action);
-            const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
             const roll_mode = target.get_roll_mode(action);
             const damage = (action as Damage_Over_Time).field.get_result_with_mode(roll_mode);
             const rounds = (action as Damage_Over_Time).rounds;
             target.dot.value  = damage;
             target.dot.rounds = rounds;
 
+            const main = `${lead} — ${action.name}: ${damage} dmg/turn for ${rounds} rds${resource_string}`;
+            const flavor = action.action_string.replace('<Damage>', `${damage}`);
             const resist_detail = roll_mode !== RollMode.One
-                ? `  [${roll_mode === RollMode.Hd4 ? 'weakness' : 'resist'} — ${roll_mode}]` : '';
-            const detail = `\n  DOT: ${damage} damage × ${rounds} rounds${resist_detail}`;
-            target_string += `\n<User> — ${action.name}${resource_string}${type_string}\n  ${action.action_string.replace('<Damage>', `${damage}`)}${detail}`;
+                ? `    roll ${damage} [${roll_mode === RollMode.Hd4 ? 'weakness' : 'resist'} ${roll_mode}]` : '';
+            target_string += `\n${main}\n  ${flavor}${resist_detail ? '\n' + resist_detail : ''}`;
 
             logger.info(`Resolving DOT on ${target.name}: ${action.name}\nDamage: ${damage} (${roll_mode})  Rounds: ${rounds}`);
         }
 
         if (action.type === ActionType.Debuff) {
             const resource_string = attacker.apply_cost(action);
-            const type_string = action.damage_type ? `  |  ${action.damage_type} ${action.damage_subtype}` : '';
             target.debuff.value  = (action as Debuff).value;
             target.debuff.rounds = (action as Debuff).rounds;
             target.buff.value  = 0;
             target.buff.rounds = 0;
-            target_string += `\n<User> — ${action.name}${resource_string}${type_string}\n  ${action.action_string}`;
+            const main = `${lead} — ${action.name}: −${target.debuff.value} atk for ${target.debuff.rounds} rds${resource_string}`;
+            target_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
         }
 
@@ -107,7 +132,8 @@ function apply_hostile_actions(
             target.buff.rounds = (action as Buff).rounds;
             target.debuff.value  = 0;
             target.debuff.rounds = 0;
-            target_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}`;
+            const main = `${lead} — ${action.name}: +${target.buff.value} atk for ${target.buff.rounds} rds${resource_string}`;
+            target_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving ${attacker.name} Buff on ${target.name}: ${action.name}\nValue: ${target.buff.value}  Rounds: ${target.buff.rounds}`);
         }
 
@@ -116,7 +142,9 @@ function apply_hostile_actions(
             const heal = (action as Heal).value;
             const hp_before = target.health;
             target.health = Math.min(target.health + heal, target.max_health);
-            target_string += `\n<User> — ${action.name}${resource_string}\n  ${action.action_string}  [HP: ${hp_before} → ${target.health}]`;
+            const actualHeal = target.health - hp_before;
+            const main = `${lead} — ${action.name}: +${actualHeal} HP${resource_string}`;
+            target_string += `\n${main}\n  ${action.action_string}`;
             logger.info(`Resolving ${attacker.name} Heal on ${target.name}: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${target.health}`);
         }
     }
@@ -129,7 +157,7 @@ function apply_reflect(actor: CombatantState, damage: number): string {
     const hp_before = actor.health;
     actor.health = Math.max(actor.health - damage, 0);
     actor.damage_taken += hp_before - actor.health;
-    return `\n${damage} damage reflected to <User>  |  <User> HP: ${hp_before} → ${actor.health}`;
+    return `\n  ↺ ${damage} reflected to <User>`;
 }
 
 export function resolve_action(actor: CombatantState, target: CombatantState, actions: Action[]): string {

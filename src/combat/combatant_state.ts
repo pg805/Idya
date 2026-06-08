@@ -71,7 +71,10 @@ export class CombatantState {
         if (action.cost === 0) return '';
         const before = this.resource_current;
         this.resource_current = Math.max(0, Math.min(this.resource_max, this.resource_current - action.cost));
-        return `  [${this.resource_name}: ${before} → ${this.resource_current}]`;
+        const delta = this.resource_current - before;
+        if (delta === 0) return '';
+        const sign = delta < 0 ? '−' : '+';
+        return `  [${sign}${Math.abs(delta)} ${this.resource_name}]`;
     }
 
     private tick_effect(effect: StatusEffect, label: string): string {

@@ -27,11 +27,16 @@ const logEl           = document.getElementById('combat-log');
 
 // ---- Combat log filters ----
 const LOG_FILTER_KEY = 'idya.log_filters';
+// Mechanics (roll math) is opt-in — useful for debugging, noise for normal
+// play. Everything else defaults visible.
+const LOG_FILTER_DEFAULTS = { flavor: true, 'action-head': true, mechanics: false, move: true };
+const LOG_FILTER_KEYS = Object.keys(LOG_FILTER_DEFAULTS);
 function loadLogFilters() {
-  try { return JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}'); }
-  catch (_) { return {}; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}');
+    return { ...LOG_FILTER_DEFAULTS, ...stored };
+  } catch (_) { return { ...LOG_FILTER_DEFAULTS }; }
 }
-const LOG_FILTER_KEYS = ['flavor', 'action-head', 'mechanics', 'move'];
 function applyLogFilters(state) {
   for (const key of LOG_FILTER_KEYS) {
     logEl.classList.toggle(`hide-${key}`, state[key] === false);
@@ -823,18 +828,27 @@ function resetSession() {
 }
 
 // ---- Log ----
+// Categories drive CSS styling AND the filter checkboxes in the log header:
+//   turn-divider  — turn separators (━━━ Turn N ━━━, ━━━ Game Over ━━━)
+//   phase-header  — sub-phase markers (▸ Move / ▸ Defend / ▸ Attack / ▸ Special)
+//   crit          — ★ critical-hit announcements
+//   status        — deaths, expirations
+//   move          — "<Name> moves to (x,y)"
+//   action-head   — main per-action lines (the source-of-truth row)
+//   mechanics     — indented detail under an action (roll math)
+//   flavor        — indented narrative prose under an action
 function classifyLogLine(line) {
-  if (line.startsWith('━━━'))                                    return 'turn-divider';
-  if (line.startsWith('★'))                                      return 'crit';
-  if (line.includes('is defeated'))                              return 'status';
-  if (/ moves \(\d+,\d+\) → \(\d+,\d+\)\.?$/.test(line))         return 'move';
-  if (line.includes('yields to') || line.includes('tie for the same tile')) return 'move';
-  if (/^Roll:/.test(line) || /^DOT:/.test(line))                 return 'mechanics';
-  if (line.includes('takes') && line.includes('DOT damage'))     return 'mechanics';
-  if (line.includes('damage reflected to'))                      return 'mechanics';
-  if (/expired|wore off/i.test(line))                            return 'status';
-  if (line.includes(' — '))                                      return 'action-head';
-  // Default: narrative prose from the action_string template.
+  if (line.startsWith('━━━'))                                 return 'turn-divider';
+  if (line.startsWith('▸ '))                                   return 'phase-header';
+  if (line.startsWith('★'))                                    return 'crit';
+  if (line.includes('is defeated'))                            return 'status';
+  if (/^[^\s].* moves to \(\d+,\d+\)$/.test(line))             return 'move';
+  if (line.startsWith('  ↺'))                                  return 'mechanics';      // reflect bounce
+  if (line.startsWith('    roll '))                            return 'mechanics';      // roll math
+  if (line.startsWith('    '))                                 return 'mechanics';      // deeper indent = detail
+  if (/^.+? — .+:/.test(line) && !line.startsWith('  '))       return 'action-head';     // "<Actor> — <Action>: <result>"
+  if (/expired|wore off/i.test(line))                          return 'status';
+  // Default: indented narrative prose under an action line.
   return 'flavor';
 }
 

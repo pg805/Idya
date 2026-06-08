@@ -172,13 +172,13 @@ export function resolveIntents(
     }
   }
 
+  const moveStart = log.length;
   for (const [id, intent] of intents) {
     if (!intent.moveTo || blocked.has(id)) continue;
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
-    const old = c.pos;
     c.pos = intent.moveTo;
-    log.push(`${c.name} moves (${old.x},${old.y}) → (${c.pos.x},${c.pos.y}).`);
+    log.push(`${c.name} moves to (${c.pos.x},${c.pos.y})`);
   }
 
   // Hazard tiles: a combatant that moved onto an opposing team's hazard tile
@@ -195,8 +195,9 @@ export function resolveIntents(
     meta.state.health = Math.max(meta.state.health - tile.value, 0);
     meta.state.damage_taken += before - meta.state.health;
     c.hp = meta.state.health;
-    log.push(`${c.name} steps onto a hazard tile and takes ${tile.value}!  |  HP: ${before} → ${c.hp}`);
+    log.push(`${c.name} steps on a hazard: −${tile.value} HP`);
   }
+  if (log.length > moveStart) log.splice(moveStart, 0, '▸ Move');
 
   // --- Action phase ---
   // Ordered: defend → attack → special. Within each category, player(s) before AI.
@@ -320,12 +321,12 @@ export function resolveIntents(
 
       if (dist > action.range) {
         const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — out of range (dist ${dist}).`);
+        log.push(`${actor.name} — ${action.name}: out of range (dist ${dist})${rs}`);
         return;
       }
       if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
         const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — no line of sight.`);
+        log.push(`${actor.name} — ${action.name}: no line of sight${rs}`);
         return;
       }
 
@@ -368,11 +369,11 @@ export function resolveIntents(
       const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
       if (!occupant) {
         const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name}'s ${action.name}${rs} targeting ${tileStr} — commits to empty space, misses.`);
+        log.push(`${actor.name} — ${action.name}: aimed at ${tileStr}, empty space${rs}`);
         return;
       }
       if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
-        log.push(`${actor.name}'s ${action.name} targeting ${tileStr} — friendly fire avoided.`);
+        log.push(`${actor.name} — ${action.name}: friendly fire avoided at ${tileStr}`);
         return;
       }
 
@@ -392,7 +393,7 @@ export function resolveIntents(
 
       if (inRange.length === 0) {
         const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name}'s ${action.name}${rs} — no target in range.`);
+        log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
         return;
       }
 
@@ -462,7 +463,10 @@ export function resolveIntents(
 
   let earlyWinner: string | null = null;
 
+  const PHASE_LABEL = { defend: '▸ Defend', attack: '▸ Attack', special: '▸ Special' };
   outer: for (const phase of subPhases) {
+    const phaseStart = log.length;
+    log.push(PHASE_LABEL[phase]);
     for (const id of orderedIds) {
       const intent = intents.get(id);
       if (!intent || intent.action.type !== phase) continue;
@@ -473,6 +477,9 @@ export function resolveIntents(
       // remaining actors are on the same team and nobody died this action),
       // reapAndCheck returns the surviving team id only when len < 2 — covered.
     }
+    // Drop the header if nothing fired in this phase — keeps the log
+    // visually scannable instead of dotted with empty section markers.
+    if (log.length === phaseStart + 1) log.pop();
   }
 
   if (earlyWinner !== null || session.teams.some(t => t.combatants.length === 0)) {

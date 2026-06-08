@@ -366,18 +366,21 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   font-size: 0.78rem;
   line-height: 1.4;
 }
-#combat-log p { color: var(--text-2); border-bottom: 1px solid var(--border-soft); padding-bottom: 3px; }
-#combat-log p.turn-divider { color: var(--gold); font-weight: bold; border-bottom-color: var(--gold-dim); }
+#combat-log p { color: var(--text-2); padding-bottom: 1px; }
+#combat-log p.turn-divider { color: var(--gold); font-weight: bold; text-align: center; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--gold-dim); }
+#combat-log p.turn-divider:first-child { margin-top: 0; border-top: none; }
+#combat-log p.phase-header { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px; padding-top: 2px; }
 #combat-log p.crit         { color: var(--gold-bright); font-weight: bold; }
-#combat-log p.action-head  { color: var(--text); font-weight: 600; }
-#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.85; padding-left: 8px; }
-#combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; padding-left: 8px; }
-#combat-log p.move         { color: var(--text-faint); font-size: 0.74rem; }
+#combat-log p.action-head  { color: var(--text); font-weight: 500; }
+#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.78; padding-left: 14px; font-size: 0.74rem; }
+#combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.7rem; padding-left: 14px; opacity: 0.85; }
+#combat-log p.move         { color: var(--text-faint); font-size: 0.76rem; }
 #combat-log p.status       { color: var(--warn-bright); }
 #combat-log p.tutorial-aside { color: var(--teal-bright); font-style: italic; border-left: 2px solid var(--teal-dim); padding-left: 6px; }
 #combat-log p.tutorial-ooc { color: var(--buy); font-size: 0.72rem; border-left: 2px solid var(--buy-dim); padding-left: 6px; }
 
-/* Filter: hide categories the player has toggled off */
+/* Filter: hide categories the player has toggled off. Mechanics is off by
+   default — it's roll math, useful when debugging but noise day-to-day. */
 #combat-log.hide-flavor      p.flavor      { display: none; }
 #combat-log.hide-action-head p.action-head { display: none; }
 #combat-log.hide-mechanics   p.mechanics   { display: none; }
