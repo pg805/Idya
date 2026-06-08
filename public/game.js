@@ -101,21 +101,38 @@ socket.on('game_over', ({ winner }) => {
   render();
 });
 
-// ---- Forfeit button ----
+// ---- Forfeit (button + 'F' keybind) ----
 // Lives in the status bar so players always know they can leave a battle
 // without backing out via Hunt. POSTs to the same endpoint the Hunt-page
-// forfeit button uses, then bounces back to /app/.
+// forfeit button uses; the server emits game_over({reason: 'forfeit'}),
+// which lands here through the normal socket flow and ends the battle
+// like any other game_over — player decides when to navigate away.
+async function triggerForfeit() {
+  if (ui.phase === 'ended') return;
+  const btn = document.getElementById('forfeit-btn');
+  if (btn?.disabled) return;
+  if (!confirm('Forfeit this battle?')) return;
+  if (btn) btn.disabled = true;
+  const sessionId = window.location.pathname.split('/').pop();
+  try {
+    await fetch(`/api/active-battles/${sessionId}/forfeit`, { method: 'POST' });
+  } catch (_) {
+    if (btn) btn.disabled = false;
+  }
+}
+
 (function wireForfeit() {
   const btn = document.getElementById('forfeit-btn');
-  if (!btn) return;
-  btn.addEventListener('click', async () => {
-    if (!confirm('Forfeit this battle?')) return;
-    btn.disabled = true;
-    const sessionId = window.location.pathname.split('/').pop();
-    try {
-      await fetch(`/api/active-battles/${sessionId}/forfeit`, { method: 'POST' });
-    } catch (_) {}
-    location.href = '/app/';
+  if (btn) btn.addEventListener('click', triggerForfeit);
+  // Keybind: bare 'f' fires forfeit. Ignore when the user is typing somewhere
+  // (no inputs in combat today, but future-proof anyway) and ignore the
+  // modified variants so Ctrl+F / browser find still works.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'f' && e.key !== 'F') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    e.preventDefault();
+    triggerForfeit();
   });
 })();
 
