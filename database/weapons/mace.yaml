@@ -1,7 +1,7 @@
 Name: Mace
 Description: A dense talamite mace. Once it gets moving, hard to stop — and hard to get away from.
 Level: 2
-HP: 100
+HP: 110
 Weight: 0
 
 Resource:
@@ -14,9 +14,21 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Value: 0
+    Value: 10
     Cost: -4
-    Action_String: "<User> winds their mace in a wide arc, restoring momentum."
+    Action_String: "<User> winds their mace in a wide arc, blocking <Damage> damage and restoring momentum."
+
+  - Name: Menace
+    Type: 5
+    Type_Name: Debuff
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 5
+    Rounds: 3
+    Cost: -2
+    Aimed: true
+    Range: 2
+    Action_String: "<User> looms with menace, debuffing <Target>'s attack by 5 for 3 rounds and restoring 2 momentum."
 
 Defend Crit: []
 
