@@ -228,5 +228,25 @@ console.log('\nAoE attack into a Special crits (Mace Slam):');
   check(before - hp(s, 'E') > 0, 'AoE target took damage');
 }
 
+// ---- Test 12: aimed tile with out-of-range target lands in range, never under self ----
+console.log('\nAimed slow, out-of-range target → random in-range square, not under self (Maetoad):');
+{
+  const toad = enemyWeapon('maetoad.yaml');
+  let underSelf = 0, placedSomething = 0;
+  for (let i = 0; i < 200; i++) {
+    const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);
+    const Eu = mk('E', 'B', { x: 7, y: 2 }, toad, true);   // caster in the corner
+    const s = session({ width: 8, height: 3, obstacles: [] }, [P, Eu]);
+    // Bloodmire (special 2) range 3; target (0,1) is dist 7 → out of range → random fallback
+    resolveIntents(s, new Map([['P', act('P', 'pass', 0)], ['E', act('E', 'special', 2, null, { x: 0, y: 1 })]]));
+    if (s.board.getTile({ x: 7, y: 2 })) underSelf++;
+    let any = false;
+    for (let x = 0; x < 8 && !any; x++) for (let y = 0; y < 3 && !any; y++) if (s.board.getTile({ x, y })) any = true;
+    if (any) placedSomething++;
+  }
+  check(underSelf === 0, `never drops the zone under the caster (saw ${underSelf}/200)`);
+  check(placedSomething === 200, `always places the zone somewhere in range (saw ${placedSomething}/200)`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

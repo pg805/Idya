@@ -1,5 +1,5 @@
 // Cost every weapon against a chosen level's budget filter. Default L2.
-//   node ./lib/tools/cost_report.js        # L2 (budget 125, mu 10)
+//   node ./lib/tools/cost_report.js        # L2 (budget 125, mu 15)
 //   node ./lib/tools/cost_report.js 1      # L1, etc.
 import logger from '../utility/logger.js';
 for (const t of logger.transports) (t as any).silent = true;
@@ -16,8 +16,11 @@ const WEAPONS = join(__dirname, '../../database/weapons');
 
 const L = Number(process.argv[2] ?? 2);
 const CAP = 25 * L * (L + 3) / 2;          // budget(L)
-const MAXROLL = 10 * L;
-const MU = MAXROLL / 2;                      // reference attack EV
+// μ = reference attack EV defenses are sized against. Per-level so damage scale
+// can creep up faster than the old max_roll=10L curve: L1 stays 5, L2 → 15.
+const MU_TABLE: Record<number, number> = { 0: 2.5, 1: 5, 2: 15 };
+const MU = MU_TABLE[L] ?? (10 * L) / 2;
+const MAXROLL = 2 * MU;
 const HBASE = 0.6 * CAP;                     // HP diminishing threshold
 
 const ev = (f: number[]) => f.reduce((a, b) => a + b, 0) / f.length;

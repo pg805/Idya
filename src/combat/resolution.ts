@@ -40,6 +40,26 @@ function areaBlock(center: { x: number; y: number }, area: number, caster: { x: 
   return out;
 }
 
+// Pick a random on-board, unblocked square within `range` of `from` (excluding
+// `from` itself). Used as the fallback for aimed tile drops whose intended target
+// ended up out of range — better to mire a random nearby square than to drop the
+// zone directly under the caster. Returns `from` only if nothing else is legal.
+function randomTileInRange(
+  from: { x: number; y: number },
+  range: number,
+  board: CombatSession['board']
+): { x: number; y: number } {
+  const candidates: { x: number; y: number }[] = [];
+  for (let dx = -range; dx <= range; dx++)
+    for (let dy = -range; dy <= range; dy++) {
+      if (dx === 0 && dy === 0) continue;
+      const p = { x: from.x + dx, y: from.y + dy };
+      if (board.inBounds(p) && !board.isBlocked(p)) candidates.push(p);
+    }
+  if (candidates.length === 0) return { ...from };
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 export function resolveIntents(
   session: CombatSession,
   intents: Map<string, CombatIntent>,
@@ -220,12 +240,18 @@ export function resolveIntents(
                  : action.type === ActionType.BuffTile  ? 'buff'
                  : action.type === ActionType.SlowTile  ? 'slow' : 'hazard';
       const value = (action as TileAction).value;
-      // Aimed tiles (hazard/slow) land on a targeted square in range; otherwise
-      // they drop on the caster's own square (pickaxe block/buff zones). Area > 1
-      // spreads them into an N×N block.
+      // Aimed tiles (hazard/slow) land on a targeted square in range; if the
+      // target ended up out of range (the AI aims at the enemy's pre-move square
+      // then moves), drop on a random in-range square rather than under the caster.
+      // Non-aimed tiles (pickaxe block/buff zones) drop on the caster's own square.
+      // Area > 1 spreads them into an N×N block.
       let placePos = { ...actor.pos };
       const tp = intent.action.targetPos;
-      if (action.aimed && tp && chebyshevDist(actor.pos, tp) <= action.range) placePos = { ...tp };
+      if (action.aimed) {
+        placePos = tp && chebyshevDist(actor.pos, tp) <= action.range
+          ? { ...tp }
+          : randomTileInRange(actor.pos, action.range, session.board);
+      }
       // Skip off-board and obstacle squares — an intact obstacle blocks the tile.
       const cells = areaBlock(placePos, action.area, actor.pos).filter(p => session.board.inBounds(p) && !session.board.isBlocked(p));
       for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
