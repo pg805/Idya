@@ -317,10 +317,16 @@ export function resolveIntents(
         actorMeta.state.apply_cost(action);  // pay once
         action.cost = 0;
         if (isDamagingAttack) actorMeta.state.aimed_hit += 1;
-        log.push(`${actor.name} — ${action.name}: ${action.area}×${action.area} at ${tileStr} hits ${victims.length}.`);
+        log.push(`${actor.name} — ${action.name}: ${action.area}×${action.area} blast at ${tileStr}.`);
         for (const v of victims) {
           const m = session.meta.get(v.id);
-          if (m && m.state.health > 0) pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
+          if (!m || m.state.health <= 0) continue;
+          // An obstacle between the caster and a victim shields them from the blast.
+          if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+            log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
+            continue;
+          }
+          pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
         }
         action.cost = savedCost;
         return;

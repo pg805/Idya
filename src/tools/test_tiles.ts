@@ -200,5 +200,19 @@ console.log('\nRain 3x3 AoE DOT (Daefen Deer):');
   check(s.meta.get('P2')!.state.dot.rounds > 0, 'P2 caught the Rain DOT (in 3x3)');
 }
 
+// ---- Test 10: an obstacle shields an AoE victim (LOS from caster) ----
+console.log('\nObstacle shields an AoE victim (Rain):');
+{
+  const deer = enemyWeapon('daefen_deer.yaml');
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 3, y: 1 }, state: 'intact' }] };
+  const Eu = mk('E', 'B', { x: 1, y: 0 }, deer, true);
+  const clear = mk('Pc', 'A', { x: 4, y: 0 }, STRIKER, false);   // target tile, LOS clear
+  const blocked = mk('Pb', 'A', { x: 4, y: 1 }, STRIKER, false); // in zone, but obstacle (3,1) on the line
+  const s = session(board, [clear, blocked, Eu]);
+  resolveIntents(s, new Map([['Pc', act('Pc', 'pass', 0)], ['Pb', act('Pb', 'pass', 0)], ['E', act('E', 'special', 0, null, { x: 4, y: 0 })]]));
+  check(s.meta.get('Pc')!.state.dot.rounds > 0, 'clear victim caught the Rain');
+  check(s.meta.get('Pb')!.state.dot.rounds === 0, 'shielded victim (behind obstacle) was NOT hit');
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);
