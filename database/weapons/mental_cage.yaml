@@ -38,7 +38,7 @@ Attack:
     Field: [5, 5, 5, 9, 9, 9, 12, 12]
     Cost: 0
     Aimed: false
-    Range: 3
+    Range: 1
     Action_String: "<User> drives a spike of force into <Target>, dealing <Damage> damage."
 
 Attack Crit:
@@ -61,7 +61,7 @@ Special:
     Rounds: 4
     Cost: 3
     Aimed: true
-    Range: 3
+    Range: 4
     Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 14 for 4 rounds."
 
 Special Crit: []
