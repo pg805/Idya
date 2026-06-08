@@ -77,7 +77,7 @@ Weapon:
       Type_Name: DOT
       Damage_Type: Elemental
       Damage_Subtype: Water
-      Field: [3, 5, 7]
+      Field: [3, 5, 5, 7, 7, 9]
       Rounds: 3
       Area: 3
       Cost: 3
