@@ -62,14 +62,14 @@ function cost(a: Action, isCrit = false): number {
   return 0;
 }
 
-function unitBudget(w: Weapon): { budget: number; hp: number; best: number; crit: number } {
+function unitBudget(w: Weapon, hpOverride?: number): { budget: number; hp: number; best: number; crit: number } {
   const nonCrit = [...w.defend, ...w.attack, ...w.special].map(a => cost(a));
   const crits = [...w.defend_crit, ...w.attack_crit, ...w.special_crit].map(a => cost(a, true));
   const best = nonCrit.length ? Math.max(...nonCrit) : 0;
   const restSum = nonCrit.reduce((s, c) => s + c, 0) - best;
   const critSum = crits.reduce((s, c) => s + c, 0);
   const action = best + 0.25 * restSum + critSum;
-  const hp = w.hp || 0;
+  const hp = hpOverride ?? (w.hp || 0);
   const hpCost = hp <= HBASE ? hp : HBASE + (hp - HBASE) * 0.5;
   return { budget: hpCost + action, hp, best, crit: critSum };
 }
@@ -114,5 +114,30 @@ for (const r of rows) {
   const win = r.win === null ? '—' : `${(r.win * 100).toFixed(0)}%`;
   console.log(`${r.name.slice(0, 19).padEnd(20)}${('L' + r.yaml).padStart(5)}${String(r.hp).padStart(5)}${r.budget.toFixed(1).padStart(9)}${('L' + r.lvl.toFixed(2)).padStart(7)}${win.padStart(7)}${(gap >= 0 ? '  +' : '  ') + gap.toFixed(1)}`);
   console.log(`    A: ${r.atk}  |  AC: ${r.crit}  |  S: ${r.spc}  |  D: ${r.def}`);
+}
+
+// Enemies at this tier — costed the same way (Health as HP + one-slot weapon).
+const enemyRows = loadEnemies(ENEMIES).filter(e => (e.data.Level ?? 0) === L).map(e => {
+  const w = Weapon.from_json(e.data.Weapon as any);
+  const { budget } = unitBudget(w, e.data.Health);
+  const names = (arr: Action[]) => arr.map(a => a.name).join(', ') || '—';
+  const pat = (e.data.Pattern ?? []) as [number, number][];
+  const atkFreq = pat.length ? pat.filter(([t]) => t === 2 || t === 3).length / pat.length : 0;
+  return {
+    name: e.data.Name, hp: e.data.Health, budget, lvl: level(budget), atkFreq,
+    atk: names(w.attack), crit: names([...w.attack_crit, ...w.defend_crit, ...w.special_crit]),
+    spc: names(w.special), def: names(w.defend),
+  };
+}).sort((a, b) => a.budget - b.budget);
+
+if (enemyRows.length) {
+  console.log(`\nL${L} ENEMIES — budget + pattern attack-frequency (threat ≈ how often the pattern attacks)`);
+  console.log(`${'Enemy'.padEnd(20)}${'HP'.padStart(5)}${'budget'.padStart(9)}${'level'.padStart(7)}${'atk%'.padStart(7)}${'  vs ' + CAP}`);
+  console.log('-'.repeat(60));
+  for (const r of enemyRows) {
+    const gap = r.budget - CAP;
+    console.log(`${r.name.slice(0, 19).padEnd(20)}${String(r.hp).padStart(5)}${r.budget.toFixed(1).padStart(9)}${('L' + r.lvl.toFixed(2)).padStart(7)}${(r.atkFreq * 100).toFixed(0).padStart(6)}%${(gap >= 0 ? '  +' : '  ') + gap.toFixed(1)}`);
+    console.log(`    A: ${r.atk}  |  AC: ${r.crit}  |  S: ${r.spc}  |  D: ${r.def}`);
+  }
 }
 console.log('');
