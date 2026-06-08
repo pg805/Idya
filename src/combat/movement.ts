@@ -165,12 +165,17 @@ export function reachableDanger(
   return out;
 }
 
-// Reconstruct the route from `from` to `to` that takes the least opposing-hazard
-// damage (then fewest movement points), within `range`. Returns the ordered
+// Reconstruct the route from `from` to `to`, within `range`. Returns the ordered
 // squares *entered* — every tile after `from`, ending at `to` — or null if `to`
 // isn't reachable. `from` itself is excluded (no re-trigger on the square you
-// started on). Used to apply per-square hazard damage AND to actually route units
-// around hazards instead of straight through them.
+// started on). Used to apply per-square hazard damage as a unit moves.
+//
+// `avoidHazards` chooses the route:
+//   - false (players): cheapest-movement route — matches the client's green-
+//     outline path, so the player walks through (and is damaged by) the same pits
+//     they see previewed. They don't get to dodge.
+//   - true (AI): least opposing-hazard route, then cheapest — the AI actively
+//     routes around pits when a within-range detour exists.
 export function findPath(
   from: Pos,
   to: Pos,
@@ -178,16 +183,21 @@ export function findPath(
   board: Board,
   occupied: Set<string>,
   teamId: string,
+  avoidHazards: boolean,
 ): Pos[] | null {
   if (from.x === to.x && from.y === to.y) return [];
   const labels = searchLabels(from, range, board, occupied, teamId);
   const byId = new Map<number, SearchLabel>(labels.map(l => [l.id, l]));
 
-  // Best label landing on `to`: least hazard, then least cost.
+  // Best label landing on `to`. AI: least hazard then least cost. Player: least
+  // cost then least hazard (cheapest route = the previewed one).
   let best: SearchLabel | null = null;
+  const better = (l: SearchLabel, b: SearchLabel) => avoidHazards
+    ? (l.hazard < b.hazard || (l.hazard === b.hazard && l.cost < b.cost))
+    : (l.cost < b.cost || (l.cost === b.cost && l.hazard < b.hazard));
   for (const l of labels) {
     if (l.pos.x !== to.x || l.pos.y !== to.y) continue;
-    if (!best || l.hazard < best.hazard || (l.hazard === best.hazard && l.cost < best.cost)) best = l;
+    if (!best || better(l, best)) best = l;
   }
   if (!best) return null;
 

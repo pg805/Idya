@@ -7,7 +7,7 @@ for (const t of logger.transports) (t as any).silent = true;
 import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
 import { resolveIntents } from '../combat/resolution.js';
-import { reachableTiles } from '../combat/movement.js';
+import { reachableTiles, findPath } from '../combat/movement.js';
 import { generateAIIntent } from '../combat/ai.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
@@ -266,17 +266,29 @@ console.log('\nHazard damage applies per square crossed when forced through (Dig
   check(hp(s, 'P') === before - 15, `P took 3 hazards crossing (1,1)(2,1)(3,1): ${before}→${hp(s, 'P')}`);
 }
 
-// ---- Test 12c: a mover routes around hazards when an open detour exists ----
-console.log('\nMover routes around hazards when it can (only destination hazard taken):');
+// ---- Test 12c: a PLAYER walks straight through pits (no auto-dodge) ----
+console.log('\nPlayer walks the previewed path through pits, no auto-dodge:');
 {
-  const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);
+  const P = mk('P', 'A', { x: 0, y: 1 }, STRIKER, false);   // player: isAI false
   const Eu = mk('E', 'B', { x: 7, y: 1 }, STRIKER, true);
   const s = session(EMPTY, [P, Eu]);
   for (const x of [1, 2, 3]) s.board.setTile({ pos: { x, y: 1 }, teamId: 'B', kind: 'hazard', value: 5 });
   const before = hp(s, 'P');
   resolveIntents(s, new Map([['P', act('P', 'pass', 0, { x: 3, y: 1 })], ['E', act('E', 'pass', 0)]]));
-  check(s.combatants.find(c => c.id === 'P')!.pos.x === 3, 'P reached (3,1) via a detour');
-  check(hp(s, 'P') === before - 5, `P took only the destination hazard, dodging (1,1)/(2,1): ${before}→${hp(s, 'P')}`);
+  check(s.combatants.find(c => c.id === 'P')!.pos.x === 3, 'P reached (3,1)');
+  check(hp(s, 'P') === before - 15, `P took all 3 pits on the cheapest path (no dodge): ${before}→${hp(s, 'P')}`);
+}
+
+// ---- Test 12d: findPath mode — AI avoids, player goes cheapest (through) ----
+console.log('\nfindPath: avoidHazards detours around a pit; cheapest route goes through:');
+{
+  const s = session(EMPTY, []);
+  s.board.setTile({ pos: { x: 1, y: 1 }, teamId: 'B', kind: 'hazard', value: 15 });
+  const through = findPath({ x: 0, y: 1 }, { x: 2, y: 1 }, 4, s.board, new Set(), 'A', false)!;
+  const around = findPath({ x: 0, y: 1 }, { x: 2, y: 1 }, 4, s.board, new Set(), 'A', true)!;
+  check(through.some(p => p.x === 1 && p.y === 1), 'cheapest route steps on the pit (1,1)');
+  check(!around.some(p => p.x === 1 && p.y === 1), 'avoid route detours around the pit (1,1)');
+  check(around[around.length - 1].x === 2 && around[around.length - 1].y === 1, 'both still reach (2,1)');
 }
 
 // ---- Test 13: AI routes around a slow tile when an equal-distance tile is clear ----
