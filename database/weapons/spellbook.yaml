@@ -38,7 +38,7 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Sharp
-    Field: [7, 7, 7, 10, 10, 13, 13, 13]
+    Field: [5, 5, 5, 9, 9, 11, 11, 11]
     Cost: 1
     Aimed: true
     Range: 2
@@ -50,7 +50,7 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Sharp
-    Field: [9, 10, 11, 12, 13]
+    Field: [5, 6, 7, 8, 9]
     Range: 2
     Action_String: "<User>'s denouement lands on <Target> for <Damage> damage."
 
@@ -60,7 +60,7 @@ Special:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Sharp
-    Field: [9, 11, 13, 15, 19, 20, 22, 22, 24]
+    Field: [9, 11, 13, 15, 19, 20, 22]
     Cost: 3
     Aimed: true
     Range: 3
