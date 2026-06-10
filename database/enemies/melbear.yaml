@@ -1,6 +1,6 @@
 Name: Melbear
 Health: 300
-Level: 5
+Level: 4
 Loot:
   Items:
     - id: crude_talamite
@@ -53,9 +53,9 @@ Weapon:
       Type_Name: Heal
       Damage_Type: Arcane
       Damage_Subtype: Plant
-      Value: 30
+      Value: 35
       Cost: 2
-      Action_String: "<User> snacks on a berry, healing 30 damage."
+      Action_String: "<User> snacks on a berry, healing 35 damage."
 
   Defend Crit: []
 
@@ -65,7 +65,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [0, 5, 7, 10, 12, 14, 20]
+      Field: [15, 25, 35, 40, 50]
       Cost: 2
       Aimed: false
       Range: 1
@@ -77,9 +77,8 @@ Weapon:
       Type_Name: DOT
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [4, 7, 8]
+      Field: [8, 11, 14]
       Rounds: 3
-      Range: 1
       Action_String: "<User> opens a deep gash in <Target>, dealing <Damage> damage for 3 rounds."
 
   Special:
@@ -88,7 +87,7 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Arcane
       Damage_Subtype: Mental
-      Field: [5, 7, 9, 10, 12, 18, 18, 18, 20, 25, 36]
+      Field: [25, 30, 35, 40, 45, 50, 55, 60]
       Cost: 3
       Aimed: true
       Range: 2
