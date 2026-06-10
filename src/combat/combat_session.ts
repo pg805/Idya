@@ -16,6 +16,10 @@ export interface ActionInfo {
   targetsObstacle?: boolean; // true for Destroy Obstacle — target an obstacle tile, not a combatant
   range: number;
   cost: number;
+  area: number;           // N×N footprint (1 = single target/tile)
+  push: number;           // knockback squares applied to whatever it hits (0 = none)
+  smash: boolean;         // an Area strike that also flattens obstacles in the block
+  selfBurst: boolean;     // reactive Area>1 strike — the block is centered on the actor, no target tile
 }
 
 export interface WeaponInfo {

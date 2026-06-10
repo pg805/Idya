@@ -329,6 +329,35 @@ function computeTargetableTiles(actionInfo, fromPos) {
   return tiles;
 }
 
+// Mirror of areaBlock() in resolution.ts — the N×N footprint of an Area action.
+// Odd N centers on `center`; even N puts `center` at the corner nearest `caster`
+// and sprays away. Off-board squares are dropped. Keep in sync with the server.
+function areaCells(center, area, caster) {
+  const out = new Set();
+  const { width, height } = state.board;
+  const add = (x, y) => { if (x >= 0 && x < width && y >= 0 && y < height) out.add(`${x},${y}`); };
+  if (area % 2 === 1) {
+    const off = (area - 1) / 2;
+    for (let dx = 0; dx < area; dx++) for (let dy = 0; dy < area; dy++) add(center.x - off + dx, center.y - off + dy);
+  } else {
+    const dirX = Math.sign(center.x - caster.x) || 1;
+    const dirY = Math.sign(center.y - caster.y) || 1;
+    for (let i = 0; i < area; i++) for (let j = 0; j < area; j++) add(center.x + dirX * i, center.y + dirY * j);
+  }
+  return out;
+}
+
+// A reactive self-burst centers on the actor. Odd N needs no caster; even N
+// sprays toward the nearest enemy (NW if none) — mirrors resolveReactiveStrike.
+function selfBurstCaster(center, area) {
+  if (area % 2 === 1) return center;
+  const foes = state.combatants.filter(c => c.teamId !== playerTeamId);
+  const foe = foes.length ? foes.reduce((a, b) => chebyshev(center, a.pos) <= chebyshev(center, b.pos) ? a : b).pos : null;
+  const dx = foe ? (Math.sign(foe.x - center.x) || -1) : -1;
+  const dy = foe ? (Math.sign(foe.y - center.y) || -1) : -1;
+  return { x: center.x - dx, y: center.y - dy };
+}
+
 function actionIsSelected(action) {
   return ui.action && ui.action.choice === action.choice && ui.action.index === action.index;
 }
@@ -367,6 +396,18 @@ function renderBoard() {
   const targetableTiles = (ui.phase === 'selecting_target' && ui.action)
     ? computeTargetableTiles(ui.action, ui.moveTo ?? ui.selected?.pos ?? { x: 0, y: 0 })
     : new Set();
+
+  // Preview the blast footprint of an AOE the player is lining up: an aimed AOE
+  // around the chosen target tile, a reactive self-burst around the player's own
+  // (post-move) square. Lets you see what the area will hit before submitting.
+  const aoeFrom = ui.moveTo ?? ui.selected?.pos ?? { x: 0, y: 0 };
+  let areaFootprint = new Set();
+  if (ui.action && ui.action.area > 1) {
+    if (ui.action.selfBurst && ui.phase === 'selecting_action')
+      areaFootprint = areaCells(aoeFrom, ui.action.area, selfBurstCaster(aoeFrom, ui.action.area));
+    else if (ui.action.needsTarget && ui.targetTile && ui.phase === 'selecting_target')
+      areaFootprint = areaCells(ui.targetTile, ui.action.area, aoeFrom);
+  }
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -428,6 +469,9 @@ function renderBoard() {
         // far they can still go from the current target.
         cell.classList.add('reachable');
       }
+
+      // Overlay: any square the lined-up AOE will hit (coexists with other marks).
+      if (areaFootprint.has(k)) cell.classList.add('area-footprint');
 
       cell.addEventListener('click', () => onCellClick(x, y));
       boardEl.appendChild(cell);

@@ -4,7 +4,7 @@ import Weapon from '../weapon/weapon.js';
 import Pattern from '../infrastructure/pattern.js';
 import { CombatantState } from './combatant_state.js';
 import { Combatant, CombatantMeta, WeaponInfo, ActionInfo } from './combat_session.js';
-import { SELF_TARGET_TYPES, ActionType } from '../weapon/action.js';
+import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
 import type { LootTable } from '../economy/reward_service.js';
 
 type EnemyLootData = {
@@ -22,27 +22,29 @@ type EnemyData = {
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
-  const actions: ActionInfo[] = [];
+  const canSelf = (a: Action) => a.targeted && (a.type === ActionType.Heal || a.type === ActionType.Buff);
 
-  const canSelf = (a: { type: number; targeted: boolean }) =>
-    a.targeted && (a.type === ActionType.Heal || a.type === ActionType.Buff);
-  const obstacleTgt = (a: { type: number }) => a.type === ActionType.DestroyObstacle;
+  const toInfo = (a: Action, choice: 'defend' | 'attack' | 'special', i: number): ActionInfo => {
+    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
+    return {
+      label: a.name, choice, index: i,
+      needsTarget: !isSelf && a.aimed,
+      aimed: a.aimed, targeted: a.targeted,
+      canTargetSelf: canSelf(a),
+      targetsObstacle: a.type === ActionType.DestroyObstacle,
+      range: a.range, cost: a.cost,
+      area: a.area, push: a.push, smash: a.smash,
+      // Reactive Area strike (not a tile / not a self-target): the block centers
+      // on the actor, so the UI previews the footprint around the player itself.
+      selfBurst: a.area > 1 && !a.aimed && !TILE_TYPES.has(a.type) && !(SELF_TARGET_TYPES.has(a.type) && !a.targeted),
+    };
+  };
 
-  for (let i = 0; i < weapon.defend.length; i++) {
-    const a = weapon.defend[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'defend', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
-  }
-  for (let i = 0; i < weapon.attack.length; i++) {
-    const a = weapon.attack[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'attack', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
-  }
-  for (let i = 0; i < weapon.special.length; i++) {
-    const a = weapon.special[i];
-    const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
-    actions.push({ label: a.name, choice: 'special', index: i, needsTarget: !isSelf && a.aimed, aimed: a.aimed, targeted: a.targeted, canTargetSelf: canSelf(a), targetsObstacle: obstacleTgt(a), range: a.range, cost: a.cost });
-  }
+  const actions: ActionInfo[] = [
+    ...weapon.defend.map((a, i) => toInfo(a, 'defend', i)),
+    ...weapon.attack.map((a, i) => toInfo(a, 'attack', i)),
+    ...weapon.special.map((a, i) => toInfo(a, 'special', i)),
+  ];
 
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions };
 }
