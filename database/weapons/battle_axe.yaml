@@ -56,10 +56,11 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [30]
+    Field: [22]
     Cost: 1
     Aimed: false
     Range: 1
-    Action_String: "<User> spins the axe in a wide arc, dealing <Damage> damage to <Target>."
+    Area: 3
+    Action_String: "<User> spins the axe in a wide arc, dealing <Damage> damage to everything around them."
 
 Special Crit: []
