@@ -17,7 +17,7 @@ import prisma from '../database/prisma.js';
 import { Prisma } from '@prisma/client';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
-import worldConfig from '../discord/world_config.js';
+import worldConfig from './world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';

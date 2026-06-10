@@ -16,15 +16,19 @@ Idya is a Discord-based turn-based RPG battle bot (Alpha 1.0). Players engage in
 ```
 src/
 ├── character/           # Player and NPC classes
-├── combat/              # Battle logic and turn resolution
-├── discord/
-│   ├── commands/        # Slash command definitions
-│   └── handlers/        # Battle session and demo handling
+├── combat/              # Spatial combat: resolution, AI, sessions, board
+├── server/              # Express + Socket.io web server (the live system)
+├── economy/             # Crafting, upgrades, rewards
 ├── weapon/
 │   ├── action/          # Action types (strike, block, buff, etc.)
 │   └── weapon.ts        # Weapon loader
 ├── infrastructure/      # Patterns and result fields
 └── utility/             # Logger
+
+archive/                 # Frozen legacy, excluded from build (tsconfig)
+├── discord/             # Old Discord bot (commands + handlers)
+├── battle.ts            # Old turn-based combat engine
+└── test_battle.ts       # Its CLI driver
 
 database/
 ├── config.json          # Bot token (CLIENT_TOKEN)
@@ -85,19 +89,20 @@ Everything else under `docs/` is dev-only. When adding a new doc, decide first w
 ## Important Classes
 
 - `Player_Character` / `NPC` (`src/character/`) - Character definitions
-- `Battle` (`src/combat/battle.ts`) - Core battle logic
-- `BattleManager` (`src/discord/handlers/battle_manager.ts`) - Session management
+- `resolveIntents` (`src/combat/resolution.ts`) - Core turn resolution (move → action → cleanup)
+- `CombatSession` (`src/combat/combat_session.ts`) - Session container + serializable state
 - `Weapon` (`src/weapon/weapon.ts`) - Weapon loading from JSON
 - `Action` subclasses (`src/weapon/action/`) - Combat action types
 
 ## Scripts
 
 ```bash
-npm start              # Run bot (from lib/)
+npm start              # Run the web server (from lib/)
 npm run build          # Compile TypeScript
-npm run refresh-commands  # Register slash commands with Discord
-npm run cli-test       # Test battles in CLI
+npm run simulate       # Monte-Carlo weapon-balance sim
 npm run lint           # Fix linting issues
+node lib/tools/test_tiles.js     # Spatial combat smoke tests
+node lib/tools/cost_report.js N  # Budget report for level N
 ```
 
 ## Configuration
@@ -124,7 +129,7 @@ Bot token goes in `database/config.json`:
 
 ## Current System: Spatial Web Combat
 
-The active combat system is the spatial grid-based web server in `src/server/index.ts` + `src/combat/`. The Discord handler system (`src/discord/`, `src/combat/battle.ts`) is **legacy** and not actively developed — it will be rebuilt to use the new spatial system.
+The active combat system is the spatial grid-based web server in `src/server/index.ts` + `src/combat/`. The old Discord bot and turn-based engine have been **archived** to `archive/` (excluded from the build) — see `archive/README.md`. If a Discord front-end is rebuilt, it should drive the new spatial system, not the archived `battle.ts`.
 
 Key files for the new system:
 - `src/server/index.ts` — Express + Socket.io server, session management, test session setup
