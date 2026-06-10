@@ -1,6 +1,6 @@
 import logger from '../utility/logger.js';
 import Action from '../weapon/action.js';
-import { RollMode } from '../infrastructure/stance.js';
+import { RollMode } from '../infrastructure/roll_mode.js';
 
 export interface StatusEffect {
     value: number;

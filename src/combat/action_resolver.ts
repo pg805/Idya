@@ -9,7 +9,7 @@ import Heal from '../weapon/action/heal.js';
 import Shield from '../weapon/action/shield.js';
 import Reflect from '../weapon/action/reflect.js';
 import MoveDebuff from '../weapon/action/move_debuff.js';
-import { RollMode } from '../infrastructure/stance.js';
+import { RollMode } from '../infrastructure/roll_mode.js';
 import { CombatantState } from './combatant_state.js';
 
 // Each action produces:

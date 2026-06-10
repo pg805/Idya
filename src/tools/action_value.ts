@@ -16,7 +16,7 @@ for (const t of logger.transports) (t as any).silent = true;
 import { CombatantState } from '../combat/combatant_state.js';
 import { ActionType } from '../weapon/action.js';
 import Action from '../weapon/action.js';
-import { RollMode } from '../infrastructure/stance.js';
+import { RollMode } from '../infrastructure/roll_mode.js';
 import Weapon from '../weapon/weapon.js';
 import yaml from 'js-yaml';
 import fs from 'fs';

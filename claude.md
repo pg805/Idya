@@ -15,7 +15,7 @@ Idya is a Discord-based turn-based RPG battle bot (Alpha 1.0). Players engage in
 
 ```
 src/
-├── character/           # Player and NPC classes
+├── character/           # Character persistence (repository, sprites, player_character)
 ├── combat/              # Spatial combat: resolution, AI, sessions, board
 ├── server/              # Express + Socket.io web server (the live system)
 ├── economy/             # Crafting, upgrades, rewards
@@ -88,7 +88,7 @@ Everything else under `docs/` is dev-only. When adding a new doc, decide first w
 
 ## Important Classes
 
-- `Player_Character` / `NPC` (`src/character/`) - Character definitions
+- `Combatant` / `CombatantMeta` (`src/combat/combat_session.ts`) - Live unit + its weapon/state/AI pattern
 - `resolveIntents` (`src/combat/resolution.ts`) - Core turn resolution (move → action → cleanup)
 - `CombatSession` (`src/combat/combat_session.ts`) - Session container + serializable state
 - `Weapon` (`src/weapon/weapon.ts`) - Weapon loading from JSON
@@ -239,13 +239,13 @@ Crits (attack_crit) add hidden DPR — estimate frequency from how often the ene
 
 ## Removed Features (kept in YAML data, not used in combat)
 
-### Stances (removed)
-Were: Defensive / Balanced / Aggressive (D/B/A). Affected roll mode via `resolve_roll_mode()`:
-- D vs A → both roll Ld2 (roll 2, take lowest)
-- A vs B → attacker Hd4 (roll 4, take highest), defender Ld2
-- B vs D → both 1d (baseline)
-
-Removed because spatial movement + targeting gives equivalent skill expression without needing a separate stance layer. `src/infrastructure/stance.ts` still exists for reference but is no longer used by the new system.
+### Stances (removed — code deleted)
+Were: Defensive / Balanced / Aggressive (D/B/A), which set a roll mode via a
+`resolve_roll_mode()` matchup table. Removed because spatial movement + targeting
+gives equivalent skill expression without a separate stance layer. The code is
+**gone** (`stance.ts` deleted; the old `Non_Player_Character` class that carried
+`Stance_Pattern` archived). The `RollMode` enum it shared with the resistance
+system was extracted to `src/infrastructure/roll_mode.ts` — that's still live.
 
 ### Damage Types & Resistances (active)
 Every action has `Damage_Type` (Arcane / Physical / Elemental) and `Damage_Subtype` (Mental / Sharp / Blunt / Poison / etc.). Enemies have `Resistances` as multiplier scores (e.g. `Sharp: 1.25`, `Mental: 0.75`). Type and subtype scores multiply together, then map to a **roll mode** rather than a flat damage multiplier:

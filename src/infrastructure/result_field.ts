@@ -1,4 +1,4 @@
-import { RollMode } from './stance.js';
+import { RollMode } from './roll_mode.js';
 
 export default class Result_Field {
     field: Array<number>
