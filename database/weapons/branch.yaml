@@ -40,8 +40,6 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [1, 2]
     Cost: 0
-    Aimed: false
-    Range: 1
     Action_String: "<User> catches <Target> with a leaf swipe for <Damage> damage."
 
 Special:

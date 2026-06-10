@@ -48,8 +48,6 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [15]
     Cost: 0
-    Aimed: true
-    Range: 1
     Action_String: "<User> catches <Target> mid-flourish and chunks clean through, dealing <Damage> damage."
 
 Special:

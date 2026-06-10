@@ -78,8 +78,6 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [19, 30, 41]
     Cost: 0
-    Aimed: false
-    Range: 2
     Action_String: "<User>'s elements converge in a burst, striking <Target> for <Damage> damage."
 
 Special:

@@ -62,7 +62,6 @@ Attack Crit:
     Damage_Type: Physical
     Damage_Subtype: Sharp
     Field: [2, 4, 7]
-    Range: 1
     Action_String: "<User> struck gold, slamming <Target> for <Damage> damage."
 
 Special:

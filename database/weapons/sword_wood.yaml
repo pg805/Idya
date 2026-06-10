@@ -40,8 +40,6 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [5, 10, 15, 15, 15, 20, 25]
     Cost: 0
-    Aimed: false
-    Range: 1
     Action_String: "<User> finds an exposed gap and drives the blade in for <Damage> damage."
 
 Special:

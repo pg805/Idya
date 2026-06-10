@@ -72,8 +72,6 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [12, 24, 24, 28, 28, 30]
     Cost: 0
-    Aimed: false
-    Range: 3
     Action_String: "<User> launches a second dagger at <Target> for <Damage> damage."
 
 Special:

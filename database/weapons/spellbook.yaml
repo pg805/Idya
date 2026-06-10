@@ -51,7 +51,6 @@ Attack Crit:
     Damage_Type: Arcane
     Damage_Subtype: Sharp
     Field: [5, 6, 7, 8, 9]
-    Range: 2
     Action_String: "<User>'s denouement lands on <Target> for <Damage> damage."
 
 Special:

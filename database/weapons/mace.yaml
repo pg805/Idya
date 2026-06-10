@@ -53,8 +53,6 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [4, 4, 5, 20, 20, 24]
     Cost: 0
-    Aimed: false
-    Range: 2
     Action_String: "<User> follows through with the full weight of the mace, striking <Target> for <Damage> damage."
 
 Special:

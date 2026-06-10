@@ -43,11 +43,16 @@ function cost(a: Action, isCrit = false): number {
   const t = a.type;
   if (t === ActionType.Strike || t === ActionType.DamageOverTime) {
     const E = ev((a as any).field.field as number[]);
-    const range = 1 + 0.1 * ((a.range ?? 1) - 1);
+    // Crits ride the triggering attack's target — the engine ignores a crit's own
+    // range/aim/area/push, so they're free here too (only the damage payload and
+    // any DOT rounds matter).
+    const range = isCrit ? 1 : 1 + 0.1 * ((a.range ?? 1) - 1);
     const aim = isCrit ? 1.0 : a.aimed ? (a.area > 1 ? 1.0 : 0.9) : 1.1;
     const rounds = t === ActionType.DamageOverTime ? (a as any).rounds : 1;
+    const aoe = isCrit ? 1 : aoeMult(a.area);
+    const push = isCrit ? 0 : (a.push ?? 0);
     // Push rider: ~1.5 budget per square of knockback (rough control estimate).
-    return E * range * aim * aoeMult(a.area) * rounds + (a.push ?? 0) * 1.5;
+    return E * range * aim * aoe * rounds + push * 1.5;
   }
   if (t === ActionType.Block) return prevented((a as any).value);
   if (t === ActionType.Heal) return (a as any).value;

@@ -49,8 +49,6 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [4, 7, 10]
     Cost: 0
-    Aimed: false
-    Range: 1
     Action_String: "<User> catches <Target> across a vital point for <Damage> damage."
 
 Special:
