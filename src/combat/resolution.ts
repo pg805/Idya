@@ -350,6 +350,52 @@ export function resolveIntents(
     const isDamagingAttack = action.type === ActionType.Strike || action.type === ActionType.DamageOverTime;
     if (action.aimed && isDamagingAttack) actorMeta.state.aimed_attempted += 1;
 
+    // Resolve an N×N strike over a precomputed block of `cells`. If the action
+    // smashes, flatten every obstacle in the block FIRST — that opens line of
+    // sight, so the blow reaches anyone who was hiding behind the cover it just
+    // levelled. Then each enemy in the block with LOS from the caster takes the
+    // hit; cost is paid once. Shared by the aimed AOE (block centered on the
+    // target tile) and the reactive self-burst (block centered on the actor).
+    const resolveAoeStrike = (cells: Set<string>, label: string): void => {
+      if (action.smash) {
+        for (const key of cells) {
+          const [x, y] = key.split(',').map(Number);
+          if (session.board.inBounds({ x, y }) && session.board.destroyObstacle({ x, y }))
+            log.push(`  ${action.name} flattens the obstacle at (${x},${y}).`);
+        }
+      }
+      const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
+      if (victims.length === 0) {
+        const rs = actorMeta.state.apply_cost(action);
+        log.push(`${actor.name} — ${action.name}: ${label} catches no one${rs}`);
+        return;
+      }
+      const savedCost = action.cost;
+      actorMeta.state.apply_cost(action);  // pay once
+      action.cost = 0;
+      if (action.aimed && isDamagingAttack) actorMeta.state.aimed_hit += 1;
+      log.push(`${actor.name} — ${action.name}: ${label}.`);
+      for (const v of victims) {
+        const m = session.meta.get(v.id);
+        if (!m || m.state.health <= 0) continue;
+        // An obstacle between the caster and a victim shields them from the blast.
+        if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+          log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
+          continue;
+        }
+        pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
+        // Crit: attacking into a victim's Special catches them mid-wind-up.
+        if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
+            intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
+          actorMeta.state.attack_crits += 1;
+          log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
+          pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
+        }
+        if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
+      }
+      action.cost = savedCost;
+    };
+
     if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
       pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
       return;
@@ -373,40 +419,10 @@ export function resolveIntents(
         return;
       }
 
-      // AOE (Area > 1): hit every enemy in the N×N around the targeted tile. Cost
-      // is paid once; no per-target crit. Bypasses the empty-tile "miss" check.
+      // AOE (Area > 1): burst over the N×N centered on the targeted tile.
       if (action.area > 1) {
         const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
-        const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
-        if (victims.length === 0) {
-          const rs = actorMeta.state.apply_cost(action);
-          log.push(`${actor.name}'s ${action.name}${rs} — the ${action.area}×${action.area} at ${tileStr} catches no one.`);
-          return;
-        }
-        const savedCost = action.cost;
-        actorMeta.state.apply_cost(action);  // pay once
-        action.cost = 0;
-        if (isDamagingAttack) actorMeta.state.aimed_hit += 1;
-        log.push(`${actor.name} — ${action.name}: ${action.area}×${action.area} blast at ${tileStr}.`);
-        for (const v of victims) {
-          const m = session.meta.get(v.id);
-          if (!m || m.state.health <= 0) continue;
-          // An obstacle between the caster and a victim shields them from the blast.
-          if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
-            log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
-            continue;
-          }
-          pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
-          // Crit: attacking into a victim's Special catches them mid-wind-up.
-          if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-              intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
-            actorMeta.state.attack_crits += 1;
-            log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
-            pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
-          }
-          if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
-        }
-        action.cost = savedCost;
+        resolveAoeStrike(cells, `${action.area}×${action.area} blast at ${tileStr}`);
         return;
       }
 
@@ -433,6 +449,15 @@ export function resolveIntents(
       }
       if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
     } else {
+      // Reactive (no aim). Area > 1 ⇒ a self-centered burst: the N×N block around
+      // the actor's own square, flattening cover and catching everything in reach.
+      // That's a melee smash, not a thrown blast — it needs no target tile. Area 1
+      // ⇒ the classic single nearest target.
+      if (action.area > 1) {
+        const cells = new Set(areaBlock(actor.pos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
+        resolveAoeStrike(cells, `${action.area}×${action.area} burst`);
+        return;
+      }
       const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
       const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
 

@@ -65,11 +65,13 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [15, 25, 35, 40, 50]
+      Field: [15, 21, 27, 33, 39]
       Cost: 2
       Aimed: false
       Range: 1
-      Action_String: "<User> swipes <Target> for <Damage> damage."
+      Area: 3
+      Smash: true
+      Action_String: "<User> rears up and smashes the ground, tearing into everything around it for <Damage> and flattening the cover."
 
   Attack Crit:
     - Name: Gash

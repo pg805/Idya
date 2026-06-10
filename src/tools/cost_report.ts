@@ -51,8 +51,11 @@ function cost(a: Action, isCrit = false): number {
     const rounds = t === ActionType.DamageOverTime ? (a as any).rounds : 1;
     const aoe = isCrit ? 1 : aoeMult(a.area);
     const push = isCrit ? 0 : (a.push ?? 0);
+    // Smash rider: flattens obstacles in the block (clearing cover + opening LOS).
+    // Utility scales with the block size; ~0.5 per area square, zero at area 1.
+    const smash = isCrit || !(a as any).smash ? 0 : 0.5 * (a.area * a.area - 1);
     // Push rider: ~1.5 budget per square of knockback (rough control estimate).
-    return E * range * aim * aoe * rounds + push * 1.5;
+    return E * range * aim * aoe * rounds + push * 1.5 + smash;
   }
   if (t === ActionType.Block) return prevented((a as any).value);
   if (t === ActionType.Heal) return (a as any).value;

@@ -30,6 +30,7 @@ type ActionData = {
     'Range'?: number,
     'Area'?: number,
     'Push'?: number,
+    'Smash'?: boolean,
     'Aimed'?: boolean,
     'Targeted'?: boolean
 }
@@ -94,6 +95,7 @@ function from_json(action_object: ActionData): Action {
     action.range          = action_object['Range']          ?? 1;
     action.area           = action_object['Area']           ?? 1;
     action.push           = action_object['Push']           ?? 0;
+    action.smash          = action_object['Smash']          ?? false;
     action.aimed          = action_object['Aimed']          ?? false;
     action.targeted       = action_object['Targeted']       ?? false;
     return action;

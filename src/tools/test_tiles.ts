@@ -377,5 +377,44 @@ console.log('\nAI prefers a non-hazard tile over an equal-distance hazard one:')
   check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `routes to clear (1,1), not hazard (1,0) (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
 }
 
+// ---- Test 16: reactive self-burst smash (Melbear Ursa Minor) ----
+console.log('\nReactive self-burst smash (Melbear Ursa Minor): hits the 3×3 + flattens cover:');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const umIdx = bear.attack.findIndex(a => a.name === 'Ursa Minor');
+  check(umIdx >= 0 && bear.attack[umIdx].area === 3 && bear.attack[umIdx].smash, 'Ursa Minor is a smashing 3×3 burst');
+  // Bear at (3,1); enemy adjacent at (4,1) is inside the 3×3; obstacle at (2,1) is too.
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 2, y: 1 }, state: 'intact' }] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true);
+  const V = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
+  const s = session(board, [B, V]);
+  const before = hp(s, 'P');
+  resolveIntents(s, new Map([['E', act('E', 'attack', umIdx)], ['P', act('P', 'pass', 0)]]));
+  check(hp(s, 'P') < before, `adjacent victim caught the burst (${before}→${hp(s, 'P')})`);
+  check(s.board.getObstacle({ x: 2, y: 1 })!.state === 'destroyed', 'obstacle in the burst was flattened');
+}
+
+// ---- Test 17: smash plows through cover (aimed AOE opens LOS) ----
+console.log('\nSmash plows through cover: destroying an obstacle in the block opens LOS to the victim:');
+{
+  const SMASHER = Weapon.from_json({
+    Name: 'Smasher', Description: '', HP: 99, Weight: 0,
+    Resource: { Name: 'En', Max: 99 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Quake', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: true, Range: 2, Area: 3, Smash: true, Action_String: '<User> quakes <Target> for <Damage>.' }],
+    'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  // Caster (2,1); obstacle (3,1) sits on the line to the victim (4,1) — without the
+  // smash it would shield (cf. Test 10). The 3×3 aimed at (3,1) covers both.
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 3, y: 1 }, state: 'intact' }] };
+  const A = mk('P', 'A', { x: 2, y: 1 }, SMASHER, false);
+  const V = mk('E', 'B', { x: 4, y: 1 }, STRIKER, true);
+  const s = session(board, [A, V]);
+  const before = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 3, y: 1 })], ['E', act('E', 'pass', 0)]]));
+  check(s.board.getObstacle({ x: 3, y: 1 })!.state === 'destroyed', 'obstacle in the block destroyed');
+  check(hp(s, 'E') < before, `victim hit through the (now levelled) cover (${before}→${hp(s, 'E')})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

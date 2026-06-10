@@ -45,6 +45,7 @@ export default class Action {
     range: number = 1
     area: number = 1   // N×N footprint: tiles placed / AOE hit (1 = single tile)
     push: number = 0   // rider: knock the struck target N squares away from the attacker
+    smash: boolean = false // rider: an Area strike also flattens obstacles in the block (opening LOS through them)
     aimed: boolean = false
     targeted: boolean = false
 
