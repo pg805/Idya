@@ -1,9 +1,9 @@
-import { CombatSession } from './combat_session.js';
+import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent } from './intent.js';
 import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action } from './action_resolver.js';
-import { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
+import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
 import TileAction from '../weapon/action/tile_action.js';
 import DestroyObstacle from '../weapon/action/destroy_obstacle.js';
 import { reachableTiles, findPath } from './movement.js';
@@ -249,8 +249,230 @@ export function resolveIntents(
   // (defends go up before attacks land) and matches the rock-paper-scissors the
   // tutorial teaches.
 
-  // Resolve a single actor's intended action. Returns false if the actor's intent
-  // produces no action (pass / dead / unaffordable / unresolvable).
+  // === Per-action handlers ===
+  // Each resolves one actor's committed action against the shared session/log.
+  // Split out of the old monolithic runAction so every targeting mode reads on
+  // its own; runAction (below) is just the validate-and-dispatch front door.
+
+  const isDamaging = (a: Action) => a.type === ActionType.Strike || a.type === ActionType.DamageOverTime;
+
+  const nearestEnemyTo = (actor: Combatant): Combatant | null => {
+    const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
+    if (enemies.length === 0) return null;
+    return enemies.reduce((a, b) => chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b);
+  };
+
+  // Resolve an N×N strike over a precomputed block of `cells`. If the action
+  // smashes, flatten every obstacle in the block FIRST — that opens line of
+  // sight, so the blow reaches anyone who was hiding behind the cover it just
+  // levelled. Then each enemy in the block with LOS from the caster takes the
+  // hit; cost is paid once. Shared by the aimed AOE (block centered on the
+  // target tile) and the reactive self-burst (block centered on the actor).
+  const resolveAoeStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent, cells: Set<string>, label: string): void => {
+    const { weapon } = actorMeta;
+    if (action.smash) {
+      for (const key of cells) {
+        const [x, y] = key.split(',').map(Number);
+        if (session.board.inBounds({ x, y }) && session.board.destroyObstacle({ x, y }))
+          log.push(`  ${action.name} flattens the obstacle at (${x},${y}).`);
+      }
+    }
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
+    if (victims.length === 0) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: ${label} catches no one${rs}`);
+      return;
+    }
+    const savedCost = action.cost;
+    actorMeta.state.apply_cost(action);  // pay once
+    action.cost = 0;
+    if (action.aimed && isDamaging(action)) actorMeta.state.aimed_hit += 1;
+    log.push(`${actor.name} — ${action.name}: ${label}.`);
+    for (const v of victims) {
+      const m = session.meta.get(v.id);
+      if (!m || m.state.health <= 0) continue;
+      // An obstacle between the caster and a victim shields them from the blast.
+      if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+        log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
+        continue;
+      }
+      pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
+      // Crit: attacking into a victim's Special catches them mid-wind-up.
+      if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
+          intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
+        actorMeta.state.attack_crits += 1;
+        log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
+        pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
+      }
+      if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
+    }
+    action.cost = savedCost;
+  };
+
+  // Tile creators (block/buff/hazard/slow): drop a tile, or an N×N block of them.
+  const resolveTileAction = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
+    actorMeta.state.apply_cost(action);
+    const kind = action.type === ActionType.BlockTile ? 'block'
+               : action.type === ActionType.BuffTile  ? 'buff'
+               : action.type === ActionType.SlowTile  ? 'slow' : 'hazard';
+    const value = (action as TileAction).value;
+    // Aimed tiles (hazard/slow) land on a targeted square in range; if the
+    // target ended up out of range (the AI aims at the enemy's pre-move square
+    // then moves), drop on a random in-range square rather than under the caster.
+    // Non-aimed tiles (pickaxe block/buff zones) drop on the caster's own square.
+    // Area > 1 spreads them into an N×N block.
+    let placePos = { ...actor.pos };
+    const tp = intent.action.targetPos;
+    if (action.aimed) {
+      placePos = tp && chebyshevDist(actor.pos, tp) <= action.range
+        ? { ...tp }
+        : randomTileInRange(actor.pos, action.range, session.board);
+    }
+    // Skip off-board and obstacle squares — an intact obstacle blocks the tile.
+    const cells = areaBlock(placePos, action.area, actor.pos).filter(p => session.board.inBounds(p) && !session.board.isBlocked(p));
+    for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
+    log.push(`${actor.name} — ${action.name}: drops ${cells.length > 1 ? `a ${action.area}×${action.area} of ${kind} tiles` : `a ${kind} tile`} at (${placePos.x},${placePos.y}).`);
+    // A hazard dropped under an opposing combatant counts as entering it.
+    if (kind === 'hazard') {
+      for (const p of cells) {
+        const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === p.x && c.pos.y === p.y);
+        const vMeta = victim ? session.meta.get(victim.id) : undefined;
+        if (victim && vMeta && vMeta.state.health > 0) {
+          const before = vMeta.state.health;
+          vMeta.state.health = Math.max(vMeta.state.health - value, 0);
+          vMeta.state.damage_taken += before - vMeta.state.health;
+          victim.hp = vMeta.state.health;
+          log.push(`  it erupts under ${victim.name} for ${value}!  |  HP: ${before} → ${victim.hp}`);
+        }
+      }
+    }
+  };
+
+  // Destroy Obstacle: aimed at an obstacle in range; destroy it and AOE its
+  // field to enemies within 1 tile of the wreck. Resistances apply; the blast
+  // bypasses block/shield.
+  const resolveDestroyObstacle = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
+    actorMeta.state.apply_cost(action);
+    const targetPos = intent.action.targetPos;
+    if (!targetPos) { log.push(`${actor.name}'s ${action.name} — no target.`); return; }
+    const dist = chebyshevDist(actor.pos, targetPos);
+    if (dist > action.range) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — out of range (dist ${dist}).`); return; }
+    if (!session.board.destroyObstacle(targetPos)) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — no obstacle there, misses.`); return; }
+    const field = (action as DestroyObstacle).field;
+    log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
+    for (const v of victims) {
+      const vMeta = session.meta.get(v.id);
+      if (!vMeta || vMeta.state.health <= 0) continue;
+      const mode = vMeta.state.get_roll_mode(action);
+      const dmg = field.get_result_with_mode(mode);
+      const before = vMeta.state.health;
+      vMeta.state.health = Math.max(vMeta.state.health - dmg, 0);
+      vMeta.state.damage_taken += before - vMeta.state.health;
+      log.push(`  shrapnel hits ${v.name} for ${dmg}  |  HP: ${before} → ${vMeta.state.health}`);
+    }
+  };
+
+  // Self-target buff/heal/block/etc. — fires on the actor regardless of position.
+  const resolveSelfTarget = (actorMeta: CombatantMeta, action: Action): void => {
+    pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
+  };
+
+  // Aimed strike: a chosen target tile in range (LOS-checked for range > 1).
+  // Area > 1 blasts the N×N centered on that tile; else hit the single occupant.
+  const resolveAimedStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
+    const { weapon } = actorMeta;
+    const targetPos = intent.action.targetPos;
+    if (!targetPos) return;
+
+    const dist = chebyshevDist(actor.pos, targetPos);
+    const tileStr = `(${targetPos.x},${targetPos.y})`;
+
+    if (dist > action.range) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: out of range (dist ${dist})${rs}`);
+      return;
+    }
+    if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: no line of sight${rs}`);
+      return;
+    }
+
+    if (action.area > 1) {
+      const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
+      resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} blast at ${tileStr}`);
+      return;
+    }
+
+    const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+    if (!occupant) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: aimed at ${tileStr}, empty space${rs}`);
+      return;
+    }
+    if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
+      log.push(`${actor.name} — ${action.name}: friendly fire avoided at ${tileStr}`);
+      return;
+    }
+
+    const targetMeta = session.meta.get(occupant.id);
+    if (!targetMeta) return;
+    if (isDamaging(action)) actorMeta.state.aimed_hit += 1;
+    pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
+    if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
+        intents.get(occupant.id)?.action.type === 'special') {
+      actorMeta.state.attack_crits += 1;
+      log.push(`★ ${actor.name} lands a critical hit!`);
+      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
+    }
+    if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
+  };
+
+  // Reactive strike (no aim). Area > 1 ⇒ a self-centered burst (the N×N around
+  // the actor — a melee smash, no target tile): odd N centers on the actor; even
+  // N has no center, so it sprays toward the nearest enemy (NW if none), fed to
+  // areaBlock via a phantom caster one step opposite the spray. Area 1 ⇒ the
+  // classic single nearest target.
+  const resolveReactiveStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
+    const { weapon } = actorMeta;
+    if (action.area > 1) {
+      let sprayFrom = actor.pos;
+      if (action.area % 2 === 0) {
+        const foe = nearestEnemyTo(actor);
+        const dx = foe ? (Math.sign(foe.pos.x - actor.pos.x) || -1) : -1;
+        const dy = foe ? (Math.sign(foe.pos.y - actor.pos.y) || -1) : -1;
+        sprayFrom = { x: actor.pos.x - dx, y: actor.pos.y - dy };
+      }
+      const cells = new Set(areaBlock(actor.pos, action.area, sprayFrom).map(p => `${p.x},${p.y}`));
+      resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} burst`);
+      return;
+    }
+    const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
+    const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
+
+    if (inRange.length === 0) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
+      return;
+    }
+
+    const target = inRange.reduce((a, b) =>
+      chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b
+    );
+    const targetMeta = session.meta.get(target.id);
+    if (!targetMeta) return;
+    pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
+    if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
+        intents.get(target.id)?.action.type === 'special') {
+      actorMeta.state.attack_crits += 1;
+      log.push(`★ ${actor.name} lands a critical hit!`);
+      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
+    }
+    if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, target, action.push, session, log);
+  };
+
+  // Dispatcher: validate the actor + action, then route to the right handler.
   const runAction = (id: string): void => {
     const intent = intents.get(id);
     if (!intent || intent.action.type === 'pass') return;
@@ -264,7 +486,7 @@ export function resolveIntents(
     if (actorMeta.state.health <= 0) return; // killed earlier this turn, can't act
 
     const { weapon } = actorMeta;
-    let action = null;
+    let action: Action | null = null;
     if (intent.action.type === 'defend')  action = weapon.defend[intent.action.actionIndex]  ?? null;
     if (intent.action.type === 'attack')  action = weapon.attack[intent.action.actionIndex]  ?? null;
     if (intent.action.type === 'special') action = weapon.special[intent.action.actionIndex] ?? null;
@@ -276,211 +498,17 @@ export function resolveIntents(
       return;
     }
 
-    // --- Board-effect actions (0.2.0 positional layer) ---
-    // Tile creators drop a permanent tile on the actor's own square.
-    if (TILE_TYPES.has(action.type)) {
-      actorMeta.state.apply_cost(action);
-      const kind = action.type === ActionType.BlockTile ? 'block'
-                 : action.type === ActionType.BuffTile  ? 'buff'
-                 : action.type === ActionType.SlowTile  ? 'slow' : 'hazard';
-      const value = (action as TileAction).value;
-      // Aimed tiles (hazard/slow) land on a targeted square in range; if the
-      // target ended up out of range (the AI aims at the enemy's pre-move square
-      // then moves), drop on a random in-range square rather than under the caster.
-      // Non-aimed tiles (pickaxe block/buff zones) drop on the caster's own square.
-      // Area > 1 spreads them into an N×N block.
-      let placePos = { ...actor.pos };
-      const tp = intent.action.targetPos;
-      if (action.aimed) {
-        placePos = tp && chebyshevDist(actor.pos, tp) <= action.range
-          ? { ...tp }
-          : randomTileInRange(actor.pos, action.range, session.board);
-      }
-      // Skip off-board and obstacle squares — an intact obstacle blocks the tile.
-      const cells = areaBlock(placePos, action.area, actor.pos).filter(p => session.board.inBounds(p) && !session.board.isBlocked(p));
-      for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
-      log.push(`${actor.name} — ${action.name}: drops ${cells.length > 1 ? `a ${action.area}×${action.area} of ${kind} tiles` : `a ${kind} tile`} at (${placePos.x},${placePos.y}).`);
-      // A hazard dropped under an opposing combatant counts as entering it.
-      if (kind === 'hazard') {
-        for (const p of cells) {
-          const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === p.x && c.pos.y === p.y);
-          const vMeta = victim ? session.meta.get(victim.id) : undefined;
-          if (victim && vMeta && vMeta.state.health > 0) {
-            const before = vMeta.state.health;
-            vMeta.state.health = Math.max(vMeta.state.health - value, 0);
-            vMeta.state.damage_taken += before - vMeta.state.health;
-            victim.hp = vMeta.state.health;
-            log.push(`  it erupts under ${victim.name} for ${value}!  |  HP: ${before} → ${victim.hp}`);
-          }
-        }
-      }
-      return;
-    }
+    // Board-effect actions resolve before the combat-stat counters below.
+    if (TILE_TYPES.has(action.type)) return resolveTileAction(actor, actorMeta, action, intent);
+    if (action.type === ActionType.DestroyObstacle) return resolveDestroyObstacle(actor, actorMeta, action, intent);
 
-    // Destroy Obstacle: aimed at an obstacle in range; destroy it and AOE its
-    // field to enemies within 1 tile of the wreck. Resistances apply; the blast
-    // bypasses block/shield.
-    if (action.type === ActionType.DestroyObstacle) {
-      actorMeta.state.apply_cost(action);
-      const targetPos = intent.action.targetPos;
-      if (!targetPos) { log.push(`${actor.name}'s ${action.name} — no target.`); return; }
-      const dist = chebyshevDist(actor.pos, targetPos);
-      if (dist > action.range) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — out of range (dist ${dist}).`); return; }
-      if (!session.board.destroyObstacle(targetPos)) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — no obstacle there, misses.`); return; }
-      const field = (action as DestroyObstacle).field;
-      log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
-      const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
-      for (const v of victims) {
-        const vMeta = session.meta.get(v.id);
-        if (!vMeta || vMeta.state.health <= 0) continue;
-        const mode = vMeta.state.get_roll_mode(action);
-        const dmg = field.get_result_with_mode(mode);
-        const before = vMeta.state.health;
-        vMeta.state.health = Math.max(vMeta.state.health - dmg, 0);
-        vMeta.state.damage_taken += before - vMeta.state.health;
-        log.push(`  shrapnel hits ${v.name} for ${dmg}  |  HP: ${before} → ${vMeta.state.health}`);
-      }
-      return;
-    }
-
-    // Counters for the dev stats page. Resource-restore turns (cost < 0)
-    // tell us if the weapon's resource economy is too tight; aimed-attempt
-    // and aimed-hit feed the "kiting / aimed-attack hit rate" metric.
+    // Dev stat counters: restore economy (cost < 0) and aimed-attack hit rate.
     if (action.cost < 0) actorMeta.state.restores += 1;
-    const isDamagingAttack = action.type === ActionType.Strike || action.type === ActionType.DamageOverTime;
-    if (action.aimed && isDamagingAttack) actorMeta.state.aimed_attempted += 1;
+    if (action.aimed && isDamaging(action)) actorMeta.state.aimed_attempted += 1;
 
-    // Resolve an N×N strike over a precomputed block of `cells`. If the action
-    // smashes, flatten every obstacle in the block FIRST — that opens line of
-    // sight, so the blow reaches anyone who was hiding behind the cover it just
-    // levelled. Then each enemy in the block with LOS from the caster takes the
-    // hit; cost is paid once. Shared by the aimed AOE (block centered on the
-    // target tile) and the reactive self-burst (block centered on the actor).
-    const resolveAoeStrike = (cells: Set<string>, label: string): void => {
-      if (action.smash) {
-        for (const key of cells) {
-          const [x, y] = key.split(',').map(Number);
-          if (session.board.inBounds({ x, y }) && session.board.destroyObstacle({ x, y }))
-            log.push(`  ${action.name} flattens the obstacle at (${x},${y}).`);
-        }
-      }
-      const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
-      if (victims.length === 0) {
-        const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name} — ${action.name}: ${label} catches no one${rs}`);
-        return;
-      }
-      const savedCost = action.cost;
-      actorMeta.state.apply_cost(action);  // pay once
-      action.cost = 0;
-      if (action.aimed && isDamagingAttack) actorMeta.state.aimed_hit += 1;
-      log.push(`${actor.name} — ${action.name}: ${label}.`);
-      for (const v of victims) {
-        const m = session.meta.get(v.id);
-        if (!m || m.state.health <= 0) continue;
-        // An obstacle between the caster and a victim shields them from the blast.
-        if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
-          log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
-          continue;
-        }
-        pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
-        // Crit: attacking into a victim's Special catches them mid-wind-up.
-        if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-            intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
-          actorMeta.state.attack_crits += 1;
-          log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
-          pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
-        }
-        if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
-      }
-      action.cost = savedCost;
-    };
-
-    if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) {
-      pushLog(log, resolve_action(actorMeta.state, actorMeta.state, [action]));
-      return;
-    }
-
-    if (action.aimed) {
-      const targetPos = intent.action.targetPos;
-      if (!targetPos) return;
-
-      const dist = chebyshevDist(actor.pos, targetPos);
-      const tileStr = `(${targetPos.x},${targetPos.y})`;
-
-      if (dist > action.range) {
-        const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name} — ${action.name}: out of range (dist ${dist})${rs}`);
-        return;
-      }
-      if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
-        const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name} — ${action.name}: no line of sight${rs}`);
-        return;
-      }
-
-      // AOE (Area > 1): burst over the N×N centered on the targeted tile.
-      if (action.area > 1) {
-        const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
-        resolveAoeStrike(cells, `${action.area}×${action.area} blast at ${tileStr}`);
-        return;
-      }
-
-      const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
-      if (!occupant) {
-        const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name} — ${action.name}: aimed at ${tileStr}, empty space${rs}`);
-        return;
-      }
-      if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
-        log.push(`${actor.name} — ${action.name}: friendly fire avoided at ${tileStr}`);
-        return;
-      }
-
-      const targetMeta = session.meta.get(occupant.id);
-      if (!targetMeta) return;
-      if (isDamagingAttack) actorMeta.state.aimed_hit += 1;
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-      if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-          intents.get(occupant.id)?.action.type === 'special') {
-        actorMeta.state.attack_crits += 1;
-        log.push(`★ ${actor.name} lands a critical hit!`);
-        pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
-      }
-      if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
-    } else {
-      // Reactive (no aim). Area > 1 ⇒ a self-centered burst: the N×N block around
-      // the actor's own square, flattening cover and catching everything in reach.
-      // That's a melee smash, not a thrown blast — it needs no target tile. Area 1
-      // ⇒ the classic single nearest target.
-      if (action.area > 1) {
-        const cells = new Set(areaBlock(actor.pos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
-        resolveAoeStrike(cells, `${action.area}×${action.area} burst`);
-        return;
-      }
-      const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
-      const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
-
-      if (inRange.length === 0) {
-        const rs = actorMeta.state.apply_cost(action);
-        log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
-        return;
-      }
-
-      const target = inRange.reduce((a, b) =>
-        chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b
-      );
-      const targetMeta = session.meta.get(target.id);
-      if (!targetMeta) return;
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-      if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-          intents.get(target.id)?.action.type === 'special') {
-        actorMeta.state.attack_crits += 1;
-        log.push(`★ ${actor.name} lands a critical hit!`);
-        pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
-      }
-      if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, target, action.push, session, log);
-    }
+    if (SELF_TARGET_TYPES.has(action.type) && !action.targeted) return resolveSelfTarget(actorMeta, action);
+    if (action.aimed) return resolveAimedStrike(actor, actorMeta, action, intent);
+    return resolveReactiveStrike(actor, actorMeta, action, intent);
   };
 
   // Sync HP + remove dead. Returns winner team id if a team is wiped, else null.

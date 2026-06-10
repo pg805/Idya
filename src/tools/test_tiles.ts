@@ -416,5 +416,76 @@ console.log('\nSmash plows through cover: destroying an obstacle in the block op
   check(hp(s, 'E') < before, `victim hit through the (now levelled) cover (${before}→${hp(s, 'E')})`);
 }
 
+// ---- Test 18: Battle Axe Spinning self-burst hits multiple adjacent enemies ----
+console.log('\nBattle Axe Spinning Attack: reactive 3×3 self-burst catches both flankers:');
+{
+  const axe = Weapon.from_file(join(W, 'battle_axe.yaml'));
+  const spin = axe.special.findIndex(a => a.name === 'Spinning Attack');
+  check(spin >= 0 && axe.special[spin].area === 3 && !axe.special[spin].aimed, 'Spinning Attack is a reactive 3×3 burst');
+  const P = mk('P', 'A', { x: 3, y: 1 }, axe, false);
+  const L = mk('L', 'B', { x: 2, y: 1 }, STRIKER, true);   // west flank
+  const R = mk('R', 'B', { x: 4, y: 1 }, STRIKER, true);   // east flank
+  const s = session(EMPTY, [P, L, R]);
+  const bL = hp(s, 'L'), bR = hp(s, 'R');
+  resolveIntents(s, new Map([['P', act('P', 'special', spin)], ['L', act('L', 'pass', 0)], ['R', act('R', 'pass', 0)]]));
+  check(hp(s, 'L') < bL && hp(s, 'R') < bR, `both flankers caught the spin (L ${bL}→${hp(s, 'L')}, R ${bR}→${hp(s, 'R')})`);
+}
+
+// ---- Test 19: Push rider inside an AOE knocks a victim back ----
+console.log('\nPush inside an AOE: blast damages and knocks the victim away:');
+{
+  const SHOCK = Weapon.from_json({
+    Name: 'Shock', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 99 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Shockwave', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: true, Range: 3, Area: 3, Push: 2, Action_String: '<User> blasts <Target>.' }],
+    'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  const P = mk('P', 'A', { x: 1, y: 1 }, SHOCK, false);
+  const V = mk('E', 'B', { x: 3, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, V]);
+  const before = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 3, y: 1 })], ['E', act('E', 'pass', 0)]]));
+  check(s.combatants.find(c => c.id === 'E')!.pos.x === 5, `AOE victim knocked x3→x5 (got ${s.combatants.find(c => c.id === 'E')!.pos.x})`);
+  check(hp(s, 'E') < before, 'AOE victim also took the blast');
+}
+
+// ---- Test 20: crit fires per-victim inside an aimed AOE ----
+console.log('\nCrit inside an aimed AOE: attacking into a victim mid-Special crits them:');
+{
+  const AC = Weapon.from_json({
+    Name: 'AoeCrit', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 99 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Boom', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Aimed: true, Range: 3, Area: 3, Action_String: '<User> booms <Target>.' }],
+    'Attack Crit': [{ Name: 'Followthrough', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Action_String: '<User> follows through.' }],
+    Special: [{ Name: 'Wind', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [1, 1, 1], Cost: 0, Aimed: false, Range: 1, Action_String: '<User> winds.' }],
+    'Special Crit': [],
+  } as any);
+  const P = mk('P', 'A', { x: 1, y: 1 }, AC, false);
+  const V = mk('E', 'B', { x: 3, y: 1 }, AC, true);
+  const s = session(EMPTY, [P, V]);
+  // P AOE-attacks the tile on V; V is using Special → V is caught mid-wind-up → crit.
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 3, y: 1 })], ['E', act('E', 'special', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, `crit fired inside the AOE (attack_crits=${s.meta.get('P')!.state.attack_crits})`);
+}
+
+// ---- Test 21: even-area reactive self-burst sprays toward the enemy ----
+console.log('\nEven-area self-burst sprays toward the nearest enemy (not the NW default):');
+{
+  const SWEEP2 = Weapon.from_json({
+    Name: 'Sweep2', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 99 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Sweep', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: false, Range: 1, Area: 2, Action_String: '<User> sweeps.' }],
+    'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  // Enemy due east; the 2×2 has no center, so it must extend east to catch it
+  // (the NW default would spray to x2..3 and whiff).
+  const P = mk('P', 'A', { x: 3, y: 1 }, SWEEP2, false);
+  const V = mk('E', 'B', { x: 4, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, V]);
+  const before = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0)], ['E', act('E', 'pass', 0)]]));
+  check(hp(s, 'E') < before, `even burst sprayed east onto the enemy (${before}→${hp(s, 'E')})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);
