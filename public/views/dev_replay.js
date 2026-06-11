@@ -26,6 +26,7 @@
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
+              <button id="dr-dl">⤓ Log</button>
               <span id="dr-hint">click a card to inspect its reasoning · ← / → to step · cards/board show the state being decided on; the log is how it resolves</span>
             </div>
             <div id="dr-cards"></div>
@@ -53,7 +54,25 @@
     q('#dr-run').onclick = run;
     q('#dr-prev').onclick = () => step(-1);
     q('#dr-next').onclick = () => step(1);
+    q('#dr-dl').onclick = downloadLog;
     document.addEventListener('keydown', onKey);
+  }
+
+  function downloadLog() {
+    if (!data) return;
+    const r = data.result.winner;
+    const outcome = r === 'team-a' ? 'player wins' : r === 'team-b' ? 'enemy wins' : 'timeout';
+    const lines = [`${data.meta.weapon} vs ${data.meta.enemy} — ${outcome} (${data.result.rounds} rounds)`];
+    for (const t of data.turns) {
+      lines.push(`\n━━━ Turn ${t.n} ━━━`);
+      for (const l of (t.log || [])) lines.push(l);
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `replay-${data.meta.weapon}-vs-${data.meta.enemy}.txt`.replace(/\s+/g, '_');
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function fillSelect(sel, items, def) {
@@ -117,7 +136,7 @@
       const card = document.createElement('div');
       card.className = `combatant-card ${own ? 'team-a' : 'team-b'}${u.id === selUnit ? ' dr-sel' : ''}`;
       card.innerHTML =
-        `<h3>${esc(u.name)}${own ? '' : ' <span class="dr-ai">[AI]</span>'}</h3>` +
+        `<h3>${esc(u.name)} <span class="dr-init" title="initiative — higher acts first">⚡${u.initiative}</span>${own ? '' : ' <span class="dr-ai">[AI]</span>'}</h3>` +
         `<div class="weapon-name">${esc(own ? data.meta.weapon : data.meta.enemy)}</div>` +
         `<div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>` +
         `<div class="hp-text">${u.hp} / ${u.maxHp} HP</div>` +

@@ -55,6 +55,16 @@ function applyLogFilters(state) {
       applyLogFilters(next);
     });
   });
+  // Download the full log (all lines, ignoring the visibility filters).
+  document.getElementById('log-download')?.addEventListener('click', () => {
+    const text = [...logEl.children].map(p => p.textContent).join('\n');
+    if (!text) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    a.download = 'battle-log.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 })();
 
 // ---- Socket ----
@@ -621,7 +631,7 @@ function renderCombatantList() {
     const telegraph = c.isAI && state.telegraphs?.[c.id];
     const weaponLine = (!c.isAI && c.weaponInfo) ? `<div class="weapon-name">${c.weaponInfo.name}</div>` : '';
     card.innerHTML = `
-      <h3>${c.name}${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
+      <h3>${c.name} <span class="init-badge" title="initiative — higher acts first">⚡${c.initiative}</span>${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
       ${weaponLine}
       <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
       <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>

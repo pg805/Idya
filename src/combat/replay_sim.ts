@@ -95,6 +95,7 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
   const snap = (c: Combatant, hp: number, res: number, tg: string) => ({
     id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp, maxHp: c.maxHp,
     resource: res, maxResource: c.maxResource, resourceName: c.resourceName, telegraph: tg,
+    initiative: c.initiative, initiativeRank: c.initiativeRank,
   });
 
   for (let n = 0; n < MAX_ROUNDS; n++) {

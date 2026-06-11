@@ -22,6 +22,7 @@
 #dr-cards .combatant-card.dr-sel { box-shadow: 0 0 0 2px #8a5ad0; }
 #dr-cards .combatant-card h3 { font-size: 0.9rem; margin: 0 0 2px; }
 #dr-cards .dr-ai { opacity: 0.5; font-size: 0.65rem; }
+#dr-cards .dr-init { font-size: 0.7rem; color: #c89a6a; font-weight: 600; }
 #dr-cards .weapon-name { font-size: 0.7rem; color: var(--text-muted, #9a9aa8); margin-bottom: 6px; }
 #dr-cards .hp-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 6px; overflow: hidden; }
 #dr-cards .hp-bar { height: 100%; border-radius: 3px; transition: width 0.2s, background 0.2s; }
