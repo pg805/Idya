@@ -31,9 +31,9 @@ const W = {
   buff: 0.3,
   kill: 40,        // flat bonus for a likely kill
   allyTile: 1.0,   // dropping a block/buff tile to stand on
-  critExposure: 1.0, // penalty for Specialing into a foe's COMPOUNDING (debuff) attack_crit
   corner: 0.6,     // (smart chaser only) herd a fleeing foe toward a wall
-  tri: 3,          // (smart only) category-triangle nudge: counter the foe's read
+  critSeek: 1.0,   // (smart only) chase my counter-crit when I read the foe's category
+  critFear: 1.0,   // (smart only) shy off a category the foe's counter-crit punishes
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
 };
@@ -53,15 +53,18 @@ const valueOf = (a: Action) => (a as unknown as { value?: number }).value ?? 0;
 const roundsOf = (a: Action) => (a as unknown as { rounds?: number }).rounds ?? 1;
 const isDamaging = (a: Action) => a.type === ActionType.Strike || a.type === ActionType.DamageOverTime;
 
-// What a foe's attack_crit is worth AVOIDING by not Specialing into it. We only
-// fear crits that COMPOUND — a debuff / move-debuff saps you for several rounds
-// (e.g. Golnosar's −14 atk for 3). One-time damage crits (strike/DOT) are usually
-// worth trading through, so they don't discourage Specialing (penalizing them
-// uniformly made aggressive weapons abandon their best hit and lose damage races).
-function critCost(a: Action): number {
-  if (a.type === ActionType.Debuff || a.type === ActionType.MoveDebuff) return valueOf(a) * roundsOf(a) * 0.5;
-  return 0;
-}
+// Category triangle: which category each beats / is beaten by, and the crit slot
+// each plays. MOOD_P turns the telegraph mood into rough odds on the foe's
+// category. critValue is a crit's magnitude (damage EV, or value×rounds for a
+// buff/heal/reflect) — what it's worth to land or to eat.
+const TRI_BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
+const TRI_BEATEN: Record<string, string> = { attack: 'defend', special: 'attack', defend: 'special' };
+const TRI_CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
+const MOOD_P: Record<string, Record<string, number>> = {
+  defensive: { attack: 0.15, special: 0.15, defend: 0.7 },
+  hostile:   { attack: 0.4, special: 0.4, defend: 0.2 },
+};
+const critValue = (a: Action): number => { const f = fieldOf(a); return (f.length ? ev(f) : valueOf(a)) * roundsOf(a); };
 
 function maxDamagingRange(c: Combatant): number {
   let r = 1;
@@ -152,7 +155,7 @@ function scorePlan(
   me: Combatant, meta: CombatantMeta, foe: Combatant, foeMeta: CombatantMeta | undefined,
   dest: Pos, destInfo: ReachDanger | undefined, action: Action, target: Pos | null,
   predicted: Map<string, number>, session: CombatSession,
-  myMaxAtkCost: number, isSpecial: boolean, smart = false, foeMood: 'hostile' | 'defensive' | null = null,
+  myMaxAtkCost: number, myCat: ActionChoice, smart = false, foeMood: 'hostile' | 'defensive' | null = null,
 ): number {
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
   const foeReach = foe.movementRange + maxDamagingRange(foe);
@@ -280,19 +283,19 @@ function scorePlan(
     score -= Math.min(roomX, roomY) * W.corner;   // less flee room = better
   }
 
-  // --- crit exposure: Specialing lets the foe's attack_crit land if it Attacks.
-  // Penalize it when a crit-capable foe can reach me — so I aim an Attack instead.
-  if (isSpecial && foeMeta && foeMeta.weapon.attack_crit.length > 0 && foeCanHitDest)
-    score -= critCost(foeMeta.weapon.attack_crit[0]) * FOE_ATTACK_CHANCE * W.critExposure;
-
-  // --- category triangle (smart only), read off the telegraph MOOD only (the
-  // reliable signal — hostile vs defensive). A light nudge: if they look defensive,
-  // lean Special (out-damages a guard); if they look hostile, lean Defend (eat the
-  // incoming, whether it's an attack or a special). Kept small so fights stay
-  // readable. We deliberately DON'T guess attack-vs-special — it isn't predictable.
-  if (smart && foeMood) {
-    if (foeMood === 'defensive' && isSpecial) score += W.tri;
-    else if (foeMood === 'hostile' && isMyDefend) score += W.tri;
+  // --- category triangle (smart only), VALUE-AWARE. The telegraph mood gives rough
+  // odds on the foe's category; MY crit lands if I play what beats theirs, and THEIR
+  // counter-crit lands if they play what beats mine — each weighed by the crit's real
+  // EV. So I chase a fat special_crit into a likely guard and shy off a Special that
+  // would eat a big attack_crit. Engagement-gated (foeCanHitDest) and read off the
+  // telegraph, so it's not omniscient. (Self-target crits still score by their value,
+  // since landing one is a benefit and eating the foe's is a loss.)
+  if (smart && foeMood && foeCanHitDest) {
+    const P = MOOD_P[foeMood];
+    const myCrit = (meta.weapon as unknown as Record<string, Action[]>)[TRI_CRIT[myCat]];
+    if (myCrit && myCrit.length > 0) score += critValue(myCrit[0]) * P[TRI_BEATS[myCat]] * W.critSeek;
+    const foeCrit = foeMeta && (foeMeta.weapon as unknown as Record<string, Action[]>)[TRI_CRIT[TRI_BEATEN[myCat]]];
+    if (foeCrit && foeCrit.length > 0) score -= critValue(foeCrit[0]) * P[TRI_BEATEN[myCat]] * W.critFear;
   }
 
   // --- penalties / economy ---
@@ -394,7 +397,7 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
     const isStay = d.pos.x === me.pos.x && d.pos.y === me.pos.y;
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
-        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special', smart, foeMood);
+        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice, smart, foeMood);
         if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {
