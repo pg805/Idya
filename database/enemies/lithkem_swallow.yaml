@@ -56,7 +56,15 @@ Weapon:
       Cost: 1
       Action_String: "<User> takes to the air, blocking <Damage> damage."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Sky High
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 3
+      Cost: 0
+      Action_String: "<User> beats its wings and rises, blocking 3 more."
 
   Attack:
     - Name: Spit
@@ -103,4 +111,13 @@ Weapon:
       Range: 2
       Action_String: "<User> drenches <Target>, debuffing their attack by 5 for 2 rounds."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Soak
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Elemental
+      Damage_Subtype: Water
+      Field: [2, 3]
+      Cost: 0
+      Range: 2
+      Action_String: "<User> soaks <Target> for <Damage> damage."

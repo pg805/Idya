@@ -18,7 +18,15 @@ Defend:
     Cost: -6
     Action_String: "<User> picks up their branch, bracing for 2 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Blessing of Nature
+    Type: 6
+    Type_Name: Heal
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Value: 2
+    Cost: 0
+    Action_String: "<User> draws on nature's blessing, healing 2."
 
 Attack:
   - Name: Swing
@@ -54,4 +62,13 @@ Special:
     Range: 1
     Action_String: "<User> grips with both hands and drives the branch into <Target> for <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Wrath of Nature
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Nature
+    Field: [3, 4]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> calls down nature's wrath on <Target> for <Damage> damage."

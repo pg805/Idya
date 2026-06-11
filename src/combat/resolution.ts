@@ -34,7 +34,7 @@ function pushLog(log: string[], text: string) {
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[]): void {
   const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
   const CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
-  const VERB: Record<string, string> = { attack: 'catches', special: 'crashes through', defend: 'ripostes' };
+  const VERB: Record<string, string> = { attack: 'catches', special: 'punishes the guard of', defend: 'counters' };
   for (const actor of [...session.combatants]) {
     const aIntent = intents.get(actor.id);
     const aCat = aIntent?.action.type;
@@ -44,17 +44,25 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
     const lists = aMeta.weapon as unknown as Record<string, Action[]>;
     const crits = lists[CRIT[aCat]];
     if (!crits || crits.length === 0) continue;
-    const used = lists[aCat]?.[aIntent!.action.actionIndex];
-    const critRange = Math.max(crits[0].range ?? 1, used?.range ?? 1);
+    const myRange = lists[aCat]?.[aIntent!.action.actionIndex]?.range ?? 1;
+    // Self-target crits (heal/block/shield/reflect/buff) land on ME; foe-target
+    // ones (strike/DOT/debuff) land on the foe and must REACH it.
+    const isSelf = SELF_TARGET_TYPES.has(crits[0].type);
+    const critReach = Math.max(crits[0].range ?? 1, myRange);
     for (const foe of session.combatants) {
       if (foe.teamId === actor.teamId) continue;
-      if (intents.get(foe.id)?.action.type !== BEATS[aCat]) continue;
+      const fIntent = intents.get(foe.id);
+      if (fIntent?.action.type !== BEATS[aCat]) continue;
       const fMeta = session.meta.get(foe.id);
       if (!fMeta || fMeta.state.health <= 0) continue;
-      if (chebyshevDist(actor.pos, foe.pos) > critRange) continue;
+      const foeRange = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex]?.range ?? 1;
+      const dist = chebyshevDist(actor.pos, foe.pos);
+      if (dist > Math.max(myRange, foeRange)) continue;   // not engaged this turn
+      if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
-      pushLog(log, resolve_action(aMeta.state, fMeta.state, crits));
+      pushLog(log, resolve_action(aMeta.state, isSelf ? aMeta.state : fMeta.state, crits));
+      if (isSelf) break;   // a self-buff crit triggers once, not per attacker
     }
   }
 }

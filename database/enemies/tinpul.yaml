@@ -44,7 +44,15 @@ Weapon:
       Cost: -7
       Action_String: "<User> drinks from its own body, blocking <Damage> damage and restoring 7 Tin."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Copper Aid
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 2
+      Cost: 0
+      Action_String: "<User> patches itself with copper, healing 2."
 
   Attack:
     - Name: Pea Shot
@@ -89,4 +97,13 @@ Weapon:
       Cost: 4
       Action_String: "<User> hardens its tin shell, shielding 8 damage for 2 rounds."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Copper Spike
+      Type: 7
+      Type_Name: Reflect
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Value: 2
+      Rounds: 2
+      Cost: 0
+      Action_String: "<User> bristles with copper spikes, reflecting 2 for 2 rounds."
