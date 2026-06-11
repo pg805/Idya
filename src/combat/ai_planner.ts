@@ -29,7 +29,10 @@ const W = {
   restore: 0.5,
   buff: 0.3,
   kill: 40,        // flat bonus for a likely kill
+  allyTile: 1.0,   // dropping a block/buff tile to stand on
+  critExposure: 1.0, // penalty for Specialing into a foe's COMPOUNDING (debuff) attack_crit
 };
+const FOE_ATTACK_CHANCE = 0.5;  // rough odds the foe Attacks this turn (→ its crit lands if I Special)
 // Rough "what one player hit costs me", used for the vulnerability dial. A real
 // damage read isn't available (we only see the foe's range/cost, not its field),
 // so this is a constant for now — tune, or later estimate from observed hits.
@@ -41,6 +44,16 @@ const fieldOf = (a: Action) => (((a as unknown as { field?: { field: number[] } 
 const valueOf = (a: Action) => (a as unknown as { value?: number }).value ?? 0;
 const roundsOf = (a: Action) => (a as unknown as { rounds?: number }).rounds ?? 1;
 const isDamaging = (a: Action) => a.type === ActionType.Strike || a.type === ActionType.DamageOverTime;
+
+// What a foe's attack_crit is worth AVOIDING by not Specialing into it. We only
+// fear crits that COMPOUND — a debuff / move-debuff saps you for several rounds
+// (e.g. Golnosar's −14 atk for 3). One-time damage crits (strike/DOT) are usually
+// worth trading through, so they don't discourage Specialing (penalizing them
+// uniformly made aggressive weapons abandon their best hit and lose damage races).
+function critCost(a: Action): number {
+  if (a.type === ActionType.Debuff || a.type === ActionType.MoveDebuff) return valueOf(a) * roundsOf(a) * 0.5;
+  return 0;
+}
 
 function maxDamagingRange(c: Combatant): number {
   let r = 1;
@@ -121,8 +134,11 @@ function scorePlan(
   me: Combatant, meta: CombatantMeta, foe: Combatant, foeMeta: CombatantMeta | undefined,
   dest: Pos, destInfo: ReachDanger | undefined, action: Action, target: Pos | null,
   predicted: Map<string, number>, session: CombatSession,
+  myMaxAtkCost: number, isSpecial: boolean,
 ): number {
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
+  const foeReach = foe.movementRange + maxDamagingRange(foe);
+  const foeCanHitDest = chebyshevDist(dest, foe.pos) <= foeReach;
   let score = 0;
 
   // --- offense: expected damage = EV × hit chance, with the resist roll-mode skew ---
@@ -144,8 +160,14 @@ function scorePlan(
     const missing = me.maxHp - meta.state.health;
     score += Math.min(valueOf(action), missing) * W.heal * (1 + vuln);
   }
-  if (action.type === ActionType.Block || action.type === ActionType.Shield || action.type === ActionType.Reflect)
-    score += Math.min(valueOf(action), ESTIMATED_INCOMING) * roundsOf(action) * vuln * W.defend;
+  // Defense is only worth it if the foe can actually hit me this turn — shielding
+  // when safe is a wasted turn (the old "turtle forever" bug). Multi-round shields
+  // are modestly better, not ×rounds.
+  if (action.type === ActionType.Block || action.type === ActionType.Shield || action.type === ActionType.Reflect) {
+    const dur = 1 + 0.3 * (roundsOf(action) - 1);
+    const threatened = foeCanHitDest ? 1 : 0.15;
+    score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * vuln * W.defend * threatened;
+  }
   if (action.type === ActionType.Buff) score += valueOf(action) * W.buff;
 
   // --- control tiles: reward placement on the foe's likely path ---
@@ -157,6 +179,21 @@ function scorePlan(
   }
   if (action.type === ActionType.MoveDebuff)
     score += hitProb(action, dest, target, predicted, session) * roundsOf(action) * 4 * (W.control / 1.2);
+
+  // --- ally tiles (block/buff zones to stand on): score so kits built around them
+  // (Pickaxe, Spellbook's Bookmark) actually use them. Don't credit re-dropping a
+  // tile that's already there.
+  if (action.type === ActionType.BlockTile || action.type === ActionType.BuffTile) {
+    const at = action.aimed && target ? target : dest;
+    const here = session.board.getTile(at);
+    const dup = here && here.teamId === me.teamId &&
+      here.kind === (action.type === ActionType.BlockTile ? 'block' : 'buff');
+    if (!dup) {
+      score += action.type === ActionType.BlockTile
+        ? valueOf(action) * vuln * W.defend * 1.2     // a persistent self-shield
+        : valueOf(action) * W.allyTile * 0.6;          // boosts my future strikes
+    }
+  }
 
   // --- positioning: two opposing pulls ---
   //   approach — close the gap until I'm inside my OWN attack range, so I keep
@@ -170,9 +207,16 @@ function scorePlan(
   score -= Math.max(0, d - myRange) * W.approach;
   score += Math.min(d, foeThreat) * vuln * W.safety;
 
+  // --- crit exposure: Specialing lets the foe's attack_crit land if it Attacks.
+  // Penalize it when a crit-capable foe can reach me — so I aim an Attack instead.
+  if (isSpecial && foeMeta && foeMeta.weapon.attack_crit.length > 0 && foeCanHitDest)
+    score -= critCost(foeMeta.weapon.attack_crit[0]) * FOE_ATTACK_CHANCE * W.critExposure;
+
   // --- penalties / economy ---
   score -= (destInfo?.hazard ?? 0) * W.hazardPath;
-  if (action.cost < 0)
+  // Restoring resource only matters when being short is actually blocking my best
+  // offensive move — otherwise it's a wasted turn (the other half of the turtle bug).
+  if (action.cost < 0 && meta.state.resource_current < myMaxAtkCost)
     score += Math.min(meta.state.resource_max - meta.state.resource_current, -action.cost) * W.restore;
 
   return score;
@@ -223,6 +267,9 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   for (const r of reach.values()) dests.push({ pos: r.pos, info: r });
 
   const actions = collectAffordable(meta);
+  // Priciest offensive action — restoring resource only earns credit when I can't
+  // currently afford it (see scorePlan).
+  const myMaxAtkCost = Math.max(0, ...[...meta.weapon.attack, ...meta.weapon.special].map(a => a.cost));
 
   let best: { score: number; tiebreak: number; intent: CombatIntent } | null = null;
   for (const d of dests) {
@@ -230,7 +277,7 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
     const isStay = d.pos.x === me.pos.x && d.pos.y === me.pos.y;
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
-        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session);
+        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special');
         if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {
