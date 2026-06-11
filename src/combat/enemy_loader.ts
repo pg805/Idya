@@ -20,6 +20,7 @@ type EnemyData = {
   Resistances?: Record<string, number>;
   Loot?: EnemyLootData;
   AI?: string;   // 'smart' → use the utility planner instead of the Pattern
+  Telegraph?: { closing?: string; holding?: string; fleeing?: string };  // body-language phrases per movement intent
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
@@ -108,6 +109,7 @@ export function loadEnemy(file: string, options: {
     pattern: pattern.field,
     patternIndex: startIndex,
     smartAI: data.AI === 'smart',
+    telegraph: data.Telegraph,
   };
 
   const lootTable: LootTable = {

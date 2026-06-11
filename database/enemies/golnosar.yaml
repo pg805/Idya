@@ -2,6 +2,10 @@ Name: Golnosar
 Health: 150
 Level: 3
 AI: smart
+Telegraph:
+  closing: "Oozing toward you"
+  holding: "Leaking"
+  fleeing: "Seeping away"
 Loot:
   Items:
     - id: thuvel

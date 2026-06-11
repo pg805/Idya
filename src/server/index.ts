@@ -21,13 +21,12 @@ import worldConfig from './world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
-import { CombatIntent, ActionChoice } from '../combat/intent.js';
+import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
 import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
 import { choosePlan } from '../combat/ai_planner.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
-import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
@@ -142,58 +141,44 @@ function getOrCreateToken(discordId: string): string {
 
 // ---- Telegraph ----
 
-const TELEGRAPH: Record<string, Record<string, string>> = {
-  defend:  { closing: 'Pulling back',       holding: 'Bracing',             retreating: 'Retreating' },
-  attack:  { closing: 'Closing in',         holding: 'Poised to strike',    retreating: 'Breaking away' },
-  special: { closing: 'Moving with intent', holding: 'Preparing something', retreating: 'Buying time' },
+// Body-language telegraph: a vague, movement-keyed mood that *correlates* with
+// what the enemy is about to do without confirming it. Deliberately reveals NO
+// action category — reading attack-vs-heal-vs-trap is the player's job, off the
+// enemy's HP, resource, distance, and the kit they've learned. The same three
+// moods cover smart and pattern units; the player learns each enemy's tells over
+// fights. (A "coiled" enemy might strike, brace, or feint — that's the point.)
+const MOOD: Record<'closing' | 'holding' | 'fleeing', string> = {
+  closing: 'Stalking closer',
+  holding: 'Sizing you up',
+  fleeing: 'Circling away',
 };
 
 function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[], session: CombatSession): string {
   if (enemies.length === 0) return '';
-
-  let choice: ActionChoice;
-  let action: Action;
-  let moveTo: { x: number; y: number } | null;
-
-  if (meta.smartAI) {
-    // Smart units: telegraph the plan the planner will actually pick (deterministic,
-    // so it matches what fires). Same categories as the pattern path below.
-    const intent = choosePlan(ai, session);
-    if (intent.action.type === 'pass') return '';
-    choice = intent.action.type;
-    const list = (meta.weapon as unknown as Record<string, Action[]>)[choice];
-    const a = list?.[intent.action.actionIndex];
-    if (!a) return '';
-    action = a;
-    moveTo = intent.moveTo;
-  } else {
-    if (meta.pattern.length === 0) return '';
-    // Use the same affordability walk the AI does so the telegraph reflects the
-    // action that will actually fire — not whatever happens to be at the current
-    // pattern index (which the AI may skip because it can't afford it).
-    const resolved = findAffordableEntry(meta);
-    if (!resolved) return '';
-    choice = resolved.choice;
-    action = resolved.action;
-    moveTo = null;
-  }
-
-  if (SELF_TARGET_TYPES.has(action.type)) return TELEGRAPH[choice].holding;
-
   const nearest = enemies.reduce((a, b) =>
     chebyshevDist(ai.pos, a.pos) <= chebyshevDist(ai.pos, b.pos) ? a : b
   );
-  // Movement intent: smart units have a concrete destination; pattern units just
-  // close to range. "closing" if nearing the target, "retreating" if backing off.
-  let movement: 'closing' | 'holding' | 'retreating';
-  if (moveTo) {
-    const before = chebyshevDist(ai.pos, nearest.pos);
-    const after = chebyshevDist(moveTo, nearest.pos);
-    movement = after < before ? 'closing' : after > before ? 'retreating' : 'holding';
+
+  let dir: 'closing' | 'holding' | 'fleeing';
+  if (meta.smartAI) {
+    // Read only the movement of the plan the planner will actually pick — not the
+    // action itself. Deterministic, so the mood matches what fires.
+    const intent = choosePlan(ai, session);
+    if (intent.action.type === 'pass' && !intent.moveTo) return '';
+    if (intent.moveTo) {
+      const before = chebyshevDist(ai.pos, nearest.pos);
+      const after = chebyshevDist(intent.moveTo, nearest.pos);
+      dir = after < before ? 'closing' : after > before ? 'fleeing' : 'holding';
+    } else dir = 'holding';
   } else {
-    movement = chebyshevDist(ai.pos, nearest.pos) <= action.range ? 'holding' : 'closing';
+    if (meta.pattern.length === 0) return '';
+    const resolved = findAffordableEntry(meta);
+    if (!resolved) return '';
+    // Pattern units only ever close to range, never flee.
+    dir = chebyshevDist(ai.pos, nearest.pos) > resolved.action.range ? 'closing' : 'holding';
   }
-  return TELEGRAPH[choice][movement];
+  // Per-enemy body language if the YAML defines it, else the generic mood.
+  return meta.telegraph?.[dir] ?? MOOD[dir];
 }
 
 function refreshTelegraphs(session: CombatSession): void {

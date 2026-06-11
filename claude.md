@@ -139,6 +139,7 @@ Key files for the new system:
 - `src/combat/ai.ts` — AI intent dispatch: smart units → `choosePlan`, others → the Pattern walk
 - `src/combat/ai_planner.ts` — Utility AI: scores `(destination, action, target)` plans each turn (`choosePlan`). Behaviour (kite/smash/heal/control) emerges from the kit + HP; no per-enemy scripts. Opt in per enemy with `AI: smart` in the YAML. `predictPlayerTiles` models where the player will move so aimed attacks *lead* and AOE *blankets*.
 - `src/combat/enemy_loader.ts` — Loads enemy YAML into Combatant + CombatantMeta
+- **Enemy telegraph** (`computeTelegraph` in `src/server/index.ts`) — a deliberately vague, movement-keyed *body-language* cue (closing/holding/fleeing) that correlates with intent but never reveals the action category; reading attack-vs-heal-vs-trap is the player's job. Enemies can define flavored phrases per movement intent via a `Telegraph:` block in their YAML (`closing`/`holding`/`fleeing`), else a generic mood is used.
 - `public/` — Browser UI (game.html, game.js, game.css)
 
 **Crit rule:** `attack_crit` fires when the actor uses Attack and the target is using Special that same turn. Fires before the main attack. Both aimed and reactive attacks check this.

@@ -2,6 +2,10 @@ Name: Melbear
 Health: 300
 Level: 4
 AI: smart
+Telegraph:
+  closing: "Charging, frothing at the mouth"
+  holding: "Frothing at the mouth"
+  fleeing: "Lumbering back, still snarling"
 Loot:
   Items:
     - id: crude_talamite
