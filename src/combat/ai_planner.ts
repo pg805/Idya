@@ -32,8 +32,8 @@ const W = {
   kill: 40,        // flat bonus for a likely kill
   allyTile: 1.0,   // dropping a block/buff tile to stand on
   corner: 0.6,     // (smart chaser only) herd a fleeing foe toward a wall
-  critSeek: 1.0,   // (smart only) chase my counter-crit when I read the foe's category
-  critFear: 1.0,   // (smart only) shy off a category the foe's counter-crit punishes
+  critSeek: 3.0,   // (smart only) chase my counter-crit when I read the foe's category
+  critFear: 3.0,   // (smart only) shy off a category the foe's counter-crit punishes
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
 };
@@ -60,9 +60,12 @@ const isDamaging = (a: Action) => a.type === ActionType.Strike || a.type === Act
 const TRI_BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
 const TRI_BEATEN: Record<string, string> = { attack: 'defend', special: 'attack', defend: 'special' };
 const TRI_CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
+// Mood → rough category odds. Validated: "hostile" is mostly a basic ATTACK
+// (specials run 2–35%), so a hostile read should point me at Defend, not make me
+// fear a Special that probably isn't coming.
 const MOOD_P: Record<string, Record<string, number>> = {
   defensive: { attack: 0.15, special: 0.15, defend: 0.7 },
-  hostile:   { attack: 0.4, special: 0.4, defend: 0.2 },
+  hostile:   { attack: 0.6, special: 0.2, defend: 0.2 },
 };
 const critValue = (a: Action): number => { const f = fieldOf(a); return (f.length ? ev(f) : valueOf(a)) * roundsOf(a); };
 
