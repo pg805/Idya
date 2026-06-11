@@ -60,7 +60,16 @@ Weapon:
       Cost: -10
       Action_String: "<User> drinks deeply from its own tar pool, blocking 10 damage and restoring 10 Tar."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Tar Source
+      Type: 10
+      Type_Name: Buff Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 5
+      Area: 1
+      Cost: 0
+      Action_String: "<User> wells up a tar source — whoever holds the square strikes for +5."
 
   Attack:
     - Name: Tar Shot
@@ -110,4 +119,12 @@ Weapon:
       Cost: 3
       Action_String: "<User> floods a 3x3 area with sticky tar — slogging through it is slow going."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Tar Suck
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 8
+      Cost: 0
+      Action_String: "<User> draws the spent tar back into itself, healing 8."

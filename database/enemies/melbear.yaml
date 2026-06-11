@@ -67,7 +67,15 @@ Weapon:
       Cost: 2
       Action_String: "<User> snacks on a berry, healing 35 damage."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Honey Berry
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 15
+      Cost: 0
+      Action_String: "<User> digs out a honey berry, healing 15."
 
   Attack:
     - Name: Ursa Minor
@@ -105,4 +113,13 @@ Weapon:
       Range: 2
       Action_String: "<User> calls the Ursa Major down upon <Target> for <Damage> damage."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Bear Cub Strike
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [10, 15, 20]
+      Cost: 0
+      Range: 2
+      Action_String: "<User>'s cub pounces, raking <Target> for <Damage> damage."

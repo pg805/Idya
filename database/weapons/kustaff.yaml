@@ -28,7 +28,15 @@ Defend:
     Cost: -2  # restores 2 connection
     Action_String: "Vines grow around <User>, shielding 15 damage for 3 rounds."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Connect
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Value: 0
+    Cost: -1
+    Action_String: "<User> draws on the bond, recovering 1 Connection."
 
 Attack:
   - Name: Lash
@@ -64,4 +72,14 @@ Special:
     Cost: 3
     Action_String: "<User> erupts a 3x3 thicket of thorns — anything that moves into it is torn for 10."
 
-Special Crit: []
+Special Crit:
+  - Name: Poison Oak
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Field: [7, 9, 14]
+    Rounds: 2
+    Cost: 0
+    Range: 2
+    Action_String: "<User>'s thicket erupts with poison oak — <Target> takes <Damage> a round."

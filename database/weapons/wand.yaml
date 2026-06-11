@@ -19,7 +19,15 @@ Defend:
     Cost: 0
     Action_String: "<User> raises their wand and conjures a shimmering ward, shielding against 20 damage for 2 rounds."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Obstructo
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 10
+    Cost: 0
+    Action_String: "<User> conjures a quick obstruction, blocking 10 more."
 
 Attack:
   - Name: Fire Bolt
@@ -101,4 +109,13 @@ Special:
     Range: 4
     Action_String: "<User> pours every ounce of Sidaev into a single devastating blast at <Target>, dealing <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Elemental Spark
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Elemental
+    Damage_Subtype: Electric
+    Field: [8, 14, 20]
+    Cost: 0
+    Range: 4
+    Action_String: "<User>'s blast throws off an elemental spark, striking <Target> for <Damage> damage."

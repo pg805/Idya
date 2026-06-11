@@ -27,14 +27,14 @@ Defend:
     Action_String: "<User> steadies their breath and recovers their resolve."
 
 Defend Crit:
-  - Name: Counter-swing
-    Type: 1
-    Type_Name: Strike
+  - Name: Push Through
+    Type: 6
+    Type_Name: Heal
     Damage_Type: Physical
-    Damage_Subtype: Sharp
-    Field: [12]
+    Damage_Subtype: Mental
+    Value: 10
     Cost: 0
-    Action_String: "<User> turns the caught blow into a counter-swing, dealing <Damage> damage."
+    Action_String: "<User> shrugs off the blow and pushes through, recovering 10 HP."
 
 Attack:
   - Name: Overwhelming Attack
@@ -77,6 +77,6 @@ Special Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [18]
+    Field: [12]
     Cost: 0
     Action_String: "<User>'s arc crashes through <Target>'s guard for <Damage> damage."
