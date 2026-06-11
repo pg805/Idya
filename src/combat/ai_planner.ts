@@ -31,7 +31,12 @@ const W = {
   kill: 40,        // flat bonus for a likely kill
   allyTile: 1.0,   // dropping a block/buff tile to stand on
   critExposure: 1.0, // penalty for Specialing into a foe's COMPOUNDING (debuff) attack_crit
+  clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
+                   // modest so a unit doesn't fixate on clearing instead of attacking)
 };
+// Worth of wiping a foe's tile by dropping mine on top (overwrite). Hazards/buffs
+// by their value; slow by a flat delay estimate.
+const clearValue = (t: { kind: string; value: number }) => (t.kind === 'slow' ? 6 : t.value);
 const FOE_ATTACK_CHANCE = 0.5;  // rough odds the foe Attacks this turn (→ its crit lands if I Special)
 // Rough "what one player hit costs me", used for the vulnerability dial. A real
 // damage read isn't available (we only see the foe's range/cost, not its field),
@@ -119,6 +124,9 @@ function hitProb(action: Action, dest: Pos, target: Pos | null, predicted: Map<s
 // squares in range + LOS. (Reactive / self-target take no target.)
 function candidateTargets(action: Action, dest: Pos, predicted: Map<string, number>, session: CombatSession): (Pos | null)[] {
   if (!action.aimed) return [null];
+  // Ally tiles (buff/block) benefit MY team, so aim them at my own square — not
+  // the foe's. The owner stands on them; dropping one on the enemy is wasted.
+  if (action.type === ActionType.BuffTile || action.type === ActionType.BlockTile) return [{ ...dest }];
   const out: Pos[] = [];
   for (const k of predicted.keys()) {
     const [x, y] = k.split(',').map(Number);
@@ -140,6 +148,9 @@ function scorePlan(
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
   const foeReach = foe.movementRange + maxDamagingRange(foe);
   const foeCanHitDest = chebyshevDist(dest, foe.pos) <= foeReach;
+  // Tile I'd be standing on at `dest` — own buff/block tiles are worth moving onto.
+  const destTile = session.board.getTile(dest);
+  const onMyTile = (k: 'block' | 'buff') => !!destTile && destTile.teamId === me.teamId && destTile.kind === k;
   let score = 0;
 
   // --- offense: expected damage = EV × hit chance, with the resist roll-mode skew ---
@@ -148,6 +159,7 @@ function scorePlan(
     const evDmg = ev(fieldOf(action)) * roundsOf(action) * (ROLL_MULT[mode] ?? 1);
     const ph = hitProb(action, dest, target, predicted, session);
     score += evDmg * ph;
+    if (onMyTile('buff')) score += destTile!.value * ph;   // attacking from my buff tile hits harder
     if (ph > 0.5 && evDmg >= foe.hp) score += W.kill;                  // likely kill
     if (action.area > 1) {                                            // other foes caught now
       const cells = affectedKeys(action, dest, target, session);
@@ -171,12 +183,21 @@ function scorePlan(
   }
   if (action.type === ActionType.Buff) score += valueOf(action) * W.buff;
 
-  // --- control tiles: reward placement on the foe's likely path ---
+  // --- control tiles: reward placement on the foe's likely path. Skip re-dropping
+  // the same zone where my tile already sits.
   if ((action.type === ActionType.HazardTile || action.type === ActionType.SlowTile) && action.aimed && target) {
-    let mass = 0;
-    for (const p of areaBlock(target, action.area, dest)) mass += predicted.get(key(p)) ?? 0;
-    const unit = action.type === ActionType.HazardTile ? valueOf(action) : 6;  // slow ≈ delay
-    score += mass * unit * W.control;
+    const kind = action.type === ActionType.HazardTile ? 'hazard' : 'slow';
+    const here = session.board.getTile(target);
+    const dup = here && here.teamId === me.teamId && here.kind === kind;
+    if (dup) {
+      score -= 1;  // my zone already covers this — don't re-drop the same tile
+    } else {
+      let mass = 0;
+      for (const p of areaBlock(target, action.area, dest)) mass += predicted.get(key(p)) ?? 0;
+      const unit = action.type === ActionType.HazardTile ? valueOf(action) : 6;  // slow ≈ delay
+      score += mass * unit * W.control;
+      if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
+    }
   }
   if (action.type === ActionType.MoveDebuff)
     score += hitProb(action, dest, target, predicted, session) * roundsOf(action) * 4 * (W.control / 1.2);
@@ -187,12 +208,17 @@ function scorePlan(
   if (action.type === ActionType.BlockTile || action.type === ActionType.BuffTile) {
     const at = action.aimed && target ? target : dest;
     const here = session.board.getTile(at);
+    // Redundant only if it's MY OWN same-kind tile — replacing a foe's tile (or a
+    // different one of mine) is fine, and rewarded below.
     const dup = here && here.teamId === me.teamId &&
       here.kind === (action.type === ActionType.BlockTile ? 'block' : 'buff');
-    if (!dup) {
+    if (dup) {
+      score -= 1;  // already my tile here — don't waste a turn re-dropping it
+    } else {
       score += action.type === ActionType.BlockTile
         ? valueOf(action) * vuln * W.defend * 1.2     // a persistent self-shield
         : valueOf(action) * W.allyTile * 0.6;          // boosts my future strikes
+      if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
     }
   }
 
