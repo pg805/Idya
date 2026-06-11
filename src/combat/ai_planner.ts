@@ -31,6 +31,7 @@ const W = {
   kill: 40,        // flat bonus for a likely kill
   allyTile: 1.0,   // dropping a block/buff tile to stand on
   critExposure: 1.0, // penalty for Specialing into a foe's COMPOUNDING (debuff) attack_crit
+  corner: 0.6,     // (smart chaser only) herd a fleeing foe toward a wall
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
 };
@@ -84,7 +85,13 @@ export function predictPlayerTiles(me: Combatant, foe: Combatant, session: Comba
       ? 3                                            // can hit me from here — prime spot
       : Math.max(0.2, 1.5 - 0.3 * (d - foeRange));   // gradient: closer to range = likelier
     const tile = session.board.getTile(t);
-    if (tile && tile.kind === 'hazard' && tile.teamId === me.teamId) w *= 0.4;  // foes avoid my pits
+    // Foes route AROUND my tiles — a hazard is dodged almost entirely (so I can't
+    // count on it landing), a slow tile is shied off. This stops a tile-kiter from
+    // fleeing forever on the fantasy that its pit is "productive" when it's dodged.
+    if (tile && tile.teamId === me.teamId) {
+      if (tile.kind === 'hazard') w *= 0.12;
+      else if (tile.kind === 'slow') w *= 0.6;
+    }
     raw.set(key(t), (raw.get(key(t)) ?? 0) + w);
     total += w;
   };
@@ -143,7 +150,7 @@ function scorePlan(
   me: Combatant, meta: CombatantMeta, foe: Combatant, foeMeta: CombatantMeta | undefined,
   dest: Pos, destInfo: ReachDanger | undefined, action: Action, target: Pos | null,
   predicted: Map<string, number>, session: CombatSession,
-  myMaxAtkCost: number, isSpecial: boolean,
+  myMaxAtkCost: number, isSpecial: boolean, smart = false,
 ): number {
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
   const foeReach = foe.movementRange + maxDamagingRange(foe);
@@ -165,7 +172,7 @@ function scorePlan(
     if (ph > 0.15) threatening = true;
     score += evDmg * ph;
     if (onMyTile('buff')) score += destTile!.value * ph;   // attacking from my buff tile hits harder
-    if (ph > 0.5 && evDmg >= foe.hp) score += W.kill;                  // likely kill
+    if (evDmg >= foe.hp) score += W.kill * ph;   // expected value of finishing — take the shot even at modest odds, don't turtle past a kill
     if (action.area > 1) {                                            // other foes caught now
       const cells = affectedKeys(action, dest, target, session);
       for (const e of session.combatants)
@@ -253,6 +260,18 @@ function scorePlan(
   // (This is what stops a fragile unit kiting forever with no payoff.)
   if (threatening) score += Math.min(d, foeThreat) * vuln * W.safety;
 
+  // Cornering (smart chaser only): when I still can't reach the foe, prefer the
+  // approach ANGLE that leaves it less room to flee — i.e. back it toward a wall.
+  // At equal move speed you can't catch a fleer in the open, but you CAN herd it
+  // into an edge, which is how a human pins a kiter. Only bites while closing.
+  if (smart && d > myRange) {
+    const fdx = Math.sign(foe.pos.x - dest.x), fdy = Math.sign(foe.pos.y - dest.y);
+    const far = Math.max(session.board.width, session.board.height);
+    const roomX = fdx > 0 ? session.board.width - 1 - foe.pos.x : fdx < 0 ? foe.pos.x : far;
+    const roomY = fdy > 0 ? session.board.height - 1 - foe.pos.y : fdy < 0 ? foe.pos.y : far;
+    score -= Math.min(roomX, roomY) * W.corner;   // less flee room = better
+  }
+
   // --- crit exposure: Specialing lets the foe's attack_crit land if it Attacks.
   // Penalize it when a crit-capable foe can reach me — so I aim an Attack instead.
   if (isSpecial && foeMeta && foeMeta.weapon.attack_crit.length > 0 && foeCanHitDest)
@@ -296,7 +315,10 @@ export interface PlanCandidate {
 // Pick the best (destination, action, target) plan for `me` this turn.
 // Deterministic: same board → same choice. Ties break toward less movement,
 // then the lower action index. Pass `collect` to record every candidate's score.
-export function choosePlan(me: Combatant, session: CombatSession, collect?: PlanCandidate[]): CombatIntent {
+// `smart` = play the stronger anti-kite logic (cornering). The sim turns this on
+// for the player side so it stands in for a competent human; the shipped enemy AI
+// runs with it off.
+export function choosePlan(me: Combatant, session: CombatSession, collect?: PlanCandidate[], smart = false): CombatIntent {
   const meta = session.meta.get(me.id);
   if (!meta) return pass(me.id);
   const enemies = session.combatants.filter(c => c.teamId !== me.teamId);
@@ -323,7 +345,7 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
     const isStay = d.pos.x === me.pos.x && d.pos.y === me.pos.y;
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
-        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special');
+        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special', smart);
         if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {

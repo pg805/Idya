@@ -1,46 +1,57 @@
-// View: Dev Sim Matrix — runs the full weapon×enemy spatial sweep via the dev API
-// and shows the win%/timeout%/HP/rounds grid, color-coded. Same numbers as
-// `spatial_sim.js all`, in the browser. Dev-only; /api/dev/matrix gates with isDev.
+// View: Dev Sim Matrix — the canonical weapon×enemy win%/timeout grid for this
+// version, read STATICALLY from /dev-matrix.json (generated at version bump via
+// `npm run matrix:save`, so the page costs nothing to load). A "re-run live"
+// button hits /api/dev/matrix for a fresh sweep when iterating. Player side plays
+// the smart (human-stand-in) AI; the enemy uses the shippable AI.
 (function() {
   let data = null, root = null, stat = 'win';
   const q = (s) => root.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-  function mount(content) {
+  async function mount(content) {
     root = content;
     root.innerHTML = `
       <div id="dm-shell">
         <div id="dm-controls">
-          <label>Battles / matchup <input id="dm-n" type="number" value="20" min="5" max="50"></label>
           <label>Show <select id="dm-stat">
             <option value="win">win %</option>
             <option value="timeout">timeout %</option>
             <option value="hp">HP % on win</option>
             <option value="rounds">avg rounds</option>
           </select></label>
-          <button id="dm-run">Run sweep</button>
+          <span class="dm-sep"></span>
+          <label>Live re-run <input id="dm-n" type="number" value="20" min="5" max="50"></label>
+          <button id="dm-run">Re-run live</button>
           <span id="dm-status"></span>
         </div>
-        <p id="dm-note">Both sides driven by the AI. Heavy — a sweep runs N battles for every weapon×enemy pair, so it takes a few seconds. Hover a cell for the full stats.</p>
+        <p id="dm-note">Canonical numbers for this version (static). Player side plays the smart human-stand-in AI; the enemy uses the shippable AI. Hover a cell for full stats. Re-run live for a fresh sweep while iterating.</p>
         <div id="dm-table"></div>
       </div>`;
-    q('#dm-run').onclick = run;
     q('#dm-stat').onchange = () => { stat = q('#dm-stat').value; if (data) renderTable(); };
+    q('#dm-run').onclick = runLive;
+
+    // Load the committed canonical matrix — no server compute.
+    try {
+      const res = await fetch('/dev-matrix.json', { cache: 'no-cache' });
+      if (res.ok) { data = await res.json(); setStatus(`canonical v${data.version} · ${data.n} battles/matchup · ${data.generated}`); renderTable(); }
+      else setStatus('no canonical matrix yet — run `npm run matrix:save`, or re-run live.');
+    } catch (_) { setStatus('no canonical matrix — re-run live.'); }
   }
 
-  async function run() {
+  const setStatus = (t) => { q('#dm-status').textContent = t; };
+
+  async function runLive() {
     const n = Math.max(5, Math.min(50, +q('#dm-n').value || 20));
-    const status = q('#dm-status');
-    status.textContent = `running ${n}× per matchup… (this takes a bit)`;
+    setStatus(`running ${n}× per matchup live… (a few seconds)`);
     q('#dm-run').disabled = true;
     try {
       const res = await fetch(`/api/dev/matrix?n=${n}`);
-      if (res.status === 403) { status.textContent = 'Dev only.'; return; }
-      if (!res.ok) { status.textContent = `error ${res.status}`; return; }
+      if (res.status === 403) { setStatus('Dev only.'); return; }
+      if (!res.ok) { setStatus(`error ${res.status}`); return; }
       data = await res.json();
-      status.textContent = `${data.n} battles/matchup · ${data.weapons.length} weapons × ${data.enemies.length} enemies`;
+      setStatus(`live · ${data.n} battles/matchup`);
       renderTable();
-    } catch (_) { status.textContent = 'error'; }
+    } catch (_) { setStatus('error'); }
     finally { q('#dm-run').disabled = false; }
   }
 

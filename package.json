@@ -14,6 +14,7 @@
     "lint": "eslint . --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "simulate": "npm run build && node ./lib/tools/simulate.js",
+    "matrix:save": "npm run build && node ./lib/tools/spatial_sim.js matrix-save 100",
     "sim:save": "npm run build && node -e \"const v=require('./package.json').version; require('child_process').execSync('node ./lib/tools/simulate.js --json docs/sim/'+v+'.json',{stdio:'inherit'})\"",
     "price:smoke": "npm run build && node ./lib/tools/price_smoke.js"
   },

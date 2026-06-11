@@ -8,6 +8,7 @@
 #dm-controls button:hover:not(:disabled) { background: #34344a; }
 #dm-controls button:disabled { opacity: 0.5; cursor: default; }
 #dm-status { color: #c89a6a; font-size: 13px; }
+.dm-sep { width: 1px; align-self: stretch; background: #2a2a34; margin: 2px 4px; }
 #dm-note { color: #8a8a98; font-size: 12px; margin: 0 0 12px; max-width: 720px; }
 
 #dm-table { overflow: auto; max-height: 78vh; border: 1px solid #23232c; border-radius: 8px; }

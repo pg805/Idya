@@ -115,7 +115,7 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     for (const c of session.combatants) {
       const foes = session.combatants.filter(o => o.teamId !== c.teamId);
       const cands: PlanCandidate[] = [];
-      const intent = choosePlan(c, session, foes.length ? cands : undefined);
+      const intent = choosePlan(c, session, foes.length ? cands : undefined, c.teamId === 'team-a');
       intents.set(c.id, intent);
       if (!foes.length) continue;
       const foe = foes.reduce((a, b) => cheb(c.pos, a.pos) <= cheb(c.pos, b.pos) ? a : b);
@@ -161,6 +161,8 @@ export type Outcome = 'win' | 'loss' | 'timeout';
 export interface BattleResult { outcome: Outcome; rounds: number; playerHpFrac: number; }
 
 // One battle: choosePlan drives both teams every turn until a wipe or the cap.
+// The player side (team-a) plays SMART (cornering anti-kite) — it stands in for a
+// competent human; the enemy uses the base, shippable AI.
 export function runSpatialBattle(weapon: Weapon, enemyPath: string): BattleResult {
   const { board, playerSpawn, enemySpawn } = genBoard();
   const player = buildPlayerUnit(weapon, playerSpawn);
@@ -176,7 +178,7 @@ export function runSpatialBattle(weapon: Weapon, enemyPath: string): BattleResul
   let rounds = 0;
   for (; rounds < MAX_ROUNDS; rounds++) {
     if (session.teams.some(t => t.combatants.length === 0)) break;
-    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session, undefined, c.teamId === 'team-a')]));
     const { winner } = resolveIntents(session, intents);
     if (winner) return { outcome: winner === 'team-a' ? 'win' : 'loss', rounds: rounds + 1, playerHpFrac: hpFrac() };
   }

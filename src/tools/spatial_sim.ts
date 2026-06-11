@@ -17,7 +17,7 @@ import { loadEnemy } from '../combat/enemy_loader.js';
 import { CombatSession, CombatantMeta, Team } from '../combat/combat_session.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { choosePlan } from '../combat/ai_planner.js';
-import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay, runSpatialBattle, aggregate } from '../combat/replay_sim.js';
+import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay, runSpatialBattle, aggregate, runMatrix } from '../combat/replay_sim.js';
 import { weaponBudget } from './budget.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -29,6 +29,19 @@ const WEAPONS = join(__dirname, '../../database/weapons');
 const ENEMIES = join(__dirname, '../../database/enemies');
 
 // --- CLI ---
+// Save the canonical matrix for the dev page: `spatial_sim.js matrix-save [N]`.
+// Writes public/dev-matrix.json (the static, per-version numbers the page reads).
+if (process.argv[2] === 'matrix-save') {
+  const N = Number(process.argv[3] ?? 100);
+  const out = process.argv[4] ?? join(__dirname, '../../public/dev-matrix.json');
+  const pkg = JSON.parse(fs.readFileSync(join(__dirname, '../../package.json'), 'utf8')) as { version: string };
+  process.stdout.write(`running canonical matrix (N=${N})…\n`);
+  const m = runMatrix(N);
+  fs.writeFileSync(out, JSON.stringify({ version: pkg.version, n: N, generated: new Date().toISOString().slice(0, 10), ...m }));
+  console.log(`wrote ${out}  (v${pkg.version}, N=${N}, ${m.weapons.length}×${m.enemies.length})`);
+  process.exit(0);
+}
+
 // Debug: trace ONE battle turn-by-turn.
 if (process.argv[2] === 'debug') {
   const enemyPath = join(ENEMIES, `${process.argv[3] ?? 'melbear'}.yaml`);
@@ -48,7 +61,7 @@ if (process.argv[2] === 'debug') {
   console.log(`${weapon.name} @${JSON.stringify(playerSpawn)} vs ${process.argv[3]} @${JSON.stringify(enemySpawn)}, ${board.obstacles.length} obstacles\n`);
   for (let turn = 0; turn < MAX_ROUNDS; turn++) {
     if (session.teams.some(t => t.combatants.length === 0)) break;
-    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session, undefined, c.teamId === 'team-a')]));
     let line = `T${turn + 1}`;
     for (const c of session.combatants) {
       const it = intents.get(c.id)!;
@@ -117,7 +130,7 @@ if (process.argv[2] === 'usage') {
         session.phase = 'intent';
         for (let n = 0; n < MAX_ROUNDS; n++) {
           if (session.teams.some(t => t.combatants.length === 0)) break;
-          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session, undefined, c.teamId === 'team-a')]));
           for (const c of session.combatants) {
             const it = intents.get(c.id)!;
             if (it.action.type === 'pass') continue;
@@ -179,7 +192,7 @@ if (process.argv[2] === 'diag') {
         let winner: string | null = null;
         for (let n = 0; n < MAX_ROUNDS; n++) {
           if (session.teams.some(t => t.combatants.length === 0)) break;
-          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session, undefined, c.teamId === 'team-a')]));
           winner = resolveIntents(session, intents).winner;
           if (winner) break;
         }
@@ -269,7 +282,7 @@ if (process.argv[2] === 'timeout') {
         for (let n = 0; n < HIGH; n++) {
           if (session.teams.some(t => t.combatants.length === 0)) { resolved = n; break; }
           hpHist.push(session.combatants.reduce((s, c) => s + (session.meta.get(c.id)?.state.health ?? 0), 0));
-          if (resolveIntents(session, new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]))).winner) { resolved = n + 1; break; }
+          if (resolveIntents(session, new Map(session.combatants.map(c => [c.id, choosePlan(c, session, undefined, c.teamId === 'team-a')]))).winner) { resolved = n + 1; break; }
         }
         total++;
         if (resolved >= 0 && resolved <= CAP60) by60++;
