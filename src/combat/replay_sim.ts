@@ -11,8 +11,12 @@ import { resolveIntents } from './resolution.js';
 import { choosePlan, predictPlayerTiles, PlanCandidate } from './ai_planner.js';
 import { computeTelegraph } from './telegraph.js';
 import { BoardConfig, Pos } from './board.js';
+import yaml from 'js-yaml';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+const levelOf = (file: string) => (yaml.load(fs.readFileSync(file, 'utf8')) as { Level?: number }).Level ?? 0;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEAPONS = join(__dirname, '../../database/weapons');
@@ -65,7 +69,7 @@ const nameOf = (m: CombatantMeta, t: string, i: number) =>
   (m.weapon as unknown as Record<string, { name: string }[]>)[t]?.[i]?.name ?? t;
 
 export interface ReplayData {
-  meta: { weapon: string; enemy: string; board: { width: number; height: number } };
+  meta: { weapon: string; weaponLevel: number; enemy: string; enemyLevel: number; board: { width: number; height: number } };
   turns: unknown[];
   result: { winner: string | null; rounds: number };
 }
@@ -141,5 +145,76 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     log: [winner ? `${winner === 'team-a' ? 'Player' : 'Enemy'} wins — battle over.` : 'Round cap reached — timeout.'],
   });
 
-  return { meta: { weapon: weapon.name, enemy: enemyName, board: { width: board.width, height: board.height } }, turns, result: { winner, rounds } };
+  return {
+    meta: {
+      weapon: weapon.name, weaponLevel: levelOf(join(WEAPONS, `${weaponName}.yaml`)),
+      enemy: enemyName, enemyLevel: levelOf(enemyPath),
+      board: { width: board.width, height: board.height },
+    },
+    turns, result: { winner, rounds },
+  };
+}
+
+// --- Headless batch (shared by the CLI sweep and the dev matrix page) ---
+
+export type Outcome = 'win' | 'loss' | 'timeout';
+export interface BattleResult { outcome: Outcome; rounds: number; playerHpFrac: number; }
+
+// One battle: choosePlan drives both teams every turn until a wipe or the cap.
+export function runSpatialBattle(weapon: Weapon, enemyPath: string): BattleResult {
+  const { board, playerSpawn, enemySpawn } = genBoard();
+  const player = buildPlayerUnit(weapon, playerSpawn);
+  const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
+  const session = new CombatSession('sim', board, [
+    { id: 'team-a', name: 'Player', combatants: [player.combatant] },
+    { id: 'team-b', name: 'Enemy', combatants: [enemy.combatant] },
+  ]);
+  session.meta.set('player-1', player.meta);
+  session.meta.set('enemy-1', enemy.meta);
+  session.phase = 'intent';
+  const hpFrac = () => (session.meta.get('player-1')?.state.health ?? 0) / (weapon.hp || 1);
+  let rounds = 0;
+  for (; rounds < MAX_ROUNDS; rounds++) {
+    if (session.teams.some(t => t.combatants.length === 0)) break;
+    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+    const { winner } = resolveIntents(session, intents);
+    if (winner) return { outcome: winner === 'team-a' ? 'win' : 'loss', rounds: rounds + 1, playerHpFrac: hpFrac() };
+  }
+  return { outcome: 'timeout', rounds, playerHpFrac: hpFrac() };
+}
+
+export interface Stats { winRate: number; avgRounds: number; avgHpOnWin: number; timeoutRate: number; }
+export function aggregate(results: BattleResult[]): Stats {
+  let win = 0, timeout = 0, rounds = 0, hpOnWin = 0;
+  for (const r of results) {
+    rounds += r.rounds;
+    if (r.outcome === 'win') { win++; hpOnWin += r.playerHpFrac; }
+    else if (r.outcome === 'timeout') timeout++;
+  }
+  const n = results.length || 1;
+  return { winRate: win / n, avgRounds: rounds / n, avgHpOnWin: win ? hpOnWin / win : 0, timeoutRate: timeout / n };
+}
+
+export interface MatrixResult {
+  weapons: { name: string; level: number }[];
+  enemies: { name: string; level: number }[];
+  cells: Record<string, Record<string, Stats>>;  // weaponName → enemyName → stats
+}
+
+// Full weapon×enemy sweep, N battles per matchup. Heavy — keep N modest for the API.
+export function runMatrix(N: number): MatrixResult {
+  const wf = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
+  const ef = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+  const weapons = wf.map(f => ({ file: f, name: Weapon.from_file(join(WEAPONS, f)).name, level: levelOf(join(WEAPONS, f)) }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  const enemies = ef.map(f => ({ file: f, name: f.replace('.yaml', ''), level: levelOf(join(ENEMIES, f)) }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+
+  const cells: Record<string, Record<string, Stats>> = {};
+  for (const w of weapons) {
+    const weapon = Weapon.from_file(join(WEAPONS, w.file));
+    cells[w.name] = {};
+    for (const e of enemies) cells[w.name][e.name] = aggregate(Array.from({ length: N }, () => runSpatialBattle(weapon, join(ENEMIES, e.file))));
+  }
+  return { weapons: weapons.map(w => ({ name: w.name, level: w.level })), enemies: enemies.map(e => ({ name: e.name, level: e.level })), cells };
 }

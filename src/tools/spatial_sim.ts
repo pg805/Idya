@@ -17,7 +17,7 @@ import { loadEnemy } from '../combat/enemy_loader.js';
 import { CombatSession, CombatantMeta, Team } from '../combat/combat_session.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { choosePlan } from '../combat/ai_planner.js';
-import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay } from '../combat/replay_sim.js';
+import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay, runSpatialBattle, aggregate } from '../combat/replay_sim.js';
 import { weaponBudget } from './budget.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -27,49 +27,6 @@ import { dirname, join } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEAPONS = join(__dirname, '../../database/weapons');
 const ENEMIES = join(__dirname, '../../database/enemies');
-
-type Outcome = 'win' | 'loss' | 'timeout';
-interface BattleResult { outcome: Outcome; rounds: number; playerHpFrac: number; }
-
-// One battle: choosePlan drives both teams every turn until a wipe or the cap.
-function runSpatialBattle(weapon: Weapon, enemyPath: string): BattleResult {
-  const { board, playerSpawn, enemySpawn } = genBoard();
-  const player = buildPlayerUnit(weapon, playerSpawn);
-  const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
-
-  const teams: Team[] = [
-    { id: 'team-a', name: 'Player', combatants: [player.combatant] },
-    { id: 'team-b', name: 'Enemy', combatants: [enemy.combatant] },
-  ];
-  const session = new CombatSession('sim', board, teams);
-  session.meta.set('player-1', player.meta);
-  session.meta.set('enemy-1', enemy.meta);
-  session.phase = 'intent';
-
-  const hpFrac = () => (session.meta.get('player-1')?.state.health ?? 0) / (weapon.hp || 1);
-
-  let rounds = 0;
-  for (; rounds < MAX_ROUNDS; rounds++) {
-    if (session.teams.some(t => t.combatants.length === 0)) break;
-    const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
-    const { winner } = resolveIntents(session, intents);
-    if (winner) return { outcome: winner === 'team-a' ? 'win' : 'loss', rounds: rounds + 1, playerHpFrac: hpFrac() };
-  }
-  return { outcome: 'timeout', rounds, playerHpFrac: hpFrac() };
-}
-
-interface Agg { win: number; loss: number; timeout: number; rounds: number; hpOnWin: number; }
-function aggregate(results: BattleResult[]): { winRate: number; avgRounds: number; avgHpOnWin: number; timeoutRate: number } {
-  const a: Agg = { win: 0, loss: 0, timeout: 0, rounds: 0, hpOnWin: 0 };
-  for (const r of results) {
-    a.rounds += r.rounds;
-    if (r.outcome === 'win') { a.win++; a.hpOnWin += r.playerHpFrac; }
-    else if (r.outcome === 'loss') a.loss++;
-    else a.timeout++;
-  }
-  const n = results.length || 1;
-  return { winRate: a.win / n, avgRounds: a.rounds / n, avgHpOnWin: a.win ? a.hpOnWin / a.win : 0, timeoutRate: a.timeout / n };
-}
 
 // --- CLI ---
 // Debug: trace ONE battle turn-by-turn.

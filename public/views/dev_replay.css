@@ -8,6 +8,9 @@
 #dr-controls button, #dr-turnbar button { background: #2a2a38; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
 #dr-controls button:hover, #dr-turnbar button:hover { background: #34344a; }
 #dr-status { color: #c89a6a; font-size: 13px; }
+#dr-empty { color: #8a8a98; font-size: 14px; padding: 40px 8px; }
+#dr-matchup { font-size: 15px; margin-bottom: 12px; }
+.dr-lvl { font-size: 0.7rem; color: #c89a6a; font-weight: 600; vertical-align: middle; }
 
 #dr-body { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
 #dr-turnbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -59,5 +62,10 @@
 #dr-cands th { color: #8a8a98; font-weight: 500; }
 #dr-cands tr.chosen { background: rgba(74,208,122,0.16); }
 #dr-cands tr.chosen td:first-child { color: #4ad07a; font-weight: 700; }
-#dr-log { background: #141419; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #b8b8c4; max-height: 260px; overflow-y: auto; }
-#dr-log div { padding: 1px 0; }
+#dr-log { background: #141419; border-radius: 6px; padding: 4px 6px; font-size: 12px; color: #b8b8c4; max-height: 62vh; overflow-y: auto; }
+#dr-log .dr-turn { padding: 4px 6px; border-radius: 4px; cursor: pointer; border-left: 2px solid transparent; }
+#dr-log .dr-turn:hover { background: #1c1c24; }
+#dr-log .dr-turn.cur { background: #20202c; border-left-color: #8a5ad0; }
+#dr-log .dr-turn-h { color: #8a8a98; font-weight: 600; margin: 2px 0; }
+#dr-log .dr-turn div { padding: 1px 0; }
+#dr-log .dr-noop { opacity: 0.4; }

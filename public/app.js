@@ -27,6 +27,7 @@ function routeFromPath(path) {
   if (path === '/stats')                return { viewName: 'stats', params: {} };
   if (path === '/dev/stats')            return { viewName: 'dev_stats', params: {} };
   if (path === '/dev/replay')           return { viewName: 'dev_replay', params: {} };
+  if (path === '/dev/matrix')           return { viewName: 'dev_matrix', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
   const t = path.match(/^\/trade\/([^/]+)$/);

@@ -3,12 +3,14 @@
 // bars) like the real combat screen, plus the AI's reasoning: the predicted-
 // movement heatmap (where a unit expects its foe to move — the dodge space) and
 // every scored candidate plan, chosen highlighted. Click a card to inspect that
-// unit's reasoning. Dev-only; /api/dev/replay gates with isDev.
+// unit's reasoning; click a turn in the log to jump. Dev-only; /api/dev/replay
+// gates with isDev.
 (function() {
   let data = null, turnIdx = 0, selUnit = null, root = null;
   const eq = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b.y);
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const q = (sel) => root.querySelector(sel);
+  const outcomeOf = (w) => w === 'team-a' ? 'player wins' : w === 'team-b' ? 'enemy wins' : 'timeout';
 
   async function mount(content) {
     root = content;
@@ -20,14 +22,16 @@
           <button id="dr-run">Run battle</button>
           <span id="dr-status"></span>
         </div>
+        <div id="dr-empty">Pick a weapon and an enemy, then <b>Run battle</b> to watch the AI fight it out.</div>
         <div id="dr-body" hidden>
           <div id="dr-left">
+            <div id="dr-matchup"></div>
             <div id="dr-turnbar">
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
               <button id="dr-dl">⤓ Log</button>
-              <span id="dr-hint">click a card to inspect its reasoning · ← / → to step · cards/board show the state being decided on; the log is how it resolves</span>
+              <span id="dr-hint">click a card to inspect its reasoning · ← / → or click a turn to step · cards/board show the state being decided on; the log is how it resolves</span>
             </div>
             <div id="dr-cards"></div>
             <div id="dr-board"></div>
@@ -37,7 +41,7 @@
             <div id="dr-heatinfo"></div>
             <h4>Scored plans (this unit, this turn)</h4>
             <div id="dr-cands"></div>
-            <h4>Resolution</h4>
+            <h4>Full log (click a turn to jump)</h4>
             <div id="dr-log"></div>
           </div>
         </div>
@@ -47,8 +51,8 @@
       const res = await fetch('/api/dev/replay/options');
       if (res.status === 403) { q('#dr-status').textContent = 'Dev only.'; return; }
       const opt = await res.json();
-      fillSelect('#dr-weapon', opt.weapons, 'battle_axe');
-      fillSelect('#dr-enemy', opt.enemies, 'golnosar');
+      fillSelect('#dr-weapon', opt.weapons, 'branch');
+      fillSelect('#dr-enemy', opt.enemies, 'lithkem_swallow');
     } catch (_) { q('#dr-status').textContent = 'Could not load options.'; return; }
 
     q('#dr-run').onclick = run;
@@ -58,32 +62,32 @@
     document.addEventListener('keydown', onKey);
   }
 
-  function downloadLog() {
-    if (!data) return;
-    const r = data.result.winner;
-    const outcome = r === 'team-a' ? 'player wins' : r === 'team-b' ? 'enemy wins' : 'timeout';
-    const lines = [`${data.meta.weapon} vs ${data.meta.enemy} — ${outcome} (${data.result.rounds} rounds)`];
-    for (const t of data.turns) {
-      lines.push(`\n━━━ Turn ${t.n} ━━━`);
-      for (const l of (t.log || [])) lines.push(l);
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `replay-${data.meta.weapon}-vs-${data.meta.enemy}.txt`.replace(/\s+/g, '_');
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
+  // Options are [{name, level}], already sorted by level then name from the API.
   function fillSelect(sel, items, def) {
     const el = q(sel);
     el.innerHTML = '';
     for (const it of items) {
       const o = document.createElement('option');
-      o.value = it; o.textContent = it;
-      if (it === def) o.selected = true;
+      o.value = it.name;
+      o.textContent = `L${it.level} · ${it.name}`;
+      if (it.name === def) o.selected = true;
       el.appendChild(o);
     }
+  }
+
+  function downloadLog() {
+    if (!data) return;
+    const m = data.meta;
+    const lines = [`${m.weapon} (L${m.weaponLevel}) vs ${m.enemy} (L${m.enemyLevel}) — ${outcomeOf(data.result.winner)} (${data.result.rounds} rounds)`];
+    for (const t of data.turns) {
+      lines.push(`\n━━━ Turn ${t.n} ━━━`);
+      for (const l of (t.log || [])) lines.push(l);
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
+    a.download = `replay-${m.weapon}-vs-${m.enemy}.txt`.replace(/\s+/g, '_');
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function onKey(e) {
@@ -101,10 +105,12 @@
       if (!res.ok) { status.textContent = `error ${res.status}`; return; }
       data = await res.json();
       turnIdx = 0; selUnit = null;
-      const r = data.result.winner;
-      const outcome = r === 'team-a' ? 'player wins' : r === 'team-b' ? 'enemy wins' : 'timeout';
-      status.textContent = `${outcome} in ${data.result.rounds} rounds`;
+      const m = data.meta;
+      status.textContent = `${outcomeOf(data.result.winner)} in ${data.result.rounds} rounds`;
+      q('#dr-matchup').innerHTML = `<b>${esc(m.weapon)}</b> <span class="dr-lvl">L${m.weaponLevel}</span> &nbsp;vs&nbsp; <b>${esc(m.enemy)}</b> <span class="dr-lvl">L${m.enemyLevel}</span>`;
+      q('#dr-empty').hidden = true;
       q('#dr-body').hidden = false;
+      renderFullLog();
       render();
     } catch (_) { status.textContent = 'error'; }
   }
@@ -119,10 +125,10 @@
     renderCards();
     renderBoard();
     renderPanel();
+    highlightTurn();
   }
 
   // Combatant cards with HP/resource bars, styled like the real combat screen.
-  // Clicking a card selects whose reasoning to inspect.
   function renderCards() {
     const t = turn();
     const el = q('#dr-cards');
@@ -133,16 +139,16 @@
       const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
       const resPct = u.maxResource > 0 ? Math.max(0, (u.resource / u.maxResource) * 100) : 0;
       const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
+      const lvl = own ? data.meta.weaponLevel : data.meta.enemyLevel;
       const card = document.createElement('div');
       card.className = `combatant-card ${own ? 'team-a' : 'team-b'}${u.id === selUnit ? ' dr-sel' : ''}`;
       card.innerHTML =
         `<h3>${esc(u.name)} <span class="dr-init" title="initiative — higher acts first">⚡${u.initiative}</span>${own ? '' : ' <span class="dr-ai">[AI]</span>'}</h3>` +
-        `<div class="weapon-name">${esc(own ? data.meta.weapon : data.meta.enemy)}</div>` +
+        `<div class="weapon-name">${esc(own ? data.meta.weapon : data.meta.enemy)} <span class="dr-lvl">L${lvl}</span></div>` +
         `<div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>` +
         `<div class="hp-text">${u.hp} / ${u.maxHp} HP</div>` +
         `<div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>` +
         `<div class="hp-text">${u.resource} / ${u.maxResource} ${esc(u.resourceName || '')}</div>` +
-        // Body-language telegraph, like the live screen (shown for the enemy).
         (!own && u.telegraph ? `<div class="dr-telegraph">${esc(u.telegraph)}</div>` : '');
       if (acted.has(u.id)) card.onclick = () => { selUnit = u.id; render(); };
       else card.style.opacity = '0.6';
@@ -202,29 +208,40 @@
   function renderPanel() {
     const t = turn();
     const dec = selDec();
+    if (!dec) { q('#dr-plan').textContent = ''; q('#dr-cands').innerHTML = ''; q('#dr-heatinfo').textContent = ''; return; }
+    const c = dec.chosen;
+    q('#dr-plan').innerHTML = `<b>chosen:</b> <span style="color:#4ad07a">${esc(c.choice)} ${esc(c.action)}</span>` +
+      `${c.moveTo ? ` · move (${c.moveTo.x},${c.moveTo.y})` : ' · hold'}${c.target ? ` · aim (${c.target.x},${c.target.y})` : ''}`;
 
-    if (!dec) { q('#dr-plan').textContent = ''; q('#dr-cands').innerHTML = ''; q('#dr-heatinfo').textContent = ''; }
-    else {
-      const c = dec.chosen;
-      q('#dr-plan').innerHTML = `<b>chosen:</b> <span style="color:#4ad07a">${esc(c.choice)} ${esc(c.action)}</span>` +
-        `${c.moveTo ? ` · move (${c.moveTo.x},${c.moveTo.y})` : ' · hold'}${c.target ? ` · aim (${c.target.x},${c.target.y})` : ''}`;
+    const me = t.units.find((u) => u.id === dec.unit);
+    const foe = t.units.find((u) => u.id === dec.foe);
+    q('#dr-heatinfo').textContent = foe ? `🟧 heatmap = where ${me ? me.name : 'unit'} expects ${foe.name} to move (its dodge space)` : '';
 
-      const me = t.units.find((u) => u.id === dec.unit);
-      const foe = t.units.find((u) => u.id === dec.foe);
-      q('#dr-heatinfo').textContent = foe ? `🟧 heatmap = where ${me ? me.name : 'unit'} expects ${foe.name} to move (its dodge space)` : '';
+    const cDest = c.moveTo || (me ? me.pos : null);
+    let marked = false;
+    const rows = dec.candidates.map((cand) => {
+      const isChosen = !marked && cand.action === c.action && cand.choice === c.choice && eq(cand.dest, cDest) && eq(cand.target, c.target);
+      if (isChosen) marked = true;
+      return `<tr class="${isChosen ? 'chosen' : ''}"><td>${cand.score.toFixed(1)}</td><td>${esc(cand.choice)} ${esc(cand.action)}</td>` +
+        `<td>(${cand.dest.x},${cand.dest.y})</td><td>${cand.target ? `(${cand.target.x},${cand.target.y})` : '—'}</td></tr>`;
+    }).join('');
+    q('#dr-cands').innerHTML = `<table><tr><th>score</th><th>plan</th><th>dest</th><th>aim</th></tr>${rows}</table>`;
+  }
 
-      const cDest = c.moveTo || (me ? me.pos : null);
-      let marked = false;
-      const rows = dec.candidates.map((cand) => {
-        const isChosen = !marked && cand.action === c.action && cand.choice === c.choice && eq(cand.dest, cDest) && eq(cand.target, c.target);
-        if (isChosen) marked = true;
-        return `<tr class="${isChosen ? 'chosen' : ''}"><td>${cand.score.toFixed(1)}</td><td>${esc(cand.choice)} ${esc(cand.action)}</td>` +
-          `<td>(${cand.dest.x},${cand.dest.y})</td><td>${cand.target ? `(${cand.target.x},${cand.target.y})` : '—'}</td></tr>`;
-      }).join('');
-      q('#dr-cands').innerHTML = `<table><tr><th>score</th><th>plan</th><th>dest</th><th>aim</th></tr>${rows}</table>`;
-    }
+  // Full battle log, all turns — built once per run; clicking a turn jumps to it.
+  function renderFullLog() {
+    q('#dr-log').innerHTML = data.turns.map((t, i) =>
+      `<div class="dr-turn" data-i="${i}"><div class="dr-turn-h">Turn ${t.n}</div>` +
+      ((t.log || []).map((l) => `<div>${esc(l)}</div>`).join('') || '<div class="dr-noop">(nothing resolved)</div>') +
+      `</div>`).join('');
+    q('#dr-log').querySelectorAll('.dr-turn').forEach((d) => { d.onclick = () => { turnIdx = +d.dataset.i; render(); }; });
+  }
 
-    q('#dr-log').innerHTML = (t.log || []).map((l) => `<div>${esc(l)}</div>`).join('') || '<div style="opacity:.5">(nothing resolved)</div>';
+  function highlightTurn() {
+    const log = q('#dr-log');
+    log.querySelectorAll('.dr-turn.cur').forEach((d) => d.classList.remove('cur'));
+    const cur = log.querySelector(`.dr-turn[data-i="${turnIdx}"]`);
+    if (cur) { cur.classList.add('cur'); cur.scrollIntoView({ block: 'nearest' }); }
   }
 
   function step(d) {

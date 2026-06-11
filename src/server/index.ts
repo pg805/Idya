@@ -24,7 +24,7 @@ import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
 import { generateAIIntent } from '../combat/ai.js';
-import { generateReplay } from '../combat/replay_sim.js';
+import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
@@ -549,7 +549,11 @@ app.get('/api/dev/replay/options', (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
-  const list = (dir: string) => fs.readdirSync(join(__dirname, dir)).filter(f => f.endsWith('.yaml')).map(f => f.replace('.yaml', '')).sort();
+  // Each option carries its Level; sorted by level then name for the dropdowns.
+  const list = (dir: string) => fs.readdirSync(join(__dirname, dir))
+    .filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml')
+    .map(f => ({ name: f.replace('.yaml', ''), level: (yaml.load(fs.readFileSync(join(__dirname, dir, f), 'utf8')) as { Level?: number }).Level ?? 0 }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
   res.json({ weapons: list('../../database/weapons'), enemies: list('../../database/enemies') });
 });
 
@@ -564,6 +568,20 @@ app.get('/api/dev/replay', (req: Request, res: Response) => {
     res.json(generateReplay(weapon, enemy));
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// Full weapon×enemy sweep for the dev matrix page. Heavy (runs N battles per
+// matchup synchronously) — N is clamped low so the request returns in seconds.
+app.get('/api/dev/matrix', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const n = Math.max(5, Math.min(50, Number(req.query.n) || 20));
+  try {
+    res.json({ n, ...runMatrix(n) });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
 });
 
