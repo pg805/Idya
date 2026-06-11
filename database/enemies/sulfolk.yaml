@@ -52,7 +52,15 @@ Weapon:
       Cost: 3
       Action_String: "<User> raises a shield arm, blocking <Damage> damage."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Hardwood
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 3
+      Cost: 0
+      Action_String: "<User> hardens its bark, blocking 3 more."
 
   Attack:
     - Name: Scratch
@@ -95,4 +103,14 @@ Weapon:
       Cost: -8
       Action_String: "<User> ingrains into the earth, restoring 8 Nutrients."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Poison Ivy
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Physical
+      Damage_Subtype: Nature
+      Field: [1, 2, 4]
+      Rounds: 3
+      Cost: 0
+      Range: 1
+      Action_String: "<User> lashes <Target> with poison ivy — bleeding for <Damage> a round."

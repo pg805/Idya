@@ -27,7 +27,15 @@ Defend:
     Cost: 1
     Action_String: "<User> raises the axe head to intercept, bracing for 5 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Wood Crossguard
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Cost: 0
+    Action_String: "<User> turns the blow on the wooden crossguard, blocking 3 more."
 
 Attack:
   - Name: Chop
@@ -77,4 +85,13 @@ Special:
     Range: 1
     Action_String: "<User> splits a nearby obstacle apart, showering everything within a tile for <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Timber!
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Nature
+    Field: [15, 16, 17]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> drives clean through the guard — timber! — for <Damage> damage."

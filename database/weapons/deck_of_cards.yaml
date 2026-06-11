@@ -18,7 +18,16 @@ Defend:
     Cost: -15  # restores 15 luck
     Action_String: "<User> shuffles their deck, preparing to block for 4 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Stack the Deck
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> stacks the deck, shielding 3 damage for 3 rounds."
 
 Attack:
   - Name: Rank
@@ -74,4 +83,13 @@ Special:
     Range: 3
     Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Second Joker
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [1, 2]
+    Rounds: 2
+    Cost: 0
+    Action_String: "<User> slips in a second joker — <Target> bleeds for <Damage> a round."

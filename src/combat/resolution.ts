@@ -45,10 +45,13 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
     const crits = lists[CRIT[aCat]];
     if (!crits || crits.length === 0) continue;
     const myRange = lists[aCat]?.[aIntent!.action.actionIndex]?.range ?? 1;
-    // Self-target crits (heal/block/shield/reflect/buff) land on ME; foe-target
-    // ones (strike/DOT/debuff) land on the foe and must REACH it.
-    const isSelf = SELF_TARGET_TYPES.has(crits[0].type);
-    const critReach = Math.max(crits[0].range ?? 1, myRange);
+    // Self-target crits (heal/block/shield/reflect/buff) land on ME; a tile crit
+    // drops a zone on MY square; both count as "self" (no reach needed, fire once).
+    // Foe-target crits (strike/DOT/debuff) land on the foe and must REACH it.
+    const crit0 = crits[0];
+    const isTile = TILE_TYPES.has(crit0.type);
+    const isSelf = isTile || SELF_TARGET_TYPES.has(crit0.type);
+    const critReach = Math.max(crit0.range ?? 1, myRange);
     for (const foe of session.combatants) {
       if (foe.teamId === actor.teamId) continue;
       const fIntent = intents.get(foe.id);
@@ -61,8 +64,18 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
-      pushLog(log, resolve_action(aMeta.state, isSelf ? aMeta.state : fMeta.state, crits));
-      if (isSelf) break;   // a self-buff crit triggers once, not per attacker
+      if (isTile) {
+        // Drop the crit's tile on the caster's own square (a self/ally zone).
+        const kind = crit0.type === ActionType.BlockTile ? 'block' : crit0.type === ActionType.BuffTile ? 'buff'
+                   : crit0.type === ActionType.SlowTile ? 'slow' : 'hazard';
+        const value = (crit0 as unknown as { value: number }).value;
+        for (const p of areaBlock(actor.pos, crit0.area, actor.pos))
+          if (session.board.inBounds(p) && !session.board.isBlocked(p)) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
+        log.push(`${actor.name} — ${crit0.name}: drops a ${kind} tile.`);
+      } else {
+        pushLog(log, resolve_action(aMeta.state, isSelf ? aMeta.state : fMeta.state, crits));
+      }
+      if (isSelf) break;   // a self crit triggers once, not per attacker
     }
   }
 }

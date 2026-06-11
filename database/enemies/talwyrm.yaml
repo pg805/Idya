@@ -37,7 +37,16 @@ Weapon:
       Cost: -6
       Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 6 Talam."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Wyrm Hole
+      Type: 9
+      Type_Name: Block Tile
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 3
+      Area: 1
+      Cost: 0
+      Action_String: "<User> digs a wyrm hole — whoever holds the square blocks 3."
 
   Attack:
     - Name: Tail Whip
@@ -85,4 +94,13 @@ Weapon:
       Range: 3
       Action_String: "<User> erupts jagged crystal remnants under <Target> — foes that enter the tile take 5 damage."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Aimed Shard
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [3, 5, 7]
+      Cost: 0
+      Range: 2
+      Action_String: "<User> spits an aimed crystal shard at <Target> for <Damage> damage."

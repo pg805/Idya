@@ -41,7 +41,16 @@ Defend:
     Cost: 1
     Action_String: "<User> ducks behind their pickaxe, blocking <Damage> damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Dirty Pride
+    Type: 3
+    Type_Name: Buff
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> digs in with dirty pride, buffing their attack by 3 for 3 rounds."
 
 Attack:
   - Name: Mine
@@ -74,4 +83,13 @@ Special:
     Cost: -10
     Action_String: "<User> coats themselves in dirt, blocking <Damage> damage and restoring 10 Dirt."
 
-Special Crit: []
+Special Crit:
+  - Name: Struck Silver
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> strikes silver, shielding 3 damage for 3 rounds."
