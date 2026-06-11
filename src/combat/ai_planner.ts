@@ -201,6 +201,10 @@ function scorePlan(
   }
   if (action.type === ActionType.MoveDebuff)
     score += hitProb(action, dest, target, predicted, session) * roundsOf(action) * 4 * (W.control / 1.2);
+  // Attack debuff: saps the foe's damage for `rounds` — value ≈ atk reduction ×
+  // rounds × (the foe attacking), landed with hit chance.
+  if (action.type === ActionType.Debuff)
+    score += hitProb(action, dest, target, predicted, session) * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend;
 
   // --- ally tiles (block/buff zones to stand on): score so kits built around them
   // (Pickaxe, Spellbook's Bookmark) actually use them. Don't credit re-dropping a

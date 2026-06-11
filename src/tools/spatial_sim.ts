@@ -115,6 +115,82 @@ if (process.argv[2] === 'replay') {
   process.exit(0);
 }
 
+// Usage scan: which actions does the AI never pick? `node spatial_sim.js usage [N]`.
+// Drives both sides with choosePlan across every weapon×enemy and tallies the
+// chosen action each turn — NEVER-used actions are scoring blind spots.
+if (process.argv[2] === 'usage') {
+  const N = Number(process.argv[3] ?? 25);
+  const weaponFiles = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
+  const enemyFiles = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+
+  const acts = new Map<string, { name: string; cat: string; type: string }[]>();
+  const used = new Map<string, Map<string, number>>();
+  const decisions = new Map<string, number>();
+  const register = (w: Weapon) => {
+    if (acts.has(w.name)) return;
+    const list = [
+      ...w.defend.map(a => ({ name: a.name, cat: 'D', type: a.type_name || String(a.type) })),
+      ...w.attack.map(a => ({ name: a.name, cat: 'A', type: a.type_name || String(a.type) })),
+      ...w.special.map(a => ({ name: a.name, cat: 'S', type: a.type_name || String(a.type) })),
+    ];
+    acts.set(w.name, list);
+    used.set(w.name, new Map(list.map(a => [a.name, 0])));
+    decisions.set(w.name, 0);
+  };
+  const nameOf = (m: CombatantMeta, t: string, i: number) => (m.weapon as unknown as Record<string, { name: string }[]>)[t]?.[i]?.name;
+
+  for (const wf of weaponFiles) {
+    const weapon = Weapon.from_file(join(WEAPONS, wf));
+    register(weapon);
+    for (const ef of enemyFiles) {
+      const enemyPath = join(ENEMIES, ef);
+      for (let i = 0; i < N; i++) {
+        const { board, playerSpawn, enemySpawn } = genBoard();
+        const player = buildPlayerUnit(weapon, playerSpawn);
+        const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
+        register(enemy.meta.weapon);
+        const teams: Team[] = [
+          { id: 'team-a', name: 'P', combatants: [player.combatant] },
+          { id: 'team-b', name: 'E', combatants: [enemy.combatant] },
+        ];
+        const session = new CombatSession('u', board, teams);
+        session.meta.set('player-1', player.meta);
+        session.meta.set('enemy-1', enemy.meta);
+        session.phase = 'intent';
+        for (let n = 0; n < MAX_ROUNDS; n++) {
+          if (session.teams.some(t => t.combatants.length === 0)) break;
+          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+          for (const c of session.combatants) {
+            const it = intents.get(c.id)!;
+            if (it.action.type === 'pass') continue;
+            const m = session.meta.get(c.id)!;
+            const an = nameOf(m, it.action.type, it.action.actionIndex);
+            if (!an) continue;
+            used.get(m.weapon.name)!.set(an, (used.get(m.weapon.name)!.get(an) ?? 0) + 1);
+            decisions.set(m.weapon.name, (decisions.get(m.weapon.name) ?? 0) + 1);
+          }
+          if (resolveIntents(session, intents).winner) break;
+        }
+      }
+    }
+  }
+
+  console.log(`\nAction usage scan — ${N} battles/matchup, both sides AI. ✗ = NEVER picked (blind spot), ~x% = rare.\n`);
+  for (const [wname, list] of acts) {
+    const u = used.get(wname)!;
+    const total = decisions.get(wname) || 1;
+    const flagged = list.filter(a => (u.get(a.name) ?? 0) / total < 0.01);
+    if (flagged.length === 0) continue;
+    console.log(`${wname}:`);
+    for (const a of flagged) {
+      const c = u.get(a.name) ?? 0;
+      console.log(`  ${c === 0 ? '✗ NEVER  ' : `~${((c / total) * 100).toFixed(1)}%   `}[${a.cat}] ${a.name} (${a.type})`);
+    }
+  }
+  console.log('');
+  process.exit(0);
+}
+
 const N = Number(process.argv[2] ?? 100);
 const enemyArg = process.argv[3];
 
