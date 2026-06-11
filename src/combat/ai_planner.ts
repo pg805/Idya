@@ -23,7 +23,8 @@ const W = {
   heal: 0.8,
   defend: 1.0,
   control: 1.2,
-  exposure: 1.0,
+  approach: 3.0,   // pull toward getting inside my own attack range (beats idle/restore when far)
+  safety: 2.0,     // distance from the foe = safety, scaled by how fragile I am
   hazardPath: 1.0,
   restore: 0.5,
   buff: 0.3,
@@ -157,10 +158,17 @@ function scorePlan(
   if (action.type === ActionType.MoveDebuff)
     score += hitProb(action, dest, target, predicted, session) * roundsOf(action) * 4 * (W.control / 1.2);
 
-  // --- positioning: the more fragile I am, the more I value distance from the
-  // foe. A gradient (not a binary in/out of threat range) so a kiter keeps backing
-  // to the edge of its own reach; a tank's vuln is tiny so it ignores this.
-  score += vuln * chebyshevDist(dest, foe.pos) * W.exposure;
+  // --- positioning: two opposing pulls ---
+  //   approach — close the gap until I'm inside my OWN attack range, so I keep
+  //     advancing even on turns I can't hit yet (fixes greedy "idle out of range").
+  //   safety   — distance from the foe is worth more the more fragile I am, capped
+  //     at the foe's threat reach. Tiny for a healthy tank; dominant for a hurt or
+  //     squishy unit, which is what makes kiting / retreat-to-heal emerge.
+  const myRange = maxDamagingRange(me);
+  const foeThreat = foe.movementRange + maxDamagingRange(foe);
+  const d = chebyshevDist(dest, foe.pos);
+  score -= Math.max(0, d - myRange) * W.approach;
+  score += Math.min(d, foeThreat) * vuln * W.safety;
 
   // --- penalties / economy ---
   score -= (destInfo?.hazard ?? 0) * W.hazardPath;
