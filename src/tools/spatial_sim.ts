@@ -15,7 +15,7 @@ import { loadEnemy, buildWeaponInfo } from '../combat/enemy_loader.js';
 import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_session.js';
 import { CombatantState } from '../combat/combatant_state.js';
 import { resolveIntents } from '../combat/resolution.js';
-import { choosePlan } from '../combat/ai_planner.js';
+import { choosePlan, predictPlayerTiles, PlanCandidate } from '../combat/ai_planner.js';
 import { BoardConfig, Pos } from '../combat/board.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -151,6 +151,66 @@ if (process.argv[2] === 'debug') {
     const { winner } = resolveIntents(session, intents);
     if (winner) { console.log(`\nwinner: ${winner}`); break; }
   }
+  process.exit(0);
+}
+
+// Replay: `node spatial_sim.js replay <enemy> <weapon> [outfile]` records ONE
+// battle's full per-turn trace (heatmap + every candidate score) to JSON for the
+// dev replay page. Defaults to public/replay.json so /replay.html can fetch it.
+if (process.argv[2] === 'replay') {
+  const enemyName = process.argv[3] ?? 'golnosar';
+  const weaponName = process.argv[4] ?? 'battle_axe';
+  const outFile = process.argv[5] ?? join(__dirname, '../../public/replay.json');
+  const enemyPath = join(ENEMIES, `${enemyName}.yaml`);
+  const weapon = Weapon.from_file(join(WEAPONS, `${weaponName}.yaml`));
+  const { board, playerSpawn, enemySpawn } = genBoard();
+  const player = buildPlayerUnit(weapon, playerSpawn);
+  const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
+  const teams: Team[] = [
+    { id: 'team-a', name: 'Player', combatants: [player.combatant] },
+    { id: 'team-b', name: 'Enemy', combatants: [enemy.combatant] },
+  ];
+  const session = new CombatSession('replay', board, teams);
+  session.meta.set('player-1', player.meta);
+  session.meta.set('enemy-1', enemy.meta);
+  session.phase = 'intent';
+
+  const nameOf = (m: CombatantMeta, t: string, i: number) => (m.weapon as unknown as Record<string, { name: string }[]>)[t]?.[i]?.name ?? t;
+  const turns: unknown[] = [];
+  let winner: string | null = null;
+  let rounds = 0;
+  for (let n = 0; n < MAX_ROUNDS; n++) {
+    if (session.teams.some(t => t.combatants.length === 0)) break;
+    const boardSnap = session.board.toJSON();
+    const units = session.combatants.map(c => {
+      const m = session.meta.get(c.id)!;
+      return { id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp: m.state.health, maxHp: c.maxHp, resource: m.state.resource_current, maxResource: c.maxResource };
+    });
+    const intents = new Map<string, ReturnType<typeof choosePlan>>();
+    const decisions: unknown[] = [];
+    for (const c of session.combatants) {
+      const foes = session.combatants.filter(o => o.teamId !== c.teamId);
+      const cands: PlanCandidate[] = [];
+      const intent = choosePlan(c, session, foes.length ? cands : undefined);
+      intents.set(c.id, intent);
+      if (!foes.length) continue;
+      const foe = foes.reduce((a, b) => cheb(c.pos, a.pos) <= cheb(c.pos, b.pos) ? a : b);
+      const m = session.meta.get(c.id)!;
+      const predicted = [...predictPlayerTiles(c, foe, session)].map(([k, w]) => { const [x, y] = k.split(',').map(Number); return { x, y, w }; });
+      cands.sort((a, b) => b.score - a.score);
+      decisions.push({
+        unit: c.id, foe: foe.id, predicted,
+        chosen: { moveTo: intent.moveTo, choice: intent.action.type, action: intent.action.type === 'pass' ? 'pass' : nameOf(m, intent.action.type, intent.action.actionIndex), target: intent.action.targetPos },
+        candidates: cands.slice(0, 14),
+      });
+    }
+    const { log, winner: w } = resolveIntents(session, intents);
+    turns.push({ n: n + 1, board: boardSnap, units, decisions, log });
+    rounds = n + 1;
+    if (w) { winner = w; break; }
+  }
+  fs.writeFileSync(outFile, JSON.stringify({ meta: { weapon: weapon.name, enemy: enemyName, board: { width: board.width, height: board.height } }, turns, result: { winner, rounds } }));
+  console.log(`wrote ${turns.length} turns -> ${outFile}  (winner: ${winner ?? 'timeout'}, ${rounds} rounds)`);
   process.exit(0);
 }
 

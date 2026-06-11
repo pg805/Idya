@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idya — AI Replay</title>
+  <link rel="stylesheet" href="game.css">
+  <style>
+    :root { --cell-size: 40px; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0e0e12; color: #d8d8e0; }
+    #top { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid #2a2a35; flex-wrap: wrap; }
+    #title { font-weight: 600; }
+    button { background: #20202a; color: #d8d8e0; border: 1px solid #3a3a48; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+    button:hover { background: #2a2a38; }
+    button.active { background: #3a2a4a; border-color: #8a5ad0; }
+    #wrap { display: flex; gap: 18px; padding: 16px; align-items: flex-start; }
+    #board { display: grid; gap: 2px; background: #15151c; padding: 8px; border-radius: 8px; }
+    #board .cell { cursor: default; }
+    #board .combatant { width: 28px; height: 28px; font-size: 10px; }
+    .cell.rp-move   { outline: 3px solid #4ad07a; outline-offset: -3px; }
+    .cell.rp-target { box-shadow: inset 0 0 0 3px rgba(226,99,132,0.9); }
+    #panel { width: 460px; max-height: 88vh; overflow-y: auto; font-size: 13px; }
+    #plan { background: #1a1a22; padding: 8px 10px; border-radius: 6px; margin: 8px 0; }
+    #heatinfo { color: #c89a6a; font-size: 12px; margin: 4px 0 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #23232c; font-variant-numeric: tabular-nums; }
+    th { color: #8a8a98; font-weight: 500; }
+    tr.chosen { background: rgba(74,208,122,0.16); }
+    tr.chosen td:first-child { color: #4ad07a; font-weight: 700; }
+    #log { margin-top: 12px; background: #141419; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #b8b8c4; }
+    #log div { padding: 1px 0; }
+    h4 { margin: 14px 0 4px; color: #9a9aa8; font-weight: 500; }
+    #drop { color: #8a8a98; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="top">
+    <span id="title">AI Replay</span>
+    <button id="prev">◀ Prev</button>
+    <span id="turnlabel"></span>
+    <button id="next">Next ▶</button>
+    <span id="unitsel"></span>
+    <span id="drop">· or load a file: <input type="file" id="file" accept=".json"></span>
+  </div>
+  <div id="wrap">
+    <div id="board"></div>
+    <div id="panel">
+      <div id="plan"></div>
+      <div id="heatinfo"></div>
+      <h4>Scored plans (this unit, this turn)</h4>
+      <div id="cands"></div>
+      <h4>Resolution</h4>
+      <div id="log"></div>
+    </div>
+  </div>
+  <script src="replay.js"></script>
+</body>
+</html>

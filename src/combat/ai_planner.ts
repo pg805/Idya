@@ -192,10 +192,21 @@ function collectAffordable(meta: CombatantMeta): { choice: ActionChoice; index: 
 
 const pass = (id: string): CombatIntent => ({ combatantId: id, moveTo: null, action: { type: 'pass', actionIndex: 0, targetPos: null } });
 
+// One scored plan, recorded when a collector is passed to choosePlan — powers the
+// dev replay (see the trace in spatial_sim).
+export interface PlanCandidate {
+  dest: Pos;
+  choice: ActionChoice;
+  index: number;
+  action: string;
+  target: Pos | null;
+  score: number;
+}
+
 // Pick the best (destination, action, target) plan for `me` this turn.
 // Deterministic: same board → same choice. Ties break toward less movement,
-// then the lower action index.
-export function choosePlan(me: Combatant, session: CombatSession): CombatIntent {
+// then the lower action index. Pass `collect` to record every candidate's score.
+export function choosePlan(me: Combatant, session: CombatSession, collect?: PlanCandidate[]): CombatIntent {
   const meta = session.meta.get(me.id);
   if (!meta) return pass(me.id);
   const enemies = session.combatants.filter(c => c.teamId !== me.teamId);
@@ -220,6 +231,7 @@ export function choosePlan(me: Combatant, session: CombatSession): CombatIntent 
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
         const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session);
+        if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {
           best = {
