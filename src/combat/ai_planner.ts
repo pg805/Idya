@@ -159,6 +159,7 @@ function scorePlan(
   dest: Pos, destInfo: ReachDanger | undefined, action: Action, target: Pos | null,
   predicted: Map<string, number>, session: CombatSession,
   myMaxAtkCost: number, myCat: ActionChoice, smart = false, foeMood: 'hostile' | 'defensive' | null = null,
+  raceDefense = 1,
 ): number {
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
   const foeReach = foe.movementRange + maxDamagingRange(foe);
@@ -188,10 +189,12 @@ function scorePlan(
     }
   }
 
-  // --- sustain / defense, scaled by how vulnerable I am right now ---
+  // --- sustain / defense, valued by whether surviving converts into the kill
+  // (raceDefense), NOT by raw fragility — that was the death-spiral that made a low-
+  // HP unit defend forever without ever progressing. ---
   if (action.type === ActionType.Heal) {
     const missing = me.maxHp - meta.state.health;
-    score += Math.min(valueOf(action), missing) * W.heal * (1 + vuln);
+    score += Math.min(valueOf(action), missing) * W.heal * raceDefense;
   }
   // Defense is only worth it if the foe can actually hit me this turn — shielding
   // when safe is a wasted turn (the old "turtle forever" bug). Multi-round shields
@@ -205,7 +208,7 @@ function scorePlan(
     // AI falls back to "can it reach me".
     const incoming = !smart || foeMood === 'hostile';
     const threatened = (foeCanHitDest && incoming) ? 1 : 0.15;
-    score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * vuln * W.defend * threatened;
+    score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * raceDefense * W.defend * threatened;
   }
   if (action.type === ActionType.Buff) score += valueOf(action) * W.buff;
 
@@ -253,7 +256,7 @@ function scorePlan(
       score -= 1;  // already my tile here — don't waste a turn re-dropping it
     } else {
       score += action.type === ActionType.BlockTile
-        ? valueOf(action) * vuln * W.defend * 1.2     // a persistent self-shield
+        ? valueOf(action) * raceDefense * W.defend * 1.2     // a persistent self-shield
         : valueOf(action) * W.allyTile * 0.6;          // boosts my future strikes
       if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
     }
@@ -352,6 +355,29 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   const foeMeta = session.meta.get(foe.id);
   const predicted = predictPlayerTiles(me, foe, session);
 
+  // Progress framing: I only win by taking the foe to 0. Estimate the damage race
+  // from kit potential (enemy stats are known, so this isn't omniscient): my
+  // turns-to-kill vs turns-to-live. Defending/healing earns its keep ONLY when the
+  // race is close (it tips the result). Winning comfortably → just attack; hopelessly
+  // behind → defending only delays a loss, so commit to offense and at least RESOLVE
+  // instead of mutual-turtling. Fed to scorePlan as the defensive multiplier.
+  const dprOf = (m: CombatantMeta | undefined) => m
+    ? 0.5 * Math.max(0, ...[...m.weapon.attack, ...m.weapon.special].filter(isDamaging).map(a => ev(fieldOf(a))))
+    : 0;
+  const turnsToKill = (foeMeta?.state.health ?? foe.hp) / Math.max(1, dprOf(meta));
+  const turnsToLive = meta.state.health / Math.max(1, dprOf(foeMeta));
+  const behind = turnsToKill - turnsToLive;
+  // About to die AND the race is still winnable → a survival heal/block is worth it
+  // (that's not turtling, it's staying in the fight). Hopelessly behind → no amount
+  // of defending wins, so commit to offense and resolve.
+  // Critical (about to die — within ~2-3 of the foe's hits) → survival first:
+  // heal/block to stay in the fight, even if the raw race looks lost (it ignores my
+  // own sustain — a tank's heal changes everything). Defined off turns-to-live so it
+  // doesn't depend on maxHp. Otherwise: hopeless → commit to offense and resolve;
+  // winning → just attack; close → defense tips it.
+  const critical = turnsToLive <= 2.5;
+  const raceDefense = critical ? 2.0 : behind > 2 ? 0.2 : behind <= -1 ? 0.4 : 1.2;
+
   // Opponent read (smart only) — only what a player can SEE, never the exact plan:
   // the telegraph mood (hostile = offensive / defensive = guarding) + movement
   // (closing/holding/fleeing), exactly what computeTelegraph shows. NOTE: we do NOT
@@ -400,7 +426,7 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
     const isStay = d.pos.x === me.pos.x && d.pos.y === me.pos.y;
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
-        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice, smart, foeMood);
+        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice, smart, foeMood, raceDefense);
         if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {

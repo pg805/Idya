@@ -37,7 +37,13 @@ const STRIKER = Weapon.from_json({
   'Attack Crit': [], Special: [], 'Special Crit': [],
 } as any);
 
-const enemyWeapon = (file: string) => Weapon.from_json((yaml.load(fs.readFileSync(join(E, file), 'utf-8')) as any).Weapon);
+// Carry the enemy's top-level Health onto the weapon so test combatants get their
+// real HP (the Weapon block has no HP field). Otherwise maxHp is bogus and anything
+// that reads it — e.g. a heal's missing-HP — breaks.
+const enemyWeapon = (file: string) => {
+  const data = yaml.load(fs.readFileSync(join(E, file), 'utf-8')) as any;
+  return Weapon.from_json({ ...data.Weapon, HP: data.Health });
+};
 
 function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean): { c: Combatant; m: CombatantMeta } {
   const state = new CombatantState(id, weapon.hp || 50, weapon.resource_name, weapon.resource_max);
@@ -502,12 +508,14 @@ console.log('\nSmart AI dial (Melbear): attacks at full HP, retreats to heal whe
     const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
     check(plan.action.type === 'attack' || plan.action.type === 'special', `full HP → attacks (got ${plan.action.type} #${plan.action.actionIndex})`);
   }
-  // Badly hurt → should pick Berry Snack (heal) instead.
+  // About to die (a foe hit from death) → survival heal, not a suicide attack.
+  // (Progress-scoring: "heal when threatened", not at a fixed HP fraction — a tank
+  // at 30/300 vs a 5-dmg jab isn't in danger and rightly keeps attacking.)
   {
     const B = mk('E', 'B', { x: 5, y: 1 }, bear, true);
     const P = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
     const s = session(EMPTY, [B, P]);
-    s.meta.get('E')!.state.health = 30;
+    s.meta.get('E')!.state.health = 5;
     const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
     check(plan.action.type === 'defend' && plan.action.actionIndex === berry, `hurt → Berry Snack heal (got ${plan.action.type} #${plan.action.actionIndex})`);
   }
