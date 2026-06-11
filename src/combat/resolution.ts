@@ -21,32 +21,41 @@ function pushLog(log: string[], text: string) {
   }
 }
 
-// Category triangle: when a strike lands, resolve the counter-crit by the two
-// units' action categories this turn — Defend ▶ Attack ▶ Special ▶ Defend.
-//   attack → special : the attacker's attack_crit catches the specialer mid-commit
-//   special → defend : the special's special_crit crashes through the guard
-//   attack → defend  : the defender ripostes the attacker with its defend_crit
-// The crit is just another payload (resolve_action), so it can be any type — a
-// strike riposte, extra block, a debuff — whatever the kit's crit slot holds.
-function triangleCrit(
-  actor: Combatant, actorMeta: CombatantMeta,
-  victim: Combatant, victimMeta: CombatantMeta,
-  intents: Map<string, CombatIntent>, log: string[],
-): void {
-  const aCat = intents.get(actor.id)?.action.type;
-  const vCat = intents.get(victim.id)?.action.type;
-  if (aCat === 'attack' && vCat === 'special' && actorMeta.weapon.attack_crit.length > 0 && victimMeta.state.health > 0) {
-    actorMeta.state.attack_crits += 1;
-    log.push(`★ ${actor.name} catches ${victim.name} mid-special!`);
-    pushLog(log, resolve_action(actorMeta.state, victimMeta.state, actorMeta.weapon.attack_crit));
-  } else if (aCat === 'special' && vCat === 'defend' && actorMeta.weapon.special_crit.length > 0 && victimMeta.state.health > 0) {
-    actorMeta.state.attack_crits += 1;
-    log.push(`★ ${actor.name}'s special crashes through ${victim.name}'s guard!`);
-    pushLog(log, resolve_action(actorMeta.state, victimMeta.state, actorMeta.weapon.special_crit));
-  } else if (aCat === 'attack' && vCat === 'defend' && victimMeta.weapon.defend_crit.length > 0 && actorMeta.state.health > 0) {
-    victimMeta.state.attack_crits += 1;
-    log.push(`★ ${victim.name} ripostes ${actor.name}!`);
-    pushLog(log, resolve_action(victimMeta.state, actorMeta.state, victimMeta.weapon.defend_crit));
+// Category triangle: Defend ▶ Attack ▶ Special ▶ Defend. After the action phase,
+// every unit whose action category BEATS an opposing unit's gets its matching crit
+// — a separate payload (resolve_action) fired at that foe. The crit is just an
+// action, so it can be ANY type (strike riposte, extra block, a debuff, …) and
+// fires regardless of the main action's type (a self-target shield still crits a
+// guard). It's gated by RANGE: the crit reaches at least as far as the action you
+// used this turn, extendable by the crit's own Range — so a melee riposte can't
+// catch a ranged attacker, while an attack-crit reaches whoever your attack hit.
+//   attack → special : attack_crit    special → defend : special_crit
+//   defend → attack  : defend_crit (the defender ripostes the attacker)
+function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[]): void {
+  const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
+  const CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
+  const VERB: Record<string, string> = { attack: 'catches', special: 'crashes through', defend: 'ripostes' };
+  for (const actor of [...session.combatants]) {
+    const aIntent = intents.get(actor.id);
+    const aCat = aIntent?.action.type;
+    if (!aCat || !(aCat in BEATS)) continue;
+    const aMeta = session.meta.get(actor.id);
+    if (!aMeta || aMeta.state.health <= 0) continue;
+    const lists = aMeta.weapon as unknown as Record<string, Action[]>;
+    const crits = lists[CRIT[aCat]];
+    if (!crits || crits.length === 0) continue;
+    const used = lists[aCat]?.[aIntent!.action.actionIndex];
+    const critRange = Math.max(crits[0].range ?? 1, used?.range ?? 1);
+    for (const foe of session.combatants) {
+      if (foe.teamId === actor.teamId) continue;
+      if (intents.get(foe.id)?.action.type !== BEATS[aCat]) continue;
+      const fMeta = session.meta.get(foe.id);
+      if (!fMeta || fMeta.state.health <= 0) continue;
+      if (chebyshevDist(actor.pos, foe.pos) > critRange) continue;
+      aMeta.state.attack_crits += 1;
+      log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
+      pushLog(log, resolve_action(aMeta.state, fMeta.state, crits));
+    }
   }
 }
 
@@ -326,7 +335,6 @@ export function resolveIntents(
         continue;
       }
       pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
-      triangleCrit(actor, actorMeta, v, m, intents, log);
       if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
     }
     action.cost = savedCost;
@@ -450,7 +458,6 @@ export function resolveIntents(
     if (!targetMeta) return;
     if (isDamaging(action)) actorMeta.state.aimed_hit += 1;
     pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-    triangleCrit(actor, actorMeta, occupant, targetMeta, intents, log);
     if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
   };
 
@@ -488,7 +495,6 @@ export function resolveIntents(
     const targetMeta = session.meta.get(target.id);
     if (!targetMeta) return;
     pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-    triangleCrit(actor, actorMeta, target, targetMeta, intents, log);
     if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, target, action.push, session, log);
   };
 
@@ -599,6 +605,16 @@ export function resolveIntents(
     // Drop the header if nothing fired in this phase — keeps the log
     // visually scannable instead of dotted with empty section markers.
     if (log.length === phaseStart + 1) log.pop();
+  }
+
+  // Counter-crits resolve once everyone has committed (the category triangle).
+  if (earlyWinner === null) {
+    const critStart = log.length;
+    log.push('▸ Crits');
+    resolveTriangleCrits(session, intents, log);
+    if (log.length === critStart + 1) log.pop();
+    const w = reapAndCheck('damage');
+    if (w !== null) earlyWinner = w;
   }
 
   if (earlyWinner !== null || session.teams.some(t => t.combatants.length === 0)) {

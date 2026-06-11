@@ -55,7 +55,9 @@ export function weaponBudget(weapon: Weapon, L: number, hpOverride?: number): nu
   const crits = [...weapon.defend_crit, ...weapon.attack_crit, ...weapon.special_crit].map(a => cost(a, MU, true));
   const best = nonCrit.length ? Math.max(...nonCrit) : 0;
   const restSum = nonCrit.reduce((s, c) => s + c, 0) - best;
-  const action = best + 0.25 * restSum + crits.reduce((s, c) => s + c, 0);
+  // Crits are CONDITIONAL — they only fire when you correctly counter the foe's
+  // category (and are in range), so they're discounted vs a guaranteed action.
+  const action = best + 0.25 * restSum + 0.4 * crits.reduce((s, c) => s + c, 0);
   const hp = hpOverride ?? (weapon.hp || 0);
   const hpCost = hp <= HBASE ? hp : HBASE + (hp - HBASE) * 0.5;
   return hpCost + action;

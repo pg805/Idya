@@ -77,7 +77,8 @@ function unitBudget(w: Weapon, hpOverride?: number): { budget: number; hp: numbe
   const best = nonCrit.length ? Math.max(...nonCrit) : 0;
   const restSum = nonCrit.reduce((s, c) => s + c, 0) - best;
   const critSum = crits.reduce((s, c) => s + c, 0);
-  const action = best + 0.25 * restSum + critSum;
+  // Crits are conditional (only on a correct, in-range counter) → discounted.
+  const action = best + 0.25 * restSum + 0.4 * critSum;
   const hp = hpOverride ?? (w.hp || 0);
   const hpCost = hp <= HBASE ? hp : HBASE + (hp - HBASE) * 0.5;
   return { budget: hpCost + action, hp, best, crit: critSum };

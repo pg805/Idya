@@ -145,12 +145,10 @@ Key files for the new system:
 - **Enemy telegraph** (`computeTelegraph` in `src/server/index.ts`) — a deliberately vague, movement-keyed *body-language* cue (closing/holding/fleeing) that correlates with intent but never reveals the action category; reading attack-vs-heal-vs-trap is the player's job. Enemies can define flavored phrases per movement intent via a `Telegraph:` block in their YAML (`closing`/`holding`/`fleeing`), else a generic mood is used.
 - `public/` — Browser UI (game.html, game.js, game.css)
 
-**Crit rule (category triangle):** Defend ▶ Attack ▶ Special ▶ Defend. When a strike lands, `triangleCrit` (`resolution.ts`) resolves the counter-crit from the two units' action categories that turn:
-- **attack → special:** the attacker's `attack_crit` catches the specialer mid-commit.
-- **special → defend:** the special's `special_crit` crashes through the defender's guard (strike-specials only — a non-strike special like a debuff doesn't route through the strike resolution).
-- **attack → defend:** the defender ripostes the attacker with its `defend_crit`.
+**Crit rule (category triangle):** Defend ▶ Attack ▶ Special ▶ Defend. A dedicated post-action pass, `resolveTriangleCrits` (`resolution.ts`), runs after the action sub-phases: every unit whose action category BEATS an opposing unit's gets its matching crit fired at that foe.
+- **attack → special:** `attack_crit`   • **special → defend:** `special_crit`   • **defend → attack:** `defend_crit` (the defender ripostes the attacker).
 
-Each crit is just another action payload (`resolve_action`), so a crit slot can hold any type — a strike riposte, extra block, a debuff. Crits skip a dead target. Both aimed and reactive strikes check this. The budget (`budget.ts`) already costs all three crit lists, so adding crit values raises a weapon's budget (~its crit EVs).
+A crit is **one payload per category per weapon** (a single `attack_crit`/`special_crit`/`defend_crit` list that rides ANY action of that category) and is just a `resolve_action`, so it can be any type — a strike riposte, extra block, a debuff. It fires regardless of the main action's type (a self-target shield still crits a guard). **Range-gated:** the crit reaches `max(crit.Range, the-used-action's range)`, so a melee riposte can't catch a ranged attacker, while an attack-crit reaches whoever your attack hit. Crits skip a dead target. The budget (`budget.ts`/`cost_report.ts`) costs all three crit lists at **0.4×** (they're conditional — only on a correct, in-range counter).
 
 ## Design Notes
 
