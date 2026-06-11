@@ -119,12 +119,15 @@ const N = Number(process.argv[2] ?? 100);
 const enemyArg = process.argv[3];
 
 const weaponFiles = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
-// Default to the enemies tuned for the planner; pass a name to test just one.
-const enemyNames = enemyArg
-  ? [enemyArg]
-  : fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml'))
-      .filter(f => (yaml.load(fs.readFileSync(join(ENEMIES, f), 'utf-8')) as { AI?: string }).AI === 'smart')
-      .map(f => f.replace('.yaml', ''));
+const allEnemyFiles = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+// `all` → every enemy; a name → just that one; default → enemies tuned for the planner.
+const enemyNames = enemyArg === 'all'
+  ? allEnemyFiles.map(f => f.replace('.yaml', ''))
+  : enemyArg
+    ? [enemyArg]
+    : allEnemyFiles
+        .filter(f => (yaml.load(fs.readFileSync(join(ENEMIES, f), 'utf-8')) as { AI?: string }).AI === 'smart')
+        .map(f => f.replace('.yaml', ''));
 
 console.log(`\nSpatial sim — real engine + utility AI both sides, ${N} battles/matchup, ${BOARD_W}x${BOARD_H} board`);
 console.log(`enemies: ${enemyNames.join(', ')}\n`);
