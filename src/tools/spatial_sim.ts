@@ -18,6 +18,7 @@ import { CombatSession, CombatantMeta, Team } from '../combat/combat_session.js'
 import { resolveIntents } from '../combat/resolution.js';
 import { choosePlan } from '../combat/ai_planner.js';
 import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay } from '../combat/replay_sim.js';
+import { weaponBudget } from './budget.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -238,6 +239,44 @@ if (process.argv[2] === 'diag') {
   console.log(`First-mover win%:   went first ${(fW / (fT || 1) * 100).toFixed(0)}%  vs  went second ${(sW / (sT || 1) * 100).toFixed(0)}%`);
   console.log(`Aimed-attack hits:  ${(aHit / (aAtt || 1) * 100).toFixed(0)}%  (${aHit}/${aAtt} attempts)`);
   console.log(`Timeout rate:       ${(timeouts / battles * 100).toFixed(0)}%`);
+  console.log('');
+  process.exit(0);
+}
+
+// Budget correlation: `node spatial_sim.js budget [N]` — each weapon's budget
+// (the heuristic) vs its avg win% across all enemies (the sim). Tells us whether
+// the budget actually predicts power.
+if (process.argv[2] === 'budget') {
+  const N = Number(process.argv[3] ?? 60);
+  const wf = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
+  const ef = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+  const lvl = (file: string) => (yaml.load(fs.readFileSync(file, 'utf-8')) as { Level?: number }).Level ?? 0;
+
+  const rows = wf.map(f => {
+    const weapon = Weapon.from_file(join(WEAPONS, f));
+    const L = lvl(join(WEAPONS, f));
+    const budget = weaponBudget(weapon, L);
+    let sum = 0;
+    for (const e of ef) sum += aggregate(Array.from({ length: N }, () => runSpatialBattle(weapon, join(ENEMIES, e)))).winRate;
+    return { name: weapon.name, L, budget, win: sum / ef.length };
+  }).sort((a, b) => a.budget - b.budget);
+
+  console.log(`\nBudget heuristic vs sim win% — ${N} battles/matchup, avg win% across all ${ef.length} enemies\n`);
+  console.log(`${'Weapon'.padEnd(18)}${'lvl'.padStart(4)}${'budget'.padStart(9)}${'cap'.padStart(6)}${'win%'.padStart(7)}`);
+  console.log('-'.repeat(46));
+  for (const r of rows) {
+    const cap = 25 * r.L * (r.L + 3) / 2;
+    console.log(`${r.name.slice(0, 17).padEnd(18)}${('L' + r.L).padStart(4)}${r.budget.toFixed(0).padStart(9)}${cap.toFixed(0).padStart(6)}${(r.win * 100).toFixed(0).padStart(6)}%`);
+  }
+  // Pearson r between budget and win%, excluding the Honor outlier.
+  const s = rows.filter(r => r.name !== 'Honor');
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  const bx = s.map(r => r.budget), wy = s.map(r => r.win);
+  const mbx = mean(bx), mwy = mean(wy);
+  const cov = s.reduce((acc, _, i) => acc + (bx[i] - mbx) * (wy[i] - mwy), 0);
+  const sdb = Math.sqrt(bx.reduce((a, x) => a + (x - mbx) ** 2, 0));
+  const sdw = Math.sqrt(wy.reduce((a, y) => a + (y - mwy) ** 2, 0));
+  console.log(`\nPearson r (budget vs win%, excl. Honor): ${(cov / (sdb * sdw)).toFixed(2)}`);
   console.log('');
   process.exit(0);
 }
