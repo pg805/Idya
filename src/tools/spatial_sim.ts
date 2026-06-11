@@ -129,24 +129,48 @@ const enemyNames = enemyArg === 'all'
         .filter(f => (yaml.load(fs.readFileSync(join(ENEMIES, f), 'utf-8')) as { AI?: string }).AI === 'smart')
         .map(f => f.replace('.yaml', ''));
 
+const lvlOf = (file: string) => (yaml.load(fs.readFileSync(file, 'utf-8')) as { Level?: number }).Level ?? 0;
+const wLevel = new Map(weaponFiles.map(f => [f, lvlOf(join(WEAPONS, f))]));
+
 console.log(`\nSpatial sim — real engine + utility AI both sides, ${N} battles/matchup, ${BOARD_W}x${BOARD_H} board`);
 console.log(`enemies: ${enemyNames.join(', ')}\n`);
 
+const matrix: { wLvl: number; eLvl: number; win: number }[] = [];
+
 for (const enemyName of enemyNames) {
   const enemyPath = join(ENEMIES, `${enemyName}.yaml`);
-  console.log(`vs ${enemyName}`);
-  console.log(`${'Weapon'.padEnd(18)}${'win%'.padStart(7)}${'rounds'.padStart(8)}${'HP% on win'.padStart(12)}${'timeout%'.padStart(10)}`);
-  console.log('-'.repeat(55));
+  const eLvl = lvlOf(enemyPath);
+  console.log(`vs ${enemyName} (L${eLvl})`);
+  console.log(`${'Weapon'.padEnd(18)}${'lvl'.padStart(4)}${'win%'.padStart(7)}${'rounds'.padStart(8)}${'HP%'.padStart(6)}${'t/o%'.padStart(7)}`);
+  console.log('-'.repeat(50));
   const rows = weaponFiles.map(f => {
     const weapon = Weapon.from_file(join(WEAPONS, f));
-    const results = Array.from({ length: N }, () => runSpatialBattle(weapon, enemyPath));
-    return { name: weapon.name, ...aggregate(results) };
-  }).sort((a, b) => b.winRate - a.winRate);
+    const agg = aggregate(Array.from({ length: N }, () => runSpatialBattle(weapon, enemyPath)));
+    const lvl = wLevel.get(f) ?? 0;
+    matrix.push({ wLvl: lvl, eLvl, win: agg.winRate });
+    return { name: weapon.name, lvl, ...agg };
+  }).sort((a, b) => a.lvl - b.lvl || b.winRate - a.winRate);
   for (const r of rows) {
     console.log(
-      `${r.name.slice(0, 17).padEnd(18)}${(r.winRate * 100).toFixed(0).padStart(6)}%${r.avgRounds.toFixed(1).padStart(8)}` +
-      `${(r.avgHpOnWin * 100).toFixed(0).padStart(11)}%${(r.timeoutRate * 100).toFixed(0).padStart(9)}%`,
+      `${r.name.slice(0, 17).padEnd(18)}${('L' + r.lvl).padStart(4)}${(r.winRate * 100).toFixed(0).padStart(6)}%${r.avgRounds.toFixed(1).padStart(8)}` +
+      `${(r.avgHpOnWin * 100).toFixed(0).padStart(5)}%${(r.timeoutRate * 100).toFixed(0).padStart(6)}%`,
     );
   }
   console.log('');
 }
+
+// Aggregate: avg win% by weapon level (rows) x enemy level (cols).
+const wLvls = [...new Set(matrix.map(m => m.wLvl))].sort((a, b) => a - b);
+const eLvls = [...new Set(matrix.map(m => m.eLvl))].sort((a, b) => a - b);
+console.log('Avg win% — weapon level (row) vs enemy level (col):');
+console.log(`${'wL\\eL'.padEnd(7)}${eLvls.map(e => ('L' + e).padStart(7)).join('')}`);
+for (const wl of wLvls) {
+  let line = ('L' + wl).padEnd(7);
+  for (const el of eLvls) {
+    const cells = matrix.filter(m => m.wLvl === wl && m.eLvl === el);
+    const avg = cells.length ? cells.reduce((s, c) => s + c.win, 0) / cells.length : null;
+    line += (avg === null ? '—' : `${(avg * 100).toFixed(0)}%`).padStart(7);
+  }
+  console.log(line);
+}
+console.log('');
