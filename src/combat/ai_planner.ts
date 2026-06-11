@@ -152,12 +152,17 @@ function scorePlan(
   const destTile = session.board.getTile(dest);
   const onMyTile = (k: 'block' | 'buff') => !!destTile && destTile.teamId === me.teamId && destTile.kind === k;
   let score = 0;
+  // Does this plan actually hurt or control the foe from here? Kiting (the safety
+  // term) is only worth it if fleeing is PRODUCTIVE — a unit that backs off doing
+  // nothing is just stalling, so it shouldn't value the distance.
+  let threatening = false;
 
   // --- offense: expected damage = EV × hit chance, with the resist roll-mode skew ---
   if (isDamaging(action)) {
     const mode = foeMeta?.state.get_roll_mode(action) ?? '1d';
     const evDmg = ev(fieldOf(action)) * roundsOf(action) * (ROLL_MULT[mode] ?? 1);
     const ph = hitProb(action, dest, target, predicted, session);
+    if (ph > 0.15) threatening = true;
     score += evDmg * ph;
     if (onMyTile('buff')) score += destTile!.value * ph;   // attacking from my buff tile hits harder
     if (ph > 0.5 && evDmg >= foe.hp) score += W.kill;                  // likely kill
@@ -194,17 +199,24 @@ function scorePlan(
     } else {
       let mass = 0;
       for (const p of areaBlock(target, action.area, dest)) mass += predicted.get(key(p)) ?? 0;
+      if (mass > 0.03) threatening = true;   // a hazard/slow on their path is progress
       const unit = action.type === ActionType.HazardTile ? valueOf(action) : 6;  // slow ≈ delay
       score += mass * unit * W.control;
       if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
     }
   }
-  if (action.type === ActionType.MoveDebuff)
-    score += hitProb(action, dest, target, predicted, session) * roundsOf(action) * 4 * (W.control / 1.2);
+  if (action.type === ActionType.MoveDebuff) {
+    const ph = hitProb(action, dest, target, predicted, session);
+    if (ph > 0.15) threatening = true;
+    score += ph * roundsOf(action) * 4 * (W.control / 1.2);
+  }
   // Attack debuff: saps the foe's damage for `rounds` — value ≈ atk reduction ×
   // rounds × (the foe attacking), landed with hit chance.
-  if (action.type === ActionType.Debuff)
-    score += hitProb(action, dest, target, predicted, session) * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend;
+  if (action.type === ActionType.Debuff) {
+    const ph = hitProb(action, dest, target, predicted, session);
+    if (ph > 0.15) threatening = true;
+    score += ph * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend;
+  }
 
   // --- ally tiles (block/buff zones to stand on): score so kits built around them
   // (Pickaxe, Spellbook's Bookmark) actually use them. Don't credit re-dropping a
@@ -236,7 +248,10 @@ function scorePlan(
   const foeThreat = foe.movementRange + maxDamagingRange(foe);
   const d = chebyshevDist(dest, foe.pos);
   score -= Math.max(0, d - myRange) * W.approach;
-  score += Math.min(d, foeThreat) * vuln * W.safety;
+  // Safety is only worth chasing when fleeing is PRODUCTIVE — if this plan does
+  // nothing to the foe, backing off is a pointless stall, so don't reward distance.
+  // (This is what stops a fragile unit kiting forever with no payoff.)
+  if (threatening) score += Math.min(d, foeThreat) * vuln * W.safety;
 
   // --- crit exposure: Specialing lets the foe's attack_crit land if it Attacks.
   // Penalize it when a crit-capable foe can reach me — so I aim an Attack instead.
