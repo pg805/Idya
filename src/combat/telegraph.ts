@@ -11,19 +11,14 @@ import { Combatant, CombatantMeta, CombatSession } from './combat_session.js';
 import { chebyshevDist } from './board.js';
 import { choosePlan } from './ai_planner.js';
 import { findAffordableEntry } from './ai.js';
-import Action, { ActionType } from '../weapon/action.js';
+import { isHostile } from './disposition.js';
+import Action from '../weapon/action.js';
 
 type Mood = { closing: string; holding: string; fleeing: string };
 const MOOD: Record<'hostile' | 'defensive', Mood> = {
   hostile:   { closing: 'Stalking closer',    holding: 'Sizing you up',  fleeing: 'Circling, eyes fixed on you' },
   defensive: { closing: 'Edging in, guarded', holding: 'On its guard',   fleeing: 'Backing away' },
 };
-
-const HOSTILE_TYPES = new Set<number>([
-  ActionType.Strike, ActionType.DamageOverTime, ActionType.Debuff,
-  ActionType.HazardTile, ActionType.SlowTile, ActionType.MoveDebuff, ActionType.DestroyObstacle,
-]);
-const isHostile = (a: Action) => HOSTILE_TYPES.has(a.type) || (a.push ?? 0) > 0;
 
 export function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[], session: CombatSession): string {
   if (enemies.length === 0) return '';

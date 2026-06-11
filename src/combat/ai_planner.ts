@@ -13,6 +13,7 @@ import { Pos, chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
+import { isHostile } from './disposition.js';
 import { areaBlock } from './resolution.js';
 import Action, { ActionType, SELF_TARGET_TYPES } from '../weapon/action.js';
 
@@ -32,6 +33,7 @@ const W = {
   allyTile: 1.0,   // dropping a block/buff tile to stand on
   critExposure: 1.0, // penalty for Specialing into a foe's COMPOUNDING (debuff) attack_crit
   corner: 0.6,     // (smart chaser only) herd a fleeing foe toward a wall
+  tri: 3,          // (smart only) category-triangle nudge: counter the foe's read
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
 };
@@ -150,7 +152,7 @@ function scorePlan(
   me: Combatant, meta: CombatantMeta, foe: Combatant, foeMeta: CombatantMeta | undefined,
   dest: Pos, destInfo: ReachDanger | undefined, action: Action, target: Pos | null,
   predicted: Map<string, number>, session: CombatSession,
-  myMaxAtkCost: number, isSpecial: boolean, smart = false,
+  myMaxAtkCost: number, isSpecial: boolean, smart = false, foeMood: 'hostile' | 'defensive' | null = null,
 ): number {
   const vuln = ESTIMATED_INCOMING / Math.max(1, meta.state.health);
   const foeReach = foe.movementRange + maxDamagingRange(foe);
@@ -188,9 +190,15 @@ function scorePlan(
   // Defense is only worth it if the foe can actually hit me this turn — shielding
   // when safe is a wasted turn (the old "turtle forever" bug). Multi-round shields
   // are modestly better, not ×rounds.
-  if (action.type === ActionType.Block || action.type === ActionType.Shield || action.type === ActionType.Reflect) {
+  const isMyDefend = action.type === ActionType.Block || action.type === ActionType.Shield || action.type === ActionType.Reflect;
+  if (isMyDefend) {
     const dur = 1 + 0.3 * (roundsOf(action) - 1);
-    const threatened = foeCanHitDest ? 1 : 0.15;
+    // Defending only helps against INCOMING damage. If I read the foe as defensive
+    // (guarding, not swinging), my block is a wasted turn — this is what breaks the
+    // defend-vs-defend mutual turtle. Smart side reads the telegraph mood; the base
+    // AI falls back to "can it reach me".
+    const incoming = !smart || foeMood === 'hostile';
+    const threatened = (foeCanHitDest && incoming) ? 1 : 0.15;
     score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * vuln * W.defend * threatened;
   }
   if (action.type === ActionType.Buff) score += valueOf(action) * W.buff;
@@ -277,6 +285,16 @@ function scorePlan(
   if (isSpecial && foeMeta && foeMeta.weapon.attack_crit.length > 0 && foeCanHitDest)
     score -= critCost(foeMeta.weapon.attack_crit[0]) * FOE_ATTACK_CHANCE * W.critExposure;
 
+  // --- category triangle (smart only), read off the telegraph MOOD only (the
+  // reliable signal — hostile vs defensive). A light nudge: if they look defensive,
+  // lean Special (out-damages a guard); if they look hostile, lean Defend (eat the
+  // incoming, whether it's an attack or a special). Kept small so fights stay
+  // readable. We deliberately DON'T guess attack-vs-special — it isn't predictable.
+  if (smart && foeMood) {
+    if (foeMood === 'defensive' && isSpecial) score += W.tri;
+    else if (foeMood === 'hostile' && isMyDefend) score += W.tri;
+  }
+
   // --- penalties / economy ---
   score -= (destInfo?.hazard ?? 0) * W.hazardPath;
   // Restoring resource only matters when being short is actually blocking my best
@@ -328,6 +346,37 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   const foeMeta = session.meta.get(foe.id);
   const predicted = predictPlayerTiles(me, foe, session);
 
+  // Opponent read (smart only) — only what a player can SEE, never the exact plan:
+  // the telegraph mood (hostile = offensive / defensive = guarding) + movement
+  // (closing/holding/fleeing), exactly what computeTelegraph shows. NOTE: we do NOT
+  // try to split hostile into attack-vs-special from the resource bar — validation
+  // showed "loaded → special" only holds for special-happy enemies (deer ~99%);
+  // most still jab even when charged (special-rate 2–35%), so it's not a reliable
+  // tell. Only "depleted → attack" is universal, and "hostile → block" covers that.
+  // `holding` loosely says "it's lingering here" → bias aim toward where it stands.
+  let foeMood: 'hostile' | 'defensive' | null = null;
+  if (smart && foeMeta) {
+    const fi = choosePlan(foe, session, undefined, false);
+    const list = (foeMeta.weapon as unknown as Record<string, Action[]>)[fi.action.type];
+    const fa = list?.[fi.action.actionIndex];
+    if (fa) {
+      foeMood = isHostile(fa) ? 'hostile' : 'defensive';
+      const before = chebyshevDist(foe.pos, me.pos);
+      const after = fi.moveTo ? chebyshevDist(fi.moveTo, me.pos) : before;
+      const dir = after < before ? 'closing' : after > before ? 'fleeing' : 'holding';
+      // Loose directional prior on the existing heatmap — not a point-mass.
+      for (const [k, w] of predicted) {
+        const [x, y] = k.split(',').map(Number);
+        const near = chebyshevDist({ x, y }, foe.pos) <= 1;
+        const closer = chebyshevDist({ x, y }, me.pos) < before;
+        const mult = dir === 'holding' ? (near ? 1.6 : 0.8)
+          : dir === 'closing' ? (closer ? 1.4 : 0.85)
+          : (closer ? 0.85 : 1.4);   // fleeing
+        predicted.set(k, w * mult);
+      }
+    }
+  }
+
   const moveRange = effectiveMove(me.movementRange, meta.state);
   const occupied = new Set(session.combatants.filter(c => c.id !== me.id).map(c => key(c.pos)));
   const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId);
@@ -345,7 +394,7 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
     const isStay = d.pos.x === me.pos.x && d.pos.y === me.pos.y;
     for (const a of actions) {
       for (const target of candidateTargets(a.action, d.pos, predicted, session)) {
-        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special', smart);
+        const score = scorePlan(me, meta, foe, foeMeta, d.pos, d.info, a.action, target, predicted, session, myMaxAtkCost, a.choice === 'special', smart, foeMood);
         if (collect) collect.push({ dest: { ...d.pos }, choice: a.choice, index: a.index, action: a.action.name, target: target ? { ...target } : null, score });
         const tiebreak = -moveCost * 1000 - a.index;   // prefer staying / lower index
         if (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && tiebreak > best.tiebreak)) {
