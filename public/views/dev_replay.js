@@ -6,7 +6,8 @@
 // unit's reasoning; click a turn in the log to jump. Dev-only; /api/dev/replay
 // gates with isDev.
 (function() {
-  let data = null, turnIdx = 0, selUnit = null, root = null;
+  let data = null, turnIdx = 0, selUnit = null, root = null, autoTimer = null;
+  const AUTO_MS = 20000; // auto-run dwell: hold each turn 20s before advancing
   const eq = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b.y);
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const q = (sel) => root.querySelector(sel);
@@ -30,6 +31,7 @@
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
+              <button id="dr-auto" title="advance one turn every 20s">▶ Auto</button>
               <button id="dr-dl">⤓ Log</button>
               <span id="dr-hint">click a card to inspect its reasoning · ← / → or click a turn to step · cards/board show the state being decided on; the log is how it resolves</span>
             </div>
@@ -41,6 +43,8 @@
             <div id="dr-heatinfo"></div>
             <h4>Scored plans (this unit, this turn)</h4>
             <div id="dr-cands"></div>
+          </div>
+          <div id="dr-logcol">
             <h4>Full log (click a turn to jump)</h4>
             <div id="dr-log"></div>
           </div>
@@ -58,6 +62,7 @@
     q('#dr-run').onclick = run;
     q('#dr-prev').onclick = () => step(-1);
     q('#dr-next').onclick = () => step(1);
+    q('#dr-auto').onclick = toggleAuto;
     q('#dr-dl').onclick = downloadLog;
     document.addEventListener('keydown', onKey);
   }
@@ -92,11 +97,34 @@
 
   function onKey(e) {
     if (!data) return;
-    if (e.key === 'ArrowRight') step(1);
-    if (e.key === 'ArrowLeft') step(-1);
+    // Don't hijack arrows while a dropdown/field is focused.
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+  }
+
+  // Auto-run: advance one turn every AUTO_MS, stopping at the final turn.
+  function toggleAuto() {
+    if (autoTimer) { stopAuto(); return; }
+    if (turnIdx >= data.turns.length - 1) return; // nothing left to play
+    autoTimer = setInterval(() => {
+      if (turnIdx >= data.turns.length - 1) { stopAuto(); return; }
+      step(1);
+    }, AUTO_MS);
+    const b = q('#dr-auto');
+    b.textContent = '⏸ Auto';
+    b.classList.add('dr-auto-on');
+  }
+
+  function stopAuto() {
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    const b = root && q('#dr-auto');
+    if (b) { b.textContent = '▶ Auto'; b.classList.remove('dr-auto-on'); }
   }
 
   async function run() {
+    stopAuto();
     const w = q('#dr-weapon').value, en = q('#dr-enemy').value;
     const status = q('#dr-status');
     status.textContent = 'running…';
@@ -241,7 +269,13 @@
     const log = q('#dr-log');
     log.querySelectorAll('.dr-turn.cur').forEach((d) => d.classList.remove('cur'));
     const cur = log.querySelector(`.dr-turn[data-i="${turnIdx}"]`);
-    if (cur) { cur.classList.add('cur'); cur.scrollIntoView({ block: 'nearest' }); }
+    if (!cur) return;
+    cur.classList.add('cur');
+    // Scroll only inside the log box — never use scrollIntoView, which would
+    // yank the whole page down to the log on every step.
+    const cr = cur.getBoundingClientRect(), lr = log.getBoundingClientRect();
+    if (cr.top < lr.top) log.scrollTop -= lr.top - cr.top;
+    else if (cr.bottom > lr.bottom) log.scrollTop += cr.bottom - lr.bottom;
   }
 
   function step(d) {
@@ -251,6 +285,7 @@
   }
 
   function unmount() {
+    stopAuto();
     document.removeEventListener('keydown', onKey);
     data = null; turnIdx = 0; selUnit = null; root = null;
   }

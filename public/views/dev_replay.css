@@ -52,11 +52,14 @@
 #dr-board .cell.rp-move   { outline: 3px solid #4ad07a; outline-offset: -3px; }
 #dr-board .cell.rp-target { box-shadow: inset 0 0 0 3px rgba(226,99,132,0.9); }
 
-/* Reasoning panel */
+/* Reasoning panel + log column (the log lives in its own right-hand column so
+   stepping turns never shifts the board/cards on the left) */
 #dr-panel { width: 440px; max-width: 100%; font-size: 13px; }
+#dr-logcol { width: 320px; max-width: 100%; font-size: 13px; }
 #dr-plan { background: #1a1a22; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
 #dr-heatinfo { color: #c89a6a; font-size: 12px; margin-bottom: 8px; }
-#dr-panel h4 { margin: 12px 0 4px; color: #9a9aa8; font-weight: 500; }
+#dr-panel h4, #dr-logcol h4 { margin: 12px 0 4px; color: #9a9aa8; font-weight: 500; }
+#dr-turnbar button.dr-auto-on { background: #4a3a6a; border-color: #8a5ad0; color: #e8dcff; }
 #dr-cands table { width: 100%; border-collapse: collapse; }
 #dr-cands th, #dr-cands td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #23232c; font-variant-numeric: tabular-nums; }
 #dr-cands th { color: #8a8a98; font-weight: 500; }
