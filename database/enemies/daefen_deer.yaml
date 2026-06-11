@@ -47,7 +47,15 @@ Weapon:
       Cost: -7
       Action_String: "<User> dips its head in a bow, restoring 7 Rein."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Kneel
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 7
+      Cost: 0
+      Action_String: "<User> kneels behind its antlers, blocking 7 more."
 
   Attack:
     - Name: Horn Crash
@@ -85,4 +93,12 @@ Weapon:
       Range: 3
       Action_String: "<User> calls down rain over a 3x3 area, dealing <Damage> damage for 3 rounds."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Thunder
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Elemental
+      Damage_Subtype: Electric
+      Field: [7, 8, 10]
+      Cost: 0
+      Action_String: "<User> calls thunder down on <Target> for <Damage> damage."

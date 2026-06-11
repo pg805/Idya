@@ -18,7 +18,17 @@ Defend:
     Cost: -2  # restores 2 stamina
     Action_String: "<User> enters a defensive pose, preparing to block 14 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Soil
+    Type: 5
+    Type_Name: Debuff
+    Damage_Type: Arcane
+    Damage_Subtype: Earth
+    Value: 5
+    Rounds: 2
+    Cost: 0
+    Range: 1
+    Action_String: "<User> flings soil in <Target>'s face, debuffing their attack by 5 for 2 rounds."
 
 Attack:
   - Name: Whack
@@ -64,4 +74,13 @@ Special:
     Cost: 3  # costs 3 stamina
     Action_String: "<User> digs a 2x2 of pits — anything that steps in takes 15 damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Moat
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Physical
+    Damage_Subtype: Earth
+    Value: 5
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> banks a moat of earth, shielding 5 damage for 3 rounds."

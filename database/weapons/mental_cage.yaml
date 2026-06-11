@@ -27,7 +27,15 @@ Defend:
     Cost: 2
     Action_String: "<User> sets the stone to orbit their head, preparing to block for 16 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Calming Premonition
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
+    Value: 0
+    Cost: -1
+    Action_String: "<User> reads the blow a moment early, recovering 1 Tranquility."
 
 Attack:
   - Name: Mind Spike
@@ -64,4 +72,13 @@ Special:
     Range: 4
     Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 14 for 4 rounds."
 
-Special Crit: []
+Special Crit:
+  - Name: Headache
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [7, 8, 9]
+    Cost: 0
+    Range: 2
+    Action_String: "<User> splits <Target>'s focus with a searing headache for <Damage> damage."

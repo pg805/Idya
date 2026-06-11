@@ -18,7 +18,16 @@ Defend:
     Cost: 2
     Action_String: "<User> deflects the incoming strike, bracing for 18 damage."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Riposte
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [6, 7, 9]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> turns the parry into a riposte, dealing <Damage> damage."
 
 Attack:
   - Name: Slash
@@ -63,4 +72,13 @@ Special:
     Cost: -3
     Action_String: "<User> takes a moment to hone their blade, restoring its edge."
 
-Special Crit: []
+Special Crit:
+  - Name: Swallow Strike
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [9, 10, 14]
+    Cost: 0
+    Range: 1
+    Action_String: "<User>'s blade slips clean through the guard for <Damage> damage."

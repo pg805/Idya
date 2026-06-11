@@ -30,7 +30,15 @@ Defend:
     Range: 2
     Action_String: "<User> looms with menace, debuffing <Target>'s attack by 5 for 3 rounds and restoring 2 momentum."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Can't Touch This
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 7
+    Cost: 0
+    Action_String: "<User> keeps the mace spinning — can't touch this — blocking 7 more."
 
 Attack:
   - Name: Slam
@@ -67,4 +75,12 @@ Special:
     Range: 1
     Action_String: "<User> drives the mace down onto <Target> for <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: One More
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [7, 7, 8, 14, 14, 15]
+    Cost: 0
+    Action_String: "<User> winds up one more and drives it home for <Damage> damage."

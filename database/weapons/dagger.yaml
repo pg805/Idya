@@ -39,7 +39,16 @@ Defend:
     Aimed: false
     Action_String: "<User> slashes at <Target>'s legs — their movement is cut to 1 for 4 rounds."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Dodge Feint
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [4, 6, 7, 8]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> feints the dodge and slips the blade back in for <Damage> damage."
 
 Attack:
   - Name: Swipe
@@ -86,4 +95,14 @@ Special:
     Range: 1
     Action_String: "<User> drives their stiletto into <Target> for <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Poison Blade
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Elemental
+    Damage_Subtype: Water
+    Field: [4, 5, 6]
+    Rounds: 2
+    Cost: 0
+    Range: 1
+    Action_String: "<User>'s poisoned blade leaves <Target> bleeding for <Damage> a round."

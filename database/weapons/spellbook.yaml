@@ -30,7 +30,15 @@ Defend:
     Cost: 3
     Action_String: "<User> marks the page — a 3x3 ward where their spells strike for +10."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Dogear
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 5
+    Cost: 0
+    Action_String: "<User> dogears the page, bracing to block 5 more."
 
 Attack:
   - Name: Plot Point
@@ -65,4 +73,13 @@ Special:
     Range: 3
     Action_String: "<User> builds to a climax, striking <Target> for <Damage> damage."
 
-Special Crit: []
+Special Crit:
+  - Name: Falling Action
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [6, 7]
+    Rounds: 2
+    Cost: 0
+    Action_String: "<User>'s falling action lingers — <Target> takes <Damage> a round."

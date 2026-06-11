@@ -37,7 +37,15 @@ Weapon:
       Cost: -6
       Action_String: "<User> bleeds Maek, restoring 6 Maek."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Hemoglobin
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 0
+      Cost: -2
+      Action_String: "<User> clots the wound, recovering 2 Maek."
 
   Attack:
     - Name: Tongue Lash
@@ -99,4 +107,13 @@ Weapon:
       Cost: 2
       Action_String: "<User> floods the ground with Maek, miring a 2x2 area — leaving a mired tile costs 2 movement."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Platelets
+      Type: 8
+      Type_Name: Shield
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 5
+      Rounds: 3
+      Cost: 0
+      Action_String: "<User> floods platelets, shielding 5 damage for 3 rounds."
