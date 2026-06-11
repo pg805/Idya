@@ -191,6 +191,57 @@ if (process.argv[2] === 'usage') {
   process.exit(0);
 }
 
+// Diagnostics: `node spatial_sim.js diag [N]` — first-mover advantage, aimed-attack
+// hit rate, timeout rate, restore reliance. Surfaces problem spots beyond kiting.
+if (process.argv[2] === 'diag') {
+  const N = Number(process.argv[3] ?? 40);
+  const weaponFiles = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
+  const enemyFiles = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+  let fW = 0, fT = 0, sW = 0, sT = 0;            // first/second mover wins & totals
+  let aAtt = 0, aHit = 0, restores = 0, decisions = 0;
+  let timeouts = 0, battles = 0;
+
+  for (const wf of weaponFiles) {
+    const weapon = Weapon.from_file(join(WEAPONS, wf));
+    for (const ef of enemyFiles) {
+      const enemyPath = join(ENEMIES, ef);
+      for (let i = 0; i < N; i++) {
+        const { board, playerSpawn, enemySpawn } = genBoard();
+        const player = buildPlayerUnit(weapon, playerSpawn);
+        const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
+        const teams: Team[] = [
+          { id: 'team-a', name: 'P', combatants: [player.combatant] },
+          { id: 'team-b', name: 'E', combatants: [enemy.combatant] },
+        ];
+        const session = new CombatSession('d', board, teams);
+        session.meta.set('player-1', player.meta);
+        session.meta.set('enemy-1', enemy.meta);
+        session.phase = 'intent';
+        const pFirst = player.combatant.initiativeRank < enemy.combatant.initiativeRank;
+        let winner: string | null = null;
+        for (let n = 0; n < MAX_ROUNDS; n++) {
+          if (session.teams.some(t => t.combatants.length === 0)) break;
+          const intents = new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]));
+          winner = resolveIntents(session, intents).winner;
+          if (winner) break;
+        }
+        battles++;
+        if (!winner) timeouts++;
+        const pWon = winner === 'team-a';
+        if (pFirst) { fT++; if (pWon) fW++; } else { sT++; if (pWon) sW++; }
+        const ps = player.meta.state;
+        aAtt += ps.aimed_attempted; aHit += ps.aimed_hit; restores += ps.restores;
+      }
+    }
+  }
+  console.log(`\nDiagnostics — ${battles} battles, both sides AI\n`);
+  console.log(`First-mover win%:   went first ${(fW / (fT || 1) * 100).toFixed(0)}%  vs  went second ${(sW / (sT || 1) * 100).toFixed(0)}%`);
+  console.log(`Aimed-attack hits:  ${(aHit / (aAtt || 1) * 100).toFixed(0)}%  (${aHit}/${aAtt} attempts)`);
+  console.log(`Timeout rate:       ${(timeouts / battles * 100).toFixed(0)}%`);
+  console.log('');
+  process.exit(0);
+}
+
 const N = Number(process.argv[2] ?? 100);
 const enemyArg = process.argv[3];
 
