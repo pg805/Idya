@@ -9,6 +9,7 @@ import { CombatSession, Combatant, CombatantMeta, Team } from './combat_session.
 import { CombatantState } from './combatant_state.js';
 import { resolveIntents } from './resolution.js';
 import { choosePlan, predictPlayerTiles, PlanCandidate } from './ai_planner.js';
+import { computeTelegraph } from './telegraph.js';
 import { BoardConfig, Pos } from './board.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -90,12 +91,19 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
   const turns: unknown[] = [];
   let winner: string | null = null;
   let rounds = 0;
+
+  const snap = (c: Combatant, hp: number, res: number, tg: string) => ({
+    id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp, maxHp: c.maxHp,
+    resource: res, maxResource: c.maxResource, resourceName: c.resourceName, telegraph: tg,
+  });
+
   for (let n = 0; n < MAX_ROUNDS; n++) {
     if (session.teams.some(t => t.combatants.length === 0)) break;
     const boardSnap = session.board.toJSON();
     const units = session.combatants.map(c => {
       const m = session.meta.get(c.id)!;
-      return { id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp: m.state.health, maxHp: c.maxHp, resource: m.state.resource_current, maxResource: c.maxResource, resourceName: c.resourceName };
+      const enemies = session.combatants.filter(o => o.teamId !== c.teamId);
+      return snap(c, m.state.health, m.state.resource_current, computeTelegraph(m, c, enemies, session));
     });
     const intents = new Map<string, ReturnType<typeof choosePlan>>();
     const decisions: unknown[] = [];
@@ -120,6 +128,17 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     rounds = n + 1;
     if (w) { winner = w; break; }
   }
+
+  // Final frame: the post-resolution end state (the killing blow is applied here),
+  // so the last view shows 0 HP on the loser instead of the pre-blow snapshot.
+  const finalUnits = [
+    ...session.combatants.map(c => snap(c, session.meta.get(c.id)!.state.health, session.meta.get(c.id)!.state.resource_current, '')),
+    ...session.deadCombatants.map(d => snap(d.combatant, 0, d.meta.state.resource_current, '')),
+  ].sort((a, b) => (a.team === b.team ? 0 : a.team === 'team-a' ? -1 : 1));
+  turns.push({
+    n: rounds + 1, board: session.board.toJSON(), units: finalUnits, decisions: [],
+    log: [winner ? `${winner === 'team-a' ? 'Player' : 'Enemy'} wins — battle over.` : 'Round cap reached — timeout.'],
+  });
 
   return { meta: { weapon: weapon.name, enemy: enemyName, board: { width: board.width, height: board.height } }, turns, result: { winner, rounds } };
 }

@@ -28,6 +28,7 @@
 #dr-cards .hp-text { font-size: 0.75rem; color: var(--text-faint, #8a8a98); margin-top: 3px; }
 #dr-cards .res-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 6px; }
 #dr-cards .res-bar { height: 100%; border-radius: 3px; background: var(--buy, #4a90d9); transition: width 0.2s; }
+#dr-cards .dr-telegraph { font-size: 0.7rem; color: var(--gold, #c89a6a); margin-top: 7px; font-style: italic; letter-spacing: 0.04em; }
 
 /* Board */
 #dr-board { display: grid; gap: 2px; background: #15151c; padding: 8px; border-radius: 8px; }

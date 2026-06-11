@@ -26,7 +26,7 @@
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
-              <span id="dr-hint">click a card to inspect its reasoning · ← / → to step</span>
+              <span id="dr-hint">click a card to inspect its reasoning · ← / → to step · cards/board show the state being decided on; the log is how it resolves</span>
             </div>
             <div id="dr-cards"></div>
             <div id="dr-board"></div>
@@ -122,7 +122,9 @@
         `<div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>` +
         `<div class="hp-text">${u.hp} / ${u.maxHp} HP</div>` +
         `<div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>` +
-        `<div class="hp-text">${u.resource} / ${u.maxResource} ${esc(u.resourceName || '')}</div>`;
+        `<div class="hp-text">${u.resource} / ${u.maxResource} ${esc(u.resourceName || '')}</div>` +
+        // Body-language telegraph, like the live screen (shown for the enemy).
+        (!own && u.telegraph ? `<div class="dr-telegraph">${esc(u.telegraph)}</div>` : '');
       if (acted.has(u.id)) card.onclick = () => { selUnit = u.id; render(); };
       else card.style.opacity = '0.6';
       el.appendChild(card);
