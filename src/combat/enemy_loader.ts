@@ -28,7 +28,10 @@ type EnemyData = {
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
-  const canSelf = (a: Action) => a.targeted && (a.type === ActionType.Heal || a.type === ActionType.Buff);
+  // All aiming is uniform: any aimed action may pick its own square as the
+  // target tile. Self-aimed strikes whiff via the friendly-fire guard in
+  // resolution.ts; tiles (block/buff/hazard/slow) drop under the caster.
+  const canSelf = (a: Action) => a.aimed;
 
   const toInfo = (a: Action, choice: 'defend' | 'attack' | 'special', i: number): ActionInfo => {
     const isSelf = SELF_TARGET_TYPES.has(a.type) && !a.targeted;
