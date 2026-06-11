@@ -7,7 +7,7 @@
 // gates with isDev.
 (function() {
   let data = null, turnIdx = 0, selUnit = null, root = null, autoTimer = null;
-  const AUTO_MS = 20000; // auto-run dwell: hold each turn 20s before advancing
+  const AUTO_MS = 5000; // auto-run dwell: hold each turn 5s before advancing
   const eq = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b.y);
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const q = (sel) => root.querySelector(sel);
@@ -31,7 +31,7 @@
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
-              <button id="dr-auto" title="advance one turn every 20s">▶ Auto</button>
+              <button id="dr-auto" title="advance one turn every 5s">▶ Auto</button>
               <button id="dr-dl">⤓ Log</button>
               <span id="dr-hint">click a card to inspect its reasoning · ← / → or click a turn to step · cards/board show the state being decided on; the log is how it resolves</span>
             </div>
