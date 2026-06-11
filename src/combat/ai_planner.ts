@@ -92,6 +92,7 @@ export function predictPlayerTiles(me: Combatant, foe: Combatant, session: Comba
 
 // The tiles an action touches when launched from `dest` at `target`.
 function affectedKeys(action: Action, dest: Pos, target: Pos | null, session: CombatSession): Set<string> {
+  if (action.aimed && !target) return new Set();            // aimed but nothing in range → hits nothing
   if (action.aimed && action.area > 1 && target)            // aimed AOE: the block at the target
     return new Set(areaBlock(target, action.area, dest).filter(p => session.board.inBounds(p)).map(key));
   if (action.aimed && target)                               // aimed single: just the target tile

@@ -383,7 +383,14 @@ export function resolveIntents(
   const resolveAimedStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
     const { weapon } = actorMeta;
     const targetPos = intent.action.targetPos;
-    if (!targetPos) return;
+    // No target tile (the AI picked an aimed action with nothing in range). Log it
+    // rather than silently vanishing — an un-logged action makes the whole phase
+    // header drop, which reads as the enemy "skipping" its turn.
+    if (!targetPos) {
+      const rs = actorMeta.state.apply_cost(action);
+      log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
+      return;
+    }
 
     const dist = chebyshevDist(actor.pos, targetPos);
     const tileStr = `(${targetPos.x},${targetPos.y})`;
