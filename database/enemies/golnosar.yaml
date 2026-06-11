@@ -3,9 +3,14 @@ Health: 150
 Level: 3
 AI: smart
 Telegraph:
-  closing: "Oozing toward you"
-  holding: "Leaking"
-  fleeing: "Seeping away"
+  hostile:
+    closing: "Oozing toward you"
+    holding: "Leaking ominously"
+    fleeing: "Seeping back, tendrils reaching"
+  defensive:
+    closing: "Sloshing closer, congealing"
+    holding: "Pooling, hardening its shell"
+    fleeing: "Seeping away"
 Loot:
   Items:
     - id: thuvel

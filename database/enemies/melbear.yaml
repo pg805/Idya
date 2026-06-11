@@ -3,9 +3,14 @@ Health: 300
 Level: 4
 AI: smart
 Telegraph:
-  closing: "Charging, frothing at the mouth"
-  holding: "Frothing at the mouth"
-  fleeing: "Lumbering back, still snarling"
+  hostile:
+    closing: "Charging, frothing at the mouth"
+    holding: "Frothing at the mouth"
+    fleeing: "Backing off, still snarling"
+  defensive:
+    closing: "Lumbering in, favoring a wound"
+    holding: "Hunkering down, licking its wounds"
+    fleeing: "Lumbering away to recover"
 Loot:
   Items:
     - id: crude_talamite

@@ -65,9 +65,12 @@ export interface CombatantMeta {
   pattern: PatternEntry[];
   patternIndex: number;
   smartAI?: boolean;   // true → per-turn utility planner (choosePlan) instead of the pattern walk
-  // Per-enemy body-language telegraph phrases, keyed by movement intent. Falls
-  // back to a generic mood when a key (or the whole map) is absent.
-  telegraph?: { closing?: string; holding?: string; fleeing?: string };
+  // Per-enemy body-language telegraph phrases, keyed by disposition then movement
+  // intent. Any missing key falls back to a generic mood.
+  telegraph?: {
+    hostile?:   { closing?: string; holding?: string; fleeing?: string };
+    defensive?: { closing?: string; holding?: string; fleeing?: string };
+  };
 }
 
 export interface Team {

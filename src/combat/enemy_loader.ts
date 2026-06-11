@@ -20,7 +20,11 @@ type EnemyData = {
   Resistances?: Record<string, number>;
   Loot?: EnemyLootData;
   AI?: string;   // 'smart' → use the utility planner instead of the Pattern
-  Telegraph?: { closing?: string; holding?: string; fleeing?: string };  // body-language phrases per movement intent
+  // body-language phrases, keyed by disposition (hostile/defensive) then movement intent
+  Telegraph?: {
+    hostile?:   { closing?: string; holding?: string; fleeing?: string };
+    defensive?: { closing?: string; holding?: string; fleeing?: string };
+  };
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
