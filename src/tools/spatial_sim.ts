@@ -281,6 +281,63 @@ if (process.argv[2] === 'budget') {
   process.exit(0);
 }
 
+// Timeout autopsy: `node spatial_sim.js timeout [N]`. Runs each battle to a high
+// cap and buckets it — finished by 60 (the real cap), finished 61–CAP (so 60 was
+// just too short), or never finished (a true trough). For the troughs, checks
+// whether damage is still flowing (slow grind) or it's a static stall.
+if (process.argv[2] === 'timeout') {
+  const N = Number(process.argv[3] ?? 20);
+  const CAP60 = 60, HIGH = 300;
+  const wf = fs.readdirSync(WEAPONS).filter(f => f.endsWith('.yaml'));
+  const ef = fs.readdirSync(ENEMIES).filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml');
+  let total = 0, by60 = 0, later = 0, stuck = 0, stuckGrind = 0, stuckStall = 0;
+
+  for (const f of wf) {
+    const weapon = Weapon.from_file(join(WEAPONS, f));
+    for (const e of ef) {
+      const enemyPath = join(ENEMIES, e);
+      for (let i = 0; i < N; i++) {
+        const { board, playerSpawn, enemySpawn } = genBoard();
+        const player = buildPlayerUnit(weapon, playerSpawn);
+        const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
+        const session = new CombatSession('t', board, [
+          { id: 'team-a', name: 'P', combatants: [player.combatant] },
+          { id: 'team-b', name: 'E', combatants: [enemy.combatant] },
+        ]);
+        session.meta.set('player-1', player.meta);
+        session.meta.set('enemy-1', enemy.meta);
+        session.phase = 'intent';
+        const hpHist: number[] = [];
+        let resolved = -1;
+        for (let n = 0; n < HIGH; n++) {
+          if (session.teams.some(t => t.combatants.length === 0)) { resolved = n; break; }
+          hpHist.push(session.combatants.reduce((s, c) => s + (session.meta.get(c.id)?.state.health ?? 0), 0));
+          if (resolveIntents(session, new Map(session.combatants.map(c => [c.id, choosePlan(c, session)]))).winner) { resolved = n + 1; break; }
+        }
+        total++;
+        if (resolved >= 0 && resolved <= CAP60) by60++;
+        else if (resolved >= 0) later++;
+        else {
+          stuck++;
+          const k = hpHist.length;
+          const prog = k >= 50 ? hpHist[k - 50] - hpHist[k - 1] : hpHist[0] - hpHist[k - 1];
+          if (prog > 8) stuckGrind++; else stuckStall++;  // HP still dropping vs static
+        }
+      }
+    }
+  }
+  const origTimeouts = later + stuck;
+  console.log(`\nTimeout autopsy — ${total} battles, run to ${HIGH} rounds (real cap is ${CAP60})\n`);
+  console.log(`Finished by ${CAP60}:           ${(by60 / total * 100).toFixed(0)}%`);
+  console.log(`Finished ${CAP60 + 1}-${HIGH} (cap too short): ${(later / total * 100).toFixed(0)}%`);
+  console.log(`Never finished (true trough):  ${(stuck / total * 100).toFixed(0)}%`);
+  console.log(`\nOf the ${(origTimeouts / total * 100).toFixed(0)}% that time out at ${CAP60}:`);
+  console.log(`  would finish with more turns: ${(later / (origTimeouts || 1) * 100).toFixed(0)}%`);
+  console.log(`  true trough — of which still grinding ${(stuckGrind / (stuck || 1) * 100).toFixed(0)}%, static stall ${(stuckStall / (stuck || 1) * 100).toFixed(0)}%`);
+  console.log('');
+  process.exit(0);
+}
+
 const N = Number(process.argv[2] ?? 100);
 const enemyArg = process.argv[3];
 
