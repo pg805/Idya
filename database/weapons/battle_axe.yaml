@@ -26,7 +26,15 @@ Defend:
     Cost: -5
     Action_String: "<User> steadies their breath and recovers their resolve."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Counter-swing
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [12]
+    Cost: 0
+    Action_String: "<User> turns the caught blow into a counter-swing, dealing <Damage> damage."
 
 Attack:
   - Name: Overwhelming Attack
@@ -63,4 +71,12 @@ Special:
     Area: 3
     Action_String: "<User> spins the axe in a wide arc, dealing <Damage> damage to everything around them."
 
-Special Crit: []
+Special Crit:
+  - Name: Cleave Through
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [18]
+    Cost: 0
+    Action_String: "<User>'s arc crashes through <Target>'s guard for <Damage> damage."

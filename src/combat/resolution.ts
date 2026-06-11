@@ -21,6 +21,35 @@ function pushLog(log: string[], text: string) {
   }
 }
 
+// Category triangle: when a strike lands, resolve the counter-crit by the two
+// units' action categories this turn — Defend ▶ Attack ▶ Special ▶ Defend.
+//   attack → special : the attacker's attack_crit catches the specialer mid-commit
+//   special → defend : the special's special_crit crashes through the guard
+//   attack → defend  : the defender ripostes the attacker with its defend_crit
+// The crit is just another payload (resolve_action), so it can be any type — a
+// strike riposte, extra block, a debuff — whatever the kit's crit slot holds.
+function triangleCrit(
+  actor: Combatant, actorMeta: CombatantMeta,
+  victim: Combatant, victimMeta: CombatantMeta,
+  intents: Map<string, CombatIntent>, log: string[],
+): void {
+  const aCat = intents.get(actor.id)?.action.type;
+  const vCat = intents.get(victim.id)?.action.type;
+  if (aCat === 'attack' && vCat === 'special' && actorMeta.weapon.attack_crit.length > 0 && victimMeta.state.health > 0) {
+    actorMeta.state.attack_crits += 1;
+    log.push(`★ ${actor.name} catches ${victim.name} mid-special!`);
+    pushLog(log, resolve_action(actorMeta.state, victimMeta.state, actorMeta.weapon.attack_crit));
+  } else if (aCat === 'special' && vCat === 'defend' && actorMeta.weapon.special_crit.length > 0 && victimMeta.state.health > 0) {
+    actorMeta.state.attack_crits += 1;
+    log.push(`★ ${actor.name}'s special crashes through ${victim.name}'s guard!`);
+    pushLog(log, resolve_action(actorMeta.state, victimMeta.state, actorMeta.weapon.special_crit));
+  } else if (aCat === 'attack' && vCat === 'defend' && victimMeta.weapon.defend_crit.length > 0 && actorMeta.state.health > 0) {
+    victimMeta.state.attack_crits += 1;
+    log.push(`★ ${victim.name} ripostes ${actor.name}!`);
+    pushLog(log, resolve_action(victimMeta.state, actorMeta.state, victimMeta.weapon.defend_crit));
+  }
+}
+
 // N×N block of positions. Odd N centers on `center`. Even N puts `center` at the
 // corner nearest the caster and sprays *away* from them (so the zone lands ahead
 // of where they aimed). Callers filter out off-board / obstacle squares.
@@ -297,13 +326,7 @@ export function resolveIntents(
         continue;
       }
       pushLog(log, resolve_action(actorMeta.state, m.state, [action]));
-      // Crit: attacking into a victim's Special catches them mid-wind-up.
-      if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-          intents.get(v.id)?.action.type === 'special' && m.state.health > 0) {
-        actorMeta.state.attack_crits += 1;
-        log.push(`★ ${actor.name} lands a critical hit on ${v.name}!`);
-        pushLog(log, resolve_action(actorMeta.state, m.state, weapon.attack_crit));
-      }
+      triangleCrit(actor, actorMeta, v, m, intents, log);
       if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, log);
     }
     action.cost = savedCost;
@@ -427,12 +450,7 @@ export function resolveIntents(
     if (!targetMeta) return;
     if (isDamaging(action)) actorMeta.state.aimed_hit += 1;
     pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-    if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-        intents.get(occupant.id)?.action.type === 'special') {
-      actorMeta.state.attack_crits += 1;
-      log.push(`★ ${actor.name} lands a critical hit!`);
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
-    }
+    triangleCrit(actor, actorMeta, occupant, targetMeta, intents, log);
     if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
   };
 
@@ -470,12 +488,7 @@ export function resolveIntents(
     const targetMeta = session.meta.get(target.id);
     if (!targetMeta) return;
     pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
-    if (intent.action.type === 'attack' && weapon.attack_crit.length > 0 &&
-        intents.get(target.id)?.action.type === 'special') {
-      actorMeta.state.attack_crits += 1;
-      log.push(`★ ${actor.name} lands a critical hit!`);
-      pushLog(log, resolve_action(actorMeta.state, targetMeta.state, weapon.attack_crit));
-    }
+    triangleCrit(actor, actorMeta, target, targetMeta, intents, log);
     if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, target, action.push, session, log);
   };
 

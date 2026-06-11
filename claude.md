@@ -145,7 +145,12 @@ Key files for the new system:
 - **Enemy telegraph** (`computeTelegraph` in `src/server/index.ts`) — a deliberately vague, movement-keyed *body-language* cue (closing/holding/fleeing) that correlates with intent but never reveals the action category; reading attack-vs-heal-vs-trap is the player's job. Enemies can define flavored phrases per movement intent via a `Telegraph:` block in their YAML (`closing`/`holding`/`fleeing`), else a generic mood is used.
 - `public/` — Browser UI (game.html, game.js, game.css)
 
-**Crit rule:** `attack_crit` fires when the actor uses Attack and the target is using Special that same turn. Fires before the main attack. Both aimed and reactive attacks check this.
+**Crit rule (category triangle):** Defend ▶ Attack ▶ Special ▶ Defend. When a strike lands, `triangleCrit` (`resolution.ts`) resolves the counter-crit from the two units' action categories that turn:
+- **attack → special:** the attacker's `attack_crit` catches the specialer mid-commit.
+- **special → defend:** the special's `special_crit` crashes through the defender's guard (strike-specials only — a non-strike special like a debuff doesn't route through the strike resolution).
+- **attack → defend:** the defender ripostes the attacker with its `defend_crit`.
+
+Each crit is just another action payload (`resolve_action`), so a crit slot can hold any type — a strike riposte, extra block, a debuff. Crits skip a dead target. Both aimed and reactive strikes check this. The budget (`budget.ts`) already costs all three crit lists, so adding crit values raises a weapon's budget (~its crit EVs).
 
 ## Design Notes
 
