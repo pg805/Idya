@@ -1,0 +1,44 @@
+/* Dev AI Replay view — self-contained board styling (mirrors the battle look
+   without depending on game.css, which carries global resets). */
+#dr-shell { --dr-cell: 36px; padding: 4px 2px; }
+#dr-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+#dr-controls label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b8b8c4; }
+#dr-controls select { background: #1b1b24; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 5px 8px; }
+#dr-controls button, #dr-turnbar button { background: #2a2a38; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+#dr-controls button:hover, #dr-turnbar button:hover { background: #34344a; }
+#dr-status { color: #c89a6a; font-size: 13px; }
+
+#dr-body { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+#dr-turnbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+#dr-turnlabel { font-variant-numeric: tabular-nums; min-width: 110px; }
+#dr-unitsel button { background: #20202a; color: #d8d8e0; border: 1px solid #3a3a48; border-radius: 6px; padding: 4px 9px; cursor: pointer; margin-left: 6px; }
+#dr-unitsel button.active { background: #3a2a4a; border-color: #8a5ad0; }
+
+#dr-board { display: grid; gap: 2px; background: #15151c; padding: 8px; border-radius: 8px; }
+#dr-board .cell { width: var(--dr-cell); height: var(--dr-cell); background: #1b1b24; border-radius: 3px; position: relative; display: flex; align-items: center; justify-content: center; }
+#dr-board .cell.obstacle { background: #2a1e10; }
+#dr-board .cell.obstacle::before { content: '▪'; color: #7a5a3a; font-size: 1.3rem; }
+#dr-board .cell.obstacle[data-state="destroyed"] { background: #1a1510; }
+#dr-board .cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #444; }
+#dr-board .cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(80,150,230,0.7);  background: rgba(40,90,150,0.28); }
+#dr-board .cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(220,180,60,0.7);  background: rgba(150,120,30,0.28); }
+#dr-board .cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
+#dr-board .cell.tile-slow   { box-shadow: inset 0 0 0 2px rgba(150,120,60,0.7);  background: rgba(90,75,35,0.34); }
+#dr-board .tile-mark { position: absolute; bottom: 0; right: 2px; font-size: 8px; color: #e8e8f0; }
+#dr-board .combatant { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; z-index: 2; }
+#dr-board .combatant.team-a { background: #1a4a7a; border: 1px solid #4a90d9; color: #d0e8ff; }
+#dr-board .combatant.team-b { background: #7a1a1a; border: 1px solid #d94a4a; color: #ffd0d0; }
+#dr-board .cell.rp-move   { outline: 3px solid #4ad07a; outline-offset: -3px; }
+#dr-board .cell.rp-target { box-shadow: inset 0 0 0 3px rgba(226,99,132,0.9); }
+
+#dr-panel { width: 440px; max-width: 100%; font-size: 13px; }
+#dr-plan { background: #1a1a22; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
+#dr-heatinfo { color: #c89a6a; font-size: 12px; margin-bottom: 8px; }
+#dr-panel h4 { margin: 12px 0 4px; color: #9a9aa8; font-weight: 500; }
+#dr-cands table { width: 100%; border-collapse: collapse; }
+#dr-cands th, #dr-cands td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #23232c; font-variant-numeric: tabular-nums; }
+#dr-cands th { color: #8a8a98; font-weight: 500; }
+#dr-cands tr.chosen { background: rgba(74,208,122,0.16); }
+#dr-cands tr.chosen td:first-child { color: #4ad07a; font-weight: 700; }
+#dr-log { background: #141419; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #b8b8c4; max-height: 260px; overflow-y: auto; }
+#dr-log div { padding: 1px 0; }

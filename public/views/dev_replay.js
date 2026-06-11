@@ -1,0 +1,203 @@
+// View: Dev AI Replay — pick a weapon/enemy, run one spatial battle via the dev
+// API, and step through it. Shows the board like a real fight plus the AI's
+// reasoning: the predicted-movement heatmap (where a unit expects its foe to
+// move — the dodge space) and every scored candidate plan, chosen highlighted.
+// Dev-only; /api/dev/replay gates with isDev.
+(function() {
+  let data = null, turnIdx = 0, selUnit = null, root = null;
+  const eq = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b.y);
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const q = (sel) => root.querySelector(sel);
+
+  async function mount(content) {
+    root = content;
+    root.innerHTML = `
+      <div id="dr-shell">
+        <div id="dr-controls">
+          <label>Weapon <select id="dr-weapon"></select></label>
+          <label>Enemy <select id="dr-enemy"></select></label>
+          <button id="dr-run">Run battle</button>
+          <span id="dr-status"></span>
+        </div>
+        <div id="dr-body" hidden>
+          <div>
+            <div id="dr-turnbar">
+              <button id="dr-prev">◀</button>
+              <span id="dr-turnlabel"></span>
+              <button id="dr-next">▶</button>
+              <span id="dr-unitsel"></span>
+            </div>
+            <div id="dr-board"></div>
+          </div>
+          <div id="dr-panel">
+            <div id="dr-plan"></div>
+            <div id="dr-heatinfo"></div>
+            <h4>Scored plans (this unit, this turn)</h4>
+            <div id="dr-cands"></div>
+            <h4>Resolution</h4>
+            <div id="dr-log"></div>
+          </div>
+        </div>
+      </div>`;
+
+    try {
+      const res = await fetch('/api/dev/replay/options');
+      if (res.status === 403) { q('#dr-status').textContent = 'Dev only.'; return; }
+      const opt = await res.json();
+      fillSelect('#dr-weapon', opt.weapons, 'battle_axe');
+      fillSelect('#dr-enemy', opt.enemies, 'golnosar');
+    } catch (_) { q('#dr-status').textContent = 'Could not load options.'; return; }
+
+    q('#dr-run').onclick = run;
+    q('#dr-prev').onclick = () => step(-1);
+    q('#dr-next').onclick = () => step(1);
+    document.addEventListener('keydown', onKey);
+  }
+
+  function fillSelect(sel, items, def) {
+    const el = q(sel);
+    el.innerHTML = '';
+    for (const it of items) {
+      const o = document.createElement('option');
+      o.value = it; o.textContent = it;
+      if (it === def) o.selected = true;
+      el.appendChild(o);
+    }
+  }
+
+  function onKey(e) {
+    if (!data) return;
+    if (e.key === 'ArrowRight') step(1);
+    if (e.key === 'ArrowLeft') step(-1);
+  }
+
+  async function run() {
+    const w = q('#dr-weapon').value, en = q('#dr-enemy').value;
+    const status = q('#dr-status');
+    status.textContent = 'running…';
+    try {
+      const res = await fetch(`/api/dev/replay?weapon=${encodeURIComponent(w)}&enemy=${encodeURIComponent(en)}`);
+      if (!res.ok) { status.textContent = `error ${res.status}`; return; }
+      data = await res.json();
+      turnIdx = 0; selUnit = null;
+      const r = data.result.winner;
+      const outcome = r === 'team-a' ? 'player wins' : r === 'team-b' ? 'enemy wins' : 'timeout';
+      status.textContent = `${outcome} in ${data.result.rounds} rounds`;
+      q('#dr-body').hidden = false;
+      render();
+    } catch (_) { status.textContent = 'error'; }
+  }
+
+  const turn = () => data.turns[turnIdx];
+  const decisions = () => turn().decisions;
+  const selDec = () => decisions().find((d) => d.unit === selUnit) || decisions()[0];
+
+  function render() {
+    if (!decisions().some((d) => d.unit === selUnit)) selUnit = decisions()[0] && decisions()[0].unit;
+    q('#dr-turnlabel').textContent = `Turn ${turn().n} / ${data.turns.length}`;
+    renderBoard();
+    renderPanel();
+  }
+
+  function renderBoard() {
+    const W = data.meta.board.width, H = data.meta.board.height;
+    const t = turn();
+    const board = q('#dr-board');
+    board.style.gridTemplateColumns = `repeat(${W}, var(--dr-cell))`;
+    board.innerHTML = '';
+
+    const dec = selDec();
+    const heat = new Map((dec && dec.predicted || []).map((p) => [`${p.x},${p.y}`, p.w]));
+    const maxW = Math.max(0.0001, ...heat.values());
+    const obs = new Map(t.board.obstacles.map((o) => [`${o.pos.x},${o.pos.y}`, o]));
+    const tiles = new Map(t.board.tiles.map((tl) => [`${tl.pos.x},${tl.pos.y}`, tl]));
+    const units = new Map(t.units.map((u) => [`${u.pos.x},${u.pos.y}`, u]));
+    const c = dec && dec.chosen;
+    const moveK = c && c.moveTo ? `${c.moveTo.x},${c.moveTo.y}` : null;
+    const tgtK = c && c.target ? `${c.target.x},${c.target.y}` : null;
+
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const k = `${x},${y}`;
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const o = obs.get(k);
+      const solid = o && o.state !== 'destroyed';
+      if (o) { cell.classList.add('obstacle'); cell.dataset.state = o.state; }
+      const tile = tiles.get(k);
+      if (tile && !solid) {
+        cell.classList.add(`tile-${tile.kind}`);
+        const mark = document.createElement('div');
+        mark.className = 'tile-mark';
+        const sym = tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : tile.kind === 'slow' ? '🐌' : '⚠';
+        mark.textContent = `${sym}${tile.value}`;
+        cell.appendChild(mark);
+      }
+      const w = heat.get(k);
+      if (w && !solid) cell.style.boxShadow = `inset 0 0 0 999px rgba(232,140,70,${(w / maxW * 0.6).toFixed(3)})`;
+      const u = units.get(k);
+      if (u && !solid) {
+        const el = document.createElement('div');
+        el.className = `combatant ${u.team === 'team-a' ? 'team-a' : 'team-b'}`;
+        el.title = `${u.name} — ${u.hp}/${u.maxHp} HP, ${u.resource}/${u.maxResource}`;
+        el.textContent = u.name.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase();
+        cell.appendChild(el);
+      }
+      if (k === moveK) cell.classList.add('rp-move');
+      if (k === tgtK) cell.classList.add('rp-target');
+      board.appendChild(cell);
+    }
+  }
+
+  function renderPanel() {
+    const t = turn();
+    const dec = selDec();
+
+    const sel = q('#dr-unitsel');
+    sel.innerHTML = '';
+    for (const d of decisions()) {
+      const u = t.units.find((x) => x.id === d.unit);
+      const b = document.createElement('button');
+      b.textContent = `${u ? u.name : d.unit} (${u ? u.hp : '?'} HP)`;
+      b.className = d.unit === selUnit ? 'active' : '';
+      b.onclick = () => { selUnit = d.unit; render(); };
+      sel.appendChild(b);
+    }
+
+    if (!dec) { q('#dr-plan').textContent = ''; q('#dr-cands').innerHTML = ''; q('#dr-heatinfo').textContent = ''; }
+    else {
+      const c = dec.chosen;
+      q('#dr-plan').innerHTML = `<b>chosen:</b> <span style="color:#4ad07a">${esc(c.choice)} ${esc(c.action)}</span>` +
+        `${c.moveTo ? ` · move (${c.moveTo.x},${c.moveTo.y})` : ' · hold'}${c.target ? ` · aim (${c.target.x},${c.target.y})` : ''}`;
+
+      const me = t.units.find((u) => u.id === dec.unit);
+      const foe = t.units.find((u) => u.id === dec.foe);
+      q('#dr-heatinfo').textContent = foe ? `🟧 heatmap = where ${me ? me.name : 'unit'} expects ${foe.name} to move (its dodge space)` : '';
+
+      const cDest = c.moveTo || (me ? me.pos : null);
+      let marked = false;
+      const rows = dec.candidates.map((cand) => {
+        const isChosen = !marked && cand.action === c.action && cand.choice === c.choice && eq(cand.dest, cDest) && eq(cand.target, c.target);
+        if (isChosen) marked = true;
+        return `<tr class="${isChosen ? 'chosen' : ''}"><td>${cand.score.toFixed(1)}</td><td>${esc(cand.choice)} ${esc(cand.action)}</td>` +
+          `<td>(${cand.dest.x},${cand.dest.y})</td><td>${cand.target ? `(${cand.target.x},${cand.target.y})` : '—'}</td></tr>`;
+      }).join('');
+      q('#dr-cands').innerHTML = `<table><tr><th>score</th><th>plan</th><th>dest</th><th>aim</th></tr>${rows}</table>`;
+    }
+
+    q('#dr-log').innerHTML = (t.log || []).map((l) => `<div>${esc(l)}</div>`).join('') || '<div style="opacity:.5">(nothing resolved)</div>';
+  }
+
+  function step(d) {
+    if (!data) return;
+    turnIdx = Math.max(0, Math.min(data.turns.length - 1, turnIdx + d));
+    render();
+  }
+
+  function unmount() {
+    document.removeEventListener('keydown', onKey);
+    data = null; turnIdx = 0; selUnit = null; root = null;
+  }
+
+  window.Views = window.Views ?? {};
+  window.Views.dev_replay = { mount, unmount };
+})();

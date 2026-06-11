@@ -3,20 +3,21 @@
 // (choosePlan) driving BOTH sides — so it finally grades positional / defensive /
 // AoE kits honestly. Roll RNG + random boards make repeated runs a distribution.
 //
-//   npm run build && node ./lib/tools/spatial_sim.js [iterations] [enemy]
+//   node ./lib/tools/spatial_sim.js [iterations] [enemy]    # win% table
+//   node ./lib/tools/spatial_sim.js debug  <enemy> <weapon> # trace one battle
+//   node ./lib/tools/spatial_sim.js replay <enemy> <weapon> # write a replay JSON
 //
-// This is Stage 1 (CLI batch). Stage 2/3 layer a per-turn trace + a visual replay
-// on the same runSpatialBattle core (see TODO at the bottom).
+// The board/player builders + the replay capture live in combat/replay_sim.ts so
+// the dev API (/api/dev/replay → the dev replay view) shares them.
 import logger from '../utility/logger.js';
 for (const t of logger.transports) (t as { silent?: boolean }).silent = true;
 
 import Weapon from '../weapon/weapon.js';
-import { loadEnemy, buildWeaponInfo } from '../combat/enemy_loader.js';
-import { CombatSession, Combatant, CombatantMeta, Team } from '../combat/combat_session.js';
-import { CombatantState } from '../combat/combatant_state.js';
+import { loadEnemy } from '../combat/enemy_loader.js';
+import { CombatSession, CombatantMeta, Team } from '../combat/combat_session.js';
 import { resolveIntents } from '../combat/resolution.js';
-import { choosePlan, predictPlayerTiles, PlanCandidate } from '../combat/ai_planner.js';
-import { BoardConfig, Pos } from '../combat/board.js';
+import { choosePlan } from '../combat/ai_planner.js';
+import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay } from '../combat/replay_sim.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -25,51 +26,6 @@ import { dirname, join } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEAPONS = join(__dirname, '../../database/weapons');
 const ENEMIES = join(__dirname, '../../database/enemies');
-
-const MAX_ROUNDS = 60;
-const BOARD_W = 12, BOARD_H = 10;
-const MOVE_RANGE = 2;              // matches the live hunt
-const DIST_MIN = 6, DIST_MAX = 8;  // enemy spawn distance from player
-
-const ri = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
-const cheb = (a: Pos, b: Pos) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-
-// A representative hunt board: player in the top-left box, enemy 6-8 away, a
-// scatter of obstacles avoiding a 3x3 around each spawn. (Stage 1 keeps its own
-// generator; sharing the server's randomHuntBoard is a later cleanup.)
-function genBoard(): { board: BoardConfig; playerSpawn: Pos; enemySpawn: Pos } {
-  const playerSpawn = { x: ri(0, 4), y: ri(0, BOARD_H - 1) };
-  let enemySpawn = { x: BOARD_W - 1, y: playerSpawn.y };
-  for (let tries = 0; tries < 200; tries++) {
-    const c = { x: ri(0, BOARD_W - 1), y: ri(0, BOARD_H - 1) };
-    const d = cheb(c, playerSpawn);
-    if (d >= DIST_MIN && d <= DIST_MAX) { enemySpawn = c; break; }
-  }
-  const avoid = new Set<string>();
-  for (const s of [playerSpawn, enemySpawn])
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) avoid.add(`${s.x + dx},${s.y + dy}`);
-  const obstacles: { pos: Pos; state: 'intact' }[] = [];
-  let guard = 0;
-  while (obstacles.length < 8 && guard++ < 200) {
-    const p = { x: ri(0, BOARD_W - 1), y: ri(0, BOARD_H - 1) };
-    const k = `${p.x},${p.y}`;
-    if (avoid.has(k) || obstacles.some(o => o.pos.x === p.x && o.pos.y === p.y)) continue;
-    obstacles.push({ pos: p, state: 'intact' });
-  }
-  return { board: { width: BOARD_W, height: BOARD_H, obstacles }, playerSpawn, enemySpawn };
-}
-
-// Build a player Combatant + meta from a weapon (mirrors the live hunt player).
-function buildPlayerUnit(weapon: Weapon, pos: Pos): { combatant: Combatant; meta: CombatantMeta } {
-  const state = new CombatantState('Player', weapon.hp || 1, weapon.resource_name, weapon.resource_max);
-  const combatant: Combatant = {
-    id: 'player-1', name: 'Player', hp: weapon.hp, maxHp: weapon.hp,
-    resource: weapon.resource_max, maxResource: weapon.resource_max, resourceName: weapon.resource_name,
-    pos: { ...pos }, movementRange: MOVE_RANGE, isAI: false, teamId: 'team-a',
-    weaponInfo: buildWeaponInfo(weapon), weight: weapon.weight, initiative: 0, initiativeRank: 0,
-  };
-  return { combatant, meta: { weapon, state, pattern: [], patternIndex: 0 } };
-}
 
 type Outcome = 'win' | 'loss' | 'timeout';
 interface BattleResult { outcome: Outcome; rounds: number; playerHpFrac: number; }
@@ -111,16 +67,11 @@ function aggregate(results: BattleResult[]): { winRate: number; avgRounds: numbe
     else a.timeout++;
   }
   const n = results.length || 1;
-  return {
-    winRate: a.win / n,
-    avgRounds: a.rounds / n,
-    avgHpOnWin: a.win ? a.hpOnWin / a.win : 0,
-    timeoutRate: a.timeout / n,
-  };
+  return { winRate: a.win / n, avgRounds: a.rounds / n, avgHpOnWin: a.win ? a.hpOnWin / a.win : 0, timeoutRate: a.timeout / n };
 }
 
 // --- CLI ---
-// Debug: `node spatial_sim.js debug <enemy> <weapon>` traces ONE battle turn-by-turn.
+// Debug: trace ONE battle turn-by-turn.
 if (process.argv[2] === 'debug') {
   const enemyPath = join(ENEMIES, `${process.argv[3] ?? 'melbear'}.yaml`);
   const weapon = Weapon.from_file(join(WEAPONS, `${process.argv[4] ?? 'mace'}.yaml`));
@@ -154,63 +105,13 @@ if (process.argv[2] === 'debug') {
   process.exit(0);
 }
 
-// Replay: `node spatial_sim.js replay <enemy> <weapon> [outfile]` records ONE
-// battle's full per-turn trace (heatmap + every candidate score) to JSON for the
-// dev replay page. Defaults to public/replay.json so /replay.html can fetch it.
+// Replay: record ONE battle's full per-turn trace to JSON (for offline viewing /
+// the dev replay view loads the same shape live from /api/dev/replay).
 if (process.argv[2] === 'replay') {
-  const enemyName = process.argv[3] ?? 'golnosar';
-  const weaponName = process.argv[4] ?? 'battle_axe';
   const outFile = process.argv[5] ?? join(__dirname, '../../public/replay.json');
-  const enemyPath = join(ENEMIES, `${enemyName}.yaml`);
-  const weapon = Weapon.from_file(join(WEAPONS, `${weaponName}.yaml`));
-  const { board, playerSpawn, enemySpawn } = genBoard();
-  const player = buildPlayerUnit(weapon, playerSpawn);
-  const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
-  const teams: Team[] = [
-    { id: 'team-a', name: 'Player', combatants: [player.combatant] },
-    { id: 'team-b', name: 'Enemy', combatants: [enemy.combatant] },
-  ];
-  const session = new CombatSession('replay', board, teams);
-  session.meta.set('player-1', player.meta);
-  session.meta.set('enemy-1', enemy.meta);
-  session.phase = 'intent';
-
-  const nameOf = (m: CombatantMeta, t: string, i: number) => (m.weapon as unknown as Record<string, { name: string }[]>)[t]?.[i]?.name ?? t;
-  const turns: unknown[] = [];
-  let winner: string | null = null;
-  let rounds = 0;
-  for (let n = 0; n < MAX_ROUNDS; n++) {
-    if (session.teams.some(t => t.combatants.length === 0)) break;
-    const boardSnap = session.board.toJSON();
-    const units = session.combatants.map(c => {
-      const m = session.meta.get(c.id)!;
-      return { id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp: m.state.health, maxHp: c.maxHp, resource: m.state.resource_current, maxResource: c.maxResource };
-    });
-    const intents = new Map<string, ReturnType<typeof choosePlan>>();
-    const decisions: unknown[] = [];
-    for (const c of session.combatants) {
-      const foes = session.combatants.filter(o => o.teamId !== c.teamId);
-      const cands: PlanCandidate[] = [];
-      const intent = choosePlan(c, session, foes.length ? cands : undefined);
-      intents.set(c.id, intent);
-      if (!foes.length) continue;
-      const foe = foes.reduce((a, b) => cheb(c.pos, a.pos) <= cheb(c.pos, b.pos) ? a : b);
-      const m = session.meta.get(c.id)!;
-      const predicted = [...predictPlayerTiles(c, foe, session)].map(([k, w]) => { const [x, y] = k.split(',').map(Number); return { x, y, w }; });
-      cands.sort((a, b) => b.score - a.score);
-      decisions.push({
-        unit: c.id, foe: foe.id, predicted,
-        chosen: { moveTo: intent.moveTo, choice: intent.action.type, action: intent.action.type === 'pass' ? 'pass' : nameOf(m, intent.action.type, intent.action.actionIndex), target: intent.action.targetPos },
-        candidates: cands.slice(0, 14),
-      });
-    }
-    const { log, winner: w } = resolveIntents(session, intents);
-    turns.push({ n: n + 1, board: boardSnap, units, decisions, log });
-    rounds = n + 1;
-    if (w) { winner = w; break; }
-  }
-  fs.writeFileSync(outFile, JSON.stringify({ meta: { weapon: weapon.name, enemy: enemyName, board: { width: board.width, height: board.height } }, turns, result: { winner, rounds } }));
-  console.log(`wrote ${turns.length} turns -> ${outFile}  (winner: ${winner ?? 'timeout'}, ${rounds} rounds)`);
+  const data = generateReplay(process.argv[4] ?? 'battle_axe', process.argv[3] ?? 'golnosar');
+  fs.writeFileSync(outFile, JSON.stringify(data));
+  console.log(`wrote ${data.turns.length} turns -> ${outFile}  (winner: ${data.result.winner ?? 'timeout'}, ${data.result.rounds} rounds)`);
   process.exit(0);
 }
 
@@ -246,8 +147,3 @@ for (const enemyName of enemyNames) {
   }
   console.log('');
 }
-
-// TODO Stage 2/3: thread an optional trace through choosePlan (predicted heatmap +
-// per-candidate scores), have runSpatialBattle emit a per-turn replay JSON, and a
-// dev page that replays it through the live board renderer with score overlays +
-// manual action override.

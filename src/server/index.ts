@@ -25,6 +25,7 @@ import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
 import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
 import { choosePlan } from '../combat/ai_planner.js';
+import { generateReplay } from '../combat/replay_sim.js';
 import Action, { ActionType } from '../weapon/action.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
@@ -597,6 +598,29 @@ app.use((req: Request, res: Response, next) => {
 
 app.use(express.static(join(__dirname, '../../public')));
 app.use(express.json());
+
+// --- Dev: AI replay generator (powers the dev replay view) ---
+app.get('/api/dev/replay/options', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const list = (dir: string) => fs.readdirSync(join(__dirname, dir)).filter(f => f.endsWith('.yaml')).map(f => f.replace('.yaml', '')).sort();
+  res.json({ weapons: list('../../database/weapons'), enemies: list('../../database/enemies') });
+});
+
+app.get('/api/dev/replay', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const weapon = String(req.query.weapon || 'battle_axe');
+  const enemy = String(req.query.enemy || 'golnosar');
+  if (!/^[a-z0-9_]+$/i.test(weapon) || !/^[a-z0-9_]+$/i.test(enemy)) { res.status(400).json({ error: 'bad name' }); return; }
+  try {
+    res.json(generateReplay(weapon, enemy));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
 
 // Client-side error capture — SPA posts unhandled errors here; we log to
 // stdout (PM2 captures) so we can debug white screens / runtime crashes
