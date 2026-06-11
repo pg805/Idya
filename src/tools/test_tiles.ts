@@ -10,10 +10,11 @@ import { resolveIntents } from '../combat/resolution.js';
 import { reachableTiles, findPath } from '../combat/movement.js';
 import { effectiveMove } from '../combat/combatant_state.js';
 import { generateAIIntent } from '../combat/ai.js';
+import { choosePlan } from '../combat/ai_planner.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
 import { CombatIntent } from '../combat/intent.js';
-import { BoardConfig, Pos } from '../combat/board.js';
+import { BoardConfig, Pos, chebyshevDist } from '../combat/board.js';
 import Weapon from '../weapon/weapon.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -485,6 +486,77 @@ console.log('\nEven-area self-burst sprays toward the nearest enemy (not the NW 
   const before = hp(s, 'E');
   resolveIntents(s, new Map([['P', act('P', 'attack', 0)], ['E', act('E', 'pass', 0)]]));
   check(hp(s, 'E') < before, `even burst sprayed east onto the enemy (${before}→${hp(s, 'E')})`);
+}
+
+// ---- Test 22: smart AI — Melbear smashes at full HP, heals when hurt (the dial) ----
+console.log('\nSmart AI dial (Melbear): attacks at full HP, retreats to heal when hurt:');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const berry = bear.defend.findIndex(a => a.name === 'Berry Snack');
+
+  // Full HP, player adjacent → should pick a damaging action, not heal.
+  {
+    const B = mk('E', 'B', { x: 5, y: 1 }, bear, true);
+    const P = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
+    const s = session(EMPTY, [B, P]);
+    const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+    check(plan.action.type === 'attack' || plan.action.type === 'special', `full HP → attacks (got ${plan.action.type} #${plan.action.actionIndex})`);
+  }
+  // Badly hurt → should pick Berry Snack (heal) instead.
+  {
+    const B = mk('E', 'B', { x: 5, y: 1 }, bear, true);
+    const P = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
+    const s = session(EMPTY, [B, P]);
+    s.meta.get('E')!.state.health = 30;
+    const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+    check(plan.action.type === 'defend' && plan.action.actionIndex === berry, `hurt → Berry Snack heal (got ${plan.action.type} #${plan.action.actionIndex})`);
+  }
+}
+
+// ---- Test 23: smart AI — a fragile ranged unit holds range instead of charging ----
+console.log('\nSmart AI kiting: a fragile ranged unit does not walk into melee:');
+{
+  const SNIPER = Weapon.from_json({
+    Name: 'Sniper', Description: '', HP: 35, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Snipe', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: false, Range: 3, Action_String: '<User> snipes <Target>.' }],
+    'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  const E = mk('E', 'B', { x: 7, y: 1 }, SNIPER, true);   // starts at range
+  const P = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);  // melee, 3 away
+  const s = session(EMPTY, [E, P]);
+  const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+  const land = plan.moveTo ?? { x: 7, y: 1 };
+  check(chebyshevDist(land, { x: 4, y: 1 }) >= 2, `held range, didn't close to melee (landed dist ${chebyshevDist(land, { x: 4, y: 1 })})`);
+}
+
+// ---- Test 24: smart AI — aimed attack LEADS the advancing player, not their tile ----
+console.log('\nSmart AI leads: aimed attack targets where the player is going, not where they are:');
+{
+  const AIMER = Weapon.from_json({
+    Name: 'Aimer', Description: '', HP: 40, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Lob', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [12, 12, 12], Cost: 0, Aimed: true, Range: 5, Action_String: '<User> lobs at <Target>.' }],
+    'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  const E = mk('E', 'B', { x: 6, y: 1 }, AIMER, true);
+  const P = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);  // will advance toward (6,1)
+  P.c.movementRange = 4;
+  const s = session(EMPTY, [E, P]);
+  const plan = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+  check(!!plan.action.targetPos && plan.action.targetPos.x > 1, `aimed ahead of the player's tile (target x=${plan.action.targetPos?.x}, player at x=1)`);
+}
+
+// ---- Test 25: planner is deterministic ----
+console.log('\nSmart AI is deterministic (same board → same plan):');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const B = mk('E', 'B', { x: 5, y: 1 }, bear, true);
+  const P = mk('P', 'A', { x: 3, y: 0 }, STRIKER, false);
+  const s = session(EMPTY, [B, P]);
+  const a = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+  const b = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
+  check(JSON.stringify(a) === JSON.stringify(b), 'two calls produce identical intents');
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);

@@ -24,7 +24,7 @@ function pushLog(log: string[], text: string) {
 // N×N block of positions. Odd N centers on `center`. Even N puts `center` at the
 // corner nearest the caster and sprays *away* from them (so the zone lands ahead
 // of where they aimed). Callers filter out off-board / obstacle squares.
-function areaBlock(center: { x: number; y: number }, area: number, caster: { x: number; y: number }): { x: number; y: number }[] {
+export function areaBlock(center: { x: number; y: number }, area: number, caster: { x: number; y: number }): { x: number; y: number }[] {
   const out: { x: number; y: number }[] = [];
   if (area % 2 === 1) {
     const off = (area - 1) / 2;

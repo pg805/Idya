@@ -64,6 +64,7 @@ export interface CombatantMeta {
   state: CombatantState;
   pattern: PatternEntry[];
   patternIndex: number;
+  smartAI?: boolean;   // true → per-turn utility planner (choosePlan) instead of the pattern walk
 }
 
 export interface Team {

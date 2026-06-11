@@ -5,6 +5,7 @@ import { reachableDanger } from './movement.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { effectiveMove } from './combatant_state.js';
+import { choosePlan } from './ai_planner.js';
 
 export interface ResolvedEntry {
   choice: ActionChoice;
@@ -44,7 +45,13 @@ export function findAffordableEntry(meta: CombatantMeta): ResolvedEntry | null {
 
 export function generateAIIntent(ai: Combatant, session: CombatSession): CombatIntent {
   const meta = session.meta.get(ai.id);
-  if (!meta || meta.pattern.length === 0) return pass(ai.id);
+  if (!meta) return pass(ai.id);
+
+  // Smart units decide per-turn with the utility planner; everyone else walks
+  // their fixed Pattern (legacy path, still used by the simpler enemies).
+  if (meta.smartAI) return choosePlan(ai, session);
+
+  if (meta.pattern.length === 0) return pass(ai.id);
 
   const enemies = session.combatants.filter(c => c.teamId !== ai.teamId);
   if (enemies.length === 0) return pass(ai.id);

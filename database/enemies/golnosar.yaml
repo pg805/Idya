@@ -1,6 +1,7 @@
 Name: Golnosar
 Health: 150
 Level: 3
+AI: smart
 Loot:
   Items:
     - id: thuvel

@@ -1,6 +1,7 @@
 Name: Melbear
 Health: 300
 Level: 4
+AI: smart
 Loot:
   Items:
     - id: crude_talamite

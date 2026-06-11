@@ -136,7 +136,8 @@ Key files for the new system:
 - `src/combat/combat_session.ts` — Session container, serializable state for the UI
 - `src/combat/resolution.ts` — Turn resolution: move phase → action phase → cleanup
 - `src/combat/action_resolver.ts` — Stateless action execution (strike, DOT, debuff, etc.)
-- `src/combat/ai.ts` — AI intent generation from pattern
+- `src/combat/ai.ts` — AI intent dispatch: smart units → `choosePlan`, others → the Pattern walk
+- `src/combat/ai_planner.ts` — Utility AI: scores `(destination, action, target)` plans each turn (`choosePlan`). Behaviour (kite/smash/heal/control) emerges from the kit + HP; no per-enemy scripts. Opt in per enemy with `AI: smart` in the YAML. `predictPlayerTiles` models where the player will move so aimed attacks *lead* and AOE *blankets*.
 - `src/combat/enemy_loader.ts` — Loads enemy YAML into Combatant + CombatantMeta
 - `public/` — Browser UI (game.html, game.js, game.css)
 

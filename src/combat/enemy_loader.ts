@@ -19,6 +19,7 @@ type EnemyData = {
   Weapon: Record<string, unknown>;
   Resistances?: Record<string, number>;
   Loot?: EnemyLootData;
+  AI?: string;   // 'smart' → use the utility planner instead of the Pattern
 };
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
@@ -106,6 +107,7 @@ export function loadEnemy(file: string, options: {
     state,
     pattern: pattern.field,
     patternIndex: startIndex,
+    smartAI: data.AI === 'smart',
   };
 
   const lootTable: LootTable = {

@@ -21,12 +21,13 @@ import worldConfig from './world_config.js';
 import Weapon from '../weapon/weapon.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
-import { CombatIntent } from '../combat/intent.js';
+import { CombatIntent, ActionChoice } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
 import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
+import { choosePlan } from '../combat/ai_planner.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
-import { SELF_TARGET_TYPES } from '../weapon/action.js';
+import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
@@ -147,26 +148,51 @@ const TELEGRAPH: Record<string, Record<string, string>> = {
   special: { closing: 'Moving with intent', holding: 'Preparing something', retreating: 'Buying time' },
 };
 
-function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[]): string {
-  if (meta.pattern.length === 0 || enemies.length === 0) return '';
+function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[], session: CombatSession): string {
+  if (enemies.length === 0) return '';
 
-  // Use the same affordability walk the AI does so the telegraph reflects the
-  // action that will actually fire — not whatever happens to be at the current
-  // pattern index (which the AI may skip because it can't afford it).
-  const resolved = findAffordableEntry(meta);
-  if (!resolved) return '';
+  let choice: ActionChoice;
+  let action: Action;
+  let moveTo: { x: number; y: number } | null;
 
-  const { choice, action } = resolved;
-
-  if (SELF_TARGET_TYPES.has(action.type)) {
-    return TELEGRAPH[choice].holding;
+  if (meta.smartAI) {
+    // Smart units: telegraph the plan the planner will actually pick (deterministic,
+    // so it matches what fires). Same categories as the pattern path below.
+    const intent = choosePlan(ai, session);
+    if (intent.action.type === 'pass') return '';
+    choice = intent.action.type;
+    const list = (meta.weapon as unknown as Record<string, Action[]>)[choice];
+    const a = list?.[intent.action.actionIndex];
+    if (!a) return '';
+    action = a;
+    moveTo = intent.moveTo;
+  } else {
+    if (meta.pattern.length === 0) return '';
+    // Use the same affordability walk the AI does so the telegraph reflects the
+    // action that will actually fire — not whatever happens to be at the current
+    // pattern index (which the AI may skip because it can't afford it).
+    const resolved = findAffordableEntry(meta);
+    if (!resolved) return '';
+    choice = resolved.choice;
+    action = resolved.action;
+    moveTo = null;
   }
+
+  if (SELF_TARGET_TYPES.has(action.type)) return TELEGRAPH[choice].holding;
 
   const nearest = enemies.reduce((a, b) =>
     chebyshevDist(ai.pos, a.pos) <= chebyshevDist(ai.pos, b.pos) ? a : b
   );
-  const dist = chebyshevDist(ai.pos, nearest.pos);
-  const movement = dist <= action.range ? 'holding' : 'closing';
+  // Movement intent: smart units have a concrete destination; pattern units just
+  // close to range. "closing" if nearing the target, "retreating" if backing off.
+  let movement: 'closing' | 'holding' | 'retreating';
+  if (moveTo) {
+    const before = chebyshevDist(ai.pos, nearest.pos);
+    const after = chebyshevDist(moveTo, nearest.pos);
+    movement = after < before ? 'closing' : after > before ? 'retreating' : 'holding';
+  } else {
+    movement = chebyshevDist(ai.pos, nearest.pos) <= action.range ? 'holding' : 'closing';
+  }
   return TELEGRAPH[choice][movement];
 }
 
@@ -176,7 +202,7 @@ function refreshTelegraphs(session: CombatSession): void {
     const meta = session.meta.get(c.id);
     if (!meta) continue;
     const enemies = session.combatants.filter(e => e.teamId !== c.teamId);
-    session.telegraphs[c.id] = computeTelegraph(meta, c, enemies);
+    session.telegraphs[c.id] = computeTelegraph(meta, c, enemies, session);
   }
 }
 
