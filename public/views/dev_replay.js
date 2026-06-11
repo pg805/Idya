@@ -1,8 +1,9 @@
 // View: Dev AI Replay — pick a weapon/enemy, run one spatial battle via the dev
-// API, and step through it. Shows the board like a real fight plus the AI's
-// reasoning: the predicted-movement heatmap (where a unit expects its foe to
-// move — the dodge space) and every scored candidate plan, chosen highlighted.
-// Dev-only; /api/dev/replay gates with isDev.
+// API, and step through it. Renders the board + combatant cards (HP/resource
+// bars) like the real combat screen, plus the AI's reasoning: the predicted-
+// movement heatmap (where a unit expects its foe to move — the dodge space) and
+// every scored candidate plan, chosen highlighted. Click a card to inspect that
+// unit's reasoning. Dev-only; /api/dev/replay gates with isDev.
 (function() {
   let data = null, turnIdx = 0, selUnit = null, root = null;
   const eq = (a, b) => (!a && !b) || (!!a && !!b && a.x === b.x && a.y === b.y);
@@ -20,13 +21,14 @@
           <span id="dr-status"></span>
         </div>
         <div id="dr-body" hidden>
-          <div>
+          <div id="dr-left">
             <div id="dr-turnbar">
               <button id="dr-prev">◀</button>
               <span id="dr-turnlabel"></span>
               <button id="dr-next">▶</button>
-              <span id="dr-unitsel"></span>
+              <span id="dr-hint">click a card to inspect its reasoning · ← / → to step</span>
             </div>
+            <div id="dr-cards"></div>
             <div id="dr-board"></div>
           </div>
           <div id="dr-panel">
@@ -95,8 +97,36 @@
   function render() {
     if (!decisions().some((d) => d.unit === selUnit)) selUnit = decisions()[0] && decisions()[0].unit;
     q('#dr-turnlabel').textContent = `Turn ${turn().n} / ${data.turns.length}`;
+    renderCards();
     renderBoard();
     renderPanel();
+  }
+
+  // Combatant cards with HP/resource bars, styled like the real combat screen.
+  // Clicking a card selects whose reasoning to inspect.
+  function renderCards() {
+    const t = turn();
+    const el = q('#dr-cards');
+    el.innerHTML = '';
+    const acted = new Set(decisions().map((d) => d.unit));
+    for (const u of t.units) {
+      const own = u.team === 'team-a';
+      const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
+      const resPct = u.maxResource > 0 ? Math.max(0, (u.resource / u.maxResource) * 100) : 0;
+      const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
+      const card = document.createElement('div');
+      card.className = `combatant-card ${own ? 'team-a' : 'team-b'}${u.id === selUnit ? ' dr-sel' : ''}`;
+      card.innerHTML =
+        `<h3>${esc(u.name)}${own ? '' : ' <span class="dr-ai">[AI]</span>'}</h3>` +
+        `<div class="weapon-name">${esc(own ? data.meta.weapon : data.meta.enemy)}</div>` +
+        `<div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>` +
+        `<div class="hp-text">${u.hp} / ${u.maxHp} HP</div>` +
+        `<div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>` +
+        `<div class="hp-text">${u.resource} / ${u.maxResource} ${esc(u.resourceName || '')}</div>`;
+      if (acted.has(u.id)) card.onclick = () => { selUnit = u.id; render(); };
+      else card.style.opacity = '0.6';
+      el.appendChild(card);
+    }
   }
 
   function renderBoard() {
@@ -151,17 +181,6 @@
   function renderPanel() {
     const t = turn();
     const dec = selDec();
-
-    const sel = q('#dr-unitsel');
-    sel.innerHTML = '';
-    for (const d of decisions()) {
-      const u = t.units.find((x) => x.id === d.unit);
-      const b = document.createElement('button');
-      b.textContent = `${u ? u.name : d.unit} (${u ? u.hp : '?'} HP)`;
-      b.className = d.unit === selUnit ? 'active' : '';
-      b.onclick = () => { selUnit = d.unit; render(); };
-      sel.appendChild(b);
-    }
 
     if (!dec) { q('#dr-plan').textContent = ''; q('#dr-cands').innerHTML = ''; q('#dr-heatinfo').textContent = ''; }
     else {

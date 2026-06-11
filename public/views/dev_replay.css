@@ -1,5 +1,6 @@
-/* Dev AI Replay view — self-contained board styling (mirrors the battle look
-   without depending on game.css, which carries global resets). */
+/* Dev AI Replay view. Board + combatant cards mirror the live combat screen
+   (cards reuse the same bar structure as game.css, with palette fallbacks so it
+   matches the app theme without depending on game.css's global body rule). */
 #dr-shell { --dr-cell: 36px; padding: 4px 2px; }
 #dr-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 #dr-controls label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b8b8c4; }
@@ -9,11 +10,26 @@
 #dr-status { color: #c89a6a; font-size: 13px; }
 
 #dr-body { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
-#dr-turnbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+#dr-turnbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 #dr-turnlabel { font-variant-numeric: tabular-nums; min-width: 110px; }
-#dr-unitsel button { background: #20202a; color: #d8d8e0; border: 1px solid #3a3a48; border-radius: 6px; padding: 4px 9px; cursor: pointer; margin-left: 6px; }
-#dr-unitsel button.active { background: #3a2a4a; border-color: #8a5ad0; }
+#dr-hint { color: #8a8a98; font-size: 12px; }
 
+/* Combatant cards — same shape as the live combat screen */
+#dr-cards { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+#dr-cards .combatant-card { background: var(--bg-surface, #1b1b24); border: 1px solid var(--border, #3a3a48); border-radius: 6px; padding: 10px 14px; min-width: 150px; cursor: pointer; }
+#dr-cards .combatant-card.team-a { border-color: #4a90d9; }
+#dr-cards .combatant-card.team-b { border-color: #d94a4a; }
+#dr-cards .combatant-card.dr-sel { box-shadow: 0 0 0 2px #8a5ad0; }
+#dr-cards .combatant-card h3 { font-size: 0.9rem; margin: 0 0 2px; }
+#dr-cards .dr-ai { opacity: 0.5; font-size: 0.65rem; }
+#dr-cards .weapon-name { font-size: 0.7rem; color: var(--text-muted, #9a9aa8); margin-bottom: 6px; }
+#dr-cards .hp-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 6px; overflow: hidden; }
+#dr-cards .hp-bar { height: 100%; border-radius: 3px; transition: width 0.2s, background 0.2s; }
+#dr-cards .hp-text { font-size: 0.75rem; color: var(--text-faint, #8a8a98); margin-top: 3px; }
+#dr-cards .res-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 6px; }
+#dr-cards .res-bar { height: 100%; border-radius: 3px; background: var(--buy, #4a90d9); transition: width 0.2s; }
+
+/* Board */
 #dr-board { display: grid; gap: 2px; background: #15151c; padding: 8px; border-radius: 8px; }
 #dr-board .cell { width: var(--dr-cell); height: var(--dr-cell); background: #1b1b24; border-radius: 3px; position: relative; display: flex; align-items: center; justify-content: center; }
 #dr-board .cell.obstacle { background: #2a1e10; }
@@ -31,6 +47,7 @@
 #dr-board .cell.rp-move   { outline: 3px solid #4ad07a; outline-offset: -3px; }
 #dr-board .cell.rp-target { box-shadow: inset 0 0 0 3px rgba(226,99,132,0.9); }
 
+/* Reasoning panel */
 #dr-panel { width: 440px; max-width: 100%; font-size: 13px; }
 #dr-plan { background: #1a1a22; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
 #dr-heatinfo { color: #c89a6a; font-size: 12px; margin-bottom: 8px; }

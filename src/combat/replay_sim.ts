@@ -95,7 +95,7 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     const boardSnap = session.board.toJSON();
     const units = session.combatants.map(c => {
       const m = session.meta.get(c.id)!;
-      return { id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp: m.state.health, maxHp: c.maxHp, resource: m.state.resource_current, maxResource: c.maxResource };
+      return { id: c.id, name: c.name, team: c.teamId, pos: { ...c.pos }, hp: m.state.health, maxHp: c.maxHp, resource: m.state.resource_current, maxResource: c.maxResource, resourceName: c.resourceName };
     });
     const intents = new Map<string, ReturnType<typeof choosePlan>>();
     const decisions: unknown[] = [];
