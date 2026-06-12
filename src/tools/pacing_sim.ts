@@ -11,6 +11,7 @@ import fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
+import { upgradeCost, maxUpgrades } from '../economy/upgrade_service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '../..');
@@ -28,18 +29,33 @@ for (const p of ['lumberjack', 'blacksmith', 'enchanter']) {
 }
 const sell = (id: string): number => { const r = produces[id]; if (!r) return base[id]?.sell ?? 0; return (r.ingredients.reduce((s, i) => s + sell(i.id) * i.q, 0) / r.outQ) * 1.5; };
 
+// Value any material in tier-1 raw-equivalent via the smelt tree (no craft margin):
+// tier-1 = 1, tier-2 = 10 (10 raw → 1), tier-3 = 20 (2 tier-2 → 1).
+const rawEquiv = (id: string): number => { const r = produces[id]; if (!r) return 1; return r.ingredients.reduce((s, i) => s + rawEquiv(i.id) * i.q, 0) / r.outQ; };
+
+// Each profession's upgrade-fuel drop lines (its tier-1 + tier-2 material).
+const PROF_MAT: Record<string, string[]> = {
+  lumberjack: ['sulwood', 'treated_sulwood'],
+  blacksmith: ['crude_talamite', 'talamite'],
+  enchanter:  ['thuvel', 'hiruos'],
+};
+
 // ── enemies ──
-type Enemy = { key: string; level: number; matEV: number; korel: number };
+type Enemy = { key: string; level: number; matEV: number; korel: number; profRaw: Record<string, number> };
 const enemies: Enemy[] = [];
 for (const f of fs.readdirSync(join(root, 'database/enemies')).filter(f => f.endsWith('.yaml') && !f.includes('tutorial'))) {
   const d = yaml.load(fs.readFileSync(join(root, 'database/enemies', f), 'utf8')) as { Level: number; Loot?: { Items?: Record<string, unknown>[] } };
   let matEV = 0, korel = 0;
+  const profRaw: Record<string, number> = { lumberjack: 0, blacksmith: 0, enchanter: 0 };
   for (const it of d.Loot?.Items ?? []) {
+    const id = it['id'] as string;
     const ev = (it['Field'] as number[]).reduce((a, b) => a + b, 0) / (it['Field'] as number[]).length;
-    if (it['type'] === 'material') matEV += ev;             // crafting fuel — KEPT, not income
-    else korel += ev * sell(it['id'] as string);            // valuables → sold for Korel
+    if (it['type'] === 'material') {
+      matEV += ev;                                          // crafting fuel — KEPT, not income
+      for (const prof of Object.keys(PROF_MAT)) if (PROF_MAT[prof].includes(id)) profRaw[prof] += ev * rawEquiv(id);
+    } else korel += ev * sell(id);                          // valuables → sold for Korel
   }
-  enemies.push({ key: f.replace('.yaml', ''), level: d.Level, matEV, korel });
+  enemies.push({ key: f.replace('.yaml', ''), level: d.Level, matEV, korel, profRaw });
 }
 enemies.sort((a, b) => a.level - b.level);
 
@@ -66,3 +82,47 @@ while (rank < GOAL_RANK && fight < 100000) {
 console.log('\nPROGRESSION (farm-best-beatable policy):');
 for (const l of log) console.log('  ' + l);
 console.log(`\n  → rank ${GOAL_RANK} reached at fight ${fight}`);
+
+// ── UPGRADE PACING (per profession) ──────────────────────────────
+// Wins-to-max is win-rate-independent (all professions farm the same enemies),
+// so it isolates whether each profession is fed equally. A "win" = a beaten
+// farm target; real fights = wins / win-rate.
+const PROFS = ['lumberjack', 'blacksmith', 'enchanter'] as const;
+const PROF_T2 = { lumberjack: 'treated_sulwood', blacksmith: 'talamite', enchanter: 'hiruos' };
+
+console.log('\n\nUPGRADE FUEL / WIN (raw-equiv) by profession and enemy:');
+console.log('  enemy'.padEnd(20) + PROFS.map(p => p.slice(0, 4).toUpperCase().padStart(7)).join(''));
+for (const e of [...enemies].sort((a, b) => b.level - a.level))
+  console.log(`  L${e.level} ${e.key.padEnd(15)}` + PROFS.map(p => e.profRaw[p].toFixed(1).padStart(7)).join(''));
+
+// best farm target = most upgrade-fuel raw-equiv per win, for each profession
+const bestFarm: Record<string, { key: string; raw: number }> = {};
+for (const p of PROFS) {
+  const b = [...enemies].sort((x, y) => y.profRaw[p] - x.profRaw[p])[0];
+  bestFarm[p] = { key: b.key, raw: b.profRaw[p] };
+}
+
+// upgrade schedule cost (raw-equiv), split by tier phase, for an L1-base weapon
+console.log('\nWINS TO MAX AN L1 WEAPON (→ L5, 12 upgrades):');
+const winsToMax: Record<string, number> = {};
+for (const p of PROFS) {
+  let t2raw = 0, t3raw = 0;
+  for (let n = 1; n <= maxUpgrades(1); n++) {
+    const c = upgradeCost(n, p, 1);
+    const r = c.quantity * rawEquiv(c.material);
+    if (c.material === PROF_T2[p]) t2raw += r; else t3raw += r;
+  }
+  const f = bestFarm[p];
+  const t2w = t2raw / f.raw, t3w = t3raw / f.raw;
+  winsToMax[p] = t2w + t3w;
+  console.log(`  ${p.padEnd(11)} farm ${f.key.padEnd(10)} ${f.raw.toFixed(1)} raw/win  |  T2 phase ${Math.round(t2w)}w + T3 phase ${Math.round(t3w)}w = ${Math.round(t2w + t3w)} wins  (${t2raw + t3raw} raw)`);
+}
+
+// Does material or rank gate upgrades? Compare the material grind to the rank
+// grind (the rank schedule is what actually unlocks the 12 upgrade slots).
+console.log(`\nGATE CHECK — reaching rank ${GOAL_RANK} (unlocks all 12 upgrades) takes ${fight} fights.`);
+console.log('  Material to max a weapon, as a share of that rank journey (at ~0.8 win-rate):');
+for (const p of PROFS) {
+  const matFights = winsToMax[p] / 0.8;
+  console.log(`  ${p.padEnd(11)} ~${Math.round(matFights).toString().padStart(3)} fights of material  =  ${(100 * matFights / fight).toFixed(0)}% of the rank grind`);
+}
