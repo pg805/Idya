@@ -21,8 +21,11 @@ function pushLog(log: string[], text: string) {
   }
 }
 
-// Category triangle: Defend ▶ Attack ▶ Special ▶ Defend. After the action phase,
-// every unit whose action category BEATS an opposing unit's gets its matching crit
+// Category triangle: Defend ▶ Attack ▶ Special ▶ Defend. Called once per action
+// sub-phase (`phaseFilter`): every unit whose action category == this phase and
+// BEATS an opposing unit's category gets its matching crit, resolved AS PART of
+// that phase — so a defend-crit's extra block lands before the attack phase, an
+// attack-crit fires before the special it beats, etc.
 // — a separate payload (resolve_action) fired at that foe. The crit is just an
 // action, so it can be ANY type (strike riposte, extra block, a debuff, …) and
 // fires regardless of the main action's type (a self-target shield still crits a
@@ -31,7 +34,7 @@ function pushLog(log: string[], text: string) {
 // catch a ranged attacker, while an attack-crit reaches whoever your attack hit.
 //   attack → special : attack_crit    special → defend : special_crit
 //   defend → attack  : defend_crit (the defender ripostes the attacker)
-function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[]): void {
+function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
   const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
   const CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
   const VERB: Record<string, string> = { attack: 'catches', special: 'punishes the guard of', defend: 'counters' };
@@ -39,6 +42,7 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
     const aIntent = intents.get(actor.id);
     const aCat = aIntent?.action.type;
     if (!aCat || !(aCat in BEATS)) continue;
+    if (aCat !== phaseFilter) continue;   // only this sub-phase's crits fire here
     const aMeta = session.meta.get(actor.id);
     if (!aMeta || aMeta.state.health <= 0) continue;
     const lists = aMeta.weapon as unknown as Record<string, Action[]>;
@@ -623,19 +627,15 @@ export function resolveIntents(
       // remaining actors are on the same team and nobody died this action),
       // reapAndCheck returns the surviving team id only when len < 2 — covered.
     }
+    // This category's counter-crits resolve as PART of the phase (not a trailing
+    // lump), so a defend-crit's extra block/riposte lands before the attack phase.
+    // They log under this phase's header (▸ Defend/Attack/Special).
+    resolveTriangleCrits(session, intents, log, phase);
+    const cw = reapAndCheck('damage');
+    if (cw !== null) { earlyWinner = cw; break outer; }
     // Drop the header if nothing fired in this phase — keeps the log
     // visually scannable instead of dotted with empty section markers.
     if (log.length === phaseStart + 1) log.pop();
-  }
-
-  // Counter-crits resolve once everyone has committed (the category triangle).
-  if (earlyWinner === null) {
-    const critStart = log.length;
-    log.push('▸ Crits');
-    resolveTriangleCrits(session, intents, log);
-    if (log.length === critStart + 1) log.pop();
-    const w = reapAndCheck('damage');
-    if (w !== null) earlyWinner = w;
   }
 
   if (earlyWinner !== null || session.teams.some(t => t.combatants.length === 0)) {
