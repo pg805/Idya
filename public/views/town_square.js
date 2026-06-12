@@ -2,6 +2,8 @@
 // shared target for a fixed payout; the leaderboard tracks top contributors.
 (function() {
   let data = null;
+  let pollTimer = null;
+  let prevQuests = [];   // [{id, name}] from the last poll, to detect quests that just ended
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -21,6 +23,7 @@
     root.innerHTML = `<section id="ts-tab"><div id="ts-body"><p class="empty">Loading…</p></div></section><div id="craft-toast"></div>`;
     window.addEventListener('layout-changed', layoutChangedHandler);
     await load();
+    pollTimer = setInterval(load, 30000);   // live countdown / leaderboard + end detection
   }
 
   function layoutChangedHandler() { if (data) load(); }
@@ -28,26 +31,34 @@
   async function load() {
     const res = await fetch('/api/townsquare');
     const body = document.getElementById('ts-body');
-    if (!res.ok) { body.innerHTML = '<p class="empty">Could not load Town Square.</p>'; return; }
+    if (!res.ok) { if (body) body.innerHTML = '<p class="empty">Could not load Town Square.</p>'; return; }
     data = await res.json();
+    // A quest that was active last poll but is gone now just ended → tell the player.
+    const nowIds = (data.quests ?? []).map(q => q.id);
+    for (const prev of prevQuests) {
+      if (!nowIds.includes(prev.id)) toast(`"${prev.name}" has ended — check your Stats for your trophy!`, true);
+    }
+    prevQuests = (data.quests ?? []).map(q => ({ id: q.id, name: q.name }));
     render();
   }
 
   function render() {
     const body = document.getElementById('ts-body');
     if (!body) return;
+    // Preserve the in-progress deposit amount + focus across the periodic re-render.
+    const prevAmts = {};
+    body.querySelectorAll('input[id^="ts-amt-"]').forEach(i => { prevAmts[i.id] = i.value; });
+    const focusId = document.activeElement && document.activeElement.id;
+
     const quests = data.quests ?? [];
-    if (quests.length === 0) {
-      body.innerHTML = `
-        <header class="ts-head"><h1 class="ts-title">Town Square</h1></header>
-        <p class="ts-blurb">The square is quiet today — folk mill about trading gossip, waiting for the next call to action. When the town needs something gathered, the notice goes up right here.</p>`;
-      return;
-    }
-    body.innerHTML = `
-      <header class="ts-head">
-        <h1 class="ts-title">Town Square</h1>
-      </header>
-      <div class="ts-cards">${quests.map(card).join('')}</div>`;
+    body.innerHTML = quests.length === 0
+      ? `<header class="ts-head"><h1 class="ts-title">Town Square</h1></header>
+         <p class="ts-blurb">The square is quiet today — folk mill about trading gossip, waiting for the next call to action. When the town needs something gathered, the notice goes up right here.</p>`
+      : `<header class="ts-head"><h1 class="ts-title">Town Square</h1></header>
+         <div class="ts-cards">${quests.map(card).join('')}</div>`;
+
+    Object.entries(prevAmts).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+    if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
   }
 
   function card(q) {
@@ -87,6 +98,7 @@
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
     if (r.success) { await load(); await mountLayout(); }   // refresh card + korel header
+    else await load();                                      // quest may have just ended — refresh state
   }
 
   function toast(msg, ok) {
@@ -100,6 +112,9 @@
 
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    prevQuests = [];
     data = null;
   }
 
