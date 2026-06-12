@@ -1,7 +1,7 @@
 recipes:
-  # Flat material -> weapon (intermediary smelting/components deferred — to be
-  # re-added later by breaking these totals into parts). Cost curve: L1 = 12,
-  # L2 = 100, L3 = 200 base material.
+  # L1 weapons use raw tier-1; L2/L3 use smelted tier-2 (treated_sulwood),
+  # which also drops from stronger enemies (farm fewer as you get stronger).
+  # Cost in raw-equivalent: L1 = 12, L2 = 100 (10 tier-2), L3 = 200 (10+10).
 
   - id: lj_axe_wood
     name: Sulwood Axe
@@ -15,26 +15,54 @@ recipes:
       type: weapon
       id: axe_wood
 
-  - id: lj_sword_wood
-    name: Sulwood Sword
-    description: "Carve and harden a well-balanced sulwood blade."
+  - id: lj_treated_sulwood
+    name: Treated Sulwood
+    description: "Cure raw sulwood with resin and heat into a denser, more workable material."
     profession: lumberjack
     required_level: 2
     ingredients:
       - item_id: sulwood
-        quantity: 100
+        quantity: 10
+    output:
+      type: item
+      id: treated_sulwood
+      quantity: 1
+
+  - id: lj_sword_wood
+    name: Sulwood Sword
+    description: "Carve and harden a well-balanced sword from treated sulwood."
+    profession: lumberjack
+    required_level: 2
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 10
     output:
       type: weapon
       id: sword_wood
 
   - id: lj_shovel_wood
     name: Sulwood Shovel
-    description: "A solid sulwood shovel — works better as a weapon than it looks."
+    description: "A solid treated-sulwood shovel — works better as a weapon than it looks."
     profession: lumberjack
     required_level: 2
     ingredients:
-      - item_id: sulwood
-        quantity: 100
+      - item_id: treated_sulwood
+        quantity: 10
     output:
       type: weapon
       id: shovel_wood
+
+  # Hybrid (vine-wound sulwood staff + arcane). Needs an enchanter's hiruos too.
+  - id: lj_kustaff
+    name: Kustaff
+    description: "Weave living vines through a treated-sulwood staff and bind plant to wood."
+    profession: lumberjack
+    required_level: 3
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 10
+      - item_id: hiruos
+        quantity: 10
+    output:
+      type: weapon
+      id: kustaff

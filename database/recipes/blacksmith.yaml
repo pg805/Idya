@@ -1,7 +1,7 @@
 recipes:
-  # Flat material -> weapon (intermediary smelting/components deferred — to be
-  # re-added later by breaking these totals into parts). Cost curve: L1 = 12,
-  # L2 = 100, L3 = 200 base material.
+  # L1 weapons use raw tier-1; L2/L3 use smelted tier-2 (talamite), which also
+  # drops from stronger enemies (farm fewer as you get stronger).
+  # Cost in raw-equivalent: L1 = 12, L2 = 100 (10 tier-2), L3 = 200 (10+10).
 
   - id: bs_pickaxe
     name: Pickaxe
@@ -15,41 +15,54 @@ recipes:
       type: weapon
       id: pickaxe
 
-  - id: bs_dagger
-    name: Dagger
-    description: "Shape crude talamite into a slim, quick blade."
+  - id: bs_talamite
+    name: Talamite
+    description: "Smelt crude talamite ore into refined ingots."
     profession: blacksmith
     required_level: 2
     ingredients:
       - item_id: crude_talamite
-        quantity: 100
+        quantity: 10
+    output:
+      type: item
+      id: talamite
+      quantity: 1
+
+  - id: bs_dagger
+    name: Dagger
+    description: "Forge refined talamite into a slim, quick blade."
+    profession: blacksmith
+    required_level: 2
+    ingredients:
+      - item_id: talamite
+        quantity: 10
     output:
       type: weapon
       id: dagger
 
   - id: bs_mace
     name: Mace
-    description: "Forge a dense crude-talamite mace head and fit it to a shaft."
+    description: "Forge a dense talamite mace head and fit it to a shaft."
     profession: blacksmith
     required_level: 2
     ingredients:
-      - item_id: crude_talamite
-        quantity: 100
+      - item_id: talamite
+        quantity: 10
     output:
       type: weapon
       id: mace
 
-  # Hybrid (wood haft + talamite edge). Crafted by the smith for now; split cost.
+  # Hybrid (talamite edge on a treated-sulwood haft). Needs a lumberjack's haft too.
   - id: bs_battle_axe
     name: Battle Axe
-    description: "A brutal slab of talamite on a sulwood haft — a smith's edge with a lumberjack's reach."
+    description: "A brutal slab of talamite on a treated-sulwood haft — a smith's edge with a lumberjack's reach."
     profession: blacksmith
     required_level: 3
     ingredients:
-      - item_id: sulwood
-        quantity: 100
-      - item_id: crude_talamite
-        quantity: 100
+      - item_id: treated_sulwood
+        quantity: 10
+      - item_id: talamite
+        quantity: 10
     output:
       type: weapon
       id: battle_axe
