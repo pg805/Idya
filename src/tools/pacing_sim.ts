@@ -12,6 +12,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 import { upgradeCost, maxUpgrades } from '../economy/upgrade_service.js';
+import { enchantCost, ENCHANT_SLOTS } from '../economy/enchant_service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '../..');
@@ -125,4 +126,17 @@ console.log('  Material to max a weapon, as a share of that rank journey (at ~0.
 for (const p of PROFS) {
   const matFights = winsToMax[p] / 0.8;
   console.log(`  ${p.padEnd(11)} ~${Math.round(matFights).toString().padStart(3)} fights of material  =  ${(100 * matFights / fight).toFixed(0)}% of the rank grind`);
+}
+
+// ── ENCHANT COST (fully enchant a weapon = 3 slots) ──────────────────────────
+// Enchanter materials (hiruos/nodol from golnosar) per weapon level. Wins use
+// the enchanter's best material farm.
+console.log('\nENCHANT COST — fill all 3 slots, by weapon level (EN farm):');
+const enFarm = bestFarm['enchanter'];
+for (let L = 1; L <= 5; L++) {
+  const per = enchantCost(L);
+  const raw = ENCHANT_SLOTS * Object.entries(per).reduce((s, [m, q]) => s + q * rawEquiv(m), 0);
+  const wins = raw / enFarm.raw;
+  const perStr = Object.entries(per).map(([m, q]) => `${q} ${m}`).join(' ');
+  console.log(`  L${L} weapon: ${perStr}/slot → ${ENCHANT_SLOTS} slots = ${raw} raw ≈ ${Math.round(wins)} wins`);
 }
