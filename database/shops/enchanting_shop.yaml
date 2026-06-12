@@ -5,8 +5,8 @@ Greeting: "Lomis looks up from his tome. 'Need something enchanted?'"
 
 Items:
   - id: thuvel
-    Base_Buy: 100
-    Base_Sell: 20
+    Base_Buy: 50
+    Base_Sell: 10
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 50

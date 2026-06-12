@@ -6,8 +6,8 @@ Greeting: "Kethalis grins through the heat. 'What can I do for you?'"
 Items:
   # Raw material
   - id: crude_talamite
-    Base_Buy: 100
-    Base_Sell: 20
+    Base_Buy: 50
+    Base_Sell: 10
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 50
