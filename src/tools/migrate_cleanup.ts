@@ -29,6 +29,11 @@ const recipeFor = (key: string) => recipes.find(r => r.output.type === 'weapon' 
 const NEW_TYPES = new Set(['health', 'melee', 'ranged', 'upgrade']);
 const MINOR_REFUND: Record<string, number> = { thuvel: 3, hiruos: 6 };
 const MAJOR_REFUND: Record<string, number> = { thuvel: 3, hiruos: 6, nodol: 9 };
+// Flat refund for removed weapons that no longer have a recipe to price them.
+// (Recipe-priced weapons are handled automatically; this is only for fully-gone ones.)
+const REMOVED_WEAPON_REFUND: Record<string, Record<string, number>> = {
+  quarterstaff: { sulwood: 4 },
+};
 
 const refunds = new Map<string, Record<string, number>>();   // charId → { item: qty }
 function addRefund(charId: string, cost: Record<string, number>) {
@@ -44,16 +49,20 @@ async function main() {
 
   const weaponUpdates: { id: string; upgrades: unknown }[] = [];
   const weaponDeletes: { id: string; key: string; charId: string }[] = [];
-  const unequip = new Set<string>();   // character ids whose equipped weapon is being deleted
+  const unequip   = new Set<string>();   // character ids whose equipped weapon is being deleted
+  const unpriced  = new Set<string>();   // missing weapon keys we couldn't refund
   let oldEnchants = 0;
 
   for (const w of weapons) {
-    // 1. weapon no longer exists → delete (+ refund recipe cost if recipe survives)
+    // 1. weapon no longer exists → delete (+ refund: flat table, else recipe cost, else flag)
     if (!validWeapons.has(w.weapon_key)) {
       weaponDeletes.push({ id: w.id, key: w.weapon_key, charId: w.character_id });
       if (equippedOf.get(w.character_id) === w.id) unequip.add(w.character_id);
-      const recipe = recipeFor(w.weapon_key);
-      if (recipe) for (const ing of recipe.ingredients) if (ing.item_id) addRefund(w.character_id, { [ing.item_id]: ing.quantity });
+      const flat = REMOVED_WEAPON_REFUND[w.weapon_key];
+      const recipe = flat ? null : recipeFor(w.weapon_key);
+      if (flat) addRefund(w.character_id, flat);
+      else if (recipe) for (const ing of recipe.ingredients) { if (ing.item_id) addRefund(w.character_id, { [ing.item_id]: ing.quantity }); }
+      else unpriced.add(w.weapon_key);
       continue;
     }
     // 2. old-format enchants → strip + refund
@@ -76,6 +85,7 @@ async function main() {
   console.log(`Old enchants to strip:          ${oldEnchants}  (on ${weaponUpdates.length} weapons)`);
   console.log(`Nonexistent weapons to delete:  ${weaponDeletes.length}`);
   for (const d of weaponDeletes) console.log(`    - ${d.key} (char ${d.charId})${unequip.has(d.charId) ? ' [equipped → unequip]' : ''}`);
+  if (unpriced.size > 0) console.log(`  ⚠ deleted with NO refund (add to REMOVED_WEAPON_REFUND): ${[...unpriced].join(', ')}`);
   console.log(`Refunds (per character):`);
   if (refunds.size === 0) console.log('    (none)');
   for (const [charId, r] of refunds) console.log(`    - ${charId}: ${Object.entries(r).map(([m, q]) => `${q} ${m}`).join(', ')}`);
