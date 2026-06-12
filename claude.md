@@ -206,7 +206,13 @@ Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units
 | 9 | — (budget +7) | — (budget +7) | Arcane major enchant: type→Arcane, any subtype, +3 |
 | 10 | — (budget +10) | — (budget +10) | Elemental major enchant: type→Elemental, any subtype, +3 |
 
-**Enchant rules:** 3 slots per weapon max, one enchant per action, permanent. Minor enchants change subtype only. Major enchants change both Damage_Type and Damage_Subtype. Applied via `/api/enchant` endpoint (not the craft system).
+**Enchant rules (0.2.0 rework — `src/economy/enchant_service.ts`, its own layer separate from upgrades):** 3 slots per weapon, permanent, each enchant takes a slot. Four types, each once per weapon (the `upgrade` enchant is once **per ability**). All values scale off the level budget `CAP(L)` and are static within a level. Power sits **on top of** the weapon budget (that's why it costs slots + materials).
+- **health** — flat HP by weapon level (0.25·CAP → 13/31/56/88/125).
+- **melee** — injects the **Sidaev Strike** ability (Arcane/Blunt, range 1, cost 1, reactive, Attack-category). Field ≈ 5%·CAP per level.
+- **ranged** — injects the **Sidaev Pulse** ability (Arcane/Sharp, range 2, cost 1, reactive, Attack-category). Field ≈ 3.5%·CAP (lower than melee).
+- **upgrade** — adds a set EV (0.06·CAP → 3/8/14/21/30) to one ability + an **optional** damage-type change (any type/subtype, no category gating). Mirrors the old enchant's per-ability EV but level-scaled.
+
+Applied via `/api/enchant` (GET lists per-weapon previews; POST `{type, action?, delta?, damage_type?, damage_subtype?}`). Combat injection in `applyWeaponCustomizations` (`src/server/index.ts`): health adds HP, melee/ranged push a `buildSidaevAction` Strike into `weapon.attack`, upgrade rides the action's field/value + retype. **Cost + enchanter-rank gating are PLACEHOLDERS** (`enchantCost` scales with weapon level; `ENCHANT_LEVEL_REQUIRED` all L3) — to be tuned together later. The old physical/arcane/elemental enchant recipes in `enchanter.yaml` are now orphaned (inert) pending that pass.
 
 ## Weapon Balance Tooling
 

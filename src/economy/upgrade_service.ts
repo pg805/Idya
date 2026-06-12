@@ -189,6 +189,7 @@ export type RawAction = {
 export type RawWeapon = {
     Name: string;
     Description: string;
+    Level?: number;
     Resource: { Name: string; Max: number };
     Defend: RawAction[];
     'Defend Crit': RawAction[];
@@ -250,54 +251,4 @@ export function buildFieldLenMap(raw: RawWeapon): Map<string, number> {
     return m;
 }
 
-// ---- Enchant system ----
-
-export type EnchantKind = 'minor' | 'major';
-
-export interface Enchant {
-    kind:     EnchantKind;
-    category?: string;  // physical/arcane/elemental
-    subtype:  string;
-    type?:    string;  // only set for major enchants
-    delta:    number | number[];
-}
-
-export type WeaponEnchants = Record<string, Enchant>;
-
-export const ENCHANT_SLOTS = 3;
-// Minor: subtype only, +1 delta. Major: type + subtype, +3 delta.
-export const ENCHANT_MINOR_COST = { thuvel: 3, hiruos: 6 } as const;
-export const ENCHANT_MAJOR_COST = { thuvel: 3, hiruos: 6, nodol: 9 } as const;
-
-export const ENCHANT_CATEGORIES = ['physical', 'arcane', 'elemental'] as const;
-export type EnchantCategory = typeof ENCHANT_CATEGORIES[number];
-
-export const ENCHANT_SUBTYPES: Record<EnchantCategory, string[]> = {
-    physical:  ['sharp', 'blunt'],
-    arcane:    ['mental', 'force'],
-    elemental: ['fire', 'water', 'earth', 'wind', 'plant'],
-};
-
-// The Damage_Type value written into the enchant for major enchants.
-export const ENCHANT_DAMAGE_TYPE: Record<EnchantCategory, string> = {
-    physical:  'Physical',
-    arcane:    'Arcane',
-    elemental: 'Elemental',
-};
-
-// Minimum enchanter level required per category and kind.
-export const ENCHANT_LEVEL_REQUIRED: Record<EnchantCategory, Record<EnchantKind, number>> = {
-    physical:  { minor: 4, major: 8 },
-    arcane:    { minor: 5, major: 9 },
-    elemental: { minor: 6, major: 10 },
-};
-
-export function enchantDelta(kind: EnchantKind): number { return kind === 'minor' ? 1 : 3; }
-
-export function canEnchant(enchants: WeaponEnchants, actionName: string): { ok: boolean; reason?: string } {
-    if (enchants[actionName]) return { ok: false, reason: 'This action is already enchanted.' };
-    if (Object.keys(enchants).length >= ENCHANT_SLOTS) {
-        return { ok: false, reason: `This weapon already has ${ENCHANT_SLOTS} enchants (maximum).` };
-    }
-    return { ok: true };
-}
+// The enchant system lives in enchant_service.ts (0.2.0 rework — its own layer).

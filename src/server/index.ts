@@ -41,11 +41,14 @@ import {
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
   summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon, weaponUpgradeCap,
-  canEnchant, enchantDelta,
-  ENCHANT_SLOTS, ENCHANT_MINOR_COST, ENCHANT_MAJOR_COST,
-  ENCHANT_CATEGORIES, ENCHANT_SUBTYPES, ENCHANT_DAMAGE_TYPE, ENCHANT_LEVEL_REQUIRED,
-  type Profession, type RawWeapon, type RawAction, type WeaponEnchants, type EnchantKind, type EnchantCategory,
+  type Profession, type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
+import {
+  ENCHANT_SLOTS, ENCHANT_LEVEL_REQUIRED, DAMAGE_TYPES, DAMAGE_SUBTYPES,
+  enchantHealthHp, upgradeEnchantEv, sidaevField, SIDAEV_DEF, buildSidaevAction,
+  enchantSlotKey, enchantSlotsUsed, canAddEnchant, enchantCost,
+  type EnchantType, type WeaponEnchant, type WeaponEnchants,
+} from '../economy/enchant_service.js';
 import yaml from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -176,7 +179,7 @@ const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 type WeaponUpgradesJson = {
   base?:     Record<string, number | number[]>;
   player?:   unknown;
-  enchants?: Record<string, { kind?: string; subtype?: string; type?: string; delta?: number | number[] }>;
+  enchants?: WeaponEnchants;
 };
 function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJson: unknown): void {
   if (!upgradesJson || typeof upgradesJson !== 'object') return;
@@ -186,31 +189,35 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
   const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
   const enchants       = upgrades.enchants ?? {};
 
+  // Upgrade-enchants are keyed `upgrade:<action>`; index them by action name so
+  // their EV bonus + optional retype ride the matching action below.
+  const upgradeEnch: Record<string, WeaponEnchant> = {};
+  for (const e of Object.values(enchants)) if (e.type === 'upgrade' && e.action) upgradeEnch[e.action] = e;
+
   const allCategories = [weapon.defend, weapon.defend_crit, weapon.attack, weapon.attack_crit, weapon.special, weapon.special_crit];
   for (const category of allCategories) {
     for (const action of category) {
       const name = action.name;
       const a    = action as unknown as { field?: { field: number[]; length: number }; value?: number; damage_type?: string; damage_subtype?: string };
+      const enchB = upgradeEnch[name]?.delta;
 
       if (a.field && Array.isArray(a.field.field) && a.field.field.length > 0) {
         const base    = a.field.field;
         const baseB   = (baseDeltas[name] as number[] | undefined) ?? base.map(() => 0);
         const playerB = summedFieldBonus(playerUpgrades, professions, name, base.length);
-        const enchB   = enchants[name]?.delta;
         const enchArr = Array.isArray(enchB) ? enchB : base.map(() => 0);
         a.field.field = base.map((v, i) => v + (baseB[i] ?? 0) + (playerB[i] ?? 0) + (enchArr[i] ?? 0));
       } else if (typeof a.value === 'number' && a.value > 0) {
         const baseB   = (baseDeltas[name] as number | undefined) ?? 0;
         const playerB = summedValueBonus(playerUpgrades, professions, name);
-        const enchB   = enchants[name]?.delta;
         const enchV   = typeof enchB === 'number' ? enchB : 0;
         a.value = a.value + baseB + playerB + enchV;
       }
 
-      const ench = enchants[name];
+      const ench = upgradeEnch[name];
       if (ench) {
-        if (ench.subtype) a.damage_subtype = ench.subtype;
-        if (ench.type)    a.damage_type    = ench.type;
+        if (ench.damage_subtype) a.damage_subtype = ench.damage_subtype;
+        if (ench.damage_type)    a.damage_type    = ench.damage_type;
       }
     }
   }
@@ -219,6 +226,14 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
   // portion of each upgrade is the action deltas applied above).
   const hpBonus = (upgrades as { hpBonus?: number }).hpBonus;
   if (typeof hpBonus === 'number' && hpBonus > 0) weapon.hp += hpBonus;
+
+  // Enchants: flat health, and injected Sidaev abilities (Attack-category).
+  const weaponLevel = loadWeaponYaml(weaponKey, __dirname)?.Level ?? 1;
+  for (const e of Object.values(enchants)) {
+    if (e.type === 'health')      weapon.hp += enchantHealthHp(weaponLevel);
+    else if (e.type === 'melee')  weapon.attack.push(buildSidaevAction('melee',  weaponLevel));
+    else if (e.type === 'ranged') weapon.attack.push(buildSidaevAction('ranged', weaponLevel));
+  }
 }
 
 // Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed
@@ -2801,6 +2816,7 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
   const weapons = weaponRows.map(row => {
     const raw = loadWeaponYaml(row.weapon_key, __dirname);
     if (!raw) return null;
+    const level = (raw.Level ?? 1) as number;
     const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: WeaponEnchants };
     const enchants = upgrades.enchants ?? {};
     const baseDeltas      = (upgrades.base ?? {}) as Record<string, number | number[]>;
@@ -2809,7 +2825,6 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
-      const existing = enchants[a.Name];
       const ar = a as unknown as Record<string, unknown>;
       let effective: number | number[] = 0;
       if (kind === 'field') {
@@ -2831,11 +2846,7 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
         effective,
         damage_type:    (ar['Damage_Type']    ?? '') as string,
         damage_subtype: (ar['Damage_Subtype'] ?? '') as string,
-        enchant: existing ? {
-          kind: existing.kind, category: existing.category,
-          subtype: existing.subtype, delta: existing.delta,
-          ...(existing.type ? { type: existing.type } : {}),
-        } : null,
+        enchanted: !!enchants[enchantSlotKey('upgrade', a.Name)],
       };
     });
 
@@ -2843,10 +2854,17 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
       id: row.id,
       weapon_key: row.weapon_key,
       name: raw.Name,
+      level,
       equipped: row.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       enchant_slots: ENCHANT_SLOTS,
-      enchants_used: Object.keys(enchants).length,
+      enchants_used: enchantSlotsUsed(enchants),
+      enchants,
+      health_hp:  enchantHealthHp(level),
+      upgrade_ev: upgradeEnchantEv(level),
+      melee:  { ...SIDAEV_DEF.melee,  field: sidaevField('melee',  level) },
+      ranged: { ...SIDAEV_DEF.ranged, field: sidaevField('ranged', level) },
+      cost: enchantCost(level),
       actions,
     };
   }).filter(Boolean);
@@ -2861,12 +2879,10 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
     characterName: char.name,
     enchanter_level: encLvl,
     materials,
-    minor_cost: ENCHANT_MINOR_COST,
-    major_cost: ENCHANT_MAJOR_COST,
-    categories: ENCHANT_CATEGORIES,
-    subtypes: ENCHANT_SUBTYPES,
-    damage_types: ENCHANT_DAMAGE_TYPE,
+    enchant_slots: ENCHANT_SLOTS,
     level_required: ENCHANT_LEVEL_REQUIRED,
+    damage_types: DAMAGE_TYPES,
+    damage_subtypes: DAMAGE_SUBTYPES,
     weapons,
   });
 });
@@ -2885,59 +2901,62 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
     return;
   }
   const weaponKey = weaponRowEarly.weapon_key;
-  const { action: actionName, kind, category, subtype, delta } = req.body as {
-    action: string; kind: string; category: string; subtype: string; delta: number | number[];
+  const { type, action: actionName, delta, damage_type, damage_subtype } = req.body as {
+    type: string; action?: string; delta?: number | number[]; damage_type?: string; damage_subtype?: string;
   };
 
-  if (kind !== 'minor' && kind !== 'major') {
-    res.status(400).json({ error: "kind must be 'minor' or 'major'" }); return;
-  }
-  if (!ENCHANT_CATEGORIES.includes(category as EnchantCategory)) {
-    res.status(400).json({ error: `category must be one of: ${ENCHANT_CATEGORIES.join(', ')}` }); return;
-  }
-  const enchantKind = kind as EnchantKind;
-  const enchantCategory = category as EnchantCategory;
-
-  if (!ENCHANT_SUBTYPES[enchantCategory].includes(subtype)) {
-    res.json({ success: false, message: `Invalid subtype '${subtype}' for ${enchantCategory} enchant. Valid: ${ENCHANT_SUBTYPES[enchantCategory].join(', ')}.` }); return;
-  }
+  const ENCHANT_TYPES = ['health', 'melee', 'ranged', 'upgrade'];
+  if (!ENCHANT_TYPES.includes(type)) { res.status(400).json({ error: 'type must be one of: ' + ENCHANT_TYPES.join(', ') }); return; }
+  const enchType = type as EnchantType;
 
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
+  const level = (raw.Level ?? 1) as number;
 
-  const action = allRawActions(raw).find(a => a.Name === actionName);
-  if (!action) { res.json({ success: false, message: 'Action not found on this weapon.' }); return; }
-
-  const uk = upgradeKind(action);
-  if (!uk) { res.json({ success: false, message: 'This action cannot be enchanted.' }); return; }
-
-  const perCell = enchantDelta(enchantKind);
-  if (uk === 'field') {
-    const fieldLen = action.Field?.length ?? 0;
-    if (!Array.isArray(delta) || delta.length !== fieldLen) {
-      res.json({ success: false, message: 'Delta must be an array matching action field length.' }); return;
+  // Validate the upgrade-enchant payload (EV distribution + optional retype).
+  let storedDelta: number | number[] | undefined;
+  let storedDT: string | undefined;
+  let storedDST: string | undefined;
+  if (enchType === 'upgrade') {
+    if (!actionName) { res.json({ success: false, message: 'Pick an ability to enchant.' }); return; }
+    const action = allRawActions(raw).find(a => a.Name === actionName);
+    if (!action) { res.json({ success: false, message: 'Action not found on this weapon.' }); return; }
+    const uk = upgradeKind(action);
+    if (!uk) { res.json({ success: false, message: 'This ability cannot be enchanted.' }); return; }
+    const ev = upgradeEnchantEv(level);
+    if (uk === 'field') {
+      const fieldLen = action.Field?.length ?? 0;
+      if (!Array.isArray(delta) || delta.length !== fieldLen) {
+        res.json({ success: false, message: 'Delta must be an array matching the ability field length.' }); return;
+      }
+      if ((delta as number[]).reduce((a, b) => a + b, 0) !== ev * fieldLen) {
+        res.json({ success: false, message: `Distribute exactly ${ev} EV (field entries must sum to ${ev * fieldLen}).` }); return;
+      }
+      storedDelta = delta;
+    } else {
+      if (delta !== ev) { res.json({ success: false, message: `Delta must be ${ev} for this ability.` }); return; }
+      storedDelta = delta;
     }
-    const expected = perCell * fieldLen;
-    if ((delta as number[]).reduce((a, b) => a + b, 0) !== expected) {
-      res.json({ success: false, message: `Delta must sum to ${expected} for a ${enchantKind} enchant.` }); return;
-    }
-  } else {
-    if (delta !== perCell) {
-      res.json({ success: false, message: `Delta must be ${perCell} for a ${enchantKind} enchant.` }); return;
+    if (damage_type || damage_subtype) {
+      if (damage_type && !(DAMAGE_TYPES as readonly string[]).includes(damage_type)) { res.json({ success: false, message: 'Invalid damage type.' }); return; }
+      if (damage_subtype && !(DAMAGE_SUBTYPES as readonly string[]).includes(damage_subtype)) { res.json({ success: false, message: 'Invalid damage subtype.' }); return; }
+      storedDT  = damage_type  || undefined;
+      storedDST = damage_subtype || undefined;
     }
   }
 
-  // Check enchanter level for this category + kind
+  // Enchanter level gate (placeholder thresholds — tuned alongside cost later).
   const encProfRow = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
   });
   const encLvl = encProfRow?.level ?? 0;
-  const requiredLvl = ENCHANT_LEVEL_REQUIRED[enchantCategory][enchantKind];
+  const requiredLvl = ENCHANT_LEVEL_REQUIRED[enchType];
   if (encLvl < requiredLvl) {
-    res.json({ success: false, message: `Requires Enchanter level ${requiredLvl} for ${enchantCategory} ${enchantKind} enchants.` }); return;
+    res.json({ success: false, message: `Requires Enchanter level ${requiredLvl}.` }); return;
   }
 
-  const cost = enchantKind === 'minor' ? ENCHANT_MINOR_COST : ENCHANT_MAJOR_COST;
+  const cost = enchantCost(level);
+  const ENCH_LABEL: Record<EnchantType, string> = { health: 'Health', melee: 'Sidaev Strike', ranged: 'Sidaev Pulse', upgrade: 'Upgrade' };
 
   const result = await prisma.$transaction(async tx => {
     for (const [mat, qty] of Object.entries(cost)) {
@@ -2969,15 +2988,18 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
     };
     const enchants: WeaponEnchants = upgrades.enchants ?? {};
 
-    const check = canEnchant(enchants, actionName);
+    const check = canAddEnchant(enchants, enchType, actionName);
     if (!check.ok) return { success: false, message: check.reason };
 
-    const newEnchant = {
-      kind:     enchantKind,
-      category: enchantCategory,
-      subtype,
-      ...(enchantKind === 'major' ? { type: ENCHANT_DAMAGE_TYPE[enchantCategory] } : {}),
-      delta,
+    const slotKey = enchantSlotKey(enchType, actionName);
+    const newEnchant: WeaponEnchant = {
+      type: enchType,
+      ...(enchType === 'upgrade' ? {
+        action: actionName,
+        delta: storedDelta,
+        ...(storedDT  ? { damage_type:    storedDT  } : {}),
+        ...(storedDST ? { damage_subtype: storedDST } : {}),
+      } : {}),
     };
 
     await tx.characterWeapon.update({
@@ -2985,26 +3007,28 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
       data: {
         upgrades: {
           ...upgrades,
-          enchants: { ...enchants, [actionName]: newEnchant },
-        } as Prisma.InputJsonValue,
+          enchants: { ...enchants, [slotKey]: newEnchant },
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId,
       event_type: 'weapon_enchanted',
-      payload: { weapon_id: weaponId, weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, enchant_type: enchType, action: actionName ?? null },
     }}).catch(() => {});
 
-    return { success: true, message: `${actionName} enchanted with ${enchantCategory} (${subtype}).` };
+    const label = enchType === 'upgrade' ? `${ENCH_LABEL.upgrade} on ${actionName}` : ENCH_LABEL[enchType];
+    return { success: true, message: `${raw.Name} enchanted — ${label}.` };
   });
 
   res.json(result);
   if (result.success) {
     const mention = await playerMention(discordId, chars[0].name);
+    const label = enchType === 'upgrade' ? `Upgrade on ${actionName}` : ENCH_LABEL[enchType];
     void pingChannel(
       PROFESSION_CHANNEL.enchanter,
-      `${mention} enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
+      `${mention} enchanted **${raw.Name}** — ${label}!`,
     );
   }
 });

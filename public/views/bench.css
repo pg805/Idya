@@ -308,6 +308,14 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
   color: var(--gold-bright);
 }
 
+.ench-card-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 140px; }
+.enchant-current { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 20px 8px; }
+.enchant-none { padding: 4px 20px 8px; font-size: 0.78rem; color: var(--text-faint); }
+.enchant-applied { font-size: 0.72rem; color: var(--gold-bright); }
+.ench-cost-note { font-size: 0.7rem; color: var(--text-faint); font-weight: normal; }
+.enchant-retype { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; font-size: 0.8rem; }
+.ench-even { font-size: 0.68rem; padding: 1px 6px; margin-left: 6px; }
+
 .enchant-dropdowns {
   display: flex;
   gap: 8px;
