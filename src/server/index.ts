@@ -19,6 +19,7 @@ import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
 import Weapon from '../weapon/weapon.js';
+import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
@@ -36,7 +37,7 @@ import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_servic
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
-  budgetForLevel, upgradeCost, totalUpgradesUsed,
+  budgetForLevel, upgradeCost, totalUpgradesUsed, maxUpgrades, upgradeSplit,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
   summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon, weaponUpgradeCap,
@@ -2599,26 +2600,19 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     if (!raw) continue;
 
     const professions  = weaponUpgradeProfessions(row.weapon_key);
-    const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
+    const profession   = professions[0];
+    const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; upgradesDone?: number; hpBonus?: number };
     const baseDeltas   = (upgrades.base ?? {}) as Record<string, number | number[]>;
-    const playerUpgrades  = normalizePlayerUpgrades(upgrades.player, professions[0]);
-    const fieldLens       = buildFieldLenMap(raw);
-    const weaponTotal     = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
-    const profBudgets     = professions.map(p => budgetForLevel(profLevelOf(p)));
-    const weaponCap       = weaponUpgradeCap(profBudgets);
-    const weaponAtCap     = weaponTotal >= weaponCap;
+    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, profession);
 
-    const professionInfo = professions.map((prof, i) => {
-      const profDeltas = playerUpgrades[prof] ?? {};
-      const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
-      const budget   = profBudgets[i];
-      const atCap    = profUsed >= budget || weaponAtCap;
-      const cost = atCap ? null : upgradeCost(weaponTotal + 1, prof);
-      return {
-        profession: prof, used: profUsed, budget, at_cap: atCap,
-        next_cost: cost ? { ...cost, material_name: ITEMS[cost.material]?.name ?? cost.material } : null,
-      };
-    });
+    const baseLevel    = (raw as { Level?: number }).Level ?? 1;
+    const weaponObj    = Weapon.from_file(join(__dirname, `../../database/weapons/${row.weapon_key}.yaml`));
+    const ratio        = hpBudgetRatio(weaponObj, baseLevel);
+    const upgradesDone = upgrades.upgradesDone ?? 0;
+    const hpBonus      = upgrades.hpBonus ?? 0;
+    const cap          = profession ? Math.min(budgetForLevel(profLevelOf(profession)), maxUpgrades(baseLevel)) : 0;
+    const next         = (profession && upgradesDone < cap) ? upgradeSplit(upgradesDone + 1, baseLevel, ratio) : null;
+    const nextCost     = next && profession ? upgradeCost(upgradesDone + 1, profession) : null;
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
@@ -2644,9 +2638,13 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       name: raw.Name,
       equipped: row.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
-      weapon_total: weaponTotal,
-      weapon_cap: weaponCap,
-      upgrade_professions: professionInfo,
+      profession: profession ?? null,
+      upgrades_done: upgradesDone,
+      upgrade_cap: cap,
+      hp_bonus: hpBonus,
+      base_hp: weaponObj.hp,
+      next_upgrade: next,   // { value, hp, ev } | null
+      next_cost: nextCost ? { ...nextCost, material_name: ITEMS[nextCost.material]?.name ?? nextCost.material } : null,
       actions,
     });
   }
@@ -2662,9 +2660,12 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const char = chars[0];
 
   const weaponId = String(req.params['weaponId']);
-  const { action, delta, profession: requestedProfession } = req.body as {
-    action: string; delta: number | number[]; profession?: string;
-  };
+  // One atomic upgrade: distribute its EV pool across one or more actions
+  // ({ actionName: delta }). The HP portion auto-applies on commit.
+  const { distribution } = req.body as { distribution: Record<string, number | number[]> };
+  if (!distribution || typeof distribution !== 'object') {
+    res.json({ success: false, message: 'Expected a distribution.' }); return;
+  }
 
   const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
   if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
@@ -2675,102 +2676,95 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
 
-  const validProfessions = weaponUpgradeProfessions(weaponKey);
-  const profession = (requestedProfession ?? validProfessions[0]) as Profession;
-  if (!validProfessions.includes(profession)) {
-    res.json({ success: false, message: `${profession} cannot upgrade this weapon.` });
-    return;
-  }
+  const profession = weaponUpgradeProfessions(weaponKey)[0];
+  if (!profession) { res.json({ success: false, message: 'This weapon cannot be upgraded.' }); return; }
 
-  const rawAction = allRawActions(raw).find(a => a.Name === action);
-  if (!rawAction) { res.json({ success: false, message: 'Action not found.' }); return; }
-
-  const kind = upgradeKind(rawAction);
-  if (!kind) { res.json({ success: false, message: 'This action cannot be upgraded.' }); return; }
-
-  if (kind === 'field') {
-    if (!Array.isArray(delta)) { res.json({ success: false, message: 'Expected array delta for field action.' }); return; }
-    const len = rawAction.Field!.length;
-    if (delta.length !== len) { res.json({ success: false, message: `Delta must have ${len} entries.` }); return; }
-    if (!delta.every(v => Number.isInteger(v) && v >= 0)) { res.json({ success: false, message: 'Delta values must be non-negative integers.' }); return; }
-    if (delta.reduce((a, b) => a + b, 0) !== len) { res.json({ success: false, message: `Field delta must sum to ${len}.` }); return; }
-  } else {
-    if (delta !== 1) { res.json({ success: false, message: 'Value delta must be 1.' }); return; }
-  }
-
-  const fieldLens = buildFieldLenMap(raw);
+  const baseLevel = (raw as { Level?: number }).Level ?? 1;
+  const weaponObj = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+  const ratio     = hpBudgetRatio(weaponObj, baseLevel);
+  const rawByName = new Map(allRawActions(raw).map(a => [a.Name, a]));
 
   const result = await prisma.$transaction(async tx => {
     const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
     if (!weaponRow || weaponRow.character_id !== char.id) {
       return { success: false, message: 'You do not own this weapon.' };
     }
+    const profRow   = await tx.characterProfession.findFirst({ where: { character_id: char.id, profession } });
+    const cap       = Math.min(budgetForLevel(profRow?.level ?? 0), maxUpgrades(baseLevel));
 
-    const profRows = await tx.characterProfession.findMany({
-      where: { character_id: char.id, profession: { in: validProfessions } },
-    });
-    const profLevelOf = (p: Profession) => profRows.find(r => r.profession === p)?.level ?? 0;
-    const budget     = budgetForLevel(profLevelOf(profession));
-    const weaponCap  = weaponUpgradeCap(validProfessions.map(p => budgetForLevel(profLevelOf(p))));
-
-    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown> };
-    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
-    const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
-    const profUsed    = totalUpgradesUsed(profDeltas, fieldLens);
-    const weaponTotal = totalUpgradesOnWeapon(playerUpgrades, validProfessions, fieldLens);
-
-    if (profUsed >= budget) {
-      return { success: false, message: `Upgrade budget full (${profUsed}/${budget}). Level up ${profession} to unlock more.` };
+    const upgrades     = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown>; upgradesDone?: number; hpBonus?: number };
+    const upgradesDone = upgrades.upgradesDone ?? 0;
+    if (upgradesDone >= cap) {
+      return { success: false, message: `No upgrade available — level up ${profession} to unlock more (${upgradesDone}/${cap}).` };
     }
-    if (weaponTotal >= weaponCap) {
-      return { success: false, message: `This weapon is at its upgrade cap (${weaponTotal}/${weaponCap}).` };
+    const split = upgradeSplit(upgradesDone + 1, baseLevel, ratio);  // { value, hp, ev }
+
+    // Validate the distribution: actions upgradeable, deltas well-formed, and
+    // the points spent equal the upgrade's EV pool exactly.
+    let totalPoints = 0;
+    for (const [name, delta] of Object.entries(distribution)) {
+      const a = rawByName.get(name);
+      if (!a) return { success: false, message: `Unknown action: ${name}.` };
+      const kind = upgradeKind(a);
+      if (!kind) return { success: false, message: `${name} cannot be upgraded.` };
+      if (kind === 'field') {
+        if (!Array.isArray(delta) || delta.length !== a.Field!.length || !delta.every(v => Number.isInteger(v) && v >= 0)) {
+          return { success: false, message: `Bad delta for ${name}.` };
+        }
+        totalPoints += delta.reduce((s, v) => s + v, 0);
+      } else {
+        if (typeof delta !== 'number' || !Number.isInteger(delta) || delta < 0) {
+          return { success: false, message: `Bad delta for ${name}.` };
+        }
+        totalPoints += delta;
+      }
+    }
+    if (totalPoints !== split.ev) {
+      return { success: false, message: `Distribute exactly ${split.ev} EV (you placed ${totalPoints}).` };
     }
 
-    const cost = upgradeCost(weaponTotal + 1, profession);
-    const invRow = await tx.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
-    });
+    // Material cost (placeholder — to be tuned via the economy sim).
+    const cost   = upgradeCost(upgradesDone + 1, profession);
+    const invRow = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
     if ((invRow?.quantity ?? 0) < cost.quantity) {
       return { success: false, message: `Need ${cost.quantity} ${ITEMS[cost.material]?.name ?? cost.material} (have ${invRow?.quantity ?? 0}).` };
     }
-
     if (invRow!.quantity === cost.quantity) {
       await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
     } else {
-      await tx.inventoryItem.update({
-        where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
-        data: { quantity: { decrement: cost.quantity } },
-      });
+      await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } }, data: { quantity: { decrement: cost.quantity } } });
     }
 
-    if (kind === 'field') {
-      const existing = (profDeltas[action] as number[] | undefined) ?? rawAction.Field!.map(() => 0);
-      profDeltas[action] = existing.map((v, i) => v + (delta as number[])[i]);
-    } else {
-      profDeltas[action] = ((profDeltas[action] as number | undefined) ?? 0) + 1;
+    // Apply: fold each delta into the stored per-action deltas, bank the HP, bump the count.
+    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, profession);
+    const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
+    for (const [name, delta] of Object.entries(distribution)) {
+      const a = rawByName.get(name)!;
+      if (upgradeKind(a) === 'field') {
+        const existing = (profDeltas[name] as number[] | undefined) ?? a.Field!.map(() => 0);
+        profDeltas[name] = existing.map((v, i) => v + (delta as number[])[i]);
+      } else {
+        profDeltas[name] = ((profDeltas[name] as number | undefined) ?? 0) + (delta as number);
+      }
     }
-
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
       where: { id: weaponId },
-      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
+      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer, upgradesDone: upgradesDone + 1, hpBonus: (upgrades.hpBonus ?? 0) + split.hp } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId, event_type: 'weapon_upgraded',
-      payload: { weapon_id: weaponId, weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, profession, upgrade: upgradesDone + 1 } as unknown as Prisma.InputJsonValue,
     }}).catch(() => {});
 
-    return { success: true, message: `Upgraded ${action} via ${profession}.` };
+    return { success: true, message: `Upgrade ${upgradesDone + 1} applied: +${split.hp} HP, +${split.ev} EV.` };
   });
 
   res.json(result);
   if (result.success) {
     const mention = await playerMention(discordId, chars[0].name);
-    void pingChannel(
-      PROFESSION_CHANNEL[profession],
-      `${mention} upgraded **${raw.Name}** — ${action}!`,
-    );
+    void pingChannel(PROFESSION_CHANNEL[profession], `${mention} upgraded **${raw.Name}**!`);
   }
 });
 
