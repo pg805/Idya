@@ -2458,9 +2458,6 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   const allRecipes = loadAllRecipes(RECIPES_DIR);
   const recipe = allRecipes.find(r => r.id === String(req.params.recipeId));
   if (!recipe) { res.status(404).json({ error: 'Recipe not found' }); return; }
-  if (recipe.output.type === 'enchant') {
-    res.status(400).json({ error: 'Enchant recipes are applied via /api/enchant, not /api/craft.' }); return;
-  }
 
   const prof = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: chars[0].id, profession: recipe.profession } },

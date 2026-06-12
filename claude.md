@@ -2,7 +2,7 @@
 
 ## Overview
 
-Idya is a Discord-based turn-based RPG battle bot (Alpha 1.0). Players engage in combat encounters against AI-controlled enemies through Discord slash commands and button interactions.
+Idya is a web + Discord RPG battle bot (0.2.0 dev). Players engage AI-controlled enemies on a spatial grid through the web SPA (the live system); combat, crafting, upgrades, enchants, and a market all run off the Express + Socket.io server.
 
 ## Tech Stack
 
@@ -69,29 +69,25 @@ Everything else under `docs/` is dev-only. When adding a new doc, decide first w
 ## Key Concepts
 
 ### Combat System
-- Turn-based with round progression
-- Actions: Strike, Block, Buff, Debuff, Heal, DOT, Reflect, Shield
-- Damage calculation applies modifiers in order: buffs → debuffs → blocks → shields
-- Both player and NPC actions resolve per round
+- Spatial grid combat (move phase → action phase → cleanup), per-round resolution for all units.
+- Action types: see the Action type IDs list under Conventions (1–14: strike, block, buff, DOT, debuff, heal, reflect, shield, tiles, destroy-obstacle, move-debuff).
+- Damage modifiers apply in order: buffs → debuffs → blocks → shields; type/subtype matchups skew the roll *mode* (see Damage Types & Resistances).
 
 ### Weapons
-5 weapons, each with 6 action sets (Defend, Defend Crit, Attack, Attack Crit, Special, Special Crit). Defined in JSON under `database/weapons/`.
+14 weapon YAMLs in `database/weapons/` (12 craftable + `branch` starter + `honor` the OP test toy — **do not touch honor**). Each has 6 action sets (Defend, Defend Crit, Attack, Attack Crit, Special, Special Crit) and a `Level` (1–5). Loaded by `Weapon.from_file`.
 
 ### Enemies
-3 enemies (Rat, Zombie, Mushroom) with pattern-based AI. Patterns are sequences like `[1,2,2,3]` where 1=Defend, 2=Attack, 3=Special. Defined in `database/enemies/`.
+8-enemy roster (+ `tutorial_swallow`) in `database/enemies/`, levels 0–4: tinpul/lithkem_swallow (L0), sulfolk/talwyrm (L1), daefen_deer/maetoad (L2), golnosar (L3), melbear (L4). Pattern AI (`[type, area]` steps) or `AI: smart` for the utility planner. The archived rat/zombie/mushroom are gone.
 
-### Discord Integration
-- Slash commands: `/demobattle`, `/ping`
-- Button interactions for combat choices
-- Rich embeds for battle UI
-- BattleManager tracks active sessions by channel ID
+### Front-end
+The live system is the web SPA (`public/`) on the Express + Socket.io server. The old Discord slash-command bot (`/demobattle` etc.) is **archived** (`archive/`) — if rebuilt, it should drive the spatial system, not the old engine.
 
 ## Important Classes
 
 - `Combatant` / `CombatantMeta` (`src/combat/combat_session.ts`) - Live unit + its weapon/state/AI pattern
 - `resolveIntents` (`src/combat/resolution.ts`) - Core turn resolution (move → action → cleanup)
 - `CombatSession` (`src/combat/combat_session.ts`) - Session container + serializable state
-- `Weapon` (`src/weapon/weapon.ts`) - Weapon loading from JSON
+- `Weapon` (`src/weapon/weapon.ts`) - Weapon loading from YAML
 - `Action` subclasses (`src/weapon/action/`) - Combat action types
 
 ## Scripts
@@ -162,29 +158,28 @@ A crit is **one payload per category per weapon** (a single `attack_crit`/`speci
 ### Professions
 Three professions, each leveling 1–10. Combined cap: 30 (3 × 10).
 
-| Profession | Crafts | Can upgrade |
-|------------|--------|-------------|
-| Lumberjack (LJ) | Wood + hybrid weapons | Any weapon with a wood component (quarterstaff, bow, wand, sword_wood, axe_wood, shovel_wood, sword_talamite, axe_talamite, shovel_talamite) |
-| Blacksmith (BS) | Metal weapons | Talamite-only weapons (dagger, mace, wand_talamite) — NOT hybrid ones with wood handles |
-| Enchanter | Enchanted upgrades | All weapons |
+Each weapon belongs to **one** crafting profession (`WEAPON_PROFESSION` in `upgrade_service.ts`), and you only **upgrade your own profession's** weapons:
 
-Hybrid weapons (sword_talamite, axe_talamite, shovel_talamite) are upgradeable by **both** LJ and BS — cross-profession collaboration is intentional.
+| Profession | Crafts / upgrades |
+|------------|-------------------|
+| Lumberjack (LJ) | axe_wood, sword_wood, shovel_wood, kustaff |
+| Blacksmith (BS) | pickaxe, dagger, mace, battle_axe |
+| Enchanter (EN) | deck_of_cards, spellbook, mental_cage, wand |
 
-### Upgrade Budget Schedule
-Indexed by profession level (0–10). Levels with recipes give 0 budget increase; "empty" levels each raise the cap.
+**Enchanting** (the 4-type enchant layer) is a separate thing the Enchanter does to *any* weapon — gated by weapon level vs Enchanter rank, not by which profession crafted it (see Enchant rules).
+
+### Upgrade Slots (per profession rank)
+A weapon's max upgrades is gated two ways: by your profession Rank via `UPGRADE_BUDGET` (slots unlocked per rank) and by the weapon via `maxUpgrades(baseLevel) = 3·(5 − baseLevel)` (3 upgrades per level above its base, up to L5).
 
 ```
-Level:   0  1  2  3  4  5   6   7   8   9  10
-Budget:  0  0  0  0  3  7  12  12  18  25  35
+Rank:   0  1  2  3  4  5  6  7  8  9  10
+Slots:  0  0  1  1  3  3  6  7  9  9  12
 ```
 
-Level 7 unlocks tier-3 material crafting but grants no budget increase (budget stays at 12).
+Each upgrade auto-adds HP + gives EV points (a "point" = +1 EV); the HP:EV split is **per-weapon** (`hpBudgetRatio` — glass cannons get more EV, tanks more HP). Per-upgrade value by the level it climbs: L1→L2 = 25, L2→L3 = 33, L3→L4 = 42, L4→L5 = 50 EV. See `upgrade_service.ts` (`upgradePointValue`, `upgradeSplit`).
 
-### Upgrade Costs (per profession)
-- **Upgrades 1–12** (budget unlocked at levels 4–6): cost **tier-2 material**
-- **Upgrades 13–35** (budget unlocked at levels 8–10): cost **tier-3 material**
-
-Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units.
+### Upgrade Costs
+`upgradeCost(n, profession, baseLevel)`, keyed to the level climbed: per-band base `UPGRADE_COST_BAND = [5, 10, 5, 12]` (L1→L2 / L2→L3 / L3→L4 / L4→L5) + position (+0/+1/+2) → **5/6/7, 10/11/12, 5/6/7, 12/13/14**. Tier-2 material climbing to L2/L3, tier-3 to L4/L5. Tier-3 smelt is **12:1** off tier-2, so the L4/L5 counts are small but dear. Max an L1 weapon ≈ 7,350 raw-equiv (BS ~165 / EN ~236 / LJ ~399 farm-wins; tune via `pacing_sim.ts`). You only upgrade your **own** profession's weapons.
 
 | Profession | Tier-2 material | Tier-3 material |
 |------------|-----------------|-----------------|
@@ -236,7 +231,7 @@ Builds and runs `src/tools/simulate.ts` — 5,000 Monte Carlo battles per weapon
 - **Win%** is the primary balance metric. 60–80% vs the hardest enemy is a reasonable target for style-tier weapons.
 - **Avg HP left** shows comfort margin. Winning at 2 HP isn't reliable in practice.
 - **DPR** reflects offensive pressure. Low DPR + high Win% means the weapon is surviving on defense or crits.
-- **Mushroom (100HP)** is the most discriminating matchup — use it to separate weapon tiers.
+- **Melbear (L4)** is the most discriminating matchup — use it to separate weapon tiers. (Spatial combat balance lives in `spatial_sim.ts`; the non-spatial `simulate.ts` undervalues ranged kits. `pacing_sim.ts` is the **economy** sim — fights-to-rank + material throughput, not combat.)
 - **Range caveat:** The sim ignores spatial position. Ranged weapons (Bow, Wand, Deck of Cards) are systematically undervalued. Take their mushroom% with skepticism.
 
 ### Estimation Formula

@@ -55,11 +55,9 @@ export function buildPricingContext(shopsDir: string, recipesDir: string): Prici
     }
   }
 
-  // output_id → recipe. Only item/weapon outputs get indexed; enchant recipes
-  // don't produce a tradeable item.
+  // output_id → recipe. Only outputs with an id get indexed.
   const craftedIndex = new Map<string, Recipe>();
   for (const recipe of loadAllRecipes(recipesDir)) {
-    if (recipe.output.type === 'enchant') continue;
     if (!recipe.output.id) continue;
     if (!craftedIndex.has(recipe.output.id)) craftedIndex.set(recipe.output.id, recipe);
   }

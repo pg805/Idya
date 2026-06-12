@@ -9,13 +9,10 @@ export interface RecipeIngredient {
 }
 
 export interface RecipeOutput {
-  type:        'item' | 'weapon' | 'enchant';
+  type:        'item' | 'weapon';
   id?:         string;
   quantity?:   number;
   base_bonus?: { defend?: number; attack?: number; special?: number };
-  // enchant-specific fields
-  kind?:       'minor' | 'major';
-  category?:   'physical' | 'arcane' | 'elemental';
 }
 
 export interface Recipe {
@@ -57,12 +54,10 @@ export function loadAllRecipes(recipesDir: string): Recipe[] {
           quantity:  i['quantity']  as number,
         })),
         output: {
-          type:       out['type']       as 'item' | 'weapon' | 'enchant',
+          type:       out['type']       as 'item' | 'weapon',
           id:         out['id']         as string | undefined,
           quantity:   out['quantity']   as number | undefined,
           base_bonus: out['base_bonus'] as { defend?: number; attack?: number; special?: number } | undefined,
-          kind:       out['kind']       as 'minor' | 'major' | undefined,
-          category:   out['category']   as 'physical' | 'arcane' | 'elemental' | undefined,
         },
         margin_buy:  (r['margin_buy']  as number | undefined) ?? DEFAULT_MARGIN,
         margin_sell: (r['margin_sell'] as number | undefined) ?? DEFAULT_MARGIN,
