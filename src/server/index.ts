@@ -213,6 +213,11 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
       }
     }
   }
+
+  // Auto-HP from upgrades — the HP-portion of each committed upgrade (the EV
+  // portion of each upgrade is the action deltas applied above).
+  const hpBonus = (upgrades as { hpBonus?: number }).hpBonus;
+  if (typeof hpBonus === 'number' && hpBonus > 0) weapon.hp += hpBonus;
 }
 
 // Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed

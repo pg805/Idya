@@ -62,3 +62,15 @@ export function weaponBudget(weapon: Weapon, L: number, hpOverride?: number): nu
   const hpCost = hp <= HBASE ? hp : HBASE + (hp - HBASE) * 0.5;
   return hpCost + action;
 }
+
+// Fraction of a weapon's budget that is HP (vs. abilities) at level L. Upgrades
+// split per-weapon by this ratio so glass cannons (low ratio) keep pouring into
+// abilities and tanks (high ratio) into HP. Capped at 0.9 so the EV pool is
+// never zero (numerical safety, not a design floor).
+export function hpBudgetRatio(weapon: Weapon, L: number): number {
+  const { HBASE } = levelParams(L);
+  const hp = weapon.hp || 0;
+  const hpCost = hp <= HBASE ? hp : HBASE + (hp - HBASE) * 0.5;
+  const total = weaponBudget(weapon, L);
+  return total > 0 ? Math.max(0, Math.min(0.9, hpCost / total)) : 0.5;
+}

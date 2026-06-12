@@ -67,6 +67,14 @@ export function maxUpgrades(baseLevel: number): number {
     return Math.max(0, 3 * (5 - baseLevel));
 }
 
+// The Nth upgrade's split for a weapon of base level + HP ratio: total value,
+// the HP it auto-adds, and the EV points the player distributes. hp + ev = value.
+export function upgradeSplit(n: number, baseLevel: number, ratio: number): { value: number; hp: number; ev: number } {
+    const value = upgradePointValue(n, baseLevel);
+    const hp = Math.round(value * ratio);
+    return { value, hp, ev: value - hp };
+}
+
 // Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
 // or (N - 10) tier-3 material if N ≥ 13 (so upgrade 13 → 3 units, 35 → 25 units).
 export function upgradeCost(n: number, profession: Profession): { quantity: number; material: string } {
