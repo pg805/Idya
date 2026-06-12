@@ -134,23 +134,35 @@
     panel.innerHTML = metaHtml + statusHtml + sectionsHtml + controls;
   }
 
-  function bonusTagOf(a) {
-    const cur = a.type === 'value' ? a.base_bonus + a.player_bonus
-                                   : a.player_bonus.reduce((s, v) => s + v, 0) + a.base_bonus.reduce((s, v) => s + v, 0);
-    const pendC = committedDelta(a.name);
-    const pend = a.type === 'value' ? pendC : pendC.reduce((s, v) => s + v, 0);
+  function evFmt(n) { return Number.isInteger(n) ? `${n}` : n.toFixed(1); }
+  // bonus measured in EV: a field's EV = sum / length, a value's EV = the value.
+  function appliedEv(a) {
+    const raw = a.type === 'value' ? a.base_bonus + a.player_bonus
+                                   : a.base_bonus.reduce((s, v) => s + v, 0) + a.player_bonus.reduce((s, v) => s + v, 0);
+    return a.type === 'value' ? raw : raw / a.field_len;
+  }
+  function pendingEv(a) {
+    const cd  = committedDelta(a.name);
+    const raw = a.type === 'value' ? cd : cd.reduce((s, v) => s + v, 0);
+    return a.type === 'value' ? raw : raw / a.field_len;
+  }
+  function evTags(a) {
     const parts = [];
-    if (cur > 0)  parts.push(`<span class="bonus-tag">+${cur}</span>`);
-    if (pend > 0) parts.push(`<span class="bonus-tag pend">+${pend}</span>`);
+    const ae = appliedEv(a);  if (ae > 0) parts.push(`<span class="bonus-tag">+${evFmt(ae)} EV</span>`);
+    const pe = pendingEv(a);  if (pe > 0) parts.push(`<span class="bonus-tag pend">+${evFmt(pe)} EV</span>`);
     return parts.join(' ');
+  }
+  // The upgraded numbers, including this session's pending committed points.
+  function displayStat(a) {
+    const cd = committedDelta(a.name);
+    if (a.type === 'value') return `${a.effective + cd}`;
+    return fieldSummary(a.effective.map((v, i) => v + cd[i]));
   }
 
   function renderActionRow(a) {
     if (!a.upgradeable) {
       return `<div class="upg-action dim"><span class="upg-name">${esc(a.name)}</span><span class="cannot-upg">Cannot be upgraded</span></div>`;
     }
-    const statHtml = a.type === 'value' ? `${a.effective}` : fieldSummary(a.effective);
-
     // editor for the ability being edited
     if (editing && editing.name === a.name) return renderEditor(a);
 
@@ -158,7 +170,7 @@
     const clickable = pending && !editing;
     const click = clickable ? ` class="upg-action upg-selectable" onclick="Views.upgrade.selectAction('${esc(a.name)}')"` : ' class="upg-action"';
     const pick  = clickable ? '<span class="upg-pick">add ⊕</span>' : '';
-    return `<div${click}><span class="upg-name">${esc(a.name)}</span><span class="upg-stat">${statHtml} ${bonusTagOf(a)}</span>${pick}</div>`;
+    return `<div${click}><span class="upg-name">${esc(a.name)}</span><span class="upg-stat">${displayStat(a)} ${evTags(a)}</span>${pick}</div>`;
   }
 
   function renderEditor(a) {
