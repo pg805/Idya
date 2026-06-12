@@ -66,3 +66,16 @@ recipes:
     output:
       type: weapon
       id: kustaff
+
+  - id: lj_hardwood
+    name: Hardwood
+    description: "Press-cure treated sulwood under high heat into dense, durable hardwood."
+    profession: lumberjack
+    required_level: 7
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 2
+    output:
+      type: item
+      id: hardwood
+      quantity: 1

@@ -66,3 +66,16 @@ recipes:
     output:
       type: weapon
       id: battle_axe
+
+  - id: bs_alloy
+    name: Alloy
+    description: "Fuse talamite with a binding agent under extreme heat into a superior alloy."
+    profession: blacksmith
+    required_level: 7
+    ingredients:
+      - item_id: talamite
+        quantity: 2
+    output:
+      type: item
+      id: alloy
+      quantity: 1

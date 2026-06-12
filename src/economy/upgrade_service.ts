@@ -1,6 +1,8 @@
-// Cumulative upgrade budget per weapon, indexed by profession level 0–10.
-// Level 7 unlocks tier-3 material crafting but grants no additional budget.
-const UPGRADE_BUDGET: readonly number[] = [0, 0, 0, 0, 3, 7, 12, 12, 18, 25, 35];
+// Upgrades unlocked per profession rank (0–10). THREE upgrades complete a weapon
+// level: R2(1)+R4(2) = L1→L2, R6(3) = L2→L3, R7(1)+R8(2) = L3→L4, R10(3) = L4→L5.
+// R2/R7 are the partial (1-upgrade) ranks that ride the tier-2/tier-3 smelting
+// unlocks; R9 is open. Total 12 upgrades = the full L1→L5 climb.
+const UPGRADE_BUDGET: readonly number[] = [0, 0, 1, 1, 3, 3, 6, 7, 9, 9, 12];
 
 export type Profession = 'lumberjack' | 'blacksmith' | 'enchanter';
 
@@ -18,33 +20,43 @@ const TIER3: Record<Profession, string> = {
     enchanter:  'nodol',
 };
 
-// Hybrid weapons have a wood handle (LJ) and metal head (BS) — both professions can upgrade them.
-const HYBRID_WEAPONS = new Set(['sword_talamite', 'axe_talamite', 'shovel_talamite']);
-
-const SINGLE_PROFESSION: Record<string, Profession> = {
-    quarterstaff:  'lumberjack',
-    bow:           'lumberjack',
-    sword_wood:    'lumberjack',
+// You upgrade a weapon with the profession that CRAFTS it (one each). Mirrors the
+// recipe's `profession`. Combined/hybrid weapons are crafted by a single
+// profession (battle_axe → BS, kustaff → LJ, wand → EN), so they upgrade through
+// that one — you can only upgrade your own profession's weapons.
+const WEAPON_PROFESSION: Record<string, Profession> = {
     axe_wood:      'lumberjack',
+    sword_wood:    'lumberjack',
     shovel_wood:   'lumberjack',
+    kustaff:       'lumberjack',
+    pickaxe:       'blacksmith',
     dagger:        'blacksmith',
     mace:          'blacksmith',
-    spellbook:     'enchanter',
-    kustaff:       'enchanter',
-    wand:          'enchanter',
-    wand_talamite: 'enchanter',
+    battle_axe:    'blacksmith',
     deck_of_cards: 'enchanter',
+    spellbook:     'enchanter',
     mental_cage:   'enchanter',
+    wand:          'enchanter',
 };
 
-// All professions that can upgrade a given weapon.
+// The profession(s) that can upgrade a weapon — its crafting profession. Empty
+// for an unknown weapon (not upgradeable). Kept array-shaped for callers.
 export function weaponUpgradeProfessions(weaponKey: string): Profession[] {
-    if (HYBRID_WEAPONS.has(weaponKey)) return ['lumberjack', 'blacksmith'];
-    return [SINGLE_PROFESSION[weaponKey] ?? 'lumberjack'];
+    const p = WEAPON_PROFESSION[weaponKey];
+    return p ? [p] : [];
 }
 
 export function budgetForLevel(level: number): number {
     return UPGRADE_BUDGET[Math.min(Math.max(level, 0), 10)] ?? 0;
+}
+
+// Budget/EV points the Nth upgrade (1-indexed) is worth. The gap to each next
+// weapon level — CAP(L)=25·L·(L+3)/2 → 75/100/125/150 — split across that level's
+// 3 upgrades. Upgrades 1-3 = L1→L2 (25 each), 4-6 = L2→L3 (33), 7-9 = L3→L4 (42),
+// 10-12 = L4→L5 (50). Each upgrade then splits per-weapon into auto-HP + EV.
+export function upgradePointValue(n: number): number {
+    const gap = [75, 100, 125, 150][Math.ceil(n / 3) - 1] ?? 150;
+    return Math.round(gap / 3);
 }
 
 // Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
