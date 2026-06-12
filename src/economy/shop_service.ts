@@ -99,6 +99,10 @@ async function maybeHourlyInventory(shopKey: string, item: ShopItemListing, stat
     });
   }
   lastInventoryAt.set(key, Date.now());
+  // Record an hourly price-state snapshot (best-effort — never break the tick).
+  await prisma.shopPriceTick.create({
+    data: { shop_id: shopKey, item_id: item.id, x: state.x, stock: newStock },
+  }).catch(() => {});
   return { ...state, stock: newStock };
 }
 
@@ -131,6 +135,10 @@ export async function tickAllDue(shopDir: string): Promise<number> {
       }
     }
   }
+  // Prune price history to ~30 days so the table stays bounded.
+  await prisma.shopPriceTick.deleteMany({
+    where: { at: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+  }).catch(() => {});
   return ticked;
 }
 

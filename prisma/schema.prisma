@@ -144,6 +144,20 @@ model ShopTransaction {
   created_at DateTime @default(now())
 }
 
+// Tick-level price-state history — one snapshot per item per hour (the demand
+// state x + stock). Enough to reconstruct the sell/buy price at any past tick
+// and graph the real market the same way the sim does. Pruned to ~30 days.
+model ShopPriceTick {
+  id      String   @id @default(uuid())
+  shop_id String
+  item_id String
+  at      DateTime @default(now())
+  x       Float
+  stock   Int
+
+  @@index([shop_id, item_id, at])
+}
+
 model InventoryItem {
   character_id  String
   item_id       String
