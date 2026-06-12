@@ -173,13 +173,20 @@ function scorePlan(
   // nothing is just stalling, so it shouldn't value the distance.
   let threatening = false;
 
+  // Effect-maintenance: re-applying a DOT / debuff / move-debuff / buff that's still
+  // ticking (2+ rounds left) is a wasted turn — overwrite doesn't stack. Devaluing it
+  // makes a caster apply the effect, then poke/attack, and only refresh as it lapses
+  // (the cast→poke→recast rhythm), instead of spamming it every turn.
+  const stale = (e: { rounds: number }) => (e.rounds >= 2 ? 0.15 : 1);
+
   // --- offense: expected damage = EV × hit chance, with the resist roll-mode skew ---
   if (isDamaging(action)) {
     const mode = foeMeta?.state.get_roll_mode(action) ?? '1d';
     const evDmg = ev(fieldOf(action)) * roundsOf(action) * (ROLL_MULT[mode] ?? 1);
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
-    score += evDmg * ph;
+    const maint = action.type === ActionType.DamageOverTime ? stale(foeMeta?.state.dot ?? { rounds: 0 }) : 1;
+    score += evDmg * ph * maint;
     if (onMyTile('buff')) score += destTile!.value * ph;   // attacking from my buff tile hits harder
     if (evDmg >= foe.hp) score += W.kill * ph;   // expected value of finishing — take the shot even at modest odds, don't turtle past a kill
     if (action.area > 1) {                                            // other foes caught now
@@ -210,7 +217,7 @@ function scorePlan(
     const threatened = (foeCanHitDest && incoming) ? 1 : 0.15;
     score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * raceDefense * W.defend * threatened;
   }
-  if (action.type === ActionType.Buff) score += valueOf(action) * W.buff;
+  if (action.type === ActionType.Buff) score += valueOf(action) * W.buff * stale(meta.state.buff);
 
   // --- control tiles: reward placement on the foe's likely path. Skip re-dropping
   // the same zone where my tile already sits.
@@ -232,14 +239,14 @@ function scorePlan(
   if (action.type === ActionType.MoveDebuff) {
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
-    score += ph * roundsOf(action) * 4 * (W.control / 1.2);
+    score += ph * roundsOf(action) * 4 * (W.control / 1.2) * stale(foeMeta?.state.moveDebuff ?? { rounds: 0 });
   }
   // Attack debuff: saps the foe's damage for `rounds` — value ≈ atk reduction ×
   // rounds × (the foe attacking), landed with hit chance.
   if (action.type === ActionType.Debuff) {
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
-    score += ph * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend;
+    score += ph * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend * stale(foeMeta?.state.debuff ?? { rounds: 0 });
   }
 
   // --- ally tiles (block/buff zones to stand on): score so kits built around them
