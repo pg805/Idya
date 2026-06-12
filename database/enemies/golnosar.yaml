@@ -33,7 +33,7 @@ Loot:
       Field: [0, 2, 2, 3, 4]
     - id: lifgem
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Tar Drink
   - [3, 1]   # Special: Tar Pit (slow the approach)
