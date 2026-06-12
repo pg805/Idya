@@ -77,10 +77,11 @@
     }
 
     let sections = '';
+    let questSection = '';   // appended last so quest trophies sit at the bottom
 
     if (questTrophies.length > 0) {
       questTrophies.sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-      sections += `
+      questSection += `
         <section class="stats-section">
           <h2 class="stats-section-label">Quest Trophies</h2>
           <div class="stats-grid">
@@ -146,6 +147,8 @@
         </section>
       `;
     }
+
+    sections += questSection;
 
     body.innerHTML = `
       <header class="stats-head">
