@@ -22,6 +22,18 @@
   }
   const TIER_LABEL = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };
 
+  // Quest trophy tier from final standing: 1st gold, 2nd silver, 3rd bronze, else grey.
+  function questTier(rank) {
+    if (rank === 1) return 'gold';
+    if (rank === 2) return 'silver';
+    if (rank === 3) return 'bronze';
+    return 'none';
+  }
+  function ordinal(n) {
+    const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+  }
+
   async function mount(root) {
     setLayoutTitle('Stats');
     root.innerHTML = `<div id="stats-body"><p class="stats-empty">Loading…</p></div>`;
@@ -52,18 +64,43 @@
     // bait permit, future location keys, etc.).
     const trophies  = unlocks.filter(i => i.item_id.endsWith('_trophy'));
     const keepsakes = unlocks.filter(i => !i.item_id.endsWith('_trophy'));
+    const questTrophies = data.quest_trophies ?? [];
 
-    if (unlocks.length === 0) {
+    if (unlocks.length === 0 && questTrophies.length === 0) {
       body.innerHTML = `
         <header class="stats-head">
           <h1 class="stats-title">Stats</h1>
         </header>
-        <p class="stats-empty">No permanent items yet. Defeat an enemy to earn a trophy, or pick up a keepsake from a shop.</p>
+        <p class="stats-empty">No permanent items yet. Defeat an enemy to earn a trophy, finish a Town Square quest, or pick up a keepsake from a shop.</p>
       `;
       return;
     }
 
     let sections = '';
+
+    if (questTrophies.length > 0) {
+      questTrophies.sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+      sections += `
+        <section class="stats-section">
+          <h2 class="stats-section-label">Quest Trophies</h2>
+          <div class="stats-grid">
+            ${questTrophies.map(t => {
+              const tier = questTier(t.rank);
+              const badge = `<span class="stats-tier-badge stats-tier-${tier}">${t.rank ? ordinal(t.rank) : 'Participant'}</span>`;
+              return `
+                <div class="stats-card stats-card-${tier}">
+                  <div class="stats-card-head">
+                    <h3 class="stats-card-name">${esc(t.name)}${badge}</h3>
+                    <span class="stats-card-count">${(t.quantity ?? 0).toLocaleString()}<span class="stats-card-count-suffix"> ${esc(t.item_name)}</span></span>
+                  </div>
+                  <p class="stats-card-desc">${esc(t.lore)}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      `;
+    }
     if (trophies.length > 0) {
       // Sort by defeated count descending; ties fall back to name alpha.
       trophies.sort((a, b) => (b.defeated_count ?? 0) - (a.defeated_count ?? 0) || a.name.localeCompare(b.name));

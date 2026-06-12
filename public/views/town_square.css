@@ -1,0 +1,35 @@
+#ts-tab { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+.ts-head { margin-bottom: 18px; }
+.ts-title { font-size: 1.4rem; margin: 0 0 6px; }
+.ts-blurb { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; }
+
+.ts-cards { display: flex; flex-direction: column; gap: 18px; }
+.ts-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.ts-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ts-card-name { font-size: 1.15rem; color: var(--gold-bright); margin: 0; }
+.ts-card-time { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.ts-card-lore { color: var(--text-muted); font-size: 0.85rem; font-style: italic; margin: 6px 0 14px; line-height: 1.45; }
+
+.ts-progress { height: 14px; border-radius: 7px; background: var(--border-soft); overflow: hidden; }
+.ts-progress-bar { height: 100%; background: linear-gradient(90deg, var(--teal-bright), var(--gold-bright)); transition: width 0.4s ease; }
+.ts-progress-label { font-size: 0.8rem; color: var(--text-2); margin: 7px 0 14px; }
+
+.ts-deposit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.ts-deposit input { width: 90px; padding: 6px 8px; }
+.ts-deposit-info { font-size: 0.75rem; color: var(--text-muted); }
+
+.ts-leaderboard { border-top: 1px solid var(--border-soft); padding-top: 10px; }
+.ts-lb-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 8px; }
+.ts-lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ts-lb-list li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 3px 6px; border-radius: 6px; }
+.ts-lb-list li.ts-you { background: var(--teal-bg); }
+.ts-lb-rank { width: 22px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ts-lb-name { flex: 1; color: var(--text-2); }
+.ts-lb-qty { color: var(--teal-bright); font-variant-numeric: tabular-nums; }
+.ts-lb-empty { color: var(--text-faint); font-style: italic; }

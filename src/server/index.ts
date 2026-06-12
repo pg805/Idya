@@ -35,6 +35,7 @@ import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
+import { startQuestScheduler } from '../economy/quest_service.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed, maxUpgrades, upgradeSplit,
@@ -1705,12 +1706,29 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
     };
   });
 
+  // Quest trophies — the player's participation in completed global quests
+  // (rank-tiered on the stats page: 1st gold / 2nd silver / 3rd copper / else grey).
+  const questDeposits = await prisma.questDeposit.findMany({
+    where:   { character_id: char.id, quest: { status: 'completed' } },
+    include: { quest: true },
+    orderBy: { quest: { ends_at: 'desc' } },
+  });
+  const questTrophies = questDeposits.map(d => ({
+    quest_id:  d.quest_id,
+    name:      d.quest.name,
+    lore:      d.quest.lore,
+    item_name: ITEMS[d.quest.item_id]?.name ?? d.quest.item_id,
+    quantity:  d.quantity,
+    rank:      d.rank,
+  }));
+
   res.json({
     characterName: char.name,
     equipped_weapon_id: char.equipped_weapon_id,
     korel:   user?.korel ?? 0,
     items:   itemList,
     weapons: weaponList,
+    quest_trophies: questTrophies,
   });
 });
 
@@ -3031,6 +3049,79 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
 });
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);
+
+// ---- Global quests (Town Square) ----
+startQuestScheduler(prisma, join(__dirname, '../../database/quests'));
+
+// Town Square state: active quest cards (progress, your deposit, leaderboard), or none.
+app.get('/api/townsquare', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const active = await prisma.globalQuest.findMany({ where: { status: 'active' }, orderBy: { ends_at: 'asc' } });
+
+  const quests = await Promise.all(active.map(async q => {
+    const [myDep, topDeps, inv] = await Promise.all([
+      prisma.questDeposit.findUnique({ where: { quest_id_character_id: { quest_id: q.id, character_id: char.id } } }),
+      prisma.questDeposit.findMany({ where: { quest_id: q.id }, orderBy: [{ quantity: 'desc' }, { created_at: 'asc' }], take: 10 }),
+      prisma.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: q.item_id } } }),
+    ]);
+    const names   = topDeps.length ? await prisma.character.findMany({ where: { id: { in: topDeps.map(d => d.character_id) } }, select: { id: true, name: true } }) : [];
+    const nameById = new Map(names.map(n => [n.id, n.name]));
+    return {
+      id: q.id, name: q.name, lore: q.lore,
+      item_id: q.item_id, item_name: ITEMS[q.item_id]?.name ?? q.item_id,
+      target: q.target, price: q.price, deposited: q.deposited, ends_at: q.ends_at,
+      my_deposit:   myDep?.quantity ?? 0,
+      my_inventory: inv?.quantity ?? 0,
+      leaderboard:  topDeps.map((d, i) => ({ rank: i + 1, name: nameById.get(d.character_id) ?? '???', quantity: d.quantity, you: d.character_id === char.id })),
+    };
+  }));
+
+  res.json({ characterName: char.name, quests });
+});
+
+// Deposit N of the quest item: removes them, pays N × the fixed price in korel,
+// and advances the global + per-player totals. (Quest completes at its deadline,
+// not at target — the full window stays open so people can climb the leaderboard.)
+app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const questId  = String(req.params['id']);
+  const quantity = Math.floor(Number((req.body as { quantity?: number }).quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) { res.json({ success: false, message: 'Enter a positive amount.' }); return; }
+
+  const result = await prisma.$transaction(async tx => {
+    const quest = await tx.globalQuest.findUnique({ where: { id: questId } });
+    if (!quest || quest.status !== 'active' || new Date() >= quest.ends_at) return { success: false, message: 'This quest is not accepting deposits.' };
+
+    const key = { character_id_item_id: { character_id: char.id, item_id: quest.item_id } };
+    const inv = await tx.inventoryItem.findUnique({ where: key });
+    if (!inv || inv.quantity < quantity) return { success: false, message: `You only have ${inv?.quantity ?? 0} to deposit.` };
+
+    if (inv.quantity === quantity) await tx.inventoryItem.delete({ where: key });
+    else await tx.inventoryItem.update({ where: key, data: { quantity: { decrement: quantity } } });
+
+    const payout = quantity * quest.price;
+    await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: payout } } });
+    await tx.globalQuest.update({ where: { id: questId }, data: { deposited: { increment: quantity } } });
+    await tx.questDeposit.upsert({
+      where:  { quest_id_character_id: { quest_id: questId, character_id: char.id } },
+      update: { quantity: { increment: quantity } },
+      create: { quest_id: questId, character_id: char.id, quantity },
+    });
+    return { success: true, message: `Deposited ${quantity} ${ITEMS[quest.item_id]?.name ?? quest.item_id} for ${payout} korel.` };
+  });
+
+  res.json(result);
+});
 
 // ---- Socket.io ----
 

@@ -168,3 +168,36 @@ model InventoryItem {
 
   @@id([character_id, item_id])
 }
+
+// Global timed quest: players deposit an item toward a shared target for a fixed
+// price; participants earn a rank-tiered trophy when it completes. Authored as a
+// YAML in database/quests/ and materialized into a row when its start time hits.
+model GlobalQuest {
+  id          String         @id
+  name        String
+  lore        String
+  item_id     String
+  target      Int
+  price       Int            // korel paid per item deposited (fixed for the quest)
+  deposited   Int            @default(0)
+  starts_at   DateTime
+  ends_at     DateTime
+  status      String         @default("scheduled") // scheduled | active | completed
+  created_at  DateTime       @default(now())
+  deposits    QuestDeposit[]
+}
+
+model QuestDeposit {
+  id            String      @id @default(uuid())
+  quest_id      String
+  character_id  String
+  quantity      Int         @default(0)
+  rank          Int?        // frozen 1/2/3/… at completion; null while active
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  quest         GlobalQuest @relation(fields: [quest_id], references: [id])
+
+  @@unique([quest_id, character_id])
+  @@index([character_id])
+}
