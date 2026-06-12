@@ -86,8 +86,8 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Arcane
       Damage_Subtype: Mental
-      Field: [5, 10, 15, 15, 20, 20, 25, 30]
-      Cost: 8
+      Field: [14, 18, 22, 26, 30, 34, 38, 42]
+      Cost: 4
       Aimed: true
       Range: 2
       Action_String: "<User> unleashes a surge of Maek into <Target> for <Damage> damage."

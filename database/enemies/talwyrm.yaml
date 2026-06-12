@@ -77,7 +77,7 @@ Weapon:
       Type_Name: Reflect
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Value: 4
+      Value: 6
       Rounds: 3
       Cost: 2
       Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."

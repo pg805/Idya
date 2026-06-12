@@ -41,9 +41,9 @@ Weapon:
       Type_Name: Heal
       Damage_Type: Elemental
       Damage_Subtype: Plant
-      Value: 6
+      Value: 11
       Cost: 4
-      Action_String: "<User> regrows a limb, healing 6 damage."
+      Action_String: "<User> regrows a limb, healing 11 damage."
     - Name: Shield Arm
       Type: 2
       Type_Name: Block
