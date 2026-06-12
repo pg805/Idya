@@ -1,6 +1,7 @@
 Name: Daefen Deer
 Health: 75
 Level: 2
+AI: smart
 Loot:
   Items:
     - id: thuvel

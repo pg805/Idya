@@ -168,6 +168,8 @@ function scorePlan(
   const destTile = session.board.getTile(dest);
   const onMyTile = (k: 'block' | 'buff') => !!destTile && destTile.teamId === me.teamId && destTile.kind === k;
   let score = 0;
+  let av = 0;   // action VALUE (offense/defense/control/…) — multiplied by the bar-driven
+                // category lean at the end. Positioning/risk go straight into `score`.
   // Does this plan actually hurt or control the foe from here? Kiting (the safety
   // term) is only worth it if fleeing is PRODUCTIVE — a unit that backs off doing
   // nothing is just stalling, so it shouldn't value the distance.
@@ -186,13 +188,13 @@ function scorePlan(
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
     const maint = action.type === ActionType.DamageOverTime ? stale(foeMeta?.state.dot ?? { rounds: 0 }) : 1;
-    score += evDmg * ph * maint;
-    if (onMyTile('buff')) score += destTile!.value * ph;   // attacking from my buff tile hits harder
-    if (evDmg >= foe.hp) score += W.kill * ph;   // expected value of finishing — take the shot even at modest odds, don't turtle past a kill
+    av += evDmg * ph * maint;
+    if (onMyTile('buff')) av += destTile!.value * ph;   // attacking from my buff tile hits harder
+    if (evDmg >= foe.hp) av += W.kill * ph;   // expected value of finishing — take the shot even at modest odds, don't turtle past a kill
     if (action.area > 1) {                                            // other foes caught now
       const cells = affectedKeys(action, dest, target, session);
       for (const e of session.combatants)
-        if (e.teamId !== me.teamId && e.id !== foe.id && cells.has(key(e.pos))) score += evDmg;
+        if (e.teamId !== me.teamId && e.id !== foe.id && cells.has(key(e.pos))) av += evDmg;
     }
   }
 
@@ -201,7 +203,7 @@ function scorePlan(
   // HP unit defend forever without ever progressing. ---
   if (action.type === ActionType.Heal) {
     const missing = me.maxHp - meta.state.health;
-    score += Math.min(valueOf(action), missing) * W.heal * raceDefense;
+    av += Math.min(valueOf(action), missing) * W.heal * raceDefense;
   }
   // Defense is only worth it if the foe can actually hit me this turn — shielding
   // when safe is a wasted turn (the old "turtle forever" bug). Multi-round shields
@@ -215,9 +217,9 @@ function scorePlan(
     // AI falls back to "can it reach me".
     const incoming = !smart || foeMood === 'hostile';
     const threatened = (foeCanHitDest && incoming) ? 1 : 0.15;
-    score += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * raceDefense * W.defend * threatened;
+    av += Math.min(valueOf(action), ESTIMATED_INCOMING) * dur * raceDefense * W.defend * threatened;
   }
-  if (action.type === ActionType.Buff) score += valueOf(action) * W.buff * stale(meta.state.buff);
+  if (action.type === ActionType.Buff) av += valueOf(action) * W.buff * stale(meta.state.buff);
 
   // --- control tiles: reward placement on the foe's likely path. Skip re-dropping
   // the same zone where my tile already sits.
@@ -226,27 +228,27 @@ function scorePlan(
     const here = session.board.getTile(target);
     const dup = here && here.teamId === me.teamId && here.kind === kind;
     if (dup) {
-      score -= 1;  // my zone already covers this — don't re-drop the same tile
+      av -= 1;  // my zone already covers this — don't re-drop the same tile
     } else {
       let mass = 0;
       for (const p of areaBlock(target, action.area, dest)) mass += predicted.get(key(p)) ?? 0;
       if (mass > 0.03) threatening = true;   // a hazard/slow on their path is progress
       const unit = action.type === ActionType.HazardTile ? valueOf(action) : 6;  // slow ≈ delay
-      score += mass * unit * W.control;
-      if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
+      av += mass * unit * W.control;
+      if (here && here.teamId !== me.teamId) av += clearValue(here) * W.clear;  // overwrite the foe's tile
     }
   }
   if (action.type === ActionType.MoveDebuff) {
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
-    score += ph * roundsOf(action) * 4 * (W.control / 1.2) * stale(foeMeta?.state.moveDebuff ?? { rounds: 0 });
+    av += ph * roundsOf(action) * 4 * (W.control / 1.2) * stale(foeMeta?.state.moveDebuff ?? { rounds: 0 });
   }
   // Attack debuff: saps the foe's damage for `rounds` — value ≈ atk reduction ×
   // rounds × (the foe attacking), landed with hit chance.
   if (action.type === ActionType.Debuff) {
     const ph = hitProb(action, dest, target, predicted, session);
     if (ph > 0.15) threatening = true;
-    score += ph * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend * stale(foeMeta?.state.debuff ?? { rounds: 0 });
+    av += ph * valueOf(action) * roundsOf(action) * FOE_ATTACK_CHANCE * W.defend * stale(foeMeta?.state.debuff ?? { rounds: 0 });
   }
 
   // --- ally tiles (block/buff zones to stand on): score so kits built around them
@@ -260,12 +262,12 @@ function scorePlan(
     const dup = here && here.teamId === me.teamId &&
       here.kind === (action.type === ActionType.BlockTile ? 'block' : 'buff');
     if (dup) {
-      score -= 1;  // already my tile here — don't waste a turn re-dropping it
+      av -= 1;  // already my tile here — don't waste a turn re-dropping it
     } else {
-      score += action.type === ActionType.BlockTile
+      av += action.type === ActionType.BlockTile
         ? valueOf(action) * raceDefense * W.defend * 1.2     // a persistent self-shield
         : valueOf(action) * W.allyTile * 0.6;          // boosts my future strikes
-      if (here && here.teamId !== me.teamId) score += clearValue(here) * W.clear;  // overwrite the foe's tile
+      if (here && here.teamId !== me.teamId) av += clearValue(here) * W.clear;  // overwrite the foe's tile
     }
   }
 
@@ -316,8 +318,25 @@ function scorePlan(
   // Restoring resource only matters when being short is actually blocking my best
   // offensive move — otherwise it's a wasted turn (the other half of the turtle bug).
   if (action.cost < 0 && meta.state.resource_current < myMaxAtkCost)
-    score += Math.min(meta.state.resource_max - meta.state.resource_current, -action.cost) * W.restore;
+    av += Math.min(meta.state.resource_max - meta.state.resource_current, -action.cost) * W.restore;
 
+  // --- the 4 bars: the category lean a player can READ off the screen. My HP/resource
+  // set turtle-vs-unleash; your HP/resource set finish-vs-brace. It MULTIPLIES the
+  // action value (not positioning/risk), so it mostly decides the category — but a much
+  // better action, or a stale effect (the ×0.15 above), still overrides it. Centered so
+  // attack = 1.0 (the baseline), special/defend swing with the bars.
+  const myHP = meta.state.health / Math.max(1, me.maxHp);
+  const myRes = meta.state.resource_current / Math.max(1, meta.state.resource_max);
+  const foeHP = (foeMeta?.state.health ?? foe.hp) / Math.max(1, foe.maxHp);
+  const foeRes = foeMeta ? foeMeta.state.resource_current / Math.max(1, foeMeta.state.resource_max) : 0;
+  // Only the AI enemies (smart=false) get the bar-lean — that's what makes THEM
+  // readable. The smart side stands in for a human, who reads the enemy and picks
+  // freely, so it keeps lean = 1.
+  const lean = smart ? 1
+             : myCat === 'special' ? 0.6 + 0.8 * myRes + 0.3 * (1 - foeHP)   // charged → unleash; your low HP → finish
+             : myCat === 'defend'  ? 0.5 + 0.7 * (1 - myHP) + 0.5 * foeRes   // hurt → survive; your charge → brace
+             : 1.0;                                                          // attack = the baseline
+  score += av * lean;
   return score;
 }
 

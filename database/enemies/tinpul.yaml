@@ -1,6 +1,7 @@
 Name: Tinpul
 Health: 10
 Level: 0
+AI: smart
 Resistances:
   Earth: 1.25
 Loot:

@@ -1,6 +1,7 @@
 Name: Maetoad
 Health: 100
 Level: 2
+AI: smart
 Loot:
   Items:
     - id: thuvel
