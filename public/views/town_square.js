@@ -86,7 +86,7 @@
     });
     const r = await res.json();
     toast(r.message ?? r.error, r.success !== false);
-    if (r.success) await load();
+    if (r.success) { await load(); await mountLayout(); }   // refresh card + korel header
   }
 
   function toast(msg, ok) {
