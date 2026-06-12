@@ -71,7 +71,7 @@
     const w = selectedWeapon;
 
     if (w.weapon_cap === 0) {
-      panel.innerHTML = '<p class="upgrade-locked">Reach level 4 in a profession to unlock weapon upgrades.</p>';
+      panel.innerHTML = '<p class="upgrade-locked">Reach level 2 in a profession to unlock weapon upgrades.</p>';
       return;
     }
 
