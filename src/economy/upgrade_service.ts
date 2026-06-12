@@ -75,16 +75,19 @@ export function upgradeSplit(n: number, baseLevel: number, ratio: number): { val
     return { value, hp, ev: value - hp };
 }
 
-// Material cost of the Nth upgrade for a weapon of base level. Quantity ≈
-// value/DIVISOR, +1 for each of the 3 upgrades within a level (so a level's
-// three steps cost e.g. 5/6/7), stepping up by value across levels. Material is
-// tier-2 for upgrades unlocked by R6 (n ≤ 6) and tier-3 from R7 (n ≥ 7), so it's
-// always craftable when the upgrade is available. DIVISOR is the sim-tuned knob.
-const UPGRADE_COST_DIVISOR = 5;
+// Material cost of the Nth upgrade for a weapon of base level. Keyed to the
+// LEVEL the upgrade climbs from so it's fair across weapons and never overlaps:
+// each level starts above the previous level's max — BASE + STEP·(fromLevel-1)
+// for the level, +1 per of its 3 upgrades. L1→L2 = 5/6/7, L2→L3 = 8/9/10,
+// L3→L4 = 11/12/13, L4→L5 = 14/15/16. Material is tier-2 for upgrades unlocked
+// by R6 (n ≤ 6) and tier-3 from R7 (n ≥ 7), so it's always craftable when the
+// upgrade is available. BASE/STEP are the sim-tuned knobs.
+const UPGRADE_COST_BASE = 5;
+const UPGRADE_COST_STEP = 3;
 export function upgradeCost(n: number, profession: Profession, baseLevel: number): { quantity: number; material: string } {
-    const value = upgradePointValue(n, baseLevel);
-    const quantity = Math.round(value / UPGRADE_COST_DIVISOR) + ((n - 1) % 3);
-    const material = n <= 6 ? TIER2[profession] : TIER3[profession];
+    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;   // the level this upgrade climbs from
+    const quantity  = UPGRADE_COST_BASE + UPGRADE_COST_STEP * (fromLevel - 1) + ((n - 1) % 3);
+    const material  = n <= 6 ? TIER2[profession] : TIER3[profession];
     return { quantity, material };
 }
 
