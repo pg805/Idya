@@ -50,13 +50,21 @@ export function budgetForLevel(level: number): number {
     return UPGRADE_BUDGET[Math.min(Math.max(level, 0), 10)] ?? 0;
 }
 
-// Budget/EV points the Nth upgrade (1-indexed) is worth. The gap to each next
-// weapon level — CAP(L)=25·L·(L+3)/2 → 75/100/125/150 — split across that level's
-// 3 upgrades. Upgrades 1-3 = L1→L2 (25 each), 4-6 = L2→L3 (33), 7-9 = L3→L4 (42),
-// 10-12 = L4→L5 (50). Each upgrade then splits per-weapon into auto-HP + EV.
-export function upgradePointValue(n: number): number {
-    const gap = [75, 100, 125, 150][Math.ceil(n / 3) - 1] ?? 150;
-    return Math.round(gap / 3);
+// Budget/EV points the Nth upgrade (1-indexed) is worth, for a weapon of base
+// (crafted) level `baseLevel`. Upgrades climb FROM the weapon's own level: an L2
+// weapon's first upgrade is the L2→L3 jump (skipping L1→L2), an L3 weapon's is
+// L3→L4, etc. Gap(L→L+1) = 25(L+2), split across that level's 3 upgrades — so a
+// higher-base weapon's upgrades are fewer but bigger (battle_axe L3 → 42 each).
+export function upgradePointValue(n: number, baseLevel: number): number {
+    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;
+    return Math.round((25 * (fromLevel + 2)) / 3);
+}
+
+// How many upgrades a weapon can ever take — 3 per level from its base up to L5.
+// L1 weapon → 12, L2 → 9, L3 → 6. (The profession rank budget gates how many of
+// these are unlocked at a time.)
+export function maxUpgrades(baseLevel: number): number {
+    return Math.max(0, 3 * (5 - baseLevel));
 }
 
 // Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
