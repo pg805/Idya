@@ -76,18 +76,18 @@ export function upgradeSplit(n: number, baseLevel: number, ratio: number): { val
 }
 
 // Material cost of the Nth upgrade for a weapon of base level. Keyed to the
-// LEVEL the upgrade climbs from so it's fair across weapons and never overlaps:
-// each level starts above the previous level's max — BASE + STEP·(fromLevel-1)
-// for the level, +1 per of its 3 upgrades. L1→L2 = 5/6/7, L2→L3 = 8/9/10,
-// L3→L4 = 11/12/13, L4→L5 = 14/15/16. Material is tier-2 for upgrades unlocked
-// by R6 (n ≤ 6) and tier-3 from R7 (n ≥ 7), so it's always craftable when the
-// upgrade is available. BASE/STEP are the sim-tuned knobs.
-const UPGRADE_COST_BASE = 5;
-const UPGRADE_COST_STEP = 3;
+// LEVEL the upgrade climbs from, so it's fair across weapons and never overlaps.
+// Per-band base cost (indexed by fromLevel: L1→L2, L2→L3, L3→L4, L4→L5); within
+// a band the 3 upgrades are base +0/+1/+2. The back bands spike hard so maxing a
+// weapon takes a real bite out of your stockpile (L4→L5 = 60/61/62). Material
+// follows the level too: tier-2 climbing to L2/L3, tier-3 climbing to L4/L5 — so
+// an L3-crafted weapon's L3→L4 is tier-3 and needs R7 smelting before it can be
+// upgraded. UPGRADE_COST_BAND is the sim-tuned knob.
+const UPGRADE_COST_BAND = [5, 10, 25, 60];
 export function upgradeCost(n: number, profession: Profession, baseLevel: number): { quantity: number; material: string } {
-    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;   // the level this upgrade climbs from
-    const quantity  = UPGRADE_COST_BASE + UPGRADE_COST_STEP * (fromLevel - 1) + ((n - 1) % 3);
-    const material  = n <= 6 ? TIER2[profession] : TIER3[profession];
+    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;   // the level this upgrade climbs from (1..4)
+    const quantity  = UPGRADE_COST_BAND[fromLevel - 1] + ((n - 1) % 3);
+    const material  = fromLevel <= 2 ? TIER2[profession] : TIER3[profession];
     return { quantity, material };
 }
 
