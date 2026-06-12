@@ -32,7 +32,7 @@ recipes:
     name: Sulwood Sword
     description: "Carve and harden a well-balanced sword from treated sulwood."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 10
@@ -44,7 +44,7 @@ recipes:
     name: Sulwood Shovel
     description: "A solid treated-sulwood shovel — works better as a weapon than it looks."
     profession: lumberjack
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: treated_sulwood
         quantity: 10
@@ -57,7 +57,7 @@ recipes:
     name: Kustaff
     description: "Weave living vines through a treated-sulwood staff and bind plant to wood."
     profession: lumberjack
-    required_level: 3
+    required_level: 5
     ingredients:
       - item_id: treated_sulwood
         quantity: 10

@@ -34,7 +34,7 @@ recipes:
     name: Spellbook
     description: "Bind enchanted pages around refined hiruos — a focus for arcane knowledge."
     profession: enchanter
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: hiruos
         quantity: 10
@@ -46,7 +46,7 @@ recipes:
     name: Mental Cage
     description: "Weave a psychic lattice from refined hiruos — fits the mind like a helmet, cuts like a blade."
     profession: enchanter
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: hiruos
         quantity: 10
@@ -59,7 +59,7 @@ recipes:
     name: Wand
     description: "Attune a talamite rod to the elements — fire, water, earth, and wind answer the call."
     profession: enchanter
-    required_level: 3
+    required_level: 5
     ingredients:
       - item_id: talamite
         quantity: 10

@@ -32,7 +32,7 @@ recipes:
     name: Dagger
     description: "Forge refined talamite into a slim, quick blade."
     profession: blacksmith
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: talamite
         quantity: 10
@@ -44,7 +44,7 @@ recipes:
     name: Mace
     description: "Forge a dense talamite mace head and fit it to a shaft."
     profession: blacksmith
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: talamite
         quantity: 10
@@ -57,7 +57,7 @@ recipes:
     name: Battle Axe
     description: "A brutal slab of talamite on a treated-sulwood haft — a smith's edge with a lumberjack's reach."
     profession: blacksmith
-    required_level: 3
+    required_level: 5
     ingredients:
       - item_id: treated_sulwood
         quantity: 10
