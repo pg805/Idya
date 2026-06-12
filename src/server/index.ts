@@ -2699,28 +2699,33 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     }
     const split = upgradeSplit(upgradesDone + 1, baseLevel, ratio);  // { value, hp, ev }
 
-    // Validate the distribution: actions upgradeable, deltas well-formed, and
-    // the points spent equal the upgrade's EV pool exactly.
-    let totalPoints = 0;
+    // Validate the distribution. A point = +1 EV: for a field action the field
+    // sum rises by `field_length` per point (so the average/EV rises by 1), so
+    // its EV cost = sum(delta)/length; a value action costs its delta directly.
+    // The total EV spent must equal the upgrade's pool exactly.
+    let totalEv = 0;
     for (const [name, delta] of Object.entries(distribution)) {
       const a = rawByName.get(name);
       if (!a) return { success: false, message: `Unknown action: ${name}.` };
       const kind = upgradeKind(a);
       if (!kind) return { success: false, message: `${name} cannot be upgraded.` };
       if (kind === 'field') {
-        if (!Array.isArray(delta) || delta.length !== a.Field!.length || !delta.every(v => Number.isInteger(v) && v >= 0)) {
+        const len = a.Field!.length;
+        if (!Array.isArray(delta) || delta.length !== len || !delta.every(v => Number.isInteger(v) && v >= 0)) {
           return { success: false, message: `Bad delta for ${name}.` };
         }
-        totalPoints += delta.reduce((s, v) => s + v, 0);
+        const sum = delta.reduce((s, v) => s + v, 0);
+        if (sum % len !== 0) return { success: false, message: `${name}: spread points to a whole +EV (a multiple of ${len}).` };
+        totalEv += sum / len;
       } else {
         if (typeof delta !== 'number' || !Number.isInteger(delta) || delta < 0) {
           return { success: false, message: `Bad delta for ${name}.` };
         }
-        totalPoints += delta;
+        totalEv += delta;
       }
     }
-    if (totalPoints !== split.ev) {
-      return { success: false, message: `Distribute exactly ${split.ev} EV (you placed ${totalPoints}).` };
+    if (totalEv !== split.ev) {
+      return { success: false, message: `Spend exactly ${split.ev} points (you spent ${totalEv}).` };
     }
 
     // Material cost (placeholder — to be tuned via the economy sim).
