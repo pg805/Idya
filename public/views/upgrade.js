@@ -148,8 +148,8 @@
   }
   function evTags(a) {
     const parts = [];
-    const ae = appliedEv(a);  if (ae > 0) parts.push(`<span class="bonus-tag">+${evFmt(ae)} EV</span>`);
-    const pe = pendingEv(a);  if (pe > 0) parts.push(`<span class="bonus-tag pend">+${evFmt(pe)} EV</span>`);
+    const ae = appliedEv(a);  if (ae > 0) parts.push(`<span class="bonus-tag">+${evFmt(ae)}</span>`);
+    const pe = pendingEv(a);  if (pe > 0) parts.push(`<span class="bonus-tag pend">+${evFmt(pe)}</span>`);
     return parts.join(' ');
   }
   // The upgraded numbers, including this session's pending committed points.
