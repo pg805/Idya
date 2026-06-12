@@ -61,11 +61,25 @@ recipes:
     ingredients:
       - item_id: treated_sulwood
         quantity: 10
-      - item_id: hiruos
-        quantity: 10
+      - item_id: staff_base
+        quantity: 1
     output:
       type: weapon
       id: kustaff
+
+  # Cross-profession component: the lumberjack's half of the smith's Battle Axe.
+  - id: lj_battle_axe_hilt
+    name: Battle Axe Hilt
+    description: "Shape and balance a heavy treated-sulwood haft — fit a smith's talamite head to it for a battle axe."
+    profession: lumberjack
+    required_level: 5
+    ingredients:
+      - item_id: treated_sulwood
+        quantity: 10
+    output:
+      type: item
+      id: battle_axe_hilt
+      quantity: 1
 
   - id: lj_hardwood
     name: Hardwood

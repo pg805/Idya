@@ -61,13 +61,27 @@ recipes:
     profession: enchanter
     required_level: 5
     ingredients:
-      - item_id: talamite
-        quantity: 10
+      - item_id: wand_base
+        quantity: 1
       - item_id: hiruos
         quantity: 10
     output:
       type: weapon
       id: wand
+
+  # Cross-profession component: the enchanter's half of the lumberjack's Kustaff.
+  - id: en_staff_base
+    name: Staff Base
+    description: "Wind a hiruos-charged core into a balanced staff shaft — bound with living vines by a lumberjack into a kustaff."
+    profession: enchanter
+    required_level: 5
+    ingredients:
+      - item_id: hiruos
+        quantity: 10
+    output:
+      type: item
+      id: staff_base
+      quantity: 1
 
   - id: en_nodol
     name: Nodol

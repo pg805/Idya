@@ -192,14 +192,16 @@ Each upgrade auto-adds HP + gives EV points (a "point" = +1 EV); the HP:EV split
 |-------|----|----|-----|
 | 1 | Quarterstaff → Axe (rework, TBD) | Pickaxe (L1 base; see 0.2.0 doc) | Deck of Cards (L1 base; see 0.2.0 doc) |
 | 2 | Treated sulwood (smelt) + Quarterstaff (Treated, +atk) | Talamite (smelt) + Dagger (Talamite, +atk) | Hiruos (smelt) |
-| 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Spellbook, Mental Cage |
+| 3 | Sulwood Sword + Shovel (L2) | Dagger + Mace (L2) | Spellbook, Mental Cage (L2) |
 | 4 | — (budget) | — (budget) | — (budget; can now enchant **L2** weapons) |
-| 5 | — | — | Wand (L3) |
+| 5 | Kustaff (L3) + **Battle Axe Hilt** | Battle Axe (L3) + **Wand Base** | Wand (L3) + **Staff Base** |
 | 6 | — (budget) | — (budget) | — (budget; can now enchant **L3** weapons) |
-| 7 | Hardwood (smelt) + all hardwood variants (+all) | Alloy (smelt) + all alloy variants (+all) | Nodol (smelt) |
+| 7 | Hardwood (smelt) | Alloy (smelt) | Nodol (smelt) |
 | 8 | — (budget) | — (budget) | — (budget; can now enchant **L4** weapons) |
 | 9 | — | — | — (endgame craft TBD) |
 | 10 | — (budget) | — (budget) | — (budget; can now enchant **L5** weapons) |
+
+**L3 cross-profession components (rank 5).** Each L3 weapon needs a `base`/`hilt` component crafted by a *different* profession — a dependency triangle: **Wand** (EN) ← `wand_base` (BS, 10 talamite); **Kustaff** (LJ) ← `staff_base` (EN, 10 hiruos); **Battle Axe** (BS) ← `battle_axe_hilt` (LJ, 10 treated_sulwood). Components are craft-gated at rank 5 but freely **buyable/sellable** at the maker's shop, so you craft your weapon with a 2nd profession or trade for the part. (Replaced the old per-tier blade/head/handle components, which were dead cruft sold in shops.)
 
 (Enchanting unlocks by **weapon level vs Enchanter rank** — rank ≥ 2× level, so L1 weapons enchantable at R2 — not via per-rank recipes. See Enchant rules below.)
 

@@ -59,13 +59,27 @@ recipes:
     profession: blacksmith
     required_level: 5
     ingredients:
-      - item_id: treated_sulwood
-        quantity: 10
+      - item_id: battle_axe_hilt
+        quantity: 1
       - item_id: talamite
         quantity: 10
     output:
       type: weapon
       id: battle_axe
+
+  # Cross-profession component: the smith's half of the enchanter's Wand.
+  - id: bs_wand_base
+    name: Wand Base
+    description: "Cast and temper a dense talamite rod — blank until an enchanter attunes it into a wand."
+    profession: blacksmith
+    required_level: 5
+    ingredients:
+      - item_id: talamite
+        quantity: 10
+    output:
+      type: item
+      id: wand_base
+      quantity: 1
 
   - id: bs_alloy
     name: Alloy

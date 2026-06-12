@@ -25,26 +25,11 @@ export const ITEMS: Record<string, ItemDef> = {
     alloy:           { name: 'Alloy',            description: 'A superior metal fused from talamite under extreme heat. Only the best blacksmiths can produce it.',type: 'material'   },
     nodol:           { name: 'Nodol',            description: 'Crystallized hiruos. Rare and precisely attuned — the finest enchanting material.',                 type: 'material'   },
 
-    // Weapon components — crafted, sold at profession shops
-    sword_hilt:           { name: 'Sword Hilt',           description: 'A wrapped sulwood hilt, ready to receive a blade.',                       type: 'material' },
-    axe_handle:           { name: 'Axe Handle',           description: 'A thick sulwood handle, balanced for a heavy head.',                      type: 'material' },
-    shovel_handle:        { name: 'Shovel Handle',        description: 'A sturdy sulwood handle, ready for a blade.',                             type: 'material' },
-    sword_blade_wood:     { name: 'Sword Blade (Wood)',   description: 'A hardened sulwood blade, shaped and edged for cutting.',                 type: 'material' },
-    axe_head_wood:        { name: 'Axe Head (Wood)',      description: 'A rough-hewn sulwood axe head, edged and hardened.',                     type: 'material' },
-    shovel_head_wood:     { name: 'Shovel Head (Wood)',   description: 'A shaped sulwood blade, ready to be fitted to a handle.',                 type: 'material' },
-    wand_base_wood:       { name: 'Wand Base (Wood)',     description: 'A slender sulwood rod, blank until attuned by an enchanter.',             type: 'material' },
-    sword_blade_hardwood: { name: 'Sword Blade (Hardwood)', description: 'A hardwood blade — denser grain, holds a finer edge.',                 type: 'material' },
-    axe_head_hardwood:    { name: 'Axe Head (Hardwood)',  description: 'A hardwood axe head — heavier and better balanced than treated sulwood.', type: 'material' },
-    shovel_head_hardwood: { name: 'Shovel Head (Hardwood)', description: 'A hardwood shovel blade — sturdier and better balanced.',              type: 'material' },
-    wand_base_hardwood:   { name: 'Wand Base (Hardwood)', description: 'A hardwood wand rod — denser grain, holds attunement more cleanly.',     type: 'material' },
-    sword_blade_talamite: { name: 'Sword Blade (Talamite)', description: 'A talamite blade, edged and ready for a hilt.',                       type: 'material' },
-    axe_head_talamite:    { name: 'Axe Head (Talamite)',  description: 'A talamite axe head — takes an edge sulwood never could.',               type: 'material' },
-    shovel_head_talamite: { name: 'Shovel Head (Talamite)', description: 'A talamite shovel blade — stays sharp no matter the abuse.',           type: 'material' },
-    wand_base_talamite:   { name: 'Wand Base (Talamite)', description: 'A rod of talamite, cold and dense. Blank until attuned by an enchanter.',type: 'material' },
-    sword_blade_alloy:    { name: 'Sword Blade (Alloy)',  description: 'An alloy blade — holds an edge far longer than talamite.',               type: 'material' },
-    axe_head_alloy:       { name: 'Axe Head (Alloy)',     description: 'An alloy axe head — weight and edge in perfect balance.',                type: 'material' },
-    shovel_head_alloy:    { name: 'Shovel Head (Alloy)',  description: 'An alloy shovel blade — sharper and more durable than talamite.',        type: 'material' },
-    wand_base_alloy:      { name: 'Wand Base (Alloy)',    description: 'A rod of refined alloy. Channels arcane energy with exceptional precision.', type: 'material' },
+    // L3 cross-profession components — each crafted by one profession, used in
+    // another's L3 weapon (rank-5 craft; buyable/sellable at the maker's shop).
+    wand_base:       { name: 'Wand Base',       description: 'A dense talamite rod cast by a blacksmith — blank until an enchanter attunes it into a wand.', type: 'material' },
+    staff_base:      { name: 'Staff Base',      description: 'A hiruos-charged staff shaft wound by an enchanter — a lumberjack binds living vines through it for a kustaff.', type: 'material' },
+    battle_axe_hilt: { name: 'Battle Axe Hilt', description: 'A heavy treated-sulwood haft shaped by a lumberjack — a smith fits a talamite head to it for a battle axe.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
     swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },

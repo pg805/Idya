@@ -1,4 +1,4 @@
-import { clamp, xToMultiplier, currentR, logisticStep, effectiveMultiplier } from '../shop_math.js';
+import { clamp, xToMultiplier, currentR, logisticStep, effectiveMultiplier, X_FLOOR } from '../shop_math.js';
 import type { ShopItemListing } from '../shop_loader.js';
 
 const baseItem: ShopItemListing = {
@@ -41,8 +41,10 @@ describe('currentR', () => {
 
 describe('logisticStep', () => {
   test('x=0.5, r=3 → 0.75',       () => expect(logisticStep(0.5, 3)).toBeCloseTo(0.75));
-  test('x=0 is a fixed point',     () => expect(logisticStep(0, 3.5)).toBe(0));
-  test('x=1 collapses to 0',       () => expect(logisticStep(1, 3.5)).toBe(0));
+  // X_FLOOR keeps demand from collapsing to 0 (so prices recover) — what used to
+  // bottom out at 0 now floors to X_FLOOR.
+  test('x=0 floors to X_FLOOR',    () => expect(logisticStep(0, 3.5)).toBeCloseTo(X_FLOOR));
+  test('x=1 floors to X_FLOOR',    () => expect(logisticStep(1, 3.5)).toBeCloseTo(X_FLOOR));
   test('output is always in [0,1]', () => {
     expect(logisticStep(0.5, 10)).toBeLessThanOrEqual(1);
     expect(logisticStep(0.5, 10)).toBeGreaterThanOrEqual(0);
