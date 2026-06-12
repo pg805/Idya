@@ -46,7 +46,6 @@
     body.innerHTML = `
       <header class="ts-head">
         <h1 class="ts-title">Town Square</h1>
-        <p class="ts-blurb">The town has put out a call. Deposit what you've gathered — you're paid on the spot, and the biggest contributors are remembered.</p>
       </header>
       <div class="ts-cards">${quests.map(card).join('')}</div>`;
   }
