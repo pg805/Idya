@@ -47,7 +47,8 @@
     for (const w of data.weapons) {
       const opt = document.createElement('option');
       opt.value = w.id;
-      opt.textContent = `${w.name} (L${w.level})${w.equipped ? ' (equipped)' : ''} — ${w.enchants_used}/${w.enchant_slots} enchants`;
+      const bonus = w.bonus_count > 0 ? ` +${w.bonus_count}` : '';
+      opt.textContent = `${w.name} (L${w.level})${bonus}${w.equipped ? ' (equipped)' : ''} — ${w.enchants_used}/${w.enchant_slots} enchants`;
       picker.appendChild(opt);
     }
     const prev = weapon?.id;
