@@ -2611,7 +2611,7 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     const hpBonus      = upgrades.hpBonus ?? 0;
     const cap          = profession ? Math.min(budgetForLevel(profLevelOf(profession)), maxUpgrades(baseLevel)) : 0;
     const next         = (profession && upgradesDone < cap) ? upgradeSplit(upgradesDone + 1, baseLevel, ratio) : null;
-    const nextCost     = next && profession ? upgradeCost(upgradesDone + 1, profession) : null;
+    const nextCost     = next && profession ? upgradeCost(upgradesDone + 1, profession, baseLevel) : null;
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
@@ -2729,7 +2729,7 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
     }
 
     // Material cost (placeholder — to be tuned via the economy sim).
-    const cost   = upgradeCost(upgradesDone + 1, profession);
+    const cost   = upgradeCost(upgradesDone + 1, profession, baseLevel);
     const invRow = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
     if ((invRow?.quantity ?? 0) < cost.quantity) {
       return { success: false, message: `Need ${cost.quantity} ${ITEMS[cost.material]?.name ?? cost.material} (have ${invRow?.quantity ?? 0}).` };

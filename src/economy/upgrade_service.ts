@@ -75,11 +75,17 @@ export function upgradeSplit(n: number, baseLevel: number, ratio: number): { val
     return { value, hp, ev: value - hp };
 }
 
-// Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
-// or (N - 10) tier-3 material if N ≥ 13 (so upgrade 13 → 3 units, 35 → 25 units).
-export function upgradeCost(n: number, profession: Profession): { quantity: number; material: string } {
-    if (n <= 12) return { quantity: n, material: TIER2[profession] };
-    return { quantity: n - 10, material: TIER3[profession] };
+// Material cost of the Nth upgrade for a weapon of base level. Quantity ≈
+// value/DIVISOR, +1 for each of the 3 upgrades within a level (so a level's
+// three steps cost e.g. 5/6/7), stepping up by value across levels. Material is
+// tier-2 for upgrades unlocked by R6 (n ≤ 6) and tier-3 from R7 (n ≥ 7), so it's
+// always craftable when the upgrade is available. DIVISOR is the sim-tuned knob.
+const UPGRADE_COST_DIVISOR = 5;
+export function upgradeCost(n: number, profession: Profession, baseLevel: number): { quantity: number; material: string } {
+    const value = upgradePointValue(n, baseLevel);
+    const quantity = Math.round(value / UPGRADE_COST_DIVISOR) + ((n - 1) % 3);
+    const material = n <= 6 ? TIER2[profession] : TIER3[profession];
+    return { quantity, material };
 }
 
 // Player upgrades are stored nested by profession: { lumberjack: { Slash: [...] }, blacksmith: { ... } }
