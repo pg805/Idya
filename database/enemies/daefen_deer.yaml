@@ -6,19 +6,22 @@ Loot:
   Items:
     - id: thuvel
       type: material
-      Field: [0, 1, 2, 2, 2, 3, 3]
+      Field: [0, 2, 3, 3, 4, 4, 5]
     - id: crude_talamite
       type: material
-      Field: [0, 0, 0, 1, 1, 1]
+      Field: [0, 1, 2, 2]
     - id: sulwood
       type: material
-      Field: [0, 0, 0, 0, 1]
-    - id: antler_trophy
-      type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 1, 1, 2]
+    - id: treated_sulwood
+      type: material
+      Field: [0, 0, 1, 1, 2]
     - id: venison
       type: valuable
-      Field: [0, 1, 1, 1, 2, 2]
+      Field: [0, 1, 2, 2, 3]
+    - id: antler_trophy
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Bow
   - [2, 0]   # Attack: Horn Crash

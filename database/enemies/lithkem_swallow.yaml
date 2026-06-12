@@ -6,13 +6,13 @@ Loot:
   Items:
     - id: swallow_feather
       type: valuable
-      Field: [0, 1, 1, 1, 1, 2, 2]
-    - id: crude_talamite
-      type: material
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 2, 2, 3, 3, 4]
     - id: thuvel
       type: material
-      Field: [0, 0, 0, 0, 1, 2]
+      Field: [0, 1, 1, 2]
+    - id: crude_talamite
+      type: material
+      Field: [0, 0, 1, 1]
 Resistances:
   Physical: 1.25
   Water: 0.75

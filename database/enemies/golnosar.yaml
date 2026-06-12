@@ -15,22 +15,25 @@ Loot:
   Items:
     - id: thuvel
       type: material
-      Field: [0, 1, 1, 2, 2]
+      Field: [0, 3, 4, 5, 6, 6, 7]
     - id: hiruos
       type: material
-      Field: [0, 0, 1, 1, 2]
+      Field: [0, 2, 3, 3, 4, 4]
     - id: crude_talamite
       type: material
-      Field: [0, 0, 0, 1, 1, 1, 1]
+      Field: [0, 2, 2, 3]
     - id: sulwood
       type: material
-      Field: [0, 0, 1, 1, 1, 1, 1]
+      Field: [0, 1, 2, 2, 3]
+    - id: treated_sulwood
+      type: material
+      Field: [0, 1, 1, 2]
     - id: bottle_of_tar
       type: valuable
-      Field: [0, 1, 1, 2, 3, 3]
+      Field: [0, 2, 2, 3, 4]
     - id: lifgem
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Tar Drink
   - [3, 1]   # Special: Tar Pit (slow the approach)
