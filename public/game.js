@@ -55,8 +55,24 @@ function applyLogFilters(state) {
       applyLogFilters(next);
     });
   });
-  // Download the full log (all lines, ignoring the visibility filters).
-  document.getElementById('log-download')?.addEventListener('click', () => {
+  // Download the full structured replay (board + roster + per-turn paths/actions
+  // + the readable log) — a self-contained record that recreates the battle.
+  // Falls back to a plain-text scrape if the server has no replay (e.g. an old
+  // session that predates the feature).
+  document.getElementById('log-download')?.addEventListener('click', async () => {
+    const sessionId = window.location.pathname.split('/').pop() || 'test';
+    try {
+      const resp = await fetch(`/api/session/${sessionId}/replay`);
+      if (resp.ok) {
+        const replay = await resp.json();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(replay, null, 2)], { type: 'application/json' }));
+        a.download = 'battle-replay.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+    } catch { /* fall through to text scrape */ }
     const text = [...logEl.children].map(p => p.textContent).join('\n');
     if (!text) return;
     const a = document.createElement('a');

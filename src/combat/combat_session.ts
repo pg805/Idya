@@ -91,6 +91,24 @@ export interface SessionState {
   telegraphs: Record<string, string>; // combatantId → flavor text of next intent
 }
 
+// --- Replay record: a self-contained, downloadable log that recreates a battle ---
+export interface ReplayIntent {
+  path: [number, number][];   // every square entered this turn, [start … dest]
+  action: { cat: string; name: string; target: [number, number] | null };
+}
+export interface ReplayTurn { turn: number; intents: Record<string, ReplayIntent>; log: string[]; }
+export interface ReplayRosterEntry {
+  id: string; name: string; team: string; role: string;
+  isAI: boolean; startPos: [number, number]; maxHp: number; initiative: number;
+}
+export interface ReplayLog {
+  version: number;
+  board: ReturnType<Board['toJSON']>;
+  roster: ReplayRosterEntry[];
+  turns: ReplayTurn[];
+  result: { winner: string | null; rounds: number } | null;
+}
+
 export class CombatSession {
   readonly id: string;
   readonly board: Board;
@@ -100,6 +118,8 @@ export class CombatSession {
   turn: number = 0;
   phase: SessionPhase = 'waiting';
   telegraphs: Record<string, string> = {};
+  // Structured replay accumulator (lazily started by the server on turn 1).
+  replay: ReplayLog | null = null;
   // Initiative-roll log captured at session start. Emitted to clients on
   // every join_session so refreshers / late-joiners see it too, and
   // persisted as a synthetic "turn 0" entry in the battle log.

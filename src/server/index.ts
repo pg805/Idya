@@ -841,6 +841,18 @@ app.get('/api/info/about', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
 });
 
+// ---- Battle replay download ----
+// Returns the self-contained structured replay for a session (board, roster,
+// per-turn paths/actions, readable log). Lives as long as the session does, so
+// it's downloadable from the result screen until the player leaves/claims.
+app.get('/api/session/:id/replay', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const session = sessions.get(id);
+  if (!session?.replay) { res.status(404).json({ error: 'no replay for this session' }); return; }
+  res.setHeader('Content-Disposition', `attachment; filename="battle-replay-${id}.json"`);
+  res.json(session.replay);
+});
+
 // ---- Settings ----
 // Per-user preferences. New columns get added to the User table as features
 // land; the endpoint returns a flat object the client can render against.
@@ -3058,8 +3070,33 @@ io.on('connection', (socket: Socket) => {
 
     session.phase = 'resolving';
     const playerIntent = session.pendingIntents.get('player-1');
+
+    // Lazy-start the downloadable replay on turn 1, while units are still at
+    // their spawns (captured BEFORE resolveIntents moves them).
+    let replay = session.replay;
+    if (!replay) {
+      replay = {
+        version: 1,
+        board: session.board.toJSON(),
+        roster: session.combatants.map(c => {
+          const m = session.meta.get(c.id);
+          return {
+            id: c.id, name: c.name, team: c.teamId,
+            role: m?.weapon?.name ?? c.weaponInfo?.name ?? c.name,
+            isAI: c.isAI, startPos: [c.pos.x, c.pos.y] as [number, number],
+            maxHp: c.maxHp, initiative: c.initiative,
+          };
+        }),
+        turns: [], result: null,
+      };
+      session.replay = replay;
+    }
+
     const result = resolveIntents(session, session.pendingIntents);
     refreshTelegraphs(session);
+
+    replay.turns.push({ turn: replay.turns.length + 1, intents: result.record.intents, log: result.log });
+    if (result.winner) replay.result = { winner: result.winner, rounds: replay.turns.length };
 
     io.to(sessionId).emit('session_state', session.toState());
     io.to(sessionId).emit('turn_result', { log: result.log });

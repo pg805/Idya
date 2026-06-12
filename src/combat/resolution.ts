@@ -1,4 +1,4 @@
-import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
+import { CombatSession, Combatant, CombatantMeta, ReplayIntent } from './combat_session.js';
 import { CombatIntent } from './intent.js';
 import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
@@ -12,6 +12,7 @@ import { effectiveMove } from './combatant_state.js';
 export interface ResolutionResult {
   log: string[];
   winner: string | null;
+  record: { intents: Record<string, ReplayIntent> };  // structured per-turn replay data
 }
 
 function pushLog(log: string[], text: string) {
@@ -156,6 +157,8 @@ export function resolveIntents(
 
   const snapshot = [...session.combatants];
   const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
+  // Pre-move positions, so each turn's replay path is a self-contained from→to.
+  const preMovePos = new Map(snapshot.map(c => [c.id, { x: c.pos.x, y: c.pos.y }]));
 
   // --- Move phase ---
   // Tile contests resolve in two layers:
@@ -304,6 +307,27 @@ export function resolveIntents(
     }
   }
   if (log.length > moveStart) log.splice(moveStart, 0, '▸ Move');
+
+  // Capture this turn's structured record for the downloadable replay: every
+  // unit's traversed path (every square entered) + the action it committed.
+  // Built here, after moves resolve so paths are final, and reused by whichever
+  // return fires below.
+  const recordIntents: Record<string, ReplayIntent> = {};
+  for (const [id, intent] of intents) {
+    const meta = session.meta.get(id);
+    const from = preMovePos.get(id);
+    const entered = moverPaths.get(id);   // squares ENTERED (excludes origin)
+    const full = from ? [from, ...(entered ?? [])] : (entered ?? []);   // self-contained from→to
+    const cat = intent.action.type;
+    const list = meta ? (meta.weapon as unknown as Record<string, Action[]>)[cat] : undefined;
+    const name = cat === 'pass' ? 'pass' : (list?.[intent.action.actionIndex]?.name ?? cat);
+    const tp = intent.action.targetPos;
+    recordIntents[id] = {
+      path: full.map(p => [p.x, p.y] as [number, number]),
+      action: { cat, name, target: tp ? [tp.x, tp.y] : null },
+    };
+  }
+  const record = { intents: recordIntents };
 
   // --- Action phase ---
   // Ordered: defend → attack → special. Within each category, player(s) before AI.
@@ -642,7 +666,7 @@ export function resolveIntents(
     session.turn++;
     session.phase = 'ended';
     session.pendingIntents.clear();
-    return { log, winner: earlyWinner };
+    return { log, winner: earlyWinner, record };
   }
 
   // --- End of round: tick DOT/status sequentially in initiative order,
@@ -684,5 +708,5 @@ export function resolveIntents(
   session.phase = winner ? 'ended' : 'intent';
   session.pendingIntents.clear();
 
-  return { log, winner };
+  return { log, winner, record };
 }
