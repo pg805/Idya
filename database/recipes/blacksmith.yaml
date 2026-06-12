@@ -8,7 +8,7 @@ recipes:
     required_level: 1
     ingredients:
       - item_id: crude_talamite
-        quantity: 4
+        quantity: 12
     output:
       type: weapon
       id: dagger
@@ -22,7 +22,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: crude_talamite
-        quantity: 2
+        quantity: 10
     output:
       type: item
       id: talamite
@@ -35,7 +35,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: talamite
-        quantity: 4
+        quantity: 10
     output:
       type: weapon
       id: dagger
@@ -51,7 +51,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 5
+        quantity: 14
     output:
       type: weapon
       id: mace
@@ -63,7 +63,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: sword_blade_talamite
@@ -76,7 +76,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: axe_head_talamite
@@ -89,7 +89,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: shovel_head_talamite
@@ -102,7 +102,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 2
+        quantity: 5
     output:
       type: item
       id: wand_base_talamite

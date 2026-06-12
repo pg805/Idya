@@ -6,7 +6,7 @@ recipes:
     required_level: 1
     ingredients:
       - item_id: sulwood
-        quantity: 4
+        quantity: 12
     output:
       type: weapon
       id: quarterstaff
@@ -18,7 +18,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: treated_sulwood
-        quantity: 4
+        quantity: 10
     output:
       type: weapon
       id: quarterstaff
@@ -32,7 +32,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: sulwood
-        quantity: 2
+        quantity: 10
     output:
       type: item
       id: treated_sulwood
@@ -45,7 +45,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 2
+        quantity: 6
     output:
       type: item
       id: sword_hilt
@@ -58,7 +58,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: sword_blade_wood
@@ -71,7 +71,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 2
+        quantity: 6
     output:
       type: item
       id: axe_handle
@@ -84,7 +84,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: axe_head_wood
@@ -97,7 +97,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 2
+        quantity: 6
     output:
       type: item
       id: shovel_handle
@@ -110,7 +110,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 3
+        quantity: 8
     output:
       type: item
       id: shovel_head_wood
@@ -123,7 +123,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 5
+        quantity: 14
     output:
       type: weapon
       id: bow
@@ -163,7 +163,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: treated_sulwood
-        quantity: 2
+        quantity: 5
     output:
       type: item
       id: wand_base_wood

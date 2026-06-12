@@ -8,7 +8,7 @@ recipes:
     required_level: 1
     ingredients:
       - item_id: thuvel
-        quantity: 4
+        quantity: 12
     output:
       type: weapon
       id: spellbook
@@ -22,7 +22,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: hiruos
-        quantity: 4
+        quantity: 10
     output:
       type: weapon
       id: spellbook
@@ -36,7 +36,7 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: thuvel
-        quantity: 2
+        quantity: 10
     output:
       type: item
       id: hiruos
@@ -53,7 +53,7 @@ recipes:
       - weapon_id: quarterstaff
         quantity: 1
       - item_id: hiruos
-        quantity: 3
+        quantity: 14
     output:
       type: weapon
       id: kustaff
@@ -67,7 +67,7 @@ recipes:
       - item_id: wand_base_wood
         quantity: 1
       - item_id: hiruos
-        quantity: 2
+        quantity: 9
     output:
       type: weapon
       id: wand
@@ -81,7 +81,7 @@ recipes:
       - item_id: wand_base_talamite
         quantity: 1
       - item_id: hiruos
-        quantity: 2
+        quantity: 9
     output:
       type: weapon
       id: wand_talamite
@@ -93,7 +93,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: hiruos
-        quantity: 5
+        quantity: 14
       - item_id: card_deck
         quantity: 1
     output:
@@ -107,7 +107,7 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: hiruos
-        quantity: 5
+        quantity: 14
     output:
       type: weapon
       id: mental_cage
