@@ -84,7 +84,7 @@
     if (!weapon) { p.innerHTML = ''; return; }
     const w = weapon, encLvl = data.enchanter_level;
     const slotsUsed = w.enchants_used, slotsFull = slotsUsed >= w.enchant_slots;
-    const req  = data.level_required;
+    const rankOk = encLvl >= w.rank_required;
     const cost = w.cost;
     const costStr = Object.entries(cost).map(([m, q]) => `${q} ${m}`).join(', ');
     const canAfford = Object.entries(cost).every(([m, q]) => (data.materials[m] ?? 0) >= q);
@@ -94,7 +94,6 @@
       let action;
       if (applied)               action = '<span class="enchant-applied">Applied</span>';
       else if (slotsFull)        action = '<span class="cannot-upg">Slots full</span>';
-      else if (encLvl < req[type]) action = `<span class="cannot-upg">Enchanter L${req[type]}</span>`;
       else if (type === 'upgrade') action = `<button class="upg-btn" onclick="Views.enchant.startUpgrade()">Choose ability</button>`;
       else                       action = `<button class="upg-btn" ${canAfford ? '' : 'disabled'} onclick="Views.enchant.applyType('${type}')">Apply</button>`;
       return `<div class="upg-action${applied ? ' dim' : ''}">
@@ -105,6 +104,11 @@
 
     let html = `<div class="upgrade-budget"><span class="budget-used">${slotsUsed} / ${w.enchant_slots} slots used</span>${slotsFull ? '<span class="budget-cap">Full</span>' : ''}</div>`;
     html += `<div class="upgrade-section"><p class="upg-cat-label">Current enchants</p>${currentEnchantsHtml(w)}</div>`;
+    if (!rankOk) {
+      html += `<p class="upgrade-locked">Requires Enchanter rank ${w.rank_required} to enchant a level ${w.level} weapon.</p>`;
+      p.innerHTML = html;
+      return;
+    }
     html += `<div class="upgrade-section"><p class="upg-cat-label">Add enchant <span class="ench-cost-note">(cost: ${esc(costStr)})</span></p>`;
     html += card('health', 'Health', `+${w.health_hp} HP`);
     html += card('melee',  'Sidaev Strike', `${w.melee.damage_type}/${w.melee.damage_subtype} · range ${w.melee.range} · [${w.melee.field.join(', ')}]`);

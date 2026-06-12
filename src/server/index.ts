@@ -44,7 +44,7 @@ import {
   type Profession, type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
 import {
-  ENCHANT_SLOTS, ENCHANT_LEVEL_REQUIRED, DAMAGE_TYPES, DAMAGE_SUBTYPES,
+  ENCHANT_SLOTS, enchantRankRequired, DAMAGE_TYPES, DAMAGE_SUBTYPES,
   enchantHealthHp, upgradeEnchantEv, sidaevField, SIDAEV_DEF, buildSidaevAction,
   enchantSlotKey, enchantSlotsUsed, canAddEnchant, enchantCost,
   type EnchantType, type WeaponEnchant, type WeaponEnchants,
@@ -2860,6 +2860,7 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
       enchant_slots: ENCHANT_SLOTS,
       enchants_used: enchantSlotsUsed(enchants),
       enchants,
+      rank_required: enchantRankRequired(level),
       health_hp:  enchantHealthHp(level),
       upgrade_ev: upgradeEnchantEv(level),
       melee:  { ...SIDAEV_DEF.melee,  field: sidaevField('melee',  level) },
@@ -2880,7 +2881,6 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
     enchanter_level: encLvl,
     materials,
     enchant_slots: ENCHANT_SLOTS,
-    level_required: ENCHANT_LEVEL_REQUIRED,
     damage_types: DAMAGE_TYPES,
     damage_subtypes: DAMAGE_SUBTYPES,
     weapons,
@@ -2945,14 +2945,14 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
     }
   }
 
-  // Enchanter level gate (placeholder thresholds — tuned alongside cost later).
+  // Enchanter rank gate — 2× the weapon level (all types unlock together).
   const encProfRow = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
   });
   const encLvl = encProfRow?.level ?? 0;
-  const requiredLvl = ENCHANT_LEVEL_REQUIRED[enchType];
-  if (encLvl < requiredLvl) {
-    res.json({ success: false, message: `Requires Enchanter level ${requiredLvl}.` }); return;
+  const requiredRank = enchantRankRequired(level);
+  if (encLvl < requiredRank) {
+    res.json({ success: false, message: `Requires Enchanter rank ${requiredRank} to enchant a level ${level} weapon.` }); return;
   }
 
   const cost = enchantCost(level);

@@ -75,8 +75,15 @@ export function canAddEnchant(enchants: WeaponEnchants, type: EnchantType, actio
     return { ok: true };
 }
 
-// ── cost + rank gating (PLACEHOLDER — scales with weapon level; tune alongside rank later) ──
-export function enchantCost(weaponLevel: number): Record<string, number> {
-    return weaponLevel >= 4 ? { nodol: weaponLevel - 2 } : { hiruos: 3 * Math.max(1, weaponLevel) };
-}
-export const ENCHANT_LEVEL_REQUIRED: Record<EnchantType, number> = { health: 3, melee: 3, ranged: 3, upgrade: 3 };
+// ── rank gating ──
+// You can enchant a weapon once your Enchanter rank reaches 2× its level (the
+// "second"/budget rank of that level): L1 at R2, L2 at R4, L3 at R6, L4 at R8,
+// L5 at R10. All four enchant types unlock together for that level — no per-type
+// gate; the only walls are weapon level vs rank, plus slots and materials.
+export function enchantRankRequired(weaponLevel: number): number { return clampLvl(weaponLevel) * 2; }
+
+// ── cost (scales with weapon level: tier-2 hiruos for L1-3, tier-3 nodol for L4-5) ──
+const ENCHANT_COST: Record<number, Record<string, number>> = {
+    1: { hiruos: 5 }, 2: { hiruos: 10 }, 3: { hiruos: 20 }, 4: { nodol: 3 }, 5: { nodol: 5 },
+};
+export function enchantCost(weaponLevel: number): Record<string, number> { return ENCHANT_COST[clampLvl(weaponLevel)]; }

@@ -198,13 +198,15 @@ Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units
 | 1 | Quarterstaff → Axe (rework, TBD) | Pickaxe (L1 base; see 0.2.0 doc) | Deck of Cards (L1 base; see 0.2.0 doc) |
 | 2 | Treated sulwood (smelt) + Quarterstaff (Treated, +atk) | Talamite (smelt) + Dagger (Talamite, +atk) | Hiruos (smelt) |
 | 3 | All style weapons + components | Mace, heads, wand bases, assemblies | Kustaff, Wand (wood/talamite), Spellbook, Mental Cage |
-| 4 | — (budget +3) | — (budget +3) | Physical enchant: sharp/blunt, +1 (costs 3 thuvel + 6 hiruos) |
-| 5 | — (budget +4) | — (budget +4) | Arcane enchant: mental/force, +1 |
-| 6 | — (budget +5) | — (budget +5) | Elemental enchant: fire/water/earth/wind/plant, +1 |
-| 7 | Hardwood (smelt) + all hardwood variants (+all) | Alloy (smelt) + all alloy variants (+all) | Nodol (smelt) + all nodol weapon variants (+all) |
-| 8 | — (budget +6) | — (budget +6) | Physical major enchant: type→Physical, any subtype, +3 (costs 3 thuvel + 6 hiruos + 9 nodol) |
-| 9 | — (budget +7) | — (budget +7) | Arcane major enchant: type→Arcane, any subtype, +3 |
-| 10 | — (budget +10) | — (budget +10) | Elemental major enchant: type→Elemental, any subtype, +3 |
+| 4 | — (budget) | — (budget) | — (budget; can now enchant **L2** weapons) |
+| 5 | — | — | Wand (L3) |
+| 6 | — (budget) | — (budget) | — (budget; can now enchant **L3** weapons) |
+| 7 | Hardwood (smelt) + all hardwood variants (+all) | Alloy (smelt) + all alloy variants (+all) | Nodol (smelt) |
+| 8 | — (budget) | — (budget) | — (budget; can now enchant **L4** weapons) |
+| 9 | — | — | — (endgame craft TBD) |
+| 10 | — (budget) | — (budget) | — (budget; can now enchant **L5** weapons) |
+
+(Enchanting unlocks by **weapon level vs Enchanter rank** — rank ≥ 2× level, so L1 weapons enchantable at R2 — not via per-rank recipes. See Enchant rules below.)
 
 **Enchant rules (0.2.0 rework — `src/economy/enchant_service.ts`, its own layer separate from upgrades):** 3 slots per weapon, permanent, each enchant takes a slot. Four types, each once per weapon (the `upgrade` enchant is once **per ability**). All values scale off the level budget `CAP(L)` and are static within a level. Power sits **on top of** the weapon budget (that's why it costs slots + materials).
 - **health** — flat HP by weapon level (0.25·CAP → 13/31/56/88/125).
@@ -212,7 +214,9 @@ Cost formula: upgrade N costs **N** tier-2 units, or **(N − 10)** tier-3 units
 - **ranged** — injects the **Sidaev Pulse** ability (Arcane/Sharp, range 2, cost 1, reactive, Attack-category). Field ≈ 3.5%·CAP (lower than melee).
 - **upgrade** — adds a set EV (0.06·CAP → 3/8/14/21/30) to one ability + an **optional** damage-type change (any type/subtype, no category gating). Mirrors the old enchant's per-ability EV but level-scaled.
 
-Applied via `/api/enchant` (GET lists per-weapon previews; POST `{type, action?, delta?, damage_type?, damage_subtype?}`). Combat injection in `applyWeaponCustomizations` (`src/server/index.ts`): health adds HP, melee/ranged push a `buildSidaevAction` Strike into `weapon.attack`, upgrade rides the action's field/value + retype. **Cost + enchanter-rank gating are PLACEHOLDERS** (`enchantCost` scales with weapon level; `ENCHANT_LEVEL_REQUIRED` all L3) — to be tuned together later. The old physical/arcane/elemental enchant recipes in `enchanter.yaml` are now orphaned (inert) pending that pass.
+Applied via `/api/enchant` (GET lists per-weapon previews; POST `{type, action?, delta?, damage_type?, damage_subtype?}`). Combat injection in `applyWeaponCustomizations` (`src/server/index.ts`): health adds HP, melee/ranged push a `buildSidaevAction` Strike into `weapon.attack`, upgrade rides the action's field/value + retype.
+
+**Rank gate + cost (`enchant_service.ts`):** you can enchant a weapon once Enchanter rank ≥ **2× its level** (`enchantRankRequired` — L1 at R2, L2 at R4, L3 at R6, L4 at R8, L5 at R10); **all four types unlock together** for that level (no per-type gate). **Cost** scales with weapon level (`enchantCost`): L1 5 / L2 10 / L3 20 hiruos, L4 3 / L5 5 nodol. Enchants are **not recipes** — applied via the Enchant page, not crafted (the old physical/arcane/elemental enchant recipes were removed from `enchanter.yaml`).
 
 ## Weapon Balance Tooling
 
