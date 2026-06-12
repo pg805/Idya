@@ -736,10 +736,9 @@ function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
     enchants?: Record<string, unknown>;
   };
   const fieldLens = buildFieldLenMap(raw);
-  const professions = weaponUpgradeProfessions(weaponKey);
-  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
-
-  const playerCount = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+  // Player upgrade count is stored directly now (EV deltas don't normalize to a
+  // count) — each upgrade shows as "+1" (3 = a weapon level).
+  const playerCount = (upgrades as { upgradesDone?: number }).upgradesDone ?? 0;
   const baseCount   = totalUpgradesUsed((upgrades.base ?? {}) as Record<string, number | number[]>, fieldLens);
   const enchantCount = upgrades.enchants ? Object.keys(upgrades.enchants).length : 0;
 
@@ -2639,6 +2638,7 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       equipped: row.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       profession: profession ?? null,
+      base_level: baseLevel,
       upgrades_done: upgradesDone,
       upgrade_cap: cap,
       hp_bonus: hpBonus,
