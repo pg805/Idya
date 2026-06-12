@@ -30,9 +30,14 @@ const NEW_TYPES = new Set(['health', 'melee', 'ranged', 'upgrade']);
 const MINOR_REFUND: Record<string, number> = { thuvel: 3, hiruos: 6 };
 const MAJOR_REFUND: Record<string, number> = { thuvel: 3, hiruos: 6, nodol: 9 };
 // Flat refund for removed weapons that no longer have a recipe to price them.
-// (Recipe-priced weapons are handled automatically; this is only for fully-gone ones.)
+// Resolved from the old recipes (git history) down to currently-existing materials:
+//   quarterstaff   = 4 sulwood
+//   wand_talamite  = wand_base_talamite(5 talamite) + 9 hiruos
+//   sword_talamite = sword_hilt(6 treated_sulwood) + sword_blade_talamite(8 talamite)
 const REMOVED_WEAPON_REFUND: Record<string, Record<string, number>> = {
-  quarterstaff: { sulwood: 4 },
+  quarterstaff:   { sulwood: 4 },
+  wand_talamite:  { talamite: 5, hiruos: 9 },
+  sword_talamite: { treated_sulwood: 6, talamite: 8 },
 };
 
 const refunds = new Map<string, Record<string, number>>();   // charId → { item: qty }
