@@ -1,37 +1,81 @@
 recipes:
-  # EN1 ─────────────────────────────────────────────────────────────────────
+  # Flat material -> weapon (intermediary smelting/components deferred — to be
+  # re-added later by breaking these totals into parts). Cost curve: L1 = 12,
+  # L2 = 100, L3 = 200 base material. The hiruos/nodol smelts are kept because
+  # the enchant system still draws on them.
 
-  - id: en_spellbook
-    name: Spellbook
-    description: "Bind enchanted pages into a spellbook — a focus for arcane knowledge."
+  - id: en_deck_of_cards
+    name: Deck of Cards
+    description: "Bind a deck of cards with arcane edge — each card a weapon with its own potential."
     profession: enchanter
     required_level: 1
     ingredients:
       - item_id: thuvel
         quantity: 12
+      - item_id: card_deck
+        quantity: 1
     output:
       type: weapon
-      id: spellbook
+      id: deck_of_cards
 
-  # EN2 ─────────────────────────────────────────────────────────────────────
-
-  - id: en_spellbook_hiruos
-    name: Spellbook (Hiruos)
-    description: "Bind the pages with refined hiruos — the focus draws on deeper resonance."
+  - id: en_spellbook
+    name: Spellbook
+    description: "Bind enchanted pages into a spellbook — a focus for arcane knowledge."
     profession: enchanter
     required_level: 2
     ingredients:
-      - item_id: hiruos
-        quantity: 10
+      - item_id: thuvel
+        quantity: 100
     output:
       type: weapon
       id: spellbook
-      base_bonus:
-        attack: 1
+
+  - id: en_mental_cage
+    name: Mental Cage
+    description: "Construct a psychic lattice that fits the mind like a helmet and sharpens it like a blade."
+    profession: enchanter
+    required_level: 2
+    ingredients:
+      - item_id: thuvel
+        quantity: 100
+    output:
+      type: weapon
+      id: mental_cage
+
+  # Hybrid (sulwood rod / vine-wound staff + arcane attunement). Split cost.
+  - id: en_kustaff
+    name: Kustaff
+    description: "Weave living vines through a sulwood staff and bind plant to wood."
+    profession: enchanter
+    required_level: 3
+    ingredients:
+      - item_id: sulwood
+        quantity: 100
+      - item_id: thuvel
+        quantity: 100
+    output:
+      type: weapon
+      id: kustaff
+
+  - id: en_wand
+    name: Wand
+    description: "Attune a slender sulwood rod to the elements — fire, water, earth, and wind answer the call."
+    profession: enchanter
+    required_level: 3
+    ingredients:
+      - item_id: sulwood
+        quantity: 100
+      - item_id: thuvel
+        quantity: 100
+    output:
+      type: weapon
+      id: wand
+
+  # ── Smelts kept for the enchant system ──────────────────────────────────────
 
   - id: en_hiruos
     name: Hiruos
-    description: "Distill raw thuvel into refined hiruos — the enchanter's primary working material."
+    description: "Distill raw thuvel into refined hiruos — the enchanter's working material."
     profession: enchanter
     required_level: 2
     ingredients:
@@ -41,78 +85,6 @@ recipes:
       type: item
       id: hiruos
       quantity: 1
-
-  # EN3 ─────────────────────────────────────────────────────────────────────
-
-  - id: en_kustaff
-    name: Kustaff
-    description: "Weave living vines into a quarterstaff, binding plant to wood. The staff is consumed in the process."
-    profession: enchanter
-    required_level: 3
-    ingredients:
-      - weapon_id: quarterstaff
-        quantity: 1
-      - item_id: hiruos
-        quantity: 14
-    output:
-      type: weapon
-      id: kustaff
-
-  - id: en_wand_wood
-    name: Wand (Sulwood)
-    description: "Attune a sulwood rod to the elements — fire, water, earth, and wind answer the call."
-    profession: enchanter
-    required_level: 3
-    ingredients:
-      - item_id: wand_base_wood
-        quantity: 1
-      - item_id: hiruos
-        quantity: 9
-    output:
-      type: weapon
-      id: wand
-
-  - id: en_wand_talamite
-    name: Wand (Talamite)
-    description: "Attune a talamite rod to the elements — cold metal carries arcane charge cleanly."
-    profession: enchanter
-    required_level: 3
-    ingredients:
-      - item_id: wand_base_talamite
-        quantity: 1
-      - item_id: hiruos
-        quantity: 9
-    output:
-      type: weapon
-      id: wand_talamite
-
-  - id: en_deck_of_cards
-    name: Deck of Cards
-    description: "Bind a deck of cards with arcane edge — each card becomes a weapon with its own potential."
-    profession: enchanter
-    required_level: 3
-    ingredients:
-      - item_id: hiruos
-        quantity: 14
-      - item_id: card_deck
-        quantity: 1
-    output:
-      type: weapon
-      id: deck_of_cards
-
-  - id: en_mental_cage
-    name: Mental Cage
-    description: "Construct a psychic lattice that fits the mind like a helmet and sharpens it like a blade."
-    profession: enchanter
-    required_level: 3
-    ingredients:
-      - item_id: hiruos
-        quantity: 14
-    output:
-      type: weapon
-      id: mental_cage
-
-  # EN7 ─────────────────────────────────────────────────────────────────────
 
   - id: en_nodol
     name: Nodol
@@ -127,111 +99,7 @@ recipes:
       id: nodol
       quantity: 1
 
-  - id: en_spellbook_nodol
-    name: Spellbook (Nodol)
-    description: "Reforge the spellbook around a nodol crystal — every page hums."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - item_id: nodol
-        quantity: 2
-    output:
-      type: weapon
-      id: spellbook
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: en_kustaff_nodol
-    name: Kustaff (Nodol)
-    description: "Weave nodol-charged vines into a quarterstaff — the plants respond to finer intent."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - weapon_id: quarterstaff
-        quantity: 1
-      - item_id: nodol
-        quantity: 2
-    output:
-      type: weapon
-      id: kustaff
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: en_wand_hardwood
-    name: Wand (Hardwood)
-    description: "Attune a hardwood rod to the elements — the denser grain holds attunement longer."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - item_id: wand_base_hardwood
-        quantity: 1
-      - item_id: nodol
-        quantity: 2
-    output:
-      type: weapon
-      id: wand
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: en_wand_alloy
-    name: Wand (Alloy)
-    description: "Attune an alloy rod to the elements — refined metal channels arcane energy with exceptional precision."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - item_id: wand_base_alloy
-        quantity: 1
-      - item_id: nodol
-        quantity: 2
-    output:
-      type: weapon
-      id: wand_talamite
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: en_deck_of_cards_nodol
-    name: Deck of Cards (Nodol)
-    description: "Bind a deck with nodol-charged arcane edge — the cards hold sharper intent."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - item_id: nodol
-        quantity: 4
-      - item_id: card_deck
-        quantity: 1
-    output:
-      type: weapon
-      id: deck_of_cards
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: en_mental_cage_nodol
-    name: Mental Cage (Nodol)
-    description: "Reconstruct the psychic lattice with nodol crystal — it fits tighter and cuts deeper."
-    profession: enchanter
-    required_level: 7
-    ingredients:
-      - item_id: nodol
-        quantity: 2
-    output:
-      type: weapon
-      id: mental_cage
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  # EN4 ─────────────────────────────────────────────────────────────────────
+  # ── Enchants (applied directly to a weapon you own) ─────────────────────────
 
   - id: en_enchant_physical_minor
     name: Physical Enchant
@@ -248,8 +116,6 @@ recipes:
       kind: minor
       category: physical
 
-  # EN5 ─────────────────────────────────────────────────────────────────────
-
   - id: en_enchant_arcane_minor
     name: Arcane Enchant
     description: "Imbue one action with arcane resonance — mental pressure or pure force. Applied directly to a weapon you own."
@@ -265,8 +131,6 @@ recipes:
       kind: minor
       category: arcane
 
-  # EN6 ─────────────────────────────────────────────────────────────────────
-
   - id: en_enchant_elemental_minor
     name: Elemental Enchant
     description: "Imbue one action with elemental energy — fire, water, earth, wind, or plant. Applied directly to a weapon you own."
@@ -281,8 +145,6 @@ recipes:
       type: enchant
       kind: minor
       category: elemental
-
-  # EN8 ─────────────────────────────────────────────────────────────────────
 
   - id: en_enchant_physical_major
     name: Physical Enchant (Major)
@@ -301,8 +163,6 @@ recipes:
       kind: major
       category: physical
 
-  # EN9 ─────────────────────────────────────────────────────────────────────
-
   - id: en_enchant_arcane_major
     name: Arcane Enchant (Major)
     description: "Reforge an action's essence as arcane — changes both type and subtype, adds +3. Applied directly to a weapon you own."
@@ -319,8 +179,6 @@ recipes:
       type: enchant
       kind: major
       category: arcane
-
-  # EN10 ────────────────────────────────────────────────────────────────────
 
   - id: en_enchant_elemental_major
     name: Elemental Enchant (Major)

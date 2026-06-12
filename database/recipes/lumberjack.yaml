@@ -1,7 +1,11 @@
 recipes:
-  - id: lj_quarterstaff
-    name: Quarterstaff
-    description: "Shape a long, balanced length of sulwood into a fighting staff."
+  # Flat material -> weapon (intermediary smelting/components deferred — to be
+  # re-added later by breaking these totals into parts). Cost curve: L1 = 12,
+  # L2 = 100, L3 = 200 base material.
+
+  - id: lj_axe_wood
+    name: Sulwood Axe
+    description: "Shape and edge a heavy sulwood axe."
     profession: lumberjack
     required_level: 1
     ingredients:
@@ -9,327 +13,28 @@ recipes:
         quantity: 12
     output:
       type: weapon
-      id: quarterstaff
+      id: axe_wood
 
-  - id: lj_quarterstaff_treated
-    name: Quarterstaff (Treated)
-    description: "A quarterstaff crafted from treated sulwood — denser and better balanced than the raw version."
-    profession: lumberjack
-    required_level: 2
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 10
-    output:
-      type: weapon
-      id: quarterstaff
-      base_bonus:
-        attack: 1
-
-  - id: lj_treated_sulwood
-    name: Treated Sulwood
-    description: "Cure raw sulwood with resin and heat, producing a denser, more workable material."
+  - id: lj_sword_wood
+    name: Sulwood Sword
+    description: "Carve and harden a well-balanced sulwood blade."
     profession: lumberjack
     required_level: 2
     ingredients:
       - item_id: sulwood
-        quantity: 10
-    output:
-      type: item
-      id: treated_sulwood
-      quantity: 1
-
-  - id: lj_sword_hilt
-    name: Sword Hilt
-    description: "A wrapped sulwood hilt, ready to receive a blade."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 6
-    output:
-      type: item
-      id: sword_hilt
-      quantity: 1
-
-  - id: lj_sword_blade
-    name: Sword Blade
-    description: "A hardened sulwood blade, shaped and edged for cutting."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 8
-    output:
-      type: item
-      id: sword_blade_wood
-      quantity: 1
-
-  - id: lj_axe_handle
-    name: Axe Handle
-    description: "A thick sulwood handle, balanced for a heavy head."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 6
-    output:
-      type: item
-      id: axe_handle
-      quantity: 1
-
-  - id: lj_axe_head
-    name: Axe Head
-    description: "A rough-hewn sulwood axe head, edged and hardened."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 8
-    output:
-      type: item
-      id: axe_head_wood
-      quantity: 1
-
-  - id: lj_shovel_handle
-    name: Shovel Handle
-    description: "A sturdy sulwood handle, ready for a blade."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 6
-    output:
-      type: item
-      id: shovel_handle
-      quantity: 1
-
-  - id: lj_shovel_head
-    name: Shovel Head
-    description: "A shaped sulwood blade, ready to be fitted to a handle."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 8
-    output:
-      type: item
-      id: shovel_head_wood
-      quantity: 1
-
-  - id: lj_bow
-    name: Sulwood Bow
-    description: "Bend a sulwood stave into a bow and string it with treated fiber."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 14
-    output:
-      type: weapon
-      id: bow
-
-  - id: lj_sword_wood
-    name: Sulwood Sword
-    description: "Bind hilt and blade into a full sulwood sword."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: sword_hilt
-        quantity: 1
-      - item_id: sword_blade_wood
-        quantity: 1
+        quantity: 100
     output:
       type: weapon
       id: sword_wood
-
-  - id: lj_axe_wood
-    name: Sulwood Axe
-    description: "Lash the axe head to the handle and set the wedge."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: axe_handle
-        quantity: 1
-      - item_id: axe_head_wood
-        quantity: 1
-    output:
-      type: weapon
-      id: axe_wood
-
-  - id: lj_wand
-    name: Wand Base (Sulwood)
-    description: "Shape a slender sulwood rod — blank until attuned by an enchanter."
-    profession: lumberjack
-    required_level: 3
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 5
-    output:
-      type: item
-      id: wand_base_wood
-      quantity: 1
 
   - id: lj_shovel_wood
     name: Sulwood Shovel
-    description: "A solid sulwood shovel, handle and head set together. Works better as a weapon than it looks."
+    description: "A solid sulwood shovel — works better as a weapon than it looks."
     profession: lumberjack
-    required_level: 3
+    required_level: 2
     ingredients:
-      - item_id: shovel_handle
-        quantity: 1
-      - item_id: shovel_head_wood
-        quantity: 1
+      - item_id: sulwood
+        quantity: 100
     output:
       type: weapon
       id: shovel_wood
-
-  - id: lj_hardwood
-    name: Hardwood
-    description: "Press-cure treated sulwood under high heat to produce dense, durable hardwood."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: treated_sulwood
-        quantity: 3
-    output:
-      type: item
-      id: hardwood
-      quantity: 1
-
-  - id: lj_quarterstaff_hardwood
-    name: Quarterstaff (Hardwood)
-    description: "A hardwood quarterstaff — rigid, durable, and finely shaped. The best a lumberjack can make."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 2
-    output:
-      type: weapon
-      id: quarterstaff
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: lj_sword_blade_hardwood
-    name: Sword Blade (Hardwood)
-    description: "A hardwood blade — denser grain, holds a finer edge."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 2
-    output:
-      type: item
-      id: sword_blade_hardwood
-      quantity: 1
-
-  - id: lj_sword_wood_hardwood
-    name: Sulwood Sword (Hardwood)
-    description: "A sulwood sword with a hardwood blade — the grain runs true and the edge holds longer."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: sword_hilt
-        quantity: 1
-      - item_id: sword_blade_hardwood
-        quantity: 1
-    output:
-      type: weapon
-      id: sword_wood
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: lj_axe_head_hardwood
-    name: Axe Head (Hardwood)
-    description: "A hardwood axe head — heavier and better balanced than treated sulwood."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 2
-    output:
-      type: item
-      id: axe_head_hardwood
-      quantity: 1
-
-  - id: lj_axe_wood_hardwood
-    name: Sulwood Axe (Hardwood)
-    description: "A hardwood axe — heavier head, better balance. Hits with more intent."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: axe_handle
-        quantity: 1
-      - item_id: axe_head_hardwood
-        quantity: 1
-    output:
-      type: weapon
-      id: axe_wood
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: lj_bow_hardwood
-    name: Sulwood Bow (Hardwood)
-    description: "A bow from a hardwood stave — holds tension better and releases cleaner."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 2
-    output:
-      type: weapon
-      id: bow
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: lj_wand_hardwood
-    name: Wand Base (Hardwood)
-    description: "A hardwood wand rod — denser grain, holds attunement more cleanly."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 1
-    output:
-      type: item
-      id: wand_base_hardwood
-      quantity: 1
-
-  - id: lj_shovel_head_hardwood
-    name: Shovel Head (Hardwood)
-    description: "A hardwood shovel blade — sturdier and better balanced than treated sulwood."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: hardwood
-        quantity: 2
-    output:
-      type: item
-      id: shovel_head_hardwood
-      quantity: 1
-
-  - id: lj_shovel_wood_hardwood
-    name: Sulwood Shovel (Hardwood)
-    description: "A hardwood shovel — better balanced and sturdier than the sulwood version."
-    profession: lumberjack
-    required_level: 7
-    ingredients:
-      - item_id: shovel_handle
-        quantity: 1
-      - item_id: shovel_head_hardwood
-        quantity: 1
-    output:
-      type: weapon
-      id: shovel_wood
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
