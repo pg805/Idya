@@ -78,12 +78,13 @@ export function upgradeSplit(n: number, baseLevel: number, ratio: number): { val
 // Material cost of the Nth upgrade for a weapon of base level. Keyed to the
 // LEVEL the upgrade climbs from, so it's fair across weapons and never overlaps.
 // Per-band base cost (indexed by fromLevel: L1→L2, L2→L3, L3→L4, L4→L5); within
-// a band the 3 upgrades are base +0/+1/+2. The back bands spike hard so maxing a
-// weapon takes a real bite out of your stockpile (L4→L5 = 60/61/62). Material
-// follows the level too: tier-2 climbing to L2/L3, tier-3 climbing to L4/L5 — so
-// an L3-crafted weapon's L3→L4 is tier-3 and needs R7 smelting before it can be
-// upgraded. UPGRADE_COST_BAND is the sim-tuned knob.
-const UPGRADE_COST_BAND = [5, 10, 25, 60];
+// a band the 3 upgrades are base +0/+1/+2. The back bands are small COUNTS but
+// tier-3 material is a 12:1 compression of tier-2, so each of those units is
+// dear — L4→L5 = 12/13/14 alloy ≈ 144+ talamite each. Material follows the level:
+// tier-2 climbing to L2/L3, tier-3 climbing to L4/L5 — so an L3-crafted weapon's
+// L3→L4 is tier-3 and needs R7 smelting before it can be upgraded.
+// UPGRADE_COST_BAND is the sim-tuned knob.
+const UPGRADE_COST_BAND = [5, 10, 5, 12];
 export function upgradeCost(n: number, profession: Profession, baseLevel: number): { quantity: number; material: string } {
     const fromLevel = baseLevel + Math.ceil(n / 3) - 1;   // the level this upgrade climbs from (1..4)
     const quantity  = UPGRADE_COST_BAND[fromLevel - 1] + ((n - 1) % 3);

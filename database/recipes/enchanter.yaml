@@ -76,7 +76,7 @@ recipes:
     required_level: 7
     ingredients:
       - item_id: hiruos
-        quantity: 2
+        quantity: 12
     output:
       type: item
       id: nodol
