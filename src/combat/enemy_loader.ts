@@ -64,11 +64,11 @@ function actionStat(a: Action, resourceName: string): string {
     case ActionType.Debuff:          return j(`Debuff ${v}`, turns, refund);
     case ActionType.Reflect:         return j(`Reflect ${v}`, turns, refund);
     case ActionType.MoveDebuff:      return j(`Slow ${v}`, turns, refund);
-    case ActionType.BlockTile:       return j(`Block Tile ${v}`, area);
-    case ActionType.BuffTile:        return j(`Buff Tile ${v}`, area);
-    case ActionType.HazardTile:      return j(`Hazard Tile ${v}`, area);
-    case ActionType.SlowTile:        return j('Slow Tile', area);
-    case ActionType.DestroyObstacle: return `Destroy`;
+    case ActionType.BlockTile:       return j(`Block Tile ${v}`, rng, area);
+    case ActionType.BuffTile:        return j(`Buff Tile ${v}`, rng, area);
+    case ActionType.HazardTile:      return j(`Hazard Tile ${v}`, rng, area);
+    case ActionType.SlowTile:        return j('Slow Tile', rng, area);
+    case ActionType.DestroyObstacle: return j('Destroy', rng);
     default:                         return '';
   }
 }
