@@ -127,8 +127,10 @@ socket.on('game_over', ({ winner }) => {
   resetUI();
   ui.phase = 'ended';
   appendLog([`━━━ Game Over! ${winnerTeam ? winnerTeam.name + ' wins!' : 'Draw!'} ━━━`], 'turn-divider');
+  // Hide but KEEP its box — `hidden`/display:none would shrink the status bar
+  // (the forfeit button is its tallest item) and jump the whole page up.
   const ffBtn = document.getElementById('forfeit-btn');
-  if (ffBtn) ffBtn.hidden = true;
+  if (ffBtn) ffBtn.style.visibility = 'hidden';
   render();
 });
 
