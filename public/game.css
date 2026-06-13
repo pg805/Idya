@@ -258,18 +258,19 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   background: var(--teal-dim);
   color: var(--text);
 }
-/* End-of-battle: one big green button that fills the (locked-height) panel. */
+/* End-of-battle: a normal-sized green button at the top of the (locked-height)
+   panel; the rest of the section just stays empty. */
 .return-big {
-  flex: 1;
-  display: flex;
+  align-self: center;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
+  padding: 9px 22px;
   background: #2e7d32;
   border: 1px solid #4caf50;
   border-radius: 6px;
   color: #fff;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: bold;
   letter-spacing: 0.04em;
   text-decoration: none;

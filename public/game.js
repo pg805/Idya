@@ -20,7 +20,6 @@ const ui = {
 const boardEl         = document.getElementById('board');
 const actionPanelEl   = document.getElementById('action-panel');
 const combatantListEl = document.getElementById('combatant-list');
-let lockedPanelHeight = null;   // panel height locked on first list render, so it never resizes
 const turnLabelEl     = document.getElementById('turn-label');
 const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
@@ -609,13 +608,12 @@ function renderActionPanel() {
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
 
-  // Lock the panel to the action-list height the first time we render it, so it
-  // never resizes for the rest of the battle (incl. the end-of-battle return
-  // button) — no jump.
-  if (lockedPanelHeight === null) {
-    lockedPanelHeight = actionPanelEl.offsetHeight;
-    actionPanelEl.style.minHeight = lockedPanelHeight + 'px';
-  }
+  // Lock the panel to its current list height so it never resizes — including the
+  // end-of-battle return button. Reset first, then re-measure each turn, so a
+  // layout-width change that re-wraps the rows can't leave a stale (too-small)
+  // lock that makes the panel shrink (jump) at battle end.
+  actionPanelEl.style.minHeight = '';
+  actionPanelEl.style.minHeight = actionPanelEl.offsetHeight + 'px';
 }
 
 function statusBadgesHtml(status) {
