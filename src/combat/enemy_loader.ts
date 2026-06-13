@@ -39,22 +39,25 @@ const fieldList = (arr: number[]): string => {
 // modifiers (range / area / duration / riders) → field → resource refund.
 // Tokens are spelled out (➜2 reach, "3 turns") rather than r2/3t. Crits reuse
 // this same builder, so a crit reads exactly like a normal action.
-function actionStat(a: Action, resourceName: string): string {
+function actionStat(a: Action, resourceName: string, isCrit = false): string {
   const f = (a as unknown as { field?: { field: number[] } }).field?.field;
   const v = (a as unknown as { value?: number }).value;
   const rounds = (a as unknown as { rounds?: number }).rounds;
-  const rng    = a.range > 1 && !a.moveTo ? `➜${a.range}` : '';
-  const area   = a.area > 1 ? `${a.area}×${a.area}` : '';
+  // Crits ride the triggering action's targeting, so aim / range / area / blink
+  // are inherited and meaningless on a crit — suppress them there.
+  const rng    = !isCrit && a.range > 1 && !a.moveTo ? `range ${a.range}` : '';
+  const area   = !isCrit && a.area > 1 ? `${a.area}×${a.area}` : '';
   const turns  = rounds ? `${rounds} turns` : '';
-  const blink  = a.moveTo ? 'blink' : '';
+  const blink  = !isCrit && a.moveTo ? 'blink' : '';
   const knock  = a.push > 0 ? 'knockback' : '';
+  const aim    = isCrit ? '' : (a.aimed ? 'aimed' : 'reactive');   // aimed = pick a tile, reactive = auto-fires
   // A negative cost on a non-restore action refunds resource as a side effect.
   const refund = a.cost < 0 && a.type !== ActionType.Block ? `+${-a.cost} ${resourceName}` : '';
   const j = (...parts: string[]): string => parts.filter(Boolean).join(' · ');
   // Standardized: lead with the capitalized TYPE, then value / field / modifiers.
   switch (a.type) {
-    case ActionType.Strike:          return j('Strike', area, rng, blink, knock, fieldList(f ?? []), refund);
-    case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []), refund);
+    case ActionType.Strike:          return j('Strike', aim, area, rng, blink, knock, fieldList(f ?? []), refund);
+    case ActionType.DamageOverTime:  return j('DOT', aim, rng, area, turns, fieldList(f ?? []), refund);
     // A value-0 Block is a pure resource-restore — the cost pill already shows
     // the "+N" gain, so leave the stat empty rather than a redundant "Restore N".
     case ActionType.Block:           return (v ?? 0) > 0 ? `Block ${v}` : '';
@@ -79,7 +82,7 @@ function actionStat(a: Action, resourceName: string): string {
 // list rides every action of its category, conditional on the triangle.
 function critSummary(crits: Action[], resourceName: string): { name: string; stat: string }[] | undefined {
   if (!crits || crits.length === 0) return undefined;
-  return crits.map(c => ({ name: c.name, stat: actionStat(c, resourceName) }));
+  return crits.map(c => ({ name: c.name, stat: actionStat(c, resourceName, true) }));
 }
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
