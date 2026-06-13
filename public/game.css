@@ -149,6 +149,18 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   box-shadow: inset 0 0 14px rgba(226, 99, 132, 0.4);
 }
 
+/* Blink-strike (MoveTo) targets — teal outline signals you'll teleport ONTO
+   the tile; the crosshair keeps it reading as an attack. Overrides the amaranth
+   target outline so the relocation is unmistakable. */
+.cell.target-blink {
+  outline-color: var(--teal);
+  box-shadow: inset 0 0 10px rgba(56, 189, 178, 0.35);
+}
+.cell.target-blink.target-selected {
+  outline: 3px solid var(--teal);
+  box-shadow: inset 0 0 14px rgba(56, 189, 178, 0.55);
+}
+
 /* AOE blast footprint — every square a lined-up Area attack will hit. Drawn as
    an inset glow so it layers over tokens/tiles/targetable marks without hiding
    them (it's an overlay, not a base background). */

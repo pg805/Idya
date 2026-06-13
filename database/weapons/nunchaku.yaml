@@ -19,6 +19,17 @@ Defend:
     Cost: 1
     Action_String: "<User> whirls the chain into a blurring guard, shielding 20 for 2 turns."
 
+Defend Crit:
+  - Name: Snapback
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [20, 25, 25, 29, 29, 33, 37]
+    Cost: 0
+    Range: 1
+    Action_String: "<User>'s guard snaps the chain back into <Target> for <Damage> damage."
+
 Attack:
   - Name: Cascade
     Type: 1

@@ -489,8 +489,10 @@ function renderBoard() {
 
       if (k === targetTileKey) {
         cell.classList.add('target-selected');
+        if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (targetableTiles.has(k)) {
         cell.classList.add('target-valid');
+        if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (k === moveTargetKey) {
         cell.classList.add('move-target');
       } else if (ui.pathTiles.has(k) && !solidObstacle && !combatant) {
@@ -552,9 +554,13 @@ function renderActionPanel() {
 
     const title = document.createElement('div');
     title.className = 'action-title';
-    title.textContent = ui.targetTile
-      ? `${ui.action.label} → tile (${ui.targetTile.x},${ui.targetTile.y})`
-      : `${ui.action.label} — click a tile to target`;
+    title.textContent = ui.action.moveTo
+      ? (ui.targetTile
+          ? `${ui.action.label} → blink to (${ui.targetTile.x},${ui.targetTile.y})`
+          : `${ui.action.label} — click an empty tile to blink to`)
+      : (ui.targetTile
+          ? `${ui.action.label} → tile (${ui.targetTile.x},${ui.targetTile.y})`
+          : `${ui.action.label} — click a tile to target`);
     row.appendChild(title);
     actionPanelEl.appendChild(row);
 
