@@ -413,6 +413,16 @@ export function resolveIntents(
   // an indented resolution line under an AOE header.
   const bareCost = (rs: string): string => rs ? rs.replace(/^\s*\[/, '').replace(/\]$/, '') : '';
 
+  // Standard "the action fizzled" block: the header in the same shape as a real
+  // resolution ("<actor> — <action>: <reason>") plus the cost on its own
+  // resolution line. Used by every aimed/reactive guard (out of range, no LOS,
+  // empty tile, …) so a wasted action reads identically to a landed one.
+  const logMiss = (actor: Combatant, actorMeta: CombatantMeta, action: Action, reason: string): void => {
+    const cost = bareCost(actorMeta.state.apply_cost(action));
+    log.push(`${actor.name} — ${action.name}: ${reason}`);
+    if (cost) log.push(`    ${cost}`);
+  };
+
   const resolveAoeStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent, cells: Set<string>, label: string, extra: string[] = []): void => {
     const { weapon } = actorMeta;
     if (action.smash) {
@@ -453,7 +463,7 @@ export function resolveIntents(
 
   // Tile creators (block/buff/hazard/slow): drop a tile, or an N×N block of them.
   const resolveTileAction = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
-    actorMeta.state.apply_cost(action);
+    const tileCost = bareCost(actorMeta.state.apply_cost(action));
     const kind = action.type === ActionType.BlockTile ? 'block'
                : action.type === ActionType.BuffTile  ? 'buff'
                : action.type === ActionType.SlowTile  ? 'slow' : 'hazard';
@@ -474,6 +484,7 @@ export function resolveIntents(
     const cells = areaBlock(placePos, action.area, actor.pos).filter(p => session.board.inBounds(p) && !session.board.isBlocked(p));
     for (const p of cells) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
     log.push(`${actor.name} — ${action.name}: drops ${cells.length > 1 ? `a ${action.area}×${action.area} of ${kind} tiles` : `a ${kind} tile`} at (${placePos.x},${placePos.y}).`);
+    if (tileCost) log.push(`    ${tileCost}`);
     // A hazard dropped under an opposing combatant counts as entering it.
     if (kind === 'hazard') {
       for (const p of cells) {
@@ -494,14 +505,19 @@ export function resolveIntents(
   // field to enemies within 1 tile of the wreck. Resistances apply; the blast
   // bypasses block/shield.
   const resolveDestroyObstacle = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
-    actorMeta.state.apply_cost(action);
+    const cost = bareCost(actorMeta.state.apply_cost(action));
+    const fizzle = (reason: string): void => {
+      log.push(`${actor.name} — ${action.name}: ${reason}`);
+      if (cost) log.push(`    ${cost}`);
+    };
     const targetPos = intent.action.targetPos;
-    if (!targetPos) { log.push(`${actor.name}'s ${action.name} — no target.`); return; }
+    if (!targetPos) { fizzle('no target'); return; }
     const dist = chebyshevDist(actor.pos, targetPos);
-    if (dist > action.range) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — out of range (dist ${dist}).`); return; }
-    if (!session.board.destroyObstacle(targetPos)) { log.push(`${actor.name}'s ${action.name} targeting (${targetPos.x},${targetPos.y}) — no obstacle there, misses.`); return; }
+    if (dist > action.range) { fizzle(`out of range (dist ${dist})`); return; }
+    if (!session.board.destroyObstacle(targetPos)) { fizzle(`no obstacle at (${targetPos.x},${targetPos.y}), misses`); return; }
     const field = (action as DestroyObstacle).field;
     log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
+    if (cost) log.push(`    ${cost}`);
     const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
     for (const v of victims) {
       const vMeta = session.meta.get(v.id);
@@ -529,8 +545,7 @@ export function resolveIntents(
     // rather than silently vanishing — an un-logged action makes the whole phase
     // header drop, which reads as the enemy "skipping" its turn.
     if (!targetPos) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
+      logMiss(actor, actorMeta, action, 'no target in range');
       return;
     }
 
@@ -538,13 +553,11 @@ export function resolveIntents(
     const tileStr = `(${targetPos.x},${targetPos.y})`;
 
     if (dist > action.range) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: out of range (dist ${dist})${rs}`);
+      logMiss(actor, actorMeta, action, `out of range (dist ${dist})`);
       return;
     }
     if (action.range > 1 && !hasLineOfSight(actor.pos, targetPos, session.board)) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: no line of sight${rs}`);
+      logMiss(actor, actorMeta, action, 'no line of sight');
       return;
     }
 
@@ -567,8 +580,7 @@ export function resolveIntents(
 
     const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
     if (!occupant) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: aimed at ${tileStr}, empty space${rs}`);
+      logMiss(actor, actorMeta, action, `aimed at ${tileStr}, empty space`);
       return;
     }
     if (occupant.teamId === actor.teamId && action.type !== ActionType.Heal && action.type !== ActionType.Buff) {
@@ -606,8 +618,7 @@ export function resolveIntents(
     const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
 
     if (inRange.length === 0) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: no target in range${rs}`);
+      logMiss(actor, actorMeta, action, 'no target in range');
       return;
     }
 
