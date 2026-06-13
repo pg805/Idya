@@ -653,7 +653,11 @@ function renderActionPanel() {
     list.appendChild(group);
   }
 
-  list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
+  // Pass is not an offered option — by design every weapon always has an
+  // affordable action (a restore / free defend). Only fall back to it if nothing
+  // at all is affordable, so a 0-resource edge case can't soft-lock the turn.
+  if (!acts.some(a => a.cost <= 0 || a.cost <= player.resource))
+    list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
 
   if (ui.action && !ui.action.needsTarget) {
@@ -819,8 +823,7 @@ function onKey(e) {
         e.preventDefault();
         const player = myPlayerCombatant();
         if (!player?.weaponInfo) return;
-        const allActions = [...player.weaponInfo.actions, PASS_ACTION];
-        const action = allActions[num - 1];
+        const action = player.weaponInfo.actions[num - 1];
         if (action) pickAction(action);
         return;
       }

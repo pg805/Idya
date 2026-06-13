@@ -26,7 +26,13 @@ type EnemyData = {
   };
 };
 
-const avg = (arr: number[]): number => arr.length ? Math.round(arr.reduce((s, n) => s + n, 0) / arr.length) : 0;
+// An action's full damage field (its die-faces) as a list, so players see the
+// real distribution — not a hidden average or just the endpoints. A flat field
+// collapses to a single number.
+const range = (arr: number[]): string => {
+  if (!arr.length) return '0';
+  return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
+};
 
 // A concise, player-facing effect descriptor for one action — the headline value
 // plus its riders (area / blink / range / knockback / duration). Surfaced on the
@@ -42,8 +48,8 @@ function actionStat(a: Action): string {
   if (a.range > 1 && !a.moveTo) riders.push(`r${a.range}`);
   const tail = riders.length ? ` · ${riders.join(' · ')}` : '';
   switch (a.type) {
-    case ActionType.Strike:          return `${avg(f ?? [])}${tail}`;
-    case ActionType.DamageOverTime:  return `DOT ${avg(f ?? [])}${rounds ? ` · ${rounds}t` : ''}${tail}`;
+    case ActionType.Strike:          return `${range(f ?? [])}${tail}`;
+    case ActionType.DamageOverTime:  return `DOT ${range(f ?? [])}${rounds ? ` · ${rounds}t` : ''}${tail}`;
     case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
     case ActionType.Shield:          return `shield ${v}${rounds ? ` · ${rounds}t` : ''}`;
     case ActionType.Heal:            return `heal ${v}`;
@@ -69,8 +75,8 @@ function critSummary(crits: Action[]): string | undefined {
     const f = (a as unknown as { field?: { field: number[] } }).field?.field;
     const v = (a as unknown as { value?: number }).value;
     switch (a.type) {
-      case ActionType.Strike:          return `−${avg(f ?? [])}`;
-      case ActionType.DamageOverTime:  return `−${avg(f ?? [])}/t`;
+      case ActionType.Strike:          return `−${range(f ?? [])}`;
+      case ActionType.DamageOverTime:  return `−${range(f ?? [])}/t`;
       case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `+${-a.cost}` : '');
       case ActionType.Shield:          return `shield ${v}`;
       case ActionType.Heal:            return `+${v} hp`;
