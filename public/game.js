@@ -945,7 +945,9 @@ function resetSession() {
 //   action-head   — main per-action lines (the source-of-truth row)
 //   mechanics     — indented detail under an action (roll math)
 //   flavor        — indented narrative prose under an action
+const FLAVOR_MARK = String.fromCharCode(0x200B);   // zero-width space; server tags flavor lines with it
 function classifyLogLine(line) {
+  if (line.startsWith(FLAVOR_MARK))             return 'flavor';      // marked prose (may contain " — ")
   if (line.startsWith('━━━'))                  return 'turn-divider';
   if (line.startsWith('▸ '))                    return 'phase-header';
   if (line.startsWith('★'))                     return 'crit';
@@ -957,10 +959,11 @@ function classifyLogLine(line) {
   return 'flavor';                                                     // top-level prose
 }
 
-// Strip the classification indent (CSS provides the visual indent) and turn
-// **x** markers into bold (the rolled die faces), escaping the rest.
+// Strip the classification markers (leading indent + the U+200B flavor marker —
+// CSS provides the visual indent) and turn **x** markers into bold (the rolled
+// die faces), escaping the rest.
 function renderLogLine(line) {
-  const esc = line.replace(/^\s+/, '')
+  const esc = line.replace(new RegExp('^[\\s' + FLAVOR_MARK + ']+'), '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 }

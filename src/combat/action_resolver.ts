@@ -29,14 +29,14 @@ function costStr(s: CombatantState, a: Action): string {
     return r ? r.replace(/^\s*\[/, '').replace(/\]$/, '') : '';
 }
 
-// Wrap a header + its indented resolution lines + flavor into the standard block:
-//   <actor> — <action>[ → <target>]      (header)
-//       line                              (4-space resolution lines)
-//       …
-//   flavor prose                          (action level, no indent)
+// Flavor leads the block (prose above the action), then the header, then the
+// indented resolution lines. The flavor line is prefixed with U+200B so the
+// client classifies it as flavor even when the prose itself contains " — "
+// (many flavor strings do) — the marker is stripped before display.
+const FLAVOR_MARK = String.fromCharCode(0x200B);   // zero-width space — flavor classifier, stripped on render
 function block(header: string, lines: string[], flavor: string): string {
     const body = lines.length ? `\n${lines.join('\n')}` : '';
-    return `\n${header}${body}\n${flavor}`;
+    return `\n${FLAVOR_MARK}${flavor}\n${header}${body}`;
 }
 
 // Resolution lines for the structured log. Standard shape:
@@ -52,31 +52,25 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             // defend-crit riposte) stacks on top rather than overwriting it.
             const added = (action as Block).value;
             actor.block += added;
-            const lines: string[] = [];
-            if (added > 0) lines.push(`    block ${added}`);   // value-0 Block = pure restore
+            const effect = added > 0 ? `: Block ${added}` : '';   // value-0 Block = pure restore
             const cost = costStr(actor, action);
-            if (cost) lines.push(`    ${cost}`);
-            action_string += block(`<User> — ${action.name}`, lines, action.action_string);
+            action_string += block(`<User> — ${action.name}${effect}`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${added}  Total: ${actor.block}`);
         }
 
         if (action.type === ActionType.Reflect) {
             actor.reflect.value  = (action as Reflect).value;
             actor.reflect.rounds = (action as Reflect).rounds;
-            const lines = [`    reflect ${actor.reflect.value} · ${actor.reflect.rounds} turns`];
             const cost = costStr(actor, action);
-            if (cost) lines.push(`    ${cost}`);
-            action_string += block(`<User> — ${action.name}`, lines, action.action_string);
+            action_string += block(`<User> — ${action.name}: Reflect ${actor.reflect.value} · ${actor.reflect.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${actor.name} Reflect: ${action.name}\nValue: ${actor.reflect.value}  Rounds: ${actor.reflect.rounds}`);
         }
 
         if (action.type === ActionType.Shield) {
             actor.shield.value  = (action as Shield).value;
             actor.shield.rounds = (action as Shield).rounds;
-            const lines = [`    shield ${actor.shield.value} · ${actor.shield.rounds} turns`];
             const cost = costStr(actor, action);
-            if (cost) lines.push(`    ${cost}`);
-            action_string += block(`<User> — ${action.name}`, lines, action.action_string);
+            action_string += block(`<User> — ${action.name}: Shield ${actor.shield.value} · ${actor.shield.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${actor.name} Shield: ${action.name}\nValue: ${actor.shield.value}  Rounds: ${actor.shield.rounds}`);
         }
     }
@@ -151,20 +145,16 @@ function apply_hostile_actions(
             target.debuff.rounds = (action as Debuff).rounds;
             target.buff.value  = 0;
             target.buff.rounds = 0;
-            const lines = [`    debuff ${target.debuff.value} · ${target.debuff.rounds} turns`];
             const cost = costStr(attacker, action);
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Debuff ${target.debuff.value} · ${target.debuff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
         }
 
         if (action.type === ActionType.MoveDebuff) {
             target.moveDebuff.value  = (action as MoveDebuff).value;
             target.moveDebuff.rounds = (action as MoveDebuff).rounds;
-            const lines = [`    slow ${target.moveDebuff.value} · ${target.moveDebuff.rounds} turns`];
             const cost = costStr(attacker, action);
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Slow ${target.moveDebuff.value} · ${target.moveDebuff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving Move Debuff on ${target.name}: ${action.name}\nCap: ${target.moveDebuff.value}  Rounds: ${target.moveDebuff.rounds}`);
         }
 
@@ -173,10 +163,8 @@ function apply_hostile_actions(
             target.buff.rounds = (action as Buff).rounds;
             target.debuff.value  = 0;
             target.debuff.rounds = 0;
-            const lines = [`    buff ${target.buff.value} · ${target.buff.rounds} turns`];
             const cost = costStr(attacker, action);
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Buff ${target.buff.value} · ${target.buff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${attacker.name} Buff on ${target.name}: ${action.name}\nValue: ${target.buff.value}  Rounds: ${target.buff.rounds}`);
         }
 
@@ -185,10 +173,8 @@ function apply_hostile_actions(
             const hp_before = target.health;
             target.health = Math.min(target.health + heal, target.max_health);
             const actualHeal = target.health - hp_before;
-            const lines = [`    heal ${actualHeal}`];
             const cost = costStr(attacker, action);
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Heal ${actualHeal}`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${attacker.name} Heal on ${target.name}: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${target.health}`);
         }
     }

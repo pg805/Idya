@@ -545,9 +545,12 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #combat-log p.turn-divider:first-child { margin-top: 0; border-top: none; }
 #combat-log p.phase-header { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px; padding-top: 2px; }
 #combat-log p.crit         { color: var(--gold-bright); font-weight: bold; }
-#combat-log p.action-head  { color: var(--text); font-weight: 500; margin-top: 3px; }
-/* Flavor sits at ACTION level (not the resolution indent), italic + dim. */
-#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.72; font-size: 0.74rem; }
+#combat-log p.action-head  { color: var(--text); font-weight: 500; margin-top: 6px; }
+/* Flavor LEADS each action block (prose above the header), at action level (not
+   the resolution indent), italic + dim. It carries the inter-block gap; the
+   header that follows tucks tight beneath it. */
+#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.72; font-size: 0.74rem; margin-top: 6px; }
+#combat-log p.flavor + p.action-head { margin-top: 0; }
 /* Resolution lines (rolls / modifiers / total / cost) — indented, monospace. */
 #combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; padding-left: 16px; opacity: 0.9; }
 #combat-log p.mechanics b  { color: var(--gold-bright); font-weight: bold; }   /* the die(s) that came up */
@@ -559,6 +562,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 /* Filter: hide categories the player has toggled off. Mechanics is off by
    default — it's roll math, useful when debugging but noise day-to-day. */
 #combat-log.hide-flavor      p.flavor      { display: none; }
+/* With flavor hidden, the header is the block's top line again — restore its gap. */
+#combat-log.hide-flavor      p.flavor + p.action-head { margin-top: 6px; }
 #combat-log.hide-action-head p.action-head { display: none; }
 #combat-log.hide-mechanics   p.mechanics   { display: none; }
 #combat-log.hide-move        p.move        { display: none; }

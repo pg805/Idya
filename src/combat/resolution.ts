@@ -186,7 +186,6 @@ export function resolveIntents(
   const log: string[] = [];
 
   const snapshot = [...session.combatants];
-  const cName = (id: string) => snapshot.find(c => c.id === id)?.name ?? id;
   // Pre-move positions, so each turn's replay path is a self-contained from→to.
   const preMovePos = new Map(snapshot.map(c => [c.id, { x: c.pos.x, y: c.pos.y }]));
 
@@ -222,15 +221,20 @@ export function resolveIntents(
   }
 
   const blocked = new Set<string>();
+  // Destination a unit was DENIED (lost a tile contest, or it was occupied). Kept
+  // even after an AI re-routes, so the move line can show "… ✗ (denied)" — one
+  // line carries both where it got to and the square it couldn't reach.
+  const blockedDest = new Map<string, { x: number; y: number }>();
 
-  for (const [destKey, claimants] of byDest) {
+  for (const [, claimants] of byDest) {
     if (claimants.length === 1) continue;
     const sortedByPriority = [...claimants].sort((a, b) => movePriority(a) - movePriority(b));
     const winner = sortedByPriority[0];
     for (const id of claimants) {
       if (id !== winner) {
         blocked.add(id);
-        log.push(`${cName(id)}'s path to (${destKey}) blocked by ${cName(winner)}.`);
+        const d = intents.get(id)?.moveTo;
+        if (d) blockedDest.set(id, { ...d });
       }
     }
   }
@@ -244,7 +248,7 @@ export function resolveIntents(
       c.pos.x === dest.x && c.pos.y === dest.y &&
       !intents.get(c.id)?.moveTo
     );
-    if (stationaryOccupant) blocked.add(id);
+    if (stationaryOccupant) { blocked.add(id); blockedDest.set(id, { ...dest }); }
   }
 
   // Re-route blocked AI combatants to their next-best available tile
@@ -344,20 +348,18 @@ export function resolveIntents(
     }
   }
   // Move section: every alive unit's initiative + full traversed path
-  // (from → … → dest), in move-resolution order. Holders show just their square;
-  // a unit blocked from moving shows "(from) ✗ (dest it couldn't reach)".
+  // (from → … → dest), in move-resolution order. Holders show just their square.
+  // Movement always reads the same way; a unit that was denied a square appends
+  // "✗ (denied)" — whether it stayed put ("(from) ✗ (dest)") or got re-routed
+  // partway ("(from) → (mid) ✗ (dest)").
   const moveLines: string[] = [];
   for (const c of [...session.combatants].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
     const meta = session.meta.get(c.id);
     if (!meta || meta.state.health <= 0) continue;
     const from = preMovePos.get(c.id) ?? c.pos;
-    const intent = intents.get(c.id);
-    let pathStr: string;
-    if (blocked.has(c.id) && intent?.moveTo) {
-      pathStr = `(${from.x},${from.y}) ✗ (${intent.moveTo.x},${intent.moveTo.y})`;
-    } else {
-      pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
-    }
+    let pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
+    const denied = blockedDest.get(c.id);
+    if (denied) pathStr += ` ✗ (${denied.x},${denied.y})`;
     moveLines.push(`${c.name} ⚡${c.initiative}  ${pathStr}`);
   }
   log.splice(moveStart, 0, '▸ Move', ...moveLines);
