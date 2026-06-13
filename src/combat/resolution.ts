@@ -2,8 +2,9 @@ import { CombatSession, Combatant, CombatantMeta, ReplayIntent } from './combat_
 import { CombatIntent } from './intent.js';
 import { chebyshevDist } from './board.js';
 import { hasLineOfSight } from './los.js';
-import { resolve_action } from './action_resolver.js';
+import { resolve_action, strikeBreakdown, FLAVOR_MARK } from './action_resolver.js';
 import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
+import Strike from '../weapon/action/strike.js';
 import TileAction from '../weapon/action/tile_action.js';
 import DestroyObstacle from '../weapon/action/destroy_obstacle.js';
 import { reachableTiles, findPath } from './movement.js';
@@ -442,10 +443,42 @@ export function resolveIntents(
       if (cost) log.push(`    ${cost}`);
       return;
     }
-    const savedCost = action.cost;
     const cost = bareCost(actorMeta.state.apply_cost(action));  // pay once
-    action.cost = 0;
     if (action.aimed && isDamaging(action)) actorMeta.state.aimed_hit += 1;
+
+    if (action.type === ActionType.Strike) {
+      // Merge the whole blast into ONE block: flavor, the blast action line, then
+      // a single resolve stack — blink + the shared cost (paid once) + each
+      // victim's roll breakdown and Total. (Strikes only; DOT/debuff areas keep
+      // the generic per-victim path below, since their resolution differs.)
+      const resolveLines: string[] = [];
+      for (const e of extra) resolveLines.push(`    ${e}`);   // blink to (tile)
+      const live = victims.filter(v => { const m = session.meta.get(v.id); return !!m && m.state.health > 0; });
+      let firstHit: Combatant | undefined;
+      for (const v of live) {
+        const m = session.meta.get(v.id)!;
+        if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+          resolveLines.push(`    ${v.name} shielded by an obstacle`);
+          continue;
+        }
+        firstHit = firstHit ?? v;
+        if (live.length > 1) resolveLines.push(`    vs ${v.name}:`);
+        const { damage, lines } = strikeBreakdown(actorMeta.state, m.state, action as Strike);
+        resolveLines.push(...lines, `    Total ${damage}`);
+        if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, resolveLines);
+      }
+      if (cost) resolveLines.push(`    ${cost}`);   // shared cost, paid once — at the foot of the stack
+      const flavor = action.action_string.replace(/<User>/g, actor.name).replace(/<Target>/g, firstHit?.name ?? 'the area');
+      log.push(`${FLAVOR_MARK}${flavor}`);
+      log.push(`${actor.name} — ${action.name}: ${label}`);
+      for (const l of resolveLines) log.push(l);
+      return;
+    }
+
+    // Generic AOE (DOT / debuff / …): summary header, then each victim's own
+    // resolution. Cost already paid above, so zero it for the per-victim calls.
+    const savedCost = action.cost;
+    action.cost = 0;
     log.push(`${actor.name} — ${action.name}: ${label}.`);
     for (const e of extra) log.push(`    ${e}`);
     if (cost) log.push(`    ${cost}`);
