@@ -699,7 +699,7 @@ function onKey(e) {
   // Post-battle: Enter follows the Return/Go to Town link
   if (ui.phase === 'ended') {
     if (e.key === 'Enter' || e.key === ' ') {
-      const link = actionPanelEl.querySelector('a.battle-again-btn');
+      const link = actionPanelEl.querySelector('a.return-big, a.battle-again-btn');
       if (link?.href) {
         e.preventDefault();
         location.href = link.href;

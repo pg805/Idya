@@ -1,6 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root { --cell-size: 40px; }
+:root { --cell-size: 44px; }
 
 body {
   background: var(--bg);
@@ -192,8 +192,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .combatant {
   position: relative;
   z-index: 4;           /* tokens render above tiles + tile marks */
-  width: 52px;
-  height: 52px;
+  width: var(--cell-size);   /* track the cell so the token stays a true circle */
+  height: var(--cell-size);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -579,7 +579,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   #combat-log { height: 240px; }
   #action-panel { height: auto; }
   .action-list { flex-direction: column; }
-  .combatant { width: 32px; height: 32px; font-size: 0.7rem; border-width: 1px; }
+  .combatant { font-size: 0.7rem; border-width: 1px; }
   .combatant-name { display: none; }
   .cell[data-coord]::after { display: none; }
   #combatant-list { width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap; }
