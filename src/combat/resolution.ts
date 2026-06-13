@@ -189,6 +189,14 @@ export function resolveIntents(
   // Pre-move positions, so each turn's replay path is a self-contained from→to.
   const preMovePos = new Map(snapshot.map(c => [c.id, { x: c.pos.x, y: c.pos.y }]));
 
+  // Record each unit's committed category so next turn's planner can nudge away
+  // from repeating it (a `pass` isn't a real category choice, so it's skipped).
+  for (const [id, intent] of intents) {
+    if (intent.action.type === 'pass') continue;
+    const m = session.meta.get(id);
+    if (m) m.state.last_category = intent.action.type;
+  }
+
   // --- Move phase ---
   // Tile contests resolve in two layers:
   //   1. Players always beat AI. A player and an enemy both wanting the

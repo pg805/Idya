@@ -38,6 +38,10 @@ export class CombatantState {
     aimed_attempted = 0
     aimed_hit = 0
     restores = 0
+    // The action category ('defend' | 'attack' | 'special') this unit committed
+    // last turn — fed to the planner for a slight nudge AWAY from repeating it, so
+    // a unit varies categories instead of locking into one (e.g. heal-looping).
+    last_category: string | null = null
 
     constructor(
         name: string,

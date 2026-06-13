@@ -34,6 +34,7 @@ const W = {
   corner: 0.6,     // (smart chaser only) herd a fleeing foe toward a wall
   critSeek: 3.0,   // (smart only) chase my counter-crit when I read the foe's category
   critFear: 3.0,   // (smart only) shy off a category the foe's counter-crit punishes
+  repeat: 5.0,     // slight nudge AWAY from repeating last turn's category (variety)
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
 };
@@ -203,7 +204,11 @@ function scorePlan(
   // HP unit defend forever without ever progressing. ---
   if (action.type === ActionType.Heal) {
     const missing = me.maxHp - meta.state.health;
-    av += Math.min(valueOf(action), missing) * W.heal * raceDefense;
+    // Weight by how hurt I am, not just whether the heal would land its full value —
+    // a heal at near-full HP is low priority and ramps up smoothly as I drop, so the
+    // AI presses while healthy instead of healing too early. No hard gate.
+    const urgency = missing / Math.max(1, me.maxHp);
+    av += Math.min(valueOf(action), missing) * W.heal * raceDefense * urgency;
   }
   // Defense is only worth it if the foe can actually hit me this turn — shielding
   // when safe is a wasted turn (the old "turtle forever" bug). Multi-round shields
@@ -315,6 +320,10 @@ function scorePlan(
 
   // --- penalties / economy ---
   score -= (destInfo?.hazard ?? 0) * W.hazardPath;
+  // Variety: a slight push away from repeating last turn's category, so a unit
+  // rotates categories instead of locking into one (e.g. heal-looping) when two
+  // options score near-even. Small enough that a clearly-better play still wins.
+  if (meta.state.last_category === myCat) score -= W.repeat;
   // Restoring resource only matters when being short is actually blocking my best
   // offensive move — otherwise it's a wasted turn (the other half of the turtle bug).
   if (action.cost < 0 && meta.state.resource_current < myMaxAtkCost)
