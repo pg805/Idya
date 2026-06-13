@@ -16,7 +16,7 @@ export interface ActionInfo {
   targetsObstacle?: boolean; // true for Destroy Obstacle — target an obstacle tile, not a combatant
   range: number;
   cost: number;
-  stat: string;           // concise effect descriptor for the action panel (e.g. "40 · 3×3 · blink")
+  stat: StatInfo;         // effect value (plain text) + boxed modifier tokens
   area: number;           // N×N footprint (1 = single target/tile)
   push: number;           // knockback squares applied to whatever it hits (0 = none)
   smash: boolean;         // an Area strike that also flattens obstacles in the block
@@ -24,7 +24,10 @@ export interface ActionInfo {
   selfBurst: boolean;     // reactive Area>1 strike — the block is centered on the actor, no target tile
 }
 
-export interface CritInfo { name: string; stat: string; }
+// A stat: the effect value (plain text, e.g. "Strike [25, 33, …]") + its
+// modifier tokens (boxed pills, e.g. ["aimed", "3×3", "blink"]).
+export interface StatInfo { value: string; mods: string[]; }
+export interface CritInfo { name: string; stat: StatInfo; }
 
 export interface WeaponInfo {
   name: string;

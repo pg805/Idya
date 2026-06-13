@@ -19,8 +19,6 @@ const ui = {
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
 const actionPanelEl   = document.getElementById('action-panel');
-const submitBtnEl     = document.getElementById('submit-btn');
-submitBtnEl?.addEventListener('click', () => submitIntent());
 const combatantListEl = document.getElementById('combatant-list');
 const turnLabelEl     = document.getElementById('turn-label');
 const phaseLabelEl    = document.getElementById('phase-label');
@@ -403,7 +401,6 @@ function render() {
   phaseLabelEl.textContent = state.phase;
   renderBoard();
   renderActionPanel();
-  updateSubmitButton();
   renderCombatantList();
 }
 
@@ -510,20 +507,12 @@ function renderBoard() {
   }
 }
 
-// A " · "-joined stat string → little outlined pill boxes, one per token.
-function pillsHtml(stat) {
+// A stat { value, mods } → plain effect text + an outline-pill box per modifier.
+function statHtml(stat) {
   if (!stat) return '';
-  return stat.split(' · ').map(t => `<span class="stat-pill">${t}</span>`).join('');
-}
-
-// The confirm button lives under the combat log. It's greyed out until a
-// submittable choice is made (a non-aimed action, or an aimed one with a tile).
-function updateSubmitButton() {
-  if (!submitBtnEl) return;
-  const ready = (ui.phase === 'selecting_action' && ui.action && !ui.action.needsTarget)
-             || (ui.phase === 'selecting_target' && ui.targetTile);
-  submitBtnEl.disabled = !ready;
-  submitBtnEl.classList.toggle('dim', !ready);
+  const value = stat.value ? `<span class="stat-value">${stat.value}</span>` : '';
+  const mods = (stat.mods || []).map(m => `<span class="stat-pill">${m}</span>`).join('');
+  return value + mods;
 }
 
 function renderActionPanel() {
@@ -586,19 +575,18 @@ function renderActionPanel() {
 
   if (!state) return;
 
-  const title = document.createElement('div');
-  title.className = 'action-title';
-  if (ui.phase === 'waiting')
-    title.textContent = 'Intent submitted — waiting for resolution…';
-  else if (ui.phase === 'selecting_move')
-    title.innerHTML = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
-  else if (active)
-    title.textContent = ui.moveTo
-      ? `Moving to (${ui.moveTo.x},${ui.moveTo.y}) — choose action`
-      : 'Holding position — choose action';
-  else
-    title.textContent = 'Awaiting your turn…';
-  actionPanelEl.appendChild(title);
+  // No title during selecting_action — the panel lighting up is the cue, and the
+  // "Moving to … — choose action" line was making the panel scroll.
+  let titleHtml = '';
+  if (ui.phase === 'waiting') titleHtml = 'Intent submitted — waiting for resolution…';
+  else if (ui.phase === 'selecting_move') titleHtml = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
+  else if (!active) titleHtml = 'Awaiting your turn…';
+  if (titleHtml) {
+    const title = document.createElement('div');
+    title.className = 'action-title';
+    title.innerHTML = titleHtml;
+    actionPanelEl.appendChild(title);
+  }
 
   const player = myPlayerCombatant();
   if (!player?.weaponInfo) return;
@@ -626,7 +614,7 @@ function renderActionPanel() {
     row.innerHTML =
         `<span class="action-key">${num <= 9 ? num : ''}</span>`
       + `<span class="action-label">${action.label}</span>`
-      + `<span class="action-stat">${pillsHtml(action.stat)}</span>`
+      + `<span class="action-stat">${statHtml(action.stat)}</span>`
       + costHtml;
     if (!isPass && action.cost !== 0) row.title = `${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}${action.needsTarget ? ' · range ' + action.range : ''}`;
     else if (action.needsTarget) row.title = `range ${action.range}`;
@@ -649,7 +637,7 @@ function renderActionPanel() {
     head.innerHTML = `<span class="cat-name">${c.icon} ${c.label}</span>`
       + (crits[cat]?.length
           ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> `
-            + crits[cat].map(cr => `<span class="crit-name">${cr.name}</span>${pillsHtml(cr.stat)}`).join(' ')
+            + crits[cat].map(cr => `<span class="crit-name">${cr.name}</span>${statHtml(cr.stat)}`).join(' ')
             + `</span>`
           : '');
     group.appendChild(head);
@@ -722,7 +710,8 @@ function pickAction(action) {
     ui.phase = 'selecting_target';
     render();
   } else {
-    renderActionPanel();
+    // Clicking the action IS the confirm — no separate submit step.
+    submitIntent();
   }
 }
 
@@ -931,7 +920,8 @@ function onCellClick(x, y) {
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };
-      render();
+      // Picking the target tile IS the confirm — submit straight away.
+      submitIntent();
     }
     return;
   }

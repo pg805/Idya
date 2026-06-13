@@ -31,48 +31,48 @@ type EnemyData = {
 // collapses to a single number.
 const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
-  return arr.every(v => v === arr[0]) ? `${arr[0]}` : arr.join(', ');
+  return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
 };
 
-// A concise, player-facing effect descriptor — a list of tokens, ` · `-joined
-// (the client boxes each into an outline pill). Consistent shape: effect →
-// modifiers (range / area / duration / riders) → field → resource refund.
-// Tokens are spelled out (➜2 reach, "3 turns") rather than r2/3t. Crits reuse
-// this same builder, so a crit reads exactly like a normal action.
-function actionStat(a: Action, resourceName: string, isCrit = false): string {
+// A player-facing stat split into:
+//   value — the TYPE + its number/field, shown as plain text (e.g. "Strike
+//           [25, 33, …]", "Shield 20", "Debuff 7").
+//   mods  — the modifiers (aimed/reactive, range, area, blink, knockback,
+//           duration, resource refund), each boxed as an outline pill.
+// Keeping the effect plain and only boxing the modifiers reads far less busy
+// than boxing everything. Crits reuse this builder, suppressing inherited
+// targeting (aim / range / area / blink).
+function actionStat(a: Action, resourceName: string, isCrit = false): { value: string; mods: string[] } {
   const f = (a as unknown as { field?: { field: number[] } }).field?.field;
   const v = (a as unknown as { value?: number }).value;
   const rounds = (a as unknown as { rounds?: number }).rounds;
-  // Crits ride the triggering action's targeting, so aim / range / area / blink
-  // are inherited and meaningless on a crit — suppress them there.
   const rng    = !isCrit && a.range > 1 && !a.moveTo ? `range ${a.range}` : '';
   const area   = !isCrit && a.area > 1 ? `${a.area}×${a.area}` : '';
   const turns  = rounds ? `${rounds} turns` : '';
   const blink  = !isCrit && a.moveTo ? 'blink' : '';
   const knock  = a.push > 0 ? 'knockback' : '';
   const aim    = isCrit ? '' : (a.aimed ? 'aimed' : 'reactive');   // aimed = pick a tile, reactive = auto-fires
-  // A negative cost on a non-restore action refunds resource as a side effect.
   const refund = a.cost < 0 && a.type !== ActionType.Block ? `+${-a.cost} ${resourceName}` : '';
-  const j = (...parts: string[]): string => parts.filter(Boolean).join(' · ');
-  // Standardized: lead with the capitalized TYPE, then value / field / modifiers.
+  const mods   = (...parts: string[]): string[] => parts.filter(Boolean);
+  const fld    = fieldList(f ?? []);
   switch (a.type) {
-    case ActionType.Strike:          return j('Strike', aim, area, rng, blink, knock, fieldList(f ?? []), refund);
-    case ActionType.DamageOverTime:  return j('DOT', aim, rng, area, turns, fieldList(f ?? []), refund);
+    case ActionType.Strike:          return { value: `Strike ${fld}`, mods: mods(aim, area, rng, blink, knock, refund) };
+    case ActionType.DamageOverTime:  return { value: `DOT ${fld}`,    mods: mods(aim, rng, area, turns, refund) };
     // A value-0 Block is a pure resource-restore — the cost pill already shows
-    // the "+N" gain, so leave the stat empty rather than a redundant "Restore N".
-    case ActionType.Block:           return (v ?? 0) > 0 ? `Block ${v}` : '';
-    case ActionType.Shield:          return j(`Shield ${v}`, turns, refund);
-    case ActionType.Heal:            return j(`Heal ${v}`, refund);
-    case ActionType.Buff:            return j(`Buff ${v}`, turns, refund);
-    case ActionType.Debuff:          return j(`Debuff ${v}`, turns, refund);
-    case ActionType.Reflect:         return j(`Reflect ${v}`, turns, refund);
-    case ActionType.MoveDebuff:      return j(`Slow ${v}`, turns, refund);
-    case ActionType.BlockTile:       return j(`Block Tile ${v}`, rng, area);
-    case ActionType.BuffTile:        return j(`Buff Tile ${v}`, rng, area);
-    case ActionType.HazardTile:      return j(`Hazard Tile ${v}`, rng, area);
-    case ActionType.SlowTile:        return j('Slow Tile', rng, area);
-    case ActionType.DestroyObstacle: return j('Destroy', rng);
-    default:                         return '';
+    // the "+N" gain, so leave the value empty rather than a redundant "Restore N".
+    case ActionType.Block:           return { value: (v ?? 0) > 0 ? `Block ${v}` : '', mods: [] };
+    case ActionType.Shield:          return { value: `Shield ${v}`,   mods: mods(turns, refund) };
+    case ActionType.Heal:            return { value: `Heal ${v}`,     mods: mods(refund) };
+    case ActionType.Buff:            return { value: `Buff ${v}`,     mods: mods(turns, refund) };
+    case ActionType.Debuff:          return { value: `Debuff ${v}`,   mods: mods(turns, refund) };
+    case ActionType.Reflect:         return { value: `Reflect ${v}`,  mods: mods(turns, refund) };
+    case ActionType.MoveDebuff:      return { value: `Slow ${v}`,     mods: mods(turns, refund) };
+    case ActionType.BlockTile:       return { value: `Block Tile ${v}`,  mods: mods(rng, area) };
+    case ActionType.BuffTile:        return { value: `Buff Tile ${v}`,   mods: mods(rng, area) };
+    case ActionType.HazardTile:      return { value: `Hazard Tile ${v}`, mods: mods(rng, area) };
+    case ActionType.SlowTile:        return { value: `Slow Tile`,        mods: mods(rng, area) };
+    case ActionType.DestroyObstacle: return { value: `Destroy`,          mods: mods(rng) };
+    default:                         return { value: '', mods: [] };
   }
 }
 
@@ -80,7 +80,7 @@ function actionStat(a: Action, resourceName: string, isCrit = false): string {
 // its name + the SAME stat format as a normal action (so a crit reads identically
 // — e.g. Wane → { name: 'Wane', stat: '−7 atk · 4 turns · +2 Flow' }). One crit
 // list rides every action of its category, conditional on the triangle.
-function critSummary(crits: Action[], resourceName: string): { name: string; stat: string }[] | undefined {
+function critSummary(crits: Action[], resourceName: string): { name: string; stat: { value: string; mods: string[] } }[] | undefined {
   if (!crits || crits.length === 0) return undefined;
   return crits.map(c => ({ name: c.name, stat: actionStat(c, resourceName, true) }));
 }

@@ -357,6 +357,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-row .action-key { margin-right: 0; flex: 0 0 auto; }
 .action-label { flex: 0 0 auto; font-weight: 500; }
 .action-stat { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
+/* The effect + value as plain text; only the modifiers (below) are boxed. */
+.stat-value { color: var(--text-2); margin-right: 7px; }
 
 /* Each stat token in a thin outlined rectangle (border only, no fill). Used by
    both the action rows and the crit headers so they read identically. */
@@ -398,9 +400,6 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   transition: background 0.1s, color 0.1s, opacity 0.15s;
 }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
-/* The confirm button under the log: full-width, greyed out until it's clickable. */
-#submit-btn { width: 100%; margin-top: 10px; flex: 0 0 auto; }
-#submit-btn.dim { opacity: 0.35; cursor: not-allowed; background: var(--bg-surface); color: var(--text-faint); border-color: var(--border); }
 
 /* ---- Combatant cards ---- */
 .combatant-card {
