@@ -24,14 +24,17 @@ export interface ActionInfo {
   selfBurst: boolean;     // reactive Area>1 strike — the block is centered on the actor, no target tile
 }
 
+export interface CritInfo { name: string; stat: string; }
+
 export interface WeaponInfo {
   name: string;
   resourceName: string;
   maxResource: number;
   actions: ActionInfo[];
-  // Per-category crit summary (one crit list rides every action of its category,
-  // conditional on the triangle). Undefined when that category has no crit.
-  crits: { defend?: string; attack?: string; special?: string };
+  // Per-category crit summary — one entry per action in the crit payload, each
+  // with its name + the same stat string a normal action uses. One crit list
+  // rides every action of its category (the triangle). Undefined = no crit.
+  crits: { defend?: CritInfo[]; attack?: CritInfo[]; special?: CritInfo[] };
 }
 
 export interface CombatantStatus {

@@ -510,6 +510,12 @@ function renderBoard() {
   }
 }
 
+// A " · "-joined stat string → little outlined pill boxes, one per token.
+function pillsHtml(stat) {
+  if (!stat) return '';
+  return stat.split(' · ').map(t => `<span class="stat-pill">${t}</span>`).join('');
+}
+
 // The confirm button lives under the combat log. It's greyed out until a
 // submittable choice is made (a non-aimed action, or an aimed one with a tile).
 function updateSubmitButton() {
@@ -620,7 +626,7 @@ function renderActionPanel() {
     row.innerHTML =
         `<span class="action-key">${num <= 9 ? num : ''}</span>`
       + `<span class="action-label">${action.label}</span>`
-      + `<span class="action-stat">${action.stat || ''}</span>`
+      + `<span class="action-stat">${pillsHtml(action.stat)}</span>`
       + costHtml;
     if (!isPass && action.cost !== 0) row.title = `${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}${action.needsTarget ? ' · range ' + action.range : ''}`;
     else if (action.needsTarget) row.title = `range ${action.range}`;
@@ -641,8 +647,10 @@ function renderActionPanel() {
     head.className = 'action-group-head';
     const c = CAT[cat];
     head.innerHTML = `<span class="cat-name">${c.icon} ${c.label}</span>`
-      + (crits[cat]
-          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> ${crits[cat]}</span>`
+      + (crits[cat]?.length
+          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> `
+            + crits[cat].map(cr => `<span class="crit-name">${cr.name}</span>${pillsHtml(cr.stat)}`).join(' ')
+            + `</span>`
           : '');
     group.appendChild(head);
 

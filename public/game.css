@@ -356,7 +356,22 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-row.unaffordable { opacity: 0.4; cursor: not-allowed; }
 .action-row .action-key { margin-right: 0; flex: 0 0 auto; }
 .action-label { flex: 0 0 auto; font-weight: 500; }
-.action-stat { flex: 1 1 auto; color: var(--text-muted); font-size: 0.78rem; }
+.action-stat { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
+
+/* Each stat token in a thin outlined rectangle (border only, no fill). Used by
+   both the action rows and the crit headers so they read identically. */
+.stat-pill {
+  display: inline-block;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.crit-name { color: var(--text-muted); margin-right: 5px; font-style: italic; }
 .action-cost {
   flex: 0 0 auto;
   font-family: monospace;

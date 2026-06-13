@@ -31,32 +31,36 @@ type EnemyData = {
 // collapses to a single number.
 const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
-  return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
+  return arr.every(v => v === arr[0]) ? `${arr[0]}` : arr.join(', ');
 };
 
-// A concise, player-facing effect descriptor for one action. Consistent shape:
-//   Name → effect → modifiers (range / area / duration / riders) → [field] for
-//   damage. Tokens are spelled out (➜2 reach, "3 turns") rather than r2/3t.
-function actionStat(a: Action): string {
+// A concise, player-facing effect descriptor — a list of tokens, ` · `-joined
+// (the client boxes each into an outline pill). Consistent shape: effect →
+// modifiers (range / area / duration / riders) → field → resource refund.
+// Tokens are spelled out (➜2 reach, "3 turns") rather than r2/3t. Crits reuse
+// this same builder, so a crit reads exactly like a normal action.
+function actionStat(a: Action, resourceName: string): string {
   const f = (a as unknown as { field?: { field: number[] } }).field?.field;
   const v = (a as unknown as { value?: number }).value;
   const rounds = (a as unknown as { rounds?: number }).rounds;
-  const rng   = a.range > 1 && !a.moveTo ? `➜${a.range}` : '';
-  const area  = a.area > 1 ? `${a.area}×${a.area}` : '';
-  const turns = rounds ? `${rounds} turns` : '';
-  const blink = a.moveTo ? 'blink' : '';
-  const knock = a.push > 0 ? 'knockback' : '';
+  const rng    = a.range > 1 && !a.moveTo ? `➜${a.range}` : '';
+  const area   = a.area > 1 ? `${a.area}×${a.area}` : '';
+  const turns  = rounds ? `${rounds} turns` : '';
+  const blink  = a.moveTo ? 'blink' : '';
+  const knock  = a.push > 0 ? 'knockback' : '';
+  // A negative cost on a non-restore action refunds resource as a side effect.
+  const refund = a.cost < 0 && a.type !== ActionType.Block ? `+${-a.cost} ${resourceName}` : '';
   const j = (...parts: string[]): string => parts.filter(Boolean).join(' · ');
   switch (a.type) {
-    case ActionType.Strike:          return j(area, rng, blink, knock, fieldList(f ?? []));
-    case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []));
+    case ActionType.Strike:          return j(area, rng, blink, knock, fieldList(f ?? []), refund);
+    case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []), refund);
     case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
-    case ActionType.Shield:          return j(`shield ${v}`, turns);
-    case ActionType.Heal:            return `heal ${v}`;
-    case ActionType.Buff:            return j(`+${v} atk`, turns);
-    case ActionType.Debuff:          return j(`−${v} atk`, turns);
-    case ActionType.Reflect:         return j(`reflect ${v}`, turns);
-    case ActionType.MoveDebuff:      return j(`cap move ${v}`, turns);
+    case ActionType.Shield:          return j(`shield ${v}`, turns, refund);
+    case ActionType.Heal:            return j(`heal ${v}`, refund);
+    case ActionType.Buff:            return j(`+${v} atk`, turns, refund);
+    case ActionType.Debuff:          return j(`−${v} atk`, turns, refund);
+    case ActionType.Reflect:         return j(`reflect ${v}`, turns, refund);
+    case ActionType.MoveDebuff:      return j(`cap move ${v}`, turns, refund);
     case ActionType.BlockTile:       return j(`block tile ${v}`, area);
     case ActionType.BuffTile:        return j(`buff tile +${v}`, area);
     case ActionType.HazardTile:      return j(`hazard tile ${v}`, area);
@@ -66,32 +70,13 @@ function actionStat(a: Action): string {
   }
 }
 
-// Per-category crit summary: the payload's action name(s) + a compact effect tag,
-// e.g. "Snapback −[20, …]" or "Wane −7 atk +2 Flow". One crit list rides every
-// action of its category, conditional on the triangle — shown per group.
-function critSummary(crits: Action[], resourceName: string): string | undefined {
+// Per-category crit summary: one entry per action in the crit payload, each with
+// its name + the SAME stat format as a normal action (so a crit reads identically
+// — e.g. Wane → { name: 'Wane', stat: '−7 atk · 4 turns · +2 Flow' }). One crit
+// list rides every action of its category, conditional on the triangle.
+function critSummary(crits: Action[], resourceName: string): { name: string; stat: string }[] | undefined {
   if (!crits || crits.length === 0) return undefined;
-  const tag = (a: Action): string => {
-    const f = (a as unknown as { field?: { field: number[] } }).field?.field;
-    const v = (a as unknown as { value?: number }).value;
-    switch (a.type) {
-      case ActionType.Strike:          return `−${fieldList(f ?? [])}`;
-      case ActionType.DamageOverTime:  return `−${fieldList(f ?? [])}/t`;
-      case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : '';
-      case ActionType.Shield:          return `shield ${v}`;
-      case ActionType.Heal:            return `+${v} hp`;
-      case ActionType.Buff:            return `+${v} atk`;
-      case ActionType.Debuff:          return `−${v} atk`;
-      case ActionType.Reflect:         return `reflect ${v}`;
-      case ActionType.MoveDebuff:      return `slow ${v}`;
-      default:                         return '';
-    }
-  };
-  return crits.map(c => {
-    // A negative cost means the crit also refunds resource — surface it.
-    const restore = c.cost < 0 ? `+${-c.cost} ${resourceName}` : '';
-    return [c.name, tag(c), restore].filter(Boolean).join(' ');
-  }).join(' · ');
+  return crits.map(c => ({ name: c.name, stat: actionStat(c, resourceName) }));
 }
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
@@ -108,7 +93,7 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
       aimed: a.aimed, targeted: a.targeted,
       canTargetSelf: canSelf(a),
       targetsObstacle: a.type === ActionType.DestroyObstacle,
-      range: a.range, cost: a.cost, stat: actionStat(a),
+      range: a.range, cost: a.cost, stat: actionStat(a, weapon.resource_name),
       area: a.area, push: a.push, smash: a.smash, moveTo: a.moveTo,
       // Reactive Area strike (not a tile / not a self-target): the block centers
       // on the actor, so the UI previews the footprint around the player itself.
