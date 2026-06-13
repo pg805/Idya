@@ -110,6 +110,20 @@ recipes:
       id: magic_bolts
       quantity: 1
 
+  # L4 cross-profession component (R9): the enchanter's half of the smith's Nunchaku.
+  - id: en_sidaev_bar
+    name: Sidaev Bar
+    description: "Attune a bar of nodol until Sidaev runs through it like water — one of the twin bars of a smith's nunchaku."
+    profession: enchanter
+    required_level: 9
+    ingredients:
+      - item_id: nodol
+        quantity: 2
+    output:
+      type: item
+      id: sidaev_bar
+      quantity: 1
+
   # L4 weapon (R9): an enchanter's scythe — a smith's head, a lumberjack's haft, bound with nodol and Noko.
   - id: en_scythe
     name: Scythe

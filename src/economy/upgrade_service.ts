@@ -40,6 +40,7 @@ const WEAPON_PROFESSION: Record<string, Profession> = {
     // L4 weapons (R9): each profession's weapon, assembled with cross-profession parts.
     crossbow:      'lumberjack',
     scythe:        'enchanter',
+    nunchaku:      'blacksmith',
 };
 
 // The profession(s) that can upgrade a weapon — its crafting profession. Empty

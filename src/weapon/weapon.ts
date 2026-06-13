@@ -31,6 +31,7 @@ type ActionData = {
     'Area'?: number,
     'Push'?: number,
     'Smash'?: boolean,
+    'MoveTo'?: boolean,
     'Aimed'?: boolean,
     'Targeted'?: boolean
 }
@@ -96,6 +97,7 @@ function from_json(action_object: ActionData): Action {
     action.area           = action_object['Area']           ?? 1;
     action.push           = action_object['Push']           ?? 0;
     action.smash          = action_object['Smash']          ?? false;
+    action.moveTo         = action_object['MoveTo']         ?? false;
     action.aimed          = action_object['Aimed']          ?? false;
     action.targeted       = action_object['Targeted']       ?? false;
     return action;
@@ -186,12 +188,12 @@ export default class Weapon {
             weapon_data['Weight'] ?? 0,
             weapon_data['Resource']['Name'],
             weapon_data['Resource']['Max'],
-            weapon_data['Defend'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Defend Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Attack'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Attack Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Special'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Special Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Defend']        ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Defend Crit']   ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Attack']        ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Attack Crit']   ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Special']       ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Special Crit']  ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
         );
     }
 }

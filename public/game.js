@@ -333,6 +333,11 @@ function computeTargetableTiles(actionInfo, fromPos) {
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
+  // A blink-strike (moveTo) relocates you onto the aimed tile, so it can only
+  // target an empty passable square — never one a combatant is standing on.
+  const occupiedSet = actionInfo.moveTo
+    ? new Set(state.combatants.filter(c => c.hp > 0).map(c => `${c.pos.x},${c.pos.y}`))
+    : null;
   const tiles = new Set();
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
@@ -344,6 +349,7 @@ function computeTargetableTiles(actionInfo, fromPos) {
         continue;
       }
       if (obstacleSet.has(k)) continue;
+      if (occupiedSet && occupiedSet.has(k)) continue;
       const minDist = actionInfo.canTargetSelf ? 0 : 1;
       if (d >= minDist && d <= actionInfo.range) {
         if (d === 0 || actionInfo.range === 1 || hasLineOfSight(fromPos, { x, y }, state.board)) {

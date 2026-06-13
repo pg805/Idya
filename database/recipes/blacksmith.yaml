@@ -108,6 +108,23 @@ recipes:
       id: crossbow_limb
       quantity: 1
 
+  # L4 weapon (R9): a blacksmith's nunchaku — a lumberjack's wood bar, an enchanter's arcane bar, chained on alloy.
+  - id: bs_nunchaku
+    name: Nunchaku
+    description: "Chain a lumberjack's hardwood bar to an enchanter's Sidaev bar with a length of alloy — Flow courses the moment it swings."
+    profession: blacksmith
+    required_level: 9
+    ingredients:
+      - item_id: hardwood_bar
+        quantity: 1
+      - item_id: sidaev_bar
+        quantity: 1
+      - item_id: alloy
+        quantity: 2
+    output:
+      type: weapon
+      id: nunchaku
+
   # L4 cross-profession component (R9): the smith's half of the enchanter's Scythe.
   - id: bs_scythe_head
     name: Scythe Head

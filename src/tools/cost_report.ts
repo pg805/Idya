@@ -55,7 +55,11 @@ function cost(a: Action, isCrit = false): number {
     // Utility scales with the block size; ~0.5 per area square, zero at area 1.
     const smash = isCrit || !(a as any).smash ? 0 : 0.5 * (a.area * a.area - 1);
     // Push rider: ~1.5 budget per square of knockback (rough control estimate).
-    return E * range * aim * aoe * rounds + push * 1.5 + smash;
+    // MoveTo rider: a blink-strike repositions the caster onto the aimed tile —
+    // ~1.5 budget per range square (mobility, which the static budget undervalues
+    // the same way it undervalues ranged kits, so it plays a touch above this).
+    const move = isCrit || !(a as any).moveTo ? 0 : 1.5 * (a.range ?? 1);
+    return E * range * aim * aoe * rounds + push * 1.5 + smash + move;
   }
   if (t === ActionType.Block) return prevented((a as any).value);
   if (t === ActionType.Heal) return (a as any).value;

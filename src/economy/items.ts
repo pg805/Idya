@@ -36,6 +36,8 @@ export const ITEMS: Record<string, ItemDef> = {
     magic_bolts:   { name: 'Magic Bolts',   description: 'A quiver of nodol-tipped bolts enchanted by an enchanter — they fly true and burst on contact.', type: 'material' },
     scythe_head:   { name: 'Scythe Head',   description: 'A wickedly curved alloy scythe head ground by a blacksmith — an enchanter binds it to a haft.', type: 'material' },
     scythe_handle: { name: 'Scythe Handle', description: 'A long, balanced hardwood haft shaped by a lumberjack — the spine of an enchanter\'s scythe.', type: 'material' },
+    hardwood_bar:  { name: 'Hardwood Bar',  description: 'A short, balanced hardwood bar turned by a lumberjack — one half of a nunchaku.', type: 'material' },
+    sidaev_bar:    { name: 'Sidaev Bar',    description: 'An arcane bar humming with Sidaev as water, attuned by an enchanter — the other half of a nunchaku.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
     swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },

@@ -19,6 +19,7 @@ export interface ActionInfo {
   area: number;           // N×N footprint (1 = single target/tile)
   push: number;           // knockback squares applied to whatever it hits (0 = none)
   smash: boolean;         // an Area strike that also flattens obstacles in the block
+  moveTo: boolean;        // aimed Area strike that blinks the caster to the aimed tile, then bursts from there
   selfBurst: boolean;     // reactive Area>1 strike — the block is centered on the actor, no target tile
 }
 

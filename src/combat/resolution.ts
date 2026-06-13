@@ -487,6 +487,16 @@ export function resolveIntents(
     }
 
     if (action.area > 1) {
+      // Blink-strike (MoveTo): relocate the caster to the aimed tile, then burst
+      // from there. The tile must be empty + passable (UI only offers such tiles);
+      // if somehow blocked, skip the move and burst from where we stand.
+      if (action.moveTo) {
+        const occupied = session.combatants.some(c => c.id !== actor.id && c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+        if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos) && !occupied) {
+          actor.pos = { x: targetPos.x, y: targetPos.y };
+          log.push(`  ${actor.name} rides the current to ${tileStr}.`);
+        }
+      }
       const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
       resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} blast at ${tileStr}`);
       return;

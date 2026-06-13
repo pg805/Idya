@@ -42,7 +42,7 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
       canTargetSelf: canSelf(a),
       targetsObstacle: a.type === ActionType.DestroyObstacle,
       range: a.range, cost: a.cost,
-      area: a.area, push: a.push, smash: a.smash,
+      area: a.area, push: a.push, smash: a.smash, moveTo: a.moveTo,
       // Reactive Area strike (not a tile / not a self-target): the block centers
       // on the actor, so the UI previews the footprint around the player itself.
       selfBurst: a.area > 1 && !a.aimed && !TILE_TYPES.has(a.type) && !(SELF_TARGET_TYPES.has(a.type) && !a.targeted),

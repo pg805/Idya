@@ -111,6 +111,20 @@ recipes:
       type: weapon
       id: crossbow
 
+  # L4 cross-profession component (R9): the lumberjack's half of the smith's Nunchaku.
+  - id: lj_hardwood_bar
+    name: Hardwood Bar
+    description: "Turn and balance a short hardwood bar — one of the twin bars of a smith's nunchaku."
+    profession: lumberjack
+    required_level: 9
+    ingredients:
+      - item_id: hardwood
+        quantity: 2
+    output:
+      type: item
+      id: hardwood_bar
+      quantity: 1
+
   # L4 cross-profession component (R9): the lumberjack's half of the enchanter's Scythe.
   - id: lj_scythe_handle
     name: Scythe Handle
