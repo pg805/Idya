@@ -17,8 +17,9 @@ export interface ResolutionResult {
 
 function pushLog(log: string[], text: string) {
   for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed) log.push(trimmed);
+    // Keep LEADING indent (the client uses it to tell resolution lines from the
+    // action header / flavor); drop trailing space and skip blank lines.
+    if (line.trim()) log.push(line.replace(/\s+$/, ''));
   }
 }
 

@@ -946,25 +946,30 @@ function resetSession() {
 //   mechanics     — indented detail under an action (roll math)
 //   flavor        — indented narrative prose under an action
 function classifyLogLine(line) {
-  if (line.startsWith('━━━'))                                 return 'turn-divider';
-  if (line.startsWith('▸ '))                                   return 'phase-header';
-  if (line.startsWith('★'))                                    return 'crit';
-  if (line.includes('is defeated'))                            return 'status';
-  if (/⚡\d+\s+\(\d+,\d+\)/.test(line))                          return 'move';   // "<Name> ⚡24  (x,y) → …"
-  if (line.startsWith('  ↺'))                                  return 'mechanics';      // reflect bounce
-  if (line.startsWith('    roll '))                            return 'mechanics';      // roll math
-  if (line.startsWith('    '))                                 return 'mechanics';      // deeper indent = detail
-  if (/^.+? — .+:/.test(line) && !line.startsWith('  '))       return 'action-head';     // "<Actor> — <Action>: <result>"
-  if (/expired|wore off/i.test(line))                          return 'status';
-  // Default: indented narrative prose under an action line.
-  return 'flavor';
+  if (line.startsWith('━━━'))                  return 'turn-divider';
+  if (line.startsWith('▸ '))                    return 'phase-header';
+  if (line.startsWith('★'))                     return 'crit';
+  if (/ is defeated/.test(line))                return 'status';
+  if (/⚡\d+\s+\(\d+,\d+\)/.test(line))           return 'move';        // "<Name> ⚡24  (x,y) → …"
+  if (/^\s/.test(line))                          return 'mechanics';   // any indent = a resolution line
+  if (/ — /.test(line))                          return 'action-head'; // "<Actor> — <Action> …" at top level
+  if (/expired|wore off|fades/i.test(line))      return 'status';
+  return 'flavor';                                                     // top-level prose
+}
+
+// Strip the classification indent (CSS provides the visual indent) and turn
+// **x** markers into bold (the rolled die faces), escaping the rest.
+function renderLogLine(line) {
+  const esc = line.replace(/^\s+/, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 }
 
 function appendLog(lines, cls = '') {
   for (const line of lines) {
     const p = document.createElement('p');
     p.className = cls || classifyLogLine(line);
-    p.textContent = line;
+    p.innerHTML = renderLogLine(line);
     logEl.appendChild(p);
   }
   logEl.scrollTop = logEl.scrollHeight;
