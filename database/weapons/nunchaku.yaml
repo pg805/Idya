@@ -88,14 +88,6 @@ Special:
     Action_String: "<User> drags <Target> under for <Damage> damage a turn."
 
 Special Crit:
-  - Name: Ebb
-    Type: 2
-    Type_Name: Block
-    Damage_Type: Arcane
-    Damage_Subtype: Water
-    Value: 0
-    Cost: -2
-    Action_String: "<User> rides the ebb, Flow trickling back."
   - Name: Wane
     Type: 5
     Type_Name: Debuff
@@ -103,6 +95,6 @@ Special Crit:
     Damage_Subtype: Water
     Value: 7
     Rounds: 4
-    Cost: 0
+    Cost: -2
     Range: 2
-    Action_String: "<User> leaves <Target> waning, weakened for 4 turns."
+    Action_String: "<User> leaves <Target> waning, weakened for 4 turns; the ebb pulls Flow back."

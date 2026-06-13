@@ -68,9 +68,9 @@ function actionStat(a: Action): string {
 }
 
 // Per-category crit summary: the payload's action name(s) + a compact effect tag,
-// e.g. "Snapback −28" or "Ebb +2 · Wane −7 atk". One crit list rides every action
-// of its category, conditional on the triangle — so the panel shows it per group.
-function critSummary(crits: Action[]): string | undefined {
+// e.g. "Snapback −[20, …]" or "Wane −7 atk +2 Flow". One crit list rides every
+// action of its category, conditional on the triangle — shown per group.
+function critSummary(crits: Action[], resourceName: string): string | undefined {
   if (!crits || crits.length === 0) return undefined;
   const tag = (a: Action): string => {
     const f = (a as unknown as { field?: { field: number[] } }).field?.field;
@@ -78,7 +78,7 @@ function critSummary(crits: Action[]): string | undefined {
     switch (a.type) {
       case ActionType.Strike:          return `−${range(f ?? [])}`;
       case ActionType.DamageOverTime:  return `−${range(f ?? [])}/t`;
-      case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `+${-a.cost}` : '');
+      case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : '';
       case ActionType.Shield:          return `shield ${v}`;
       case ActionType.Heal:            return `+${v} hp`;
       case ActionType.Buff:            return `+${v} atk`;
@@ -88,7 +88,11 @@ function critSummary(crits: Action[]): string | undefined {
       default:                         return '';
     }
   };
-  return crits.map(c => { const t = tag(c); return t ? `${c.name} ${t}` : c.name; }).join(' · ');
+  return crits.map(c => {
+    // A negative cost means the crit also refunds resource — surface it.
+    const restore = c.cost < 0 ? `+${-c.cost} ${resourceName}` : '';
+    return [c.name, tag(c), restore].filter(Boolean).join(' ');
+  }).join(' · ');
 }
 
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
@@ -120,9 +124,9 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
   ];
 
   const crits = {
-    defend:  critSummary(weapon.defend_crit),
-    attack:  critSummary(weapon.attack_crit),
-    special: critSummary(weapon.special_crit),
+    defend:  critSummary(weapon.defend_crit,  weapon.resource_name),
+    attack:  critSummary(weapon.attack_crit,  weapon.resource_name),
+    special: critSummary(weapon.special_crit, weapon.resource_name),
   };
 
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions, crits };
