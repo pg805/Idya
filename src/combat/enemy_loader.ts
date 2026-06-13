@@ -51,21 +51,22 @@ function actionStat(a: Action, resourceName: string): string {
   // A negative cost on a non-restore action refunds resource as a side effect.
   const refund = a.cost < 0 && a.type !== ActionType.Block ? `+${-a.cost} ${resourceName}` : '';
   const j = (...parts: string[]): string => parts.filter(Boolean).join(' · ');
+  // Standardized: lead with the capitalized TYPE, then value / field / modifiers.
   switch (a.type) {
-    case ActionType.Strike:          return j(area, rng, blink, knock, fieldList(f ?? []), refund);
+    case ActionType.Strike:          return j('Strike', area, rng, blink, knock, fieldList(f ?? []), refund);
     case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []), refund);
-    case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
-    case ActionType.Shield:          return j(`shield ${v}`, turns, refund);
-    case ActionType.Heal:            return j(`heal ${v}`, refund);
-    case ActionType.Buff:            return j(`+${v} atk`, turns, refund);
-    case ActionType.Debuff:          return j(`−${v} atk`, turns, refund);
-    case ActionType.Reflect:         return j(`reflect ${v}`, turns, refund);
-    case ActionType.MoveDebuff:      return j(`cap move ${v}`, turns, refund);
-    case ActionType.BlockTile:       return j(`block tile ${v}`, area);
-    case ActionType.BuffTile:        return j(`buff tile +${v}`, area);
-    case ActionType.HazardTile:      return j(`hazard tile ${v}`, area);
-    case ActionType.SlowTile:        return j('slow tile', area);
-    case ActionType.DestroyObstacle: return `destroy obstacle`;
+    case ActionType.Block:           return (v ?? 0) > 0 ? `Block ${v}` : (a.cost < 0 ? `Restore ${-a.cost}` : '—');
+    case ActionType.Shield:          return j(`Shield ${v}`, turns, refund);
+    case ActionType.Heal:            return j(`Heal ${v}`, refund);
+    case ActionType.Buff:            return j(`Buff ${v}`, turns, refund);
+    case ActionType.Debuff:          return j(`Debuff ${v}`, turns, refund);
+    case ActionType.Reflect:         return j(`Reflect ${v}`, turns, refund);
+    case ActionType.MoveDebuff:      return j(`Slow ${v}`, turns, refund);
+    case ActionType.BlockTile:       return j(`Block Tile ${v}`, area);
+    case ActionType.BuffTile:        return j(`Buff Tile ${v}`, area);
+    case ActionType.HazardTile:      return j(`Hazard Tile ${v}`, area);
+    case ActionType.SlowTile:        return j('Slow Tile', area);
+    case ActionType.DestroyObstacle: return `Destroy`;
     default:                         return '';
   }
 }
