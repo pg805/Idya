@@ -78,11 +78,15 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
           if (session.board.inBounds(p) && !session.board.isBlocked(p)) session.board.setTile({ pos: p, teamId: actor.teamId, kind, value });
         log.push(`${actor.name} — ${crit0.name}: drops a ${kind} tile.`);
       } else {
-        // Each action self-routes inside resolve_action: self-target types (block/
-        // heal/shield/restore) always land on the actor, hostile types (strike/DOT/
-        // debuff) on the foe. So always pass the foe as target — a MIXED crit payload
-        // (e.g. self-restore + foe-debuff) then lands each half on the right unit.
-        pushLog(log, resolve_action(aMeta.state, fMeta.state, crits));
+        // Split the payload by target so a MIXED crit lands each half on the right
+        // unit. resolve_action routes block/reflect/shield to the actor but Buff/Heal
+        // via the TARGET arg — so self-target types (block/buff/heal/shield/reflect)
+        // must resolve against ME, hostile types (strike/DOT/debuff) against the foe.
+        // A homogeneous payload just takes one of the two branches.
+        const selfCrits = crits.filter(c => SELF_TARGET_TYPES.has(c.type));
+        const foeCrits  = crits.filter(c => !SELF_TARGET_TYPES.has(c.type));
+        if (selfCrits.length) pushLog(log, resolve_action(aMeta.state, aMeta.state, selfCrits));
+        if (foeCrits.length)  pushLog(log, resolve_action(aMeta.state, fMeta.state, foeCrits));
       }
       if (isSelf) break;   // a self crit triggers once, not per attacker
     }
