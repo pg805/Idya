@@ -101,7 +101,13 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
         const selfCrits = crits.filter(c => SELF_TARGET_TYPES.has(c.type));
         const foeCrits  = crits.filter(c => !SELF_TARGET_TYPES.has(c.type));
         if (selfCrits.length) pushLog(log, resolve_action(aMeta.state, aMeta.state, selfCrits));
-        if (foeCrits.length)  pushLog(log, resolve_action(aMeta.state, fMeta.state, foeCrits));
+        if (foeCrits.length) {
+          pushLog(log, resolve_action(aMeta.state, fMeta.state, foeCrits));
+          // resolve_action only deals damage — a crit strike's Push (knockback)
+          // rider must be applied separately, exactly like the main strike paths do.
+          for (const c of foeCrits)
+            if (c.push > 0 && fMeta.state.health > 0) knockback(actor.pos, foe, c.push, session, log);
+        }
       }
       if (isSelf) break;   // a self crit triggers once, not per attacker
     }
