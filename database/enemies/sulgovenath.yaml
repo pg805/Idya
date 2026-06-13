@@ -1,0 +1,145 @@
+Name: Sulgovenath
+Health: 500
+Level: 6
+AI: smart
+Telegraph:
+  hostile:
+    closing: "Striding in, greatblade dragging a furrow through the earth"
+    holding: "Rooted and towering, blade levelled"
+    fleeing: "Withdrawing into the treeline, roots dragging"
+  defensive:
+    closing: "Advancing behind a wall of bark, favoring a split limb"
+    holding: "Bark knitting shut, blade held across the body"
+    fleeing: "Sinking into the soil to mend"
+Resistances:
+  Fire: 1.25      # the old wood catches — burn it
+  Blunt: 0.8      # plated bark turns heavy blows
+  Plant: 0.75
+  Water: 0.75
+Loot:
+  Items:
+    - id: sulwood
+      type: material
+      Field: [0, 11, 13, 14, 15, 16, 18]
+    - id: crude_talamite
+      type: material
+      Field: [0, 7, 9, 10, 11, 12]
+    - id: thuvel
+      type: material
+      Field: [0, 4, 5, 6, 7]
+    - id: treated_sulwood
+      type: material
+      Field: [0, 3, 4, 5, 6]
+    - id: talamite
+      type: material
+      Field: [0, 2, 3, 3]
+    - id: hardwood
+      type: material
+      Field: [0, 1, 1, 2, 2]
+    - id: felt_hat
+      type: valuable
+      Field: [0, 1, 1, 2]
+    - id: razor_sharp_blade
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Pattern:
+  - [2, 0]   # Attack: Slash
+  - [3, 0]   # Special: Thrust
+  - [2, 0]   # Attack: Slash
+  - [1, 0]   # Defend: Regrow Limb
+  - [2, 0]   # Attack: Slash
+  - [1, 0]   # Defend: Parry
+  - [3, 0]   # Special: Ingrain
+Image: ""
+
+Weapon:
+  Name: Bramble Greatsword
+  Description: A sulfolk grown vast and old, a smith's greatsword fused into one rooted arm.
+  Weight: 0
+  Resource:
+    Name: Sap
+    Max: 12
+
+  Defend:
+    - Name: Parry
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 70
+      Cost: 2
+      Action_String: "<User> braces the greatblade across its trunk, blocking <Damage> damage."
+    - Name: Regrow Limb
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Elemental
+      Damage_Subtype: Plant
+      Value: 95
+      Cost: 4
+      Action_String: "<User> floods torn bark with sap, healing 95 damage."
+
+  Defend Crit:
+    - Name: Riposte
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [40, 55, 70]
+      Cost: 0
+      Range: 1
+      Action_String: "<User> turns the parry into a sweeping riposte for <Damage> damage."
+
+  Attack:
+    - Name: Slash
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [20, 30, 40, 50, 55, 62, 70, 80, 90]
+      Cost: 2
+      Aimed: false
+      Range: 1
+      Action_String: "<User> hews the greatblade through <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Expose
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [50, 70, 90, 100, 110]
+      Cost: 0
+      Range: 1
+      Action_String: "<User> drives the blade through an opened guard for <Damage> damage."
+
+  Special:
+    - Name: Thrust
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [45, 60, 70, 80, 90, 100, 110]
+      Cost: 1
+      Aimed: true
+      Range: 2
+      Action_String: "<User> uncoils a rooted limb and lunges at <Target> for <Damage> damage."
+    - Name: Ingrain
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Elemental
+      Damage_Subtype: Plant
+      Value: 0
+      Cost: -8
+      Action_String: "<User> sinks its roots into the earth, restoring 8 Sap."
+
+  Special Crit:
+    - Name: Poison Ivy
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Physical
+      Damage_Subtype: Poison
+      Field: [15, 20, 25]
+      Rounds: 3
+      Cost: 0
+      Range: 1
+      Action_String: "<User> lashes <Target> with poison ivy — <Damage> a round for 3 rounds."

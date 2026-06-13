@@ -40,6 +40,8 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
     tar_bait:     { name: 'Tar Bait',      description: 'A pungent slick of black resin. Golnosar nest in tar pools and rise when they smell their own.', type: 'consumable' },
     tin_bait:     { name: 'Tin Bait',      description: 'A rattling pouch of polished tin shavings. Tinpul mistake the sound for one of their own.', type: 'consumable' },
+    sidaev_bait:  { name: 'Sidaev Bait',   description: 'A charm humming with caged arcane light. A Child of Sidaev drifts toward it, drawn to its own kind.', type: 'consumable' },
+    sulgovenath_bait: { name: 'Sulgovenath Bait', description: 'A vial of thick, ancient sap. Its scent of old-growth wood rouses a Sulgovenath from the deep forest.', type: 'consumable' },
 
     // Misc materials sold at the general store
     card_deck:    { name: 'Card Deck',     description: 'A simple deck of cards with the Chae emperor, Gustavus, as the king. Common in town, occasionally enchanted by those who know how.', type: 'material'   },
@@ -55,6 +57,8 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
     bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
     lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
+    nosgem:          { name: 'Nosgem',          description: 'A rare gem of condensed arcane darkness, recovered only from a fallen Child of Sidaev. The enchanter will empty the till for one.', type: 'valuable' },
+    razor_sharp_blade: { name: 'Razor-Sharp Blade', description: 'A shard of a Sulgovenath\'s greatblade, still keen enough to part a hair. The blacksmith covets it.', type: 'valuable' },
 
     // Enemy trophies — permanent character-bound mementos granted on the
     // first defeat of each enemy. The defeated-count shown on each is queried
@@ -68,6 +72,8 @@ export const ITEMS: Record<string, ItemDef> = {
     golnosar_trophy:        { name: 'Golnosar Trophy', description: 'A sliver of hardened tar, pressed into the shape of a coin.',            type: 'unlock' },
     melbear_trophy:         { name: 'Melbear Trophy', description: 'A single claw from a melbear, wrapped at the base in dyed sinew.',        type: 'unlock' },
     tinpul_trophy:          { name: 'Tinpul Trophy', description: 'A flattened scrap of tin, beaten thin enough to wear.',                    type: 'unlock' },
+    child_of_sidaev_trophy: { name: 'Child of Sidaev Trophy', description: 'A mote of caught light that never fades, taken from your first Child of Sidaev.', type: 'unlock' },
+    sulgovenath_trophy:     { name: 'Sulgovenath Trophy', description: 'A length of petrified bramble-bark from your first Sulgovenath — still faintly green at the core.', type: 'unlock' },
 };
 
 // Convention used by the trophy grant + inventory enrichment paths.

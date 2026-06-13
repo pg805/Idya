@@ -128,3 +128,14 @@ Items:
     Stock_Max: 50
     Stock_Influence: 0.3
     Restock_Field: [1, 2, 2, 3, 0]
+
+  - id: nosgem
+    Base_Buy: 3000
+    Base_Sell: 1500
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 3
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]

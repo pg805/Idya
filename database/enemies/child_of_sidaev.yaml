@@ -1,0 +1,140 @@
+Name: Child of Sidaev
+Health: 150
+Level: 5
+AI: smart
+Telegraph:
+  hostile:
+    closing: "Drifting nearer, the air around it warping"
+    holding: "Hanging in place, light bending toward it"
+    fleeing: "Sliding back, never breaking its gaze"
+  defensive:
+    closing: "Edging in behind a haze of arcane motes"
+    holding: "Wreathed in shifting light, gathering power"
+    fleeing: "Folding space to slip away"
+Resistances:
+  Physical: 1.25   # frail body — physical blows land hard
+  Arcane: 0.75     # steeped in the arcane; its own element slides off
+  Fire: 0.75
+Loot:
+  Items:
+    - id: thuvel
+      type: material
+      Field: [0, 10, 12, 13, 14, 15, 17]
+    - id: hiruos
+      type: material
+      Field: [0, 3, 4, 5, 5, 6]
+    - id: nodol
+      type: material
+      Field: [0, 0, 1, 1]
+    - id: lifgem
+      type: valuable
+      Field: [0, 0, 1, 1, 1]
+    - id: nosgem
+      type: valuable
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Pattern:
+  - [2, 0]   # Attack: SINOS
+  - [3, 0]   # Special: Focus Sidaev
+  - [2, 0]   # Attack: SIFIS
+  - [3, 0]   # Special: Panic
+  - [2, 0]   # Attack: SINOS
+  - [1, 0]   # Defend: Power of the Arcane
+  - [3, 0]   # Special: Focus Sidaev
+Image: ""
+
+Weapon:
+  Name: Hand of Sidaev
+  Description: A frail, light-wreathed thing — all of Sidaev's power, none of its weight.
+  Weight: 0
+  Resource:
+    Name: Golsidaev
+    Max: 50
+
+  Defend:
+    - Name: Power of the Arcane
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 0
+      Cost: -5
+      Action_String: "<User> draws on the arcane, restoring 5 Golsidaev."
+
+  Defend Crit:
+    - Name: Sidaev burst
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Field: [20, 24, 27, 31, 38, 45, 48]
+      Cost: -3
+      Range: 2
+      Action_String: "<User> bursts with Sidaev energy, lashing <Target> for <Damage> and drawing 3 Golsidaev."
+
+  Attack:
+    - Name: SIFIS
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Fire
+      Field: [20, 45, 45, 67, 67, 80]
+      Cost: 1
+      Range: 5
+      Area: 3
+      Push: 1
+      Aimed: true
+      Action_String: "<User> hurls a lance of arcane fire at <Target> for <Damage> damage, hurling it back."
+    - Name: SINOS
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Dark
+      Field: [30, 35, 40, 45, 50, 55, 60, 65, 70, 75]
+      Cost: 3
+      Range: 3
+      Aimed: false
+      Action_String: "<User> looses a wave of arcane dark over <Target> for <Damage> damage."
+
+  Attack Crit:
+    - Name: Time warp
+      Type: 13
+      Type_Name: Slow Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 2
+      Range: 5
+      Action_String: "<User> warps time around <Target>, miring the ground beneath it."
+
+  Special:
+    - Name: Panic
+      Type: 5
+      Type_Name: Debuff
+      Damage_Type: Arcane
+      Damage_Subtype: Mental
+      Value: 35
+      Rounds: 5
+      Range: 5
+      Cost: 1
+      Aimed: false
+      Action_String: "<User> floods <Target>'s mind with panic, weakening its blows by 35 for 5 turns."
+    - Name: Focus Sidaev
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Arcane
+      Damage_Subtype: Light
+      Field: [63, 63, 70, 70, 70, 77, 77, 77, 77, 84, 84, 84, 84, 84]
+      Cost: 5
+      Area: 4
+      Range: 3
+      Aimed: true
+      Action_String: "<User> focuses the light of Sidaev into a searing beam at <Target> for <Damage> damage."
+
+  Special Crit:
+    - Name: Call Dae
+      Type: 10
+      Type_Name: Buff Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Light
+      Value: 30
+      Area: 3
+      Action_String: "<User> calls the Dae, blessing the ground at its feet."

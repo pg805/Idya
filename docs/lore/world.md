@@ -53,7 +53,7 @@ Canonical names for the locations in and around Sulku'it. The YAML `Name:` field
 |---|---|---|
 | Town hunting grounds | **Sulkupa Forest** | The forest the Hunt page describes. |
 | General store | **The Fifth Regiment General Store** | Dolan's shop. Named for his old 5th Division. |
-| Blacksmith | **Barrel Hopp Blacksmith** | Kethalis's smithy. |
+| Blacksmith | **Barrel Hoop Blacksmith** | Kethalis's smithy. |
 | Lumberjack | **Velvet Hat Lumberjack** | Vetha's workshop. |
 | Enchanting shop | **Sidaev Tome Enchanting Shop** | Lomis's shop — half workshop, half library. |
 | Temple | **Temple Ketul** | Lithona tends it. |

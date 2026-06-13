@@ -1,4 +1,4 @@
-Name: Barrel Hopp Blacksmith
+Name: Barrel Hoop Blacksmith
 NPC: Kethalis
 Title: Blacksmith
 Greeting: "Kethalis grins through the heat. 'What can I do for you?'"
@@ -85,3 +85,14 @@ Items:
     Stock_Max: 1000
     Stock_Influence: 0.15
     Restock_Field: [15, 25, 30, 40, 0]
+
+  - id: razor_sharp_blade
+    Base_Buy: 4000
+    Base_Sell: 2000
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 3
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]

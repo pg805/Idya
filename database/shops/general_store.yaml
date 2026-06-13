@@ -17,7 +17,7 @@ Items:
     Restock_Field: [10]
 
   - id: sulfolk_bait
-    Base_Buy: 5
+    Base_Buy: 10
     Base_Sell: null
     R: 1.0
     R_Max: 2.5
@@ -28,7 +28,7 @@ Items:
     Restock_Field: [10]
 
   - id: tin_bait
-    Base_Buy: 3
+    Base_Buy: 4
     Base_Sell: null
     R: 1.0
     R_Max: 2.5
@@ -39,7 +39,7 @@ Items:
     Restock_Field: [10]
 
   - id: wyrm_bait
-    Base_Buy: 8
+    Base_Buy: 10
     Base_Sell: 2
     R: 1.0
     R_Max: 2.5
@@ -50,7 +50,7 @@ Items:
     Restock_Field: [10]
 
   - id: deer_bait
-    Base_Buy: 30
+    Base_Buy: 20
     Base_Sell: 10
     R: 1.0
     R_Max: 2.5
@@ -61,7 +61,7 @@ Items:
     Restock_Field: [10]
 
   - id: toad_bait
-    Base_Buy: 15
+    Base_Buy: 20
     Base_Sell: 5
     R: 1.0
     R_Max: 2.5
@@ -72,7 +72,7 @@ Items:
     Restock_Field: [10]
 
   - id: tar_bait
-    Base_Buy: 60
+    Base_Buy: 30
     Base_Sell: 18
     R: 1.0
     R_Max: 2.5
@@ -83,8 +83,30 @@ Items:
     Restock_Field: [10]
 
   - id: bear_bait
-    Base_Buy: 100
+    Base_Buy: 40
     Base_Sell: 30
+    R: 1.0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: sidaev_bait
+    Base_Buy: 50
+    Base_Sell: 15
+    R: 1.0
+    R_Max: 2.5
+    Volume_Sensitivity: 30
+    Transaction_Threshold: 999
+    Stock_Max: 9999
+    Stock_Influence: 0
+    Restock_Field: [10]
+
+  - id: sulgovenath_bait
+    Base_Buy: 60
+    Base_Sell: 18
     R: 1.0
     R_Max: 2.5
     Volume_Sensitivity: 30
