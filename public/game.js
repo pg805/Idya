@@ -20,6 +20,7 @@ const ui = {
 const boardEl         = document.getElementById('board');
 const actionPanelEl   = document.getElementById('action-panel');
 const combatantListEl = document.getElementById('combatant-list');
+let lockedPanelHeight = null;   // panel height locked on first list render, so it never resizes
 const turnLabelEl     = document.getElementById('turn-label');
 const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
@@ -520,19 +521,13 @@ function renderActionPanel() {
   actionPanelEl.classList.remove('active', 'dim');
 
   if (ui.phase === 'ended') {
-    actionPanelEl.classList.add('dim');
-    actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
+    // Keep the panel the exact size it was during the battle (the locked height)
+    // and fill it with one big return button — no "Battle ended" text, no jump.
+    // Tutorial drops you on the character page so app.js fires the town tour.
     const again = document.createElement('a');
-    again.className = 'battle-again-btn';
-    if (isTutorial) {
-      // Tutorial drops you on the character page with the town-tour flag so
-      // app.js fires the sidebar walkthrough on first arrival.
-      again.href = '/app/character?tour=1';
-      again.innerHTML = 'Go to Town <span class="action-key">↵</span>';
-    } else {
-      again.href = '/app/hunt';
-      again.innerHTML = 'Return to Town <span class="action-key">↵</span>';
-    }
+    again.className = 'return-big';
+    again.href = isTutorial ? '/app/character?tour=1' : '/app/hunt';
+    again.innerHTML = `${isTutorial ? 'Go to Town' : 'Return to Town'} <span class="action-key">↵</span>`;
     actionPanelEl.appendChild(again);
     return;
   }
@@ -613,6 +608,14 @@ function renderActionPanel() {
   if (!acts.some(a => a.cost <= 0 || a.cost <= player.resource))
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
+
+  // Lock the panel to the action-list height the first time we render it, so it
+  // never resizes for the rest of the battle (incl. the end-of-battle return
+  // button) — no jump.
+  if (lockedPanelHeight === null) {
+    lockedPanelHeight = actionPanelEl.offsetHeight;
+    actionPanelEl.style.minHeight = lockedPanelHeight + 'px';
+  }
 }
 
 function statusBadgesHtml(status) {
