@@ -55,7 +55,9 @@ function actionStat(a: Action, resourceName: string): string {
   switch (a.type) {
     case ActionType.Strike:          return j('Strike', area, rng, blink, knock, fieldList(f ?? []), refund);
     case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []), refund);
-    case ActionType.Block:           return (v ?? 0) > 0 ? `Block ${v}` : (a.cost < 0 ? `Restore ${-a.cost}` : '—');
+    // A value-0 Block is a pure resource-restore — the cost pill already shows
+    // the "+N" gain, so leave the stat empty rather than a redundant "Restore N".
+    case ActionType.Block:           return (v ?? 0) > 0 ? `Block ${v}` : '';
     case ActionType.Shield:          return j(`Shield ${v}`, turns, refund);
     case ActionType.Heal:            return j(`Heal ${v}`, refund);
     case ActionType.Buff:            return j(`Buff ${v}`, turns, refund);
