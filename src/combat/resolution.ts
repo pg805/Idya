@@ -35,6 +35,16 @@ function pushLog(log: string[], text: string) {
 // catch a ranged attacker, while an attack-crit reaches whoever your attack hit.
 //   attack → special : attack_crit    special → defend : special_crit
 //   defend → attack  : defend_crit (the defender ripostes the attacker)
+//
+// A crit only fires when one side actually ACTS ON the other — you're targeting
+// the foe, or being targeted by them. Two self-only actions (e.g. both units just
+// restoring resource: a self-restore Special vs a self-restore Defend) counter
+// nothing, so they fire no crit. These are the types that engage an opponent:
+const OFFENSIVE_TYPES = new Set<number>([
+  ActionType.Strike, ActionType.DamageOverTime, ActionType.Debuff, ActionType.MoveDebuff, ActionType.HazardTile,
+]);
+const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.has(a.type);
+
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
   const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
   const CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
@@ -49,7 +59,8 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
     const lists = aMeta.weapon as unknown as Record<string, Action[]>;
     const crits = lists[CRIT[aCat]];
     if (!crits || crits.length === 0) continue;
-    const myRange = lists[aCat]?.[aIntent!.action.actionIndex]?.range ?? 1;
+    const myAction = lists[aCat]?.[aIntent!.action.actionIndex];
+    const myRange = myAction?.range ?? 1;
     // Self-target crits (heal/block/shield/reflect/buff) land on ME; a tile crit
     // drops a zone on MY square; both count as "self" (no reach needed, fire once).
     // Foe-target crits (strike/DOT/debuff) land on the foe and must REACH it.
@@ -63,7 +74,11 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       if (fIntent?.action.type !== BEATS[aCat]) continue;
       const fMeta = session.meta.get(foe.id);
       if (!fMeta || fMeta.state.health <= 0) continue;
-      const foeRange = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex]?.range ?? 1;
+      const foeAction = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex];
+      const foeRange = foeAction?.range ?? 1;
+      // Neither side acted on the other (both pure self/utility actions) → no real
+      // counter happened, so no crit. One of them must be targeting the opponent.
+      if (!isOffensive(myAction) && !isOffensive(foeAction)) continue;
       const dist = chebyshevDist(actor.pos, foe.pos);
       if (dist > Math.max(myRange, foeRange)) continue;   // not engaged this turn
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must reach
