@@ -411,12 +411,6 @@ function renderBoard() {
   // about breakpoints. Re-read each render so a viewport resize takes effect.
   const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'), 10) || 72;
   boardEl.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-  // Lock #left-col to the board's pixel width on wide viewports so the action
-  // panel's flex-wrap row doesn't stretch the column and snap it back between
-  // phases. On phones (<= 640px) the CSS overrides to width:100% — keep this
-  // pixel value off the inline style there so the override actually wins.
-  const boardPxWidth = width * cellSize + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
-  document.getElementById('left-col').style.width = window.innerWidth <= 640 ? '' : `${boardPxWidth}px`;
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
@@ -642,7 +636,7 @@ function renderActionPanel() {
     const c = CAT[cat];
     head.innerHTML = `<span class="cat-name">${c.icon} ${c.label}</span>`
       + (crits[cat]
-          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> ${crits[cat]}<span class="crit-trigger"> · ${c.trigger}</span></span>`
+          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> ${crits[cat]}</span>`
           : '');
     group.appendChild(head);
 

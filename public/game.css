@@ -57,11 +57,14 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   align-items: flex-start;
 }
 
-#left-col { display: flex; flex-direction: column; gap: 12px; }
+/* Middle rail: combatant cards on top, action panel below — sits beside the
+   board so neither the actions nor the cards land below the fold. */
+#center-col { display: flex; flex-direction: column; gap: 12px; width: 360px; flex: 0 0 360px; min-width: 0; }
 
 /* ---- Board ---- */
 #board {
   display: grid;
+  flex: 0 0 auto;   /* hold the board's natural grid width in the flex row */
   gap: 3px;
   background: var(--bg-darkest);
   padding: 8px;
@@ -204,6 +207,10 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Stay within the rail (≈ board height) — a very tall kit scrolls internally
+     instead of pushing the page. */
+  max-height: 480px;
+  overflow-y: auto;
 }
 .action-title {
   font-size: 0.8rem;
@@ -358,7 +365,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 14px;
-  min-width: 130px;
+  min-width: 0;
+  flex: 1;   /* the two cards share the rail width evenly */
 }
 .combatant-card.team-a { border-color: #4a90d9; }
 .combatant-card.team-b { border-color: #d94a4a; }
@@ -400,7 +408,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* ---- Combat log ---- */
 #right-col {
-  width: 260px;
+  flex: 1;
+  min-width: 240px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -494,8 +503,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* ---- Mobile (portrait phones) ----
    Stack main-layout vertically and shrink board cells so a 7-wide board
-   fits inside a ~390px viewport without overflow. The js-driven width on
-   #left-col is overridden with !important since it's set inline. */
+   fits inside a ~390px viewport without overflow. */
 @media (max-width: 640px) {
   :root { --cell-size: 28px; }
   #battle-shell { padding: 8px; gap: 8px; }
@@ -505,7 +513,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
     width: 100%;
     align-items: stretch;
   }
-  #left-col { width: 100% !important; }
+  #center-col { width: 100%; flex-basis: auto; }
+  #action-panel { max-height: none; }
   #right-col { width: 100%; }
   #combat-log { height: 240px; }
   .combatant { width: 32px; height: 32px; font-size: 0.7rem; border-width: 1px; }

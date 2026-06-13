@@ -48,8 +48,9 @@ function actionStat(a: Action): string {
   if (a.range > 1 && !a.moveTo) riders.push(`r${a.range}`);
   const tail = riders.length ? ` · ${riders.join(' · ')}` : '';
   switch (a.type) {
-    case ActionType.Strike:          return `${range(f ?? [])}${tail}`;
-    case ActionType.DamageOverTime:  return `DOT ${range(f ?? [])}${rounds ? ` · ${rounds}t` : ''}${tail}`;
+    // Damage actions: riders first, the full field LAST (e.g. "3×3 · blink · [25, …]").
+    case ActionType.Strike:          return [...riders, range(f ?? [])].join(' · ');
+    case ActionType.DamageOverTime:  return ['DOT', ...riders, rounds ? `${rounds}t` : '', range(f ?? [])].filter(Boolean).join(' · ');
     case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
     case ActionType.Shield:          return `shield ${v}${rounds ? ` · ${rounds}t` : ''}`;
     case ActionType.Heal:            return `heal ${v}`;
