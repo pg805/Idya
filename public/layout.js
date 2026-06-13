@@ -6,6 +6,9 @@ function layoutEsc(s) {
 
 let layoutTitle = '';
 let layoutData  = null;
+// Compact header: drop the sprite + profession bars (the tall row). Set by the
+// battle page so the combat view isn't pushed down by header it doesn't need.
+let layoutCompact = false;
 
 // Update just the title bar text (no fetch).
 function setLayoutTitle(title) {
@@ -15,8 +18,9 @@ function setLayoutTitle(title) {
 }
 
 // Fetch fresh data and re-render the header.
-async function mountLayout({ title } = {}) {
+async function mountLayout({ title, compact } = {}) {
   if (title !== undefined) layoutTitle = title;
+  if (compact !== undefined) layoutCompact = compact;
   try {
     const res = await fetch('/api/layout');
     if (res.ok) layoutData = await res.json();
@@ -76,12 +80,12 @@ function renderLayout() {
           </div>
         </div>
       </div>
-      <div class="layout-prof-row">
+      ${layoutCompact ? '' : `<div class="layout-prof-row">
         <div class="layout-sprite">
           ${spriteUrl ? `<img src="${spriteUrl}" alt="${layoutEsc(layoutData.characterName)}">` : ''}
         </div>
         <div class="layout-prof-cards">${profCards}</div>
-      </div>
+      </div>`}
     </header>`;
 
   wireSettingsPopover();
