@@ -77,7 +77,7 @@ Everything else under `docs/` is dev-only. When adding a new doc, decide first w
 14 weapon YAMLs in `database/weapons/` (12 craftable + `branch` starter + `honor` the OP test toy — **do not touch honor**). Each has 6 action sets (Defend, Defend Crit, Attack, Attack Crit, Special, Special Crit) and a `Level` (1–5). Loaded by `Weapon.from_file`.
 
 ### Enemies
-8-enemy roster (+ `tutorial_swallow`) in `database/enemies/`, levels 0–4: tinpul/lithkem_swallow (L0), sulfolk/talwyrm (L1), daefen_deer/maetoad (L2), golnosar (L3), melbear (L4). Pattern AI (`[type, area]` steps) or `AI: smart` for the utility planner. The archived rat/zombie/mushroom are gone.
+10-enemy roster (+ `tutorial_swallow`) in `database/enemies/`, levels 0–6: tinpul/lithkem_swallow (L0), sulfolk/talwyrm (L1), daefen_deer/maetoad (L2), golnosar (L3), melbear (L4), child_of_sidaev (L5, arcane glass cannon), sulgovenath (L6, sword-wielding sulfolk bruiser — final boss). L5/L6 are endgame fodder for upgraded+enchanted players; base weapons are meant to lose. Pattern AI (`[type, area]` steps) or `AI: smart` for the utility planner. The archived rat/zombie/mushroom are gone.
 
 ### Front-end
 The live system is the web SPA (`public/`) on the Express + Socket.io server. The old Discord slash-command bot (`/demobattle` etc.) is **archived** (`archive/`) — if rebuilt, it should drive the spatial system, not the old engine.
