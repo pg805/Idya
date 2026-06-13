@@ -28,7 +28,12 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
         if (action.type === ActionType.Block) {
             const resource_string = actor.apply_cost(action);
             actor.block = (action as Block).value;
-            const main = `<User> — ${action.name}: blocks ${actor.block}${resource_string}`;
+            // A value-0 Block is a pure restore / utility action — "blocks 0" is
+            // noise, so show just the resource change (or "—" when it's capped out).
+            const result = actor.block > 0
+                ? `blocks ${actor.block}${resource_string}`
+                : (resource_string.trim() || '—');
+            const main = `<User> — ${action.name}: ${result}`;
             const flavor = action.action_string.replace('<Damage>', `${actor.block}`);
             action_string += `\n${main}\n  ${flavor}`;
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${actor.block}`);

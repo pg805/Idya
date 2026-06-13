@@ -74,7 +74,7 @@ Special:
     Damage_Subtype: Water
     Value: 0
     Cost: -7
-    Action_String: "<User> draws on the wellspring, recovering 7 Flow."
+    Action_String: "<User> draws on the wellspring, Flow surging back."
   - Name: Undertow
     Type: 4
     Type_Name: DOT
@@ -95,7 +95,7 @@ Special Crit:
     Damage_Subtype: Water
     Value: 0
     Cost: -2
-    Action_String: "<User> rides the ebb, recovering 2 Flow."
+    Action_String: "<User> rides the ebb, Flow trickling back."
   - Name: Wane
     Type: 5
     Type_Name: Debuff
