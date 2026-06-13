@@ -597,31 +597,64 @@ function renderActionPanel() {
     : 'Holding position — choose action';
   actionPanelEl.appendChild(title);
 
-  const btns = document.createElement('div');
-  btns.className = 'action-buttons';
+  // Grouped action list: one block per category (defend / attack / special), each
+  // headed by that category's crit + the triangle condition that fires it. Number
+  // keys map to the flat actions order (defend→attack→special→pass), so the row
+  // number = the action's global index, preserved across the visual grouping.
+  const CAT = {
+    defend:  { label: 'Defend',  icon: '🛡', arrow: '⤵', trigger: 'if the foe attacks' },
+    attack:  { label: 'Attack',  icon: '⚔', arrow: '⤴', trigger: 'if the foe uses a Special' },
+    special: { label: 'Special', icon: '✦', arrow: '✦', trigger: 'if the foe guards' },
+  };
+  const acts = player.weaponInfo.actions;
+  const crits = player.weaponInfo.crits || {};
 
-  const allActions = [...player.weaponInfo.actions, PASS_ACTION];
+  const renderRow = (action, num, canAfford) => {
+    const isPass = action.choice === 'pass';
+    const row = document.createElement('button');
+    row.className = `action-row${isPass ? ' pass-row' : ''}${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
+    if (!canAfford) row.disabled = true;
+    const costHtml = isPass ? ''
+      : action.cost === 0 ? '<span class="action-cost free">free</span>'
+      : `<span class="action-cost${action.cost < 0 ? ' gain' : ''}">${action.cost < 0 ? '+' + (-action.cost) : action.cost}</span>`;
+    row.innerHTML =
+        `<span class="action-key">${num <= 9 ? num : ''}</span>`
+      + `<span class="action-label">${action.label}</span>`
+      + `<span class="action-stat">${action.stat || ''}</span>`
+      + costHtml;
+    if (!isPass && action.cost !== 0) row.title = `${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}${action.needsTarget ? ' · range ' + action.range : ''}`;
+    else if (action.needsTarget) row.title = `range ${action.range}`;
+    row.addEventListener('click', () => pickAction(action));
+    return row;
+  };
 
-  for (let i = 0; i < allActions.length; i++) {
-    const action = allActions[i];
-    const canAfford = action.cost <= 0 || action.cost <= player.resource;
-    const btn = document.createElement('button');
-    btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
-    const keyHint = i < 9 ? `<span class="action-key">${i + 1}</span>` : '';
-    btn.innerHTML = action.choice && action.choice !== 'pass'
-      ? `${keyHint}<span class="action-tag">${action.choice}</span> ${action.label}`
-      : `${keyHint}${action.label}`;
-    if (!canAfford) btn.disabled = true;
+  const list = document.createElement('div');
+  list.className = 'action-list';
 
-    const parts = [];
-    if (action.cost !== 0) parts.push(`${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}`);
-    if (action.needsTarget) parts.push(`range ${action.range}`);
-    if (parts.length) btn.title = parts.join(' · ');
+  for (const cat of ['defend', 'attack', 'special']) {
+    const rows = acts.map((a, idx) => ({ a, idx })).filter(x => x.a.choice === cat);
+    if (rows.length === 0) continue;
+    const group = document.createElement('div');
+    group.className = `action-group group-${cat}`;
 
-    btn.addEventListener('click', () => pickAction(action));
-    btns.appendChild(btn);
+    const head = document.createElement('div');
+    head.className = 'action-group-head';
+    const c = CAT[cat];
+    head.innerHTML = `<span class="cat-name">${c.icon} ${c.label}</span>`
+      + (crits[cat]
+          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> ${crits[cat]}<span class="crit-trigger"> · ${c.trigger}</span></span>`
+          : '');
+    group.appendChild(head);
+
+    for (const { a, idx } of rows) {
+      const canAfford = a.cost <= 0 || a.cost <= player.resource;
+      group.appendChild(renderRow(a, idx + 1, canAfford));
+    }
+    list.appendChild(group);
   }
-  actionPanelEl.appendChild(btns);
+
+  list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
+  actionPanelEl.appendChild(list);
 
   if (ui.action && !ui.action.needsTarget) {
     const submit = document.createElement('button');

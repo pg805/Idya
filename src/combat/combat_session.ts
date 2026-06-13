@@ -16,6 +16,7 @@ export interface ActionInfo {
   targetsObstacle?: boolean; // true for Destroy Obstacle — target an obstacle tile, not a combatant
   range: number;
   cost: number;
+  stat: string;           // concise effect descriptor for the action panel (e.g. "40 · 3×3 · blink")
   area: number;           // N×N footprint (1 = single target/tile)
   push: number;           // knockback squares applied to whatever it hits (0 = none)
   smash: boolean;         // an Area strike that also flattens obstacles in the block
@@ -28,6 +29,9 @@ export interface WeaponInfo {
   resourceName: string;
   maxResource: number;
   actions: ActionInfo[];
+  // Per-category crit summary (one crit list rides every action of its category,
+  // conditional on the triangle). Undefined when that category has no crit.
+  crits: { defend?: string; attack?: string; special?: string };
 }
 
 export interface CombatantStatus {

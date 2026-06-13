@@ -27,6 +27,64 @@ type EnemyData = {
   };
 };
 
+const avg = (arr: number[]): number => arr.length ? Math.round(arr.reduce((s, n) => s + n, 0) / arr.length) : 0;
+
+// A concise, player-facing effect descriptor for one action — the headline value
+// plus its riders (area / blink / range / knockback / duration). Surfaced on the
+// action panel so stats aren't buried in a tooltip.
+function actionStat(a: Action): string {
+  const f = (a as unknown as { field?: { field: number[] } }).field?.field;
+  const v = (a as unknown as { value?: number }).value;
+  const rounds = (a as unknown as { rounds?: number }).rounds;
+  const riders: string[] = [];
+  if (a.area > 1)               riders.push(`${a.area}×${a.area}`);
+  if (a.moveTo)                 riders.push('blink');
+  if (a.push > 0)               riders.push('+knock');
+  if (a.range > 1 && !a.moveTo) riders.push(`r${a.range}`);
+  const tail = riders.length ? ` · ${riders.join(' · ')}` : '';
+  switch (a.type) {
+    case ActionType.Strike:          return `${avg(f ?? [])}${tail}`;
+    case ActionType.DamageOverTime:  return `DOT ${avg(f ?? [])}${rounds ? ` · ${rounds}t` : ''}${tail}`;
+    case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
+    case ActionType.Shield:          return `shield ${v}${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.Heal:            return `heal ${v}`;
+    case ActionType.Buff:            return `+${v} atk${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.Debuff:          return `−${v} atk${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.Reflect:         return `reflect ${v}${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.MoveDebuff:      return `slow → ${v}${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.BlockTile:       return `block tile ${v}${tail}`;
+    case ActionType.BuffTile:        return `buff tile +${v}${tail}`;
+    case ActionType.HazardTile:      return `hazard tile ${v}${tail}`;
+    case ActionType.SlowTile:        return `slow tile${tail}`;
+    case ActionType.DestroyObstacle: return `destroy obstacle`;
+    default:                         return '';
+  }
+}
+
+// Per-category crit summary: the payload's action name(s) + a compact effect tag,
+// e.g. "Snapback −28" or "Ebb +2 · Wane −7 atk". One crit list rides every action
+// of its category, conditional on the triangle — so the panel shows it per group.
+function critSummary(crits: Action[]): string | undefined {
+  if (!crits || crits.length === 0) return undefined;
+  const tag = (a: Action): string => {
+    const f = (a as unknown as { field?: { field: number[] } }).field?.field;
+    const v = (a as unknown as { value?: number }).value;
+    switch (a.type) {
+      case ActionType.Strike:          return `−${avg(f ?? [])}`;
+      case ActionType.DamageOverTime:  return `−${avg(f ?? [])}/t`;
+      case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `+${-a.cost}` : '');
+      case ActionType.Shield:          return `shield ${v}`;
+      case ActionType.Heal:            return `+${v} hp`;
+      case ActionType.Buff:            return `+${v} atk`;
+      case ActionType.Debuff:          return `−${v} atk`;
+      case ActionType.Reflect:         return `reflect ${v}`;
+      case ActionType.MoveDebuff:      return `slow ${v}`;
+      default:                         return '';
+    }
+  };
+  return crits.map(c => { const t = tag(c); return t ? `${c.name} ${t}` : c.name; }).join(' · ');
+}
+
 export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
   // All aiming is uniform: any aimed action may pick its own square as the
   // target tile. Self-aimed strikes whiff via the friendly-fire guard in
@@ -41,7 +99,7 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
       aimed: a.aimed, targeted: a.targeted,
       canTargetSelf: canSelf(a),
       targetsObstacle: a.type === ActionType.DestroyObstacle,
-      range: a.range, cost: a.cost,
+      range: a.range, cost: a.cost, stat: actionStat(a),
       area: a.area, push: a.push, smash: a.smash, moveTo: a.moveTo,
       // Reactive Area strike (not a tile / not a self-target): the block centers
       // on the actor, so the UI previews the footprint around the player itself.
@@ -55,7 +113,13 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
     ...weapon.special.map((a, i) => toInfo(a, 'special', i)),
   ];
 
-  return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions };
+  const crits = {
+    defend:  critSummary(weapon.defend_crit),
+    attack:  critSummary(weapon.attack_crit),
+    special: critSummary(weapon.special_crit),
+  };
+
+  return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions, crits };
 }
 
 export function loadEnemy(file: string, options: {
