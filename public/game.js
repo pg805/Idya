@@ -19,6 +19,8 @@ const ui = {
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
 const actionPanelEl   = document.getElementById('action-panel');
+const submitBtnEl     = document.getElementById('submit-btn');
+submitBtnEl?.addEventListener('click', () => submitIntent());
 const combatantListEl = document.getElementById('combatant-list');
 const turnLabelEl     = document.getElementById('turn-label');
 const phaseLabelEl    = document.getElementById('phase-label');
@@ -401,6 +403,7 @@ function render() {
   phaseLabelEl.textContent = state.phase;
   renderBoard();
   renderActionPanel();
+  updateSubmitButton();
   renderCombatantList();
 }
 
@@ -507,6 +510,16 @@ function renderBoard() {
   }
 }
 
+// The confirm button lives under the combat log. It's greyed out until a
+// submittable choice is made (a non-aimed action, or an aimed one with a tile).
+function updateSubmitButton() {
+  if (!submitBtnEl) return;
+  const ready = (ui.phase === 'selecting_action' && ui.action && !ui.action.needsTarget)
+             || (ui.phase === 'selecting_target' && ui.targetTile);
+  submitBtnEl.disabled = !ready;
+  submitBtnEl.classList.toggle('dim', !ready);
+}
+
 function renderActionPanel() {
   actionPanelEl.innerHTML = '';
   actionPanelEl.classList.remove('active', 'dim');
@@ -556,14 +569,6 @@ function renderActionPanel() {
           : `${ui.action.label} — click a tile to target`);
     row.appendChild(title);
     actionPanelEl.appendChild(row);
-
-    if (ui.targetTile) {
-      const submit = document.createElement('button');
-      submit.className = 'submit-btn';
-      submit.textContent = 'Submit Intent →';
-      submit.addEventListener('click', submitIntent);
-      actionPanelEl.appendChild(submit);
-    }
     return;
   }
 
@@ -654,14 +659,6 @@ function renderActionPanel() {
   if (!acts.some(a => a.cost <= 0 || a.cost <= player.resource))
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
-
-  if (active && ui.action && !ui.action.needsTarget) {
-    const submit = document.createElement('button');
-    submit.className = 'submit-btn';
-    submit.textContent = 'Submit Intent →';
-    submit.addEventListener('click', submitIntent);
-    actionPanelEl.appendChild(submit);
-  }
 }
 
 function statusBadgesHtml(status) {

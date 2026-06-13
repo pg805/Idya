@@ -375,14 +375,17 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border: 1px solid var(--gold-dim);
   border-radius: 4px;
   color: var(--gold);
-  padding: 7px 20px;
+  padding: 9px 20px;
   font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
   letter-spacing: 0.05em;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, color 0.1s, opacity 0.15s;
 }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
+/* The confirm button under the log: full-width, greyed out until it's clickable. */
+#submit-btn { width: 100%; margin-top: 10px; flex: 0 0 auto; }
+#submit-btn.dim { opacity: 0.35; cursor: not-allowed; background: var(--bg-surface); color: var(--text-faint); border-color: var(--border); }
 
 /* ---- Combatant cards ---- */
 .combatant-card {

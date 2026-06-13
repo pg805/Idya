@@ -29,39 +29,38 @@ type EnemyData = {
 // An action's full damage field (its die-faces) as a list, so players see the
 // real distribution — not a hidden average or just the endpoints. A flat field
 // collapses to a single number.
-const range = (arr: number[]): string => {
+const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
   return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
 };
 
-// A concise, player-facing effect descriptor for one action — the headline value
-// plus its riders (area / blink / range / knockback / duration). Surfaced on the
-// action panel so stats aren't buried in a tooltip.
+// A concise, player-facing effect descriptor for one action. Consistent shape:
+//   Name → effect → modifiers (range / area / duration / riders) → [field] for
+//   damage. Tokens are spelled out (➜2 reach, "3 turns") rather than r2/3t.
 function actionStat(a: Action): string {
   const f = (a as unknown as { field?: { field: number[] } }).field?.field;
   const v = (a as unknown as { value?: number }).value;
   const rounds = (a as unknown as { rounds?: number }).rounds;
-  const riders: string[] = [];
-  if (a.area > 1)               riders.push(`${a.area}×${a.area}`);
-  if (a.moveTo)                 riders.push('blink');
-  if (a.push > 0)               riders.push('+knock');
-  if (a.range > 1 && !a.moveTo) riders.push(`r${a.range}`);
-  const tail = riders.length ? ` · ${riders.join(' · ')}` : '';
+  const rng   = a.range > 1 && !a.moveTo ? `➜${a.range}` : '';
+  const area  = a.area > 1 ? `${a.area}×${a.area}` : '';
+  const turns = rounds ? `${rounds} turns` : '';
+  const blink = a.moveTo ? 'blink' : '';
+  const knock = a.push > 0 ? 'knockback' : '';
+  const j = (...parts: string[]): string => parts.filter(Boolean).join(' · ');
   switch (a.type) {
-    // Damage actions: riders first, the full field LAST (e.g. "3×3 · blink · [25, …]").
-    case ActionType.Strike:          return [...riders, range(f ?? [])].join(' · ');
-    case ActionType.DamageOverTime:  return ['DOT', ...riders, rounds ? `${rounds}t` : '', range(f ?? [])].filter(Boolean).join(' · ');
+    case ActionType.Strike:          return j(area, rng, blink, knock, fieldList(f ?? []));
+    case ActionType.DamageOverTime:  return j('DOT', rng, area, turns, fieldList(f ?? []));
     case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : (a.cost < 0 ? `restore ${-a.cost}` : '—');
-    case ActionType.Shield:          return `shield ${v}${rounds ? ` · ${rounds}t` : ''}`;
+    case ActionType.Shield:          return j(`shield ${v}`, turns);
     case ActionType.Heal:            return `heal ${v}`;
-    case ActionType.Buff:            return `+${v} atk${rounds ? ` · ${rounds}t` : ''}`;
-    case ActionType.Debuff:          return `−${v} atk${rounds ? ` · ${rounds}t` : ''}`;
-    case ActionType.Reflect:         return `reflect ${v}${rounds ? ` · ${rounds}t` : ''}`;
-    case ActionType.MoveDebuff:      return `slow → ${v}${rounds ? ` · ${rounds}t` : ''}`;
-    case ActionType.BlockTile:       return `block tile ${v}${tail}`;
-    case ActionType.BuffTile:        return `buff tile +${v}${tail}`;
-    case ActionType.HazardTile:      return `hazard tile ${v}${tail}`;
-    case ActionType.SlowTile:        return `slow tile${tail}`;
+    case ActionType.Buff:            return j(`+${v} atk`, turns);
+    case ActionType.Debuff:          return j(`−${v} atk`, turns);
+    case ActionType.Reflect:         return j(`reflect ${v}`, turns);
+    case ActionType.MoveDebuff:      return j(`cap move ${v}`, turns);
+    case ActionType.BlockTile:       return j(`block tile ${v}`, area);
+    case ActionType.BuffTile:        return j(`buff tile +${v}`, area);
+    case ActionType.HazardTile:      return j(`hazard tile ${v}`, area);
+    case ActionType.SlowTile:        return j('slow tile', area);
     case ActionType.DestroyObstacle: return `destroy obstacle`;
     default:                         return '';
   }
@@ -76,8 +75,8 @@ function critSummary(crits: Action[], resourceName: string): string | undefined 
     const f = (a as unknown as { field?: { field: number[] } }).field?.field;
     const v = (a as unknown as { value?: number }).value;
     switch (a.type) {
-      case ActionType.Strike:          return `−${range(f ?? [])}`;
-      case ActionType.DamageOverTime:  return `−${range(f ?? [])}/t`;
+      case ActionType.Strike:          return `−${fieldList(f ?? [])}`;
+      case ActionType.DamageOverTime:  return `−${fieldList(f ?? [])}/t`;
       case ActionType.Block:           return (v ?? 0) > 0 ? `block ${v}` : '';
       case ActionType.Shield:          return `shield ${v}`;
       case ActionType.Heal:            return `+${v} hp`;
