@@ -321,7 +321,6 @@ export function resolveIntents(
     const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
-    log.push(`${c.name} moves to (${c.pos.x},${c.pos.y})`);
   }
 
   // Hazard tiles: a combatant takes damage for each opposing-team hazard square
@@ -343,7 +342,19 @@ export function resolveIntents(
       log.push(`${c.name} steps on a hazard at (${step.x},${step.y}): −${tile.value} HP`);
     }
   }
-  if (log.length > moveStart) log.splice(moveStart, 0, '▸ Move');
+  // Move section: every alive unit's initiative + full traversed path
+  // (from → … → dest), in move-resolution order. Holders show just their square.
+  const moveLines: string[] = [];
+  for (const c of [...session.combatants].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
+    const meta = session.meta.get(c.id);
+    if (!meta || meta.state.health <= 0) continue;
+    const from = preMovePos.get(c.id);
+    const entered = moverPaths.get(c.id) ?? [];
+    const full = from ? [from, ...entered] : entered;
+    const pathStr = (full.length ? full : [c.pos]).map(p => `(${p.x},${p.y})`).join(' → ');
+    moveLines.push(`${c.name} ⚡${c.initiative}  ${pathStr}`);
+  }
+  log.splice(moveStart, 0, '▸ Move', ...moveLines);
 
   // Capture this turn's structured record for the downloadable replay: every
   // unit's traversed path (every square entered) + the action it committed.

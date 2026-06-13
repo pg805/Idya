@@ -950,7 +950,7 @@ function classifyLogLine(line) {
   if (line.startsWith('▸ '))                                   return 'phase-header';
   if (line.startsWith('★'))                                    return 'crit';
   if (line.includes('is defeated'))                            return 'status';
-  if (/^[^\s].* moves to \(\d+,\d+\)$/.test(line))             return 'move';
+  if (/⚡\d+\s+\(\d+,\d+\)/.test(line))                          return 'move';   // "<Name> ⚡24  (x,y) → …"
   if (line.startsWith('  ↺'))                                  return 'mechanics';      // reflect bounce
   if (line.startsWith('    roll '))                            return 'mechanics';      // roll math
   if (line.startsWith('    '))                                 return 'mechanics';      // deeper indent = detail
