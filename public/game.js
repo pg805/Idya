@@ -537,57 +537,15 @@ function renderActionPanel() {
     return;
   }
 
-  if (ui.phase === 'selecting_target' && ui.action) {
-    actionPanelEl.classList.add('active');
-    const row = document.createElement('div');
-    row.className = 'action-buttons';
-
-    const back = document.createElement('button');
-    back.className = 'action-btn';
-    back.textContent = '← Back';
-    back.addEventListener('click', () => {
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
-    });
-    row.appendChild(back);
-
-    const title = document.createElement('div');
-    title.className = 'action-title';
-    title.textContent = ui.action.moveTo
-      ? (ui.targetTile
-          ? `${ui.action.label} → blink to (${ui.targetTile.x},${ui.targetTile.y})`
-          : `${ui.action.label} — click an empty tile to blink to`)
-      : (ui.targetTile
-          ? `${ui.action.label} → tile (${ui.targetTile.x},${ui.targetTile.y})`
-          : `${ui.action.label} — click a tile to target`);
-    row.appendChild(title);
-    actionPanelEl.appendChild(row);
-    return;
-  }
-
-  // Every other phase shows the action list — LIT when it's your turn to pick
-  // (selecting_action), DIMMED as a preview otherwise (move / waiting / idle) so
-  // the panel below the board is never just empty space.
-  const active = ui.phase === 'selecting_action';
+  // Every phase but "ended" shows the action list. LIT when it's your turn to
+  // pick or aim (selecting_action / selecting_target), DIMMED otherwise. There's
+  // NO header at any stage — the panel sizes to the list and stays put, and the
+  // board (highlighted target tiles) guides aiming. A chosen aimed action stays
+  // highlighted in the list while you click its target tile on the board.
+  const active = ui.phase === 'selecting_action' || ui.phase === 'selecting_target';
   actionPanelEl.classList.add(active ? 'active' : 'dim');
 
   if (!state) return;
-
-  // No title during selecting_action — the panel lighting up is the cue, and the
-  // "Moving to … — choose action" line was making the panel scroll.
-  let titleHtml = '';
-  if (ui.phase === 'waiting') titleHtml = 'Intent submitted — waiting for resolution…';
-  else if (ui.phase === 'selecting_move') titleHtml = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
-  else if (!active) titleHtml = 'Awaiting your turn…';
-  if (titleHtml) {
-    const title = document.createElement('div');
-    title.className = 'action-title';
-    title.innerHTML = titleHtml;
-    actionPanelEl.appendChild(title);
-  }
-
   const player = myPlayerCombatant();
   if (!player?.weaponInfo) return;
 
@@ -671,26 +629,37 @@ function statusBadgesHtml(status) {
   return badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
 }
 
+// Every combatant we've seen this battle, in first-seen order. The server drops
+// dead units from `state.combatants`, so we keep their last snapshot here and
+// keep their card on screen (at 0 HP, greyed) rather than vanishing it.
+const seenCombatants = new Map();
+
 function renderCombatantList() {
   combatantListEl.innerHTML = '';
   if (!state) return;
-  for (const c of state.combatants) {
+  const live = new Map(state.combatants.map(c => [c.id, c]));
+  for (const c of state.combatants) seenCombatants.set(c.id, c);   // refresh + record order
+
+  for (const [id, snap] of seenCombatants) {
+    const cur = live.get(id);
+    const defeated = !cur;
+    const c = cur ?? { ...snap, hp: 0 };
     const isOwn = c.teamId === playerTeamId;
     const card = document.createElement('div');
-    card.className = `combatant-card ${isOwn ? 'team-a' : 'team-b'}`;
+    card.className = `combatant-card ${isOwn ? 'team-a' : 'team-b'}${defeated ? ' defeated' : ''}`;
     const hpPct  = Math.max(0, (c.hp / c.maxHp) * 100);
     const resPct = c.maxResource > 0 ? Math.max(0, (c.resource / c.maxResource) * 100) : 0;
     const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
-    const telegraph = c.isAI && state.telegraphs?.[c.id];
+    const telegraph = !defeated && c.isAI && state.telegraphs?.[c.id];
     const weaponLine = (!c.isAI && c.weaponInfo) ? `<div class="weapon-name">${c.weaponInfo.name}</div>` : '';
     card.innerHTML = `
       <h3>${c.name} <span class="init-badge" title="initiative — higher acts first">⚡${c.initiative}</span>${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
       ${weaponLine}
       <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
-      <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>
+      <div class="hp-text">${c.hp} / ${c.maxHp} HP${defeated ? ' — defeated' : ''}</div>
       <div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>
       <div class="hp-text">${c.resource ?? '?'} / ${c.maxResource ?? '?'} ${c.resourceName ?? ''}</div>
-      ${statusBadgesHtml(c.status)}
+      ${defeated ? '' : statusBadgesHtml(c.status)}
       ${telegraph ? `<div class="telegraph">${telegraph}</div>` : ''}
     `;
     combatantListEl.appendChild(card);
