@@ -360,7 +360,7 @@ export function resolveIntents(
     let pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
     const denied = blockedDest.get(c.id);
     if (denied) pathStr += ` ✗ (${denied.x},${denied.y})`;
-    moveLines.push(`${c.name} ⚡${c.initiative}  ${pathStr}`);
+    moveLines.push(`⚡${c.initiative} ${c.name}  ${pathStr}`);
   }
   log.splice(moveStart, 0, '▸ Move', ...moveLines);
 

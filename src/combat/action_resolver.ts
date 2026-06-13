@@ -52,9 +52,14 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             // defend-crit riposte) stacks on top rather than overwriting it.
             const added = (action as Block).value;
             actor.block += added;
-            const effect = added > 0 ? `: Block ${added}` : '';   // value-0 Block = pure restore
-            const cost = costStr(actor, action);
-            action_string += block(`<User> — ${action.name}${effect}`, cost ? [`    ${cost}`] : [], action.action_string);
+            const cost = costStr(actor, action);   // "+7 Flow" (regain) / "−1 Flow" / ""
+            // A value-0 Block is a pure restore (e.g. Wellspring) — its headline IS
+            // the regain, so put that on the action line; otherwise Block N leads and
+            // the cost drops to the resolve stack.
+            let effect: string, lines: string[];
+            if (added > 0) { effect = `: Block ${added}`; lines = cost ? [`    ${cost}`] : []; }
+            else           { effect = cost ? `: ${cost}` : ''; lines = []; }
+            action_string += block(`<User> — ${action.name}${effect}`, lines, action.action_string);
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${added}  Total: ${actor.block}`);
         }
 
@@ -120,9 +125,10 @@ function apply_hostile_actions(
             if (attacker.buff.value)   lines.push(`    + buff ${attacker.buff.value}`);
             if (attacker.debuff.value) lines.push(`    − debuff ${attacker.debuff.value}`);
             const cost = costStr(attacker, action);
-            if (cost) lines.push(`    ${cost}`);   // cost before the Total
-            lines.push(`    Total ${damage}`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            if (cost) lines.push(`    ${cost}`);
+            // Damage on the action line (resolve is hidden by default — the value
+            // has to live where you always see it); the roll math stays in resolve.
+            target_string += block(`<User> — ${action.name}${arrow}: ${damage}`, lines, action.action_string);
             logger.info(`Resolving Strike on ${target.name}: ${action.name}  Roll: ${damage_roll} (${roll_mode})  Damage: ${damage}  HP: ${target.health}`);
         }
 
@@ -135,8 +141,7 @@ function apply_hostile_actions(
             const lines = rollLines((action as Damage_Over_Time).field.field, indices, roll_mode);
             const cost = costStr(attacker, action);
             if (cost) lines.push(`    ${cost}`);
-            lines.push(`    Total ${damage} per turn · ${rounds} turns`);
-            target_string += block(`<User> — ${action.name}${arrow}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: ${damage} per turn · ${rounds} turns`, lines, action.action_string);
             logger.info(`Resolving DOT on ${target.name}: ${action.name}  Damage: ${damage} (${roll_mode})  Rounds: ${rounds}`);
         }
 

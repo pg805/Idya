@@ -952,7 +952,7 @@ function classifyLogLine(line) {
   if (line.startsWith('▸ '))                    return 'phase-header';
   if (line.startsWith('★'))                     return 'crit';
   if (/ is defeated/.test(line))                return 'status';
-  if (/⚡\d+\s+\(\d+,\d+\)/.test(line))           return 'move';        // "<Name> ⚡24  (x,y) → …"
+  if (/⚡\d/.test(line))                          return 'move';        // "⚡24 <Name> (x,y) → …" + initiative list
   if (/^\s/.test(line))                          return 'mechanics';   // any indent = a resolution line
   if (/ — /.test(line))                          return 'action-head'; // "<Actor> — <Action> …" at top level
   if (/expired|wore off|fades/i.test(line))      return 'status';
