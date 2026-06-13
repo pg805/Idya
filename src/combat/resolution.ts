@@ -343,15 +343,20 @@ export function resolveIntents(
     }
   }
   // Move section: every alive unit's initiative + full traversed path
-  // (from → … → dest), in move-resolution order. Holders show just their square.
+  // (from → … → dest), in move-resolution order. Holders show just their square;
+  // a unit blocked from moving shows "(from) ✗ (dest it couldn't reach)".
   const moveLines: string[] = [];
   for (const c of [...session.combatants].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
     const meta = session.meta.get(c.id);
     if (!meta || meta.state.health <= 0) continue;
-    const from = preMovePos.get(c.id);
-    const entered = moverPaths.get(c.id) ?? [];
-    const full = from ? [from, ...entered] : entered;
-    const pathStr = (full.length ? full : [c.pos]).map(p => `(${p.x},${p.y})`).join(' → ');
+    const from = preMovePos.get(c.id) ?? c.pos;
+    const intent = intents.get(c.id);
+    let pathStr: string;
+    if (blocked.has(c.id) && intent?.moveTo) {
+      pathStr = `(${from.x},${from.y}) ✗ (${intent.moveTo.x},${intent.moveTo.y})`;
+    } else {
+      pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
+    }
     moveLines.push(`${c.name} ⚡${c.initiative}  ${pathStr}`);
   }
   log.splice(moveStart, 0, '▸ Move', ...moveLines);
