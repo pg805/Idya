@@ -1,7 +1,6 @@
 Name: Melbear
 Health: 300
 Level: 4
-AI: smart
 Telegraph:
   hostile:
     closing: "Charging, frothing at the mouth"

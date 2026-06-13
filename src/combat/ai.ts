@@ -47,9 +47,9 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   const meta = session.meta.get(ai.id);
   if (!meta) return pass(ai.id);
 
-  // Smart units decide per-turn with the utility planner; everyone else walks
-  // their fixed Pattern (legacy path, still used by the simpler enemies).
-  if (meta.smartAI) return choosePlan(ai, session);
+  // The utility planner is the standard AI for every enemy; only scripted units
+  // (the tutorial bird) walk a fixed Pattern so their lesson plays in order.
+  if (!meta.scripted) return choosePlan(ai, session);
 
   if (meta.pattern.length === 0) return pass(ai.id);
 

@@ -1,7 +1,6 @@
 Name: Child of Sidaev
 Health: 150
 Level: 5
-AI: smart
 Telegraph:
   hostile:
     closing: "Drifting nearer, the air around it warping"

@@ -1,7 +1,6 @@
 Name: Golnosar
 Health: 150
 Level: 3
-AI: smart
 Telegraph:
   hostile:
     closing: "Oozing toward you"

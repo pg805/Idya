@@ -1,7 +1,6 @@
 Name: Sulgovenath
 Health: 500
 Level: 6
-AI: smart
 Telegraph:
   hostile:
     closing: "Striding in, greatblade dragging a furrow through the earth"

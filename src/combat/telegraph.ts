@@ -28,7 +28,7 @@ export function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Co
 
   let dir: 'closing' | 'holding' | 'fleeing';
   let action: Action;
-  if (meta.smartAI) {
+  if (!meta.scripted) {
     // The plan the planner will actually pick (deterministic → matches what fires).
     const intent = choosePlan(ai, session);
     if (intent.action.type === 'pass') return '';

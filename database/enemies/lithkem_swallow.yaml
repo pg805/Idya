@@ -1,7 +1,6 @@
 Name: Lithkem Swallow
 Health: 20
 Level: 0
-AI: smart
 Loot:
   Items:
     - id: swallow_feather

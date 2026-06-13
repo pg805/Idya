@@ -69,7 +69,7 @@ export interface CombatantMeta {
   state: CombatantState;
   pattern: PatternEntry[];
   patternIndex: number;
-  smartAI?: boolean;   // true → per-turn utility planner (choosePlan) instead of the pattern walk
+  scripted?: boolean;  // true → walk the fixed Pattern (tutorial only); default is the utility planner (choosePlan)
   // Per-enemy body-language telegraph phrases, keyed by disposition then movement
   // intent. Any missing key falls back to a generic mood.
   telegraph?: {

@@ -19,7 +19,6 @@ type EnemyData = {
   Weapon: Record<string, unknown>;
   Resistances?: Record<string, number>;
   Loot?: EnemyLootData;
-  AI?: string;   // 'smart' → use the utility planner instead of the Pattern
   // body-language phrases, keyed by disposition (hostile/defensive) then movement intent
   Telegraph?: {
     hostile?:   { closing?: string; holding?: string; fleeing?: string };
@@ -131,6 +130,9 @@ export function loadEnemy(file: string, options: {
   // out in the order the YAML lays them out. Real hunts randomize so two of
   // the same enemy don't telegraph identical actions.
   randomizePatternStart?: boolean;
+  // Scripted units (the tutorial bird) walk their fixed Pattern; everyone else
+  // (the default) decides per-turn with the utility planner.
+  scripted?: boolean;
 }): { combatant: Combatant; meta: CombatantMeta; lootTable: LootTable } {
   const data = yaml.load(fs.readFileSync(file, 'utf-8')) as EnemyData;
 
@@ -179,7 +181,7 @@ export function loadEnemy(file: string, options: {
     state,
     pattern: pattern.field,
     patternIndex: startIndex,
-    smartAI: data.AI === 'smart',
+    scripted: options.scripted ?? false,
     telegraph: data.Telegraph,
   };
 

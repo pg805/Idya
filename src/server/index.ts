@@ -479,6 +479,9 @@ function createSession(
       // Tutorial enemies always start at pattern index 0 so the lesson
       // plays in the intended order (Fendalok's asides time off it).
       randomizePatternStart: !isTutorial,
+      // Only the tutorial bird is scripted (walks its Pattern); every real hunt
+      // enemy uses the utility planner.
+      scripted: isTutorial,
     });
     if (suffix !== null) {
       loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
