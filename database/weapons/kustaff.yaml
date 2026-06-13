@@ -17,7 +17,7 @@ Defend:
     Value: 15
     Rounds: 3
     Cost: -1  # restores 1 connection
-    Action_String: "Thorns grow around <User>, reflecting 15 damage for 3 rounds."
+    Action_String: "Thorns grow around <User>, ready to lash back at attackers."
   - Name: Vines
     Type: 8
     Type_Name: Shield
@@ -26,7 +26,7 @@ Defend:
     Value: 15
     Rounds: 3
     Cost: -2  # restores 2 connection
-    Action_String: "Vines grow around <User>, shielding 15 damage for 3 rounds."
+    Action_String: "Vines grow around <User>, shielding them."
 
 Defend Crit:
   - Name: Connect
@@ -36,7 +36,7 @@ Defend Crit:
     Damage_Subtype: Nature
     Value: 0
     Cost: -1
-    Action_String: "<User> draws on the bond, recovering 1 Connection."
+    Action_String: "<User> draws on the bond, recovering their Connection."
 
 Attack:
   - Name: Lash
@@ -48,7 +48,7 @@ Attack:
     Cost: 0
     Aimed: false
     Range: 1
-    Action_String: "<User> lashes at <Target> with the vine-wrapped staff, dealing <Damage> damage."
+    Action_String: "<User> lashes at <Target> with the vine-wrapped staff."
 
 Attack Crit:
   - Name: Regrow
@@ -57,7 +57,7 @@ Attack Crit:
     Damage_Type: Elemental
     Damage_Subtype: Plant
     Value: 8
-    Action_String: "The power of nature restores <User>, healing 8 damage."
+    Action_String: "The power of nature restores <User>, mending their wounds."
 
 Special:
   - Name: Brambles
@@ -70,7 +70,7 @@ Special:
     Aimed: true
     Range: 3
     Cost: 3
-    Action_String: "<User> erupts a 3x3 thicket of thorns — anything that moves into it is torn for 10."
+    Action_String: "<User> erupts a thicket of thorns — anything that moves into it is torn."
 
 Special Crit:
   - Name: Poison Oak
@@ -82,4 +82,4 @@ Special Crit:
     Rounds: 2
     Cost: 0
     Range: 2
-    Action_String: "<User>'s thicket erupts with poison oak — <Target> takes <Damage> a round."
+    Action_String: "<User>'s thicket erupts with poison oak — <Target> festers."

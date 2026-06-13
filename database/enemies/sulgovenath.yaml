@@ -67,7 +67,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 70
       Cost: 2
-      Action_String: "<User> braces the greatblade across its trunk, blocking <Damage> damage."
+      Action_String: "<User> braces the greatblade across its trunk, blocking."
     - Name: Regrow Limb
       Type: 6
       Type_Name: Heal
@@ -75,7 +75,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 95
       Cost: 4
-      Action_String: "<User> floods torn bark with sap, healing 95 damage."
+      Action_String: "<User> floods torn bark with sap, mending its wounds."
 
   Defend Crit:
     - Name: Riposte
@@ -86,7 +86,7 @@ Weapon:
       Field: [40, 55, 70]
       Cost: 0
       Range: 1
-      Action_String: "<User> turns the parry into a sweeping riposte for <Damage> damage."
+      Action_String: "<User> turns the parry into a sweeping riposte."
 
   Attack:
     - Name: Slash
@@ -98,7 +98,7 @@ Weapon:
       Cost: 2
       Aimed: false
       Range: 1
-      Action_String: "<User> hews the greatblade through <Target> for <Damage> damage."
+      Action_String: "<User> hews the greatblade through <Target>."
 
   Attack Crit:
     - Name: Expose
@@ -109,7 +109,7 @@ Weapon:
       Field: [50, 70, 90, 100, 110]
       Cost: 0
       Range: 1
-      Action_String: "<User> drives the blade through an opened guard for <Damage> damage."
+      Action_String: "<User> drives the blade through an opened guard."
 
   Special:
     - Name: Thrust
@@ -121,7 +121,7 @@ Weapon:
       Cost: 1
       Aimed: true
       Range: 2
-      Action_String: "<User> uncoils a rooted limb and lunges at <Target> for <Damage> damage."
+      Action_String: "<User> uncoils a rooted limb and lunges at <Target>."
     - Name: Ingrain
       Type: 2
       Type_Name: Block
@@ -129,7 +129,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 0
       Cost: -8
-      Action_String: "<User> sinks its roots into the earth, restoring 8 Sap."
+      Action_String: "<User> sinks its roots into the earth, restoring its Sap."
 
   Special Crit:
     - Name: Poison Ivy
@@ -141,4 +141,4 @@ Weapon:
       Rounds: 3
       Cost: 0
       Range: 1
-      Action_String: "<User> lashes <Target> with poison ivy — <Damage> a round for 3 rounds."
+      Action_String: "<User> lashes <Target> with poison ivy, leaving it bleeding."

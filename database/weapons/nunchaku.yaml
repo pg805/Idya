@@ -17,7 +17,7 @@ Defend:
     Value: 20
     Rounds: 2
     Cost: 1
-    Action_String: "<User> whirls the chain into a blurring guard, shielding 20 for 2 turns."
+    Action_String: "<User> whirls the chain into a blurring guard."
 
 Defend Crit:
   - Name: Snapback
@@ -28,7 +28,7 @@ Defend Crit:
     Field: [20, 25, 25, 29, 29, 33, 37]
     Cost: 0
     Range: 1
-    Action_String: "<User>'s guard snaps the chain back into <Target> for <Damage> damage."
+    Action_String: "<User>'s guard snaps the chain back into <Target>."
 
 Attack:
   - Name: Cascade
@@ -40,7 +40,7 @@ Attack:
     Cost: 1
     Range: 1
     Aimed: false
-    Action_String: "<User> unleashes a cascade of blows on <Target> for <Damage> damage."
+    Action_String: "<User> unleashes a cascade of blows on <Target>."
   - Name: Riptide
     Type: 1
     Type_Name: Strike
@@ -52,7 +52,7 @@ Attack:
     Area: 3
     Aimed: true
     MoveTo: true
-    Action_String: "<User> rides the current to a new square and bursts outward for <Damage> damage."
+    Action_String: "<User> rides the current to a new square and bursts outward."
 
 Attack Crit:
   - Name: Breaker
@@ -64,7 +64,7 @@ Attack Crit:
     Push: 1
     Cost: 0
     Range: 1
-    Action_String: "<User> breaks over <Target> like a wave for <Damage> damage, driving them back."
+    Action_String: "<User> breaks over <Target> like a wave, driving them back."
 
 Special:
   - Name: Wellspring
@@ -85,7 +85,7 @@ Special:
     Cost: 3
     Range: 2
     Aimed: true
-    Action_String: "<User> drags <Target> under for <Damage> damage a turn."
+    Action_String: "<User> drags <Target> under, the undertow pulling."
 
 Special Crit:
   - Name: Wane
@@ -97,4 +97,4 @@ Special Crit:
     Rounds: 4
     Cost: -2
     Range: 2
-    Action_String: "<User> leaves <Target> waning, weakened for 4 turns; the ebb pulls Flow back."
+    Action_String: "<User> leaves <Target> waning, weakened; the ebb pulls Flow back."

@@ -45,7 +45,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 11
       Cost: 4
-      Action_String: "<User> regrows a limb, healing 11 damage."
+      Action_String: "<User> regrows a limb, mending itself."
     - Name: Shield Arm
       Type: 2
       Type_Name: Block
@@ -53,7 +53,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 7
       Cost: 3
-      Action_String: "<User> raises a shield arm, blocking <Damage> damage."
+      Action_String: "<User> raises a shield arm, blocking."
 
   Defend Crit:
     - Name: Hardwood
@@ -63,7 +63,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 3
       Cost: 0
-      Action_String: "<User> hardens its bark, blocking 3 more."
+      Action_String: "<User> hardens its bark, bracing again."
 
   Attack:
     - Name: Scratch
@@ -75,7 +75,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> scratches <Target> for <Damage> damage."
+      Action_String: "<User> scratches <Target>."
 
   Attack Crit:
     - Name: Claws Sunk In
@@ -85,7 +85,7 @@ Weapon:
       Damage_Subtype: Sharp
       Field: [4, 5, 7]
       Range: 1
-      Action_String: "<User>'s claws sink into <Target> for <Damage> damage."
+      Action_String: "<User>'s claws sink into <Target>."
 
   Special:
     - Name: Camouflage
@@ -96,7 +96,7 @@ Weapon:
       Value: 4
       Rounds: 3
       Cost: 4
-      Action_String: "<User> blends into the surroundings, shielding 4 damage for 3 rounds."
+      Action_String: "<User> blends into the surroundings, raising a shield."
     - Name: Ingrain
       Type: 2
       Type_Name: Block
@@ -104,7 +104,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 0
       Cost: -8
-      Action_String: "<User> ingrains into the earth, restoring 8 Nutrients."
+      Action_String: "<User> ingrains into the earth, restoring its Nutrients."
 
   Special Crit:
     - Name: Poison Ivy
@@ -116,4 +116,4 @@ Weapon:
       Rounds: 3
       Cost: 0
       Range: 1
-      Action_String: "<User> lashes <Target> with poison ivy — bleeding for <Damage> a round."
+      Action_String: "<User> lashes <Target> with poison ivy, leaving it bleeding."

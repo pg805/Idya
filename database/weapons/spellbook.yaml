@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 8
     Cost: -4
-    Action_String: "<User> turns to the next chapter, blocking <Damage> damage and restoring 4 Pages."
+    Action_String: "<User> turns to the next chapter, blocking and restoring their Pages."
 
   - Name: Bookmark
     Type: 10
@@ -28,7 +28,7 @@ Defend:
     Aimed: true
     Range: 2
     Cost: 3
-    Action_String: "<User> marks the page — a 3x3 ward where their spells strike for +10."
+    Action_String: "<User> marks the page — a ward where their spells strike harder."
 
 Defend Crit:
   - Name: Dogear
@@ -38,7 +38,7 @@ Defend Crit:
     Damage_Subtype: Blunt
     Value: 5
     Cost: 0
-    Action_String: "<User> dogears the page, bracing to block 5 more."
+    Action_String: "<User> dogears the page, bracing to block again."
 
 Attack:
   - Name: Plot Point
@@ -50,7 +50,7 @@ Attack:
     Cost: 1
     Aimed: true
     Range: 2
-    Action_String: "<User> drives a plot point into <Target> for <Damage> damage."
+    Action_String: "<User> drives a plot point into <Target>."
 
 Attack Crit:
   - Name: Denouement
@@ -59,7 +59,7 @@ Attack Crit:
     Damage_Type: Arcane
     Damage_Subtype: Sharp
     Field: [5, 6, 7, 8, 9]
-    Action_String: "<User>'s denouement lands on <Target> for <Damage> damage."
+    Action_String: "<User>'s denouement lands on <Target>."
 
 Special:
   - Name: Climax
@@ -71,7 +71,7 @@ Special:
     Cost: 3
     Aimed: true
     Range: 3
-    Action_String: "<User> builds to a climax, striking <Target> for <Damage> damage."
+    Action_String: "<User> builds to a climax, striking <Target>."
 
 Special Crit:
   - Name: Falling Action
@@ -82,4 +82,4 @@ Special Crit:
     Field: [6, 7]
     Rounds: 2
     Cost: 0
-    Action_String: "<User>'s falling action lingers — <Target> takes <Damage> a round."
+    Action_String: "<User>'s falling action lingers — <Target> suffers."

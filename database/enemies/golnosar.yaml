@@ -62,7 +62,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 10
       Cost: -10
-      Action_String: "<User> drinks deeply from its own tar pool, blocking 10 damage and restoring 10 Tar."
+      Action_String: "<User> drinks deeply from its own tar pool, blocking and restoring its Tar."
 
   Defend Crit:
     - Name: Tar Source
@@ -73,7 +73,7 @@ Weapon:
       Value: 5
       Area: 1
       Cost: 0
-      Action_String: "<User> wells up a tar source — whoever holds the square strikes for +5."
+      Action_String: "<User> wells up a tar source — whoever holds the square strikes harder."
 
   Attack:
     - Name: Tar Shot
@@ -85,7 +85,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> spits a thick wad of tar at <Target> for <Damage> damage."
+      Action_String: "<User> spits a thick wad of tar at <Target>."
 
   Attack Crit:
     - Name: Blind
@@ -96,7 +96,7 @@ Weapon:
       Value: 14
       Rounds: 3
       Range: 2
-      Action_String: "<User> blinds <Target> with a faceful of tar, debuffing their attack by 14 for 3 rounds."
+      Action_String: "<User> blinds <Target> with a faceful of tar."
 
   Special:
     - Name: Fistar
@@ -109,7 +109,7 @@ Weapon:
       Cost: 4
       Aimed: true
       Range: 4
-      Action_String: "<User> ignites a fistar above <Target>, burning for <Damage> damage per round for 5 rounds."
+      Action_String: "<User> ignites a fistar above <Target>, setting them ablaze."
 
     - Name: Tar Pit
       Type: 13
@@ -121,7 +121,7 @@ Weapon:
       Aimed: true
       Range: 3
       Cost: 3
-      Action_String: "<User> floods a 3x3 area with sticky tar — slogging through it is slow going."
+      Action_String: "<User> floods a wide area with sticky tar — slogging through it is slow going."
 
   Special Crit:
     - Name: Tar Suck
@@ -131,4 +131,4 @@ Weapon:
       Damage_Subtype: Plant
       Value: 8
       Cost: 0
-      Action_String: "<User> draws the spent tar back into itself, healing 8."
+      Action_String: "<User> draws the spent tar back into itself, mending."

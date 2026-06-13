@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Dark
     Value: 0
     Cost: -10
-    Action_String: "<User> calls on Nokorna's aid, gathering 10 Noko."
+    Action_String: "<User> calls on Nokorna's aid, gathering Noko."
   - Name: Spin Block
     Type: 2
     Type_Name: Block
@@ -24,7 +24,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 40
     Cost: 2
-    Action_String: "<User> spins the haft into a guard, blocking 40 damage."
+    Action_String: "<User> spins the haft into a guard."
 
 Defend Crit:
   - Name: Scratch
@@ -35,7 +35,7 @@ Defend Crit:
     Field: [20, 22, 24, 27, 29, 31]
     Cost: 0
     Range: 1
-    Action_String: "<User> rakes the blade across <Target> for <Damage> damage."
+    Action_String: "<User> rakes the blade across <Target>."
 
 Attack:
   - Name: Harvest
@@ -49,7 +49,7 @@ Attack:
     Area: 2
     Smash: true
     Aimed: false
-    Action_String: "<User> sweeps the scythe in a wide arc for <Damage> damage, cutting down the cover around it."
+    Action_String: "<User> sweeps the scythe in a wide arc, cutting down the cover around it."
 
 Attack Crit:
   - Name: Reap
@@ -59,7 +59,7 @@ Attack Crit:
     Damage_Subtype: Mental
     Value: 30
     Cost: 0
-    Action_String: "<User> reaps life from the cut, healing 30 damage."
+    Action_String: "<User> reaps life from the cut, mending its wounds."
 
 Special:
   - Name: "Nokorna's Chosen"
@@ -71,7 +71,7 @@ Special:
     Cost: 5
     Range: 1
     Aimed: true
-    Action_String: "<User> calls on Nokorna and brings the blade down on <Target> for <Damage> damage."
+    Action_String: "<User> calls on Nokorna and brings the blade down on <Target>."
 
 Special Crit:
   - Name: "Vidali's Blessing"
@@ -82,4 +82,4 @@ Special Crit:
     Value: 10
     Rounds: 3
     Cost: 0
-    Action_String: "<User> is wrapped in Vidali's light, shielding 10 for 3 turns."
+    Action_String: "<User> is wrapped in Vidali's light."

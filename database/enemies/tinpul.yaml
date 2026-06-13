@@ -42,7 +42,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 4
       Cost: -7
-      Action_String: "<User> drinks from its own body, blocking <Damage> damage and restoring 7 Tin."
+      Action_String: "<User> drinks from its own body, blocking and restoring its Tin."
 
   Defend Crit:
     - Name: Copper Aid
@@ -52,7 +52,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 2
       Cost: 0
-      Action_String: "<User> patches itself with copper, healing 2."
+      Action_String: "<User> patches itself with copper, mending a little."
 
   Attack:
     - Name: Pea Shot
@@ -64,7 +64,7 @@ Weapon:
       Cost: 2
       Aimed: false
       Range: 6
-      Action_String: "<User> spits a pea of tin at <Target> for <Damage> damage."
+      Action_String: "<User> spits a pea of tin at <Target>."
     - Name: Tin Punch
       Type: 1
       Type_Name: Strike
@@ -74,7 +74,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> punches <Target> with a tin fist for <Damage> damage."
+      Action_String: "<User> punches <Target> with a tin fist."
 
   Attack Crit:
     - Name: Tin Coating
@@ -95,7 +95,7 @@ Weapon:
       Value: 8
       Rounds: 2
       Cost: 4
-      Action_String: "<User> hardens its tin shell, shielding 8 damage for 2 rounds."
+      Action_String: "<User> hardens its tin shell, raising a shield."
 
   Special Crit:
     - Name: Copper Spike
@@ -106,4 +106,4 @@ Weapon:
       Value: 2
       Rounds: 2
       Cost: 0
-      Action_String: "<User> bristles with copper spikes, reflecting 2 for 2 rounds."
+      Action_String: "<User> bristles with copper spikes, ready to throw blows back."

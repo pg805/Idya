@@ -46,7 +46,7 @@ Weapon:
       Damage_Subtype: Water
       Value: 0
       Cost: -3
-      Action_String: "<User> swallows deeply, restoring 3 Water."
+      Action_String: "<User> swallows deeply, restoring its Water."
     - Name: Fly
       Type: 2
       Type_Name: Block
@@ -54,7 +54,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 4
       Cost: 1
-      Action_String: "<User> takes to the air, blocking <Damage> damage."
+      Action_String: "<User> takes to the air, gaining height."
 
   Defend Crit:
     - Name: Sky High
@@ -64,7 +64,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 3
       Cost: 0
-      Action_String: "<User> beats its wings and rises, blocking 3 more."
+      Action_String: "<User> beats its wings and rises higher."
 
   Attack:
     - Name: Spit
@@ -76,7 +76,7 @@ Weapon:
       Cost: 1
       Aimed: true
       Range: 2
-      Action_String: "<User> spits a jet of water at <Target> for <Damage> damage."
+      Action_String: "<User> spits a jet of water at <Target>."
     - Name: Peck
       Type: 1
       Type_Name: Strike
@@ -86,7 +86,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> pecks at <Target> for <Damage> damage."
+      Action_String: "<User> pecks at <Target>."
 
   Attack Crit:
     - Name: Splash
@@ -96,7 +96,7 @@ Weapon:
       Damage_Subtype: Water
       Field: [1, 2]
       Range: 2
-      Action_String: "<User> splashes <Target> for <Damage> damage."
+      Action_String: "<User> splashes <Target>."
 
   Special:
     - Name: Drench
@@ -109,7 +109,7 @@ Weapon:
       Cost: 2
       Aimed: true
       Range: 2
-      Action_String: "<User> drenches <Target>, debuffing their attack by 8 for 2 rounds."
+      Action_String: "<User> drenches <Target>, fouling their footing."
 
   Special Crit:
     - Name: Soak
@@ -120,4 +120,4 @@ Weapon:
       Field: [2, 3]
       Cost: 0
       Range: 2
-      Action_String: "<User> soaks <Target> for <Damage> damage."
+      Action_String: "<User> soaks <Target>."

@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 2
     Cost: -6
-    Action_String: "<User> picks up their branch, bracing for 2 damage."
+    Action_String: "<User> picks up their branch, bracing for the blow."
 
 Defend Crit:
   - Name: Blessing of Nature
@@ -26,7 +26,7 @@ Defend Crit:
     Damage_Subtype: Nature
     Value: 2
     Cost: 0
-    Action_String: "<User> draws on nature's blessing, healing 2."
+    Action_String: "<User> draws on nature's blessing, mending a little."
 
 Attack:
   - Name: Swing
@@ -38,7 +38,7 @@ Attack:
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> swings at <Target> for <Damage> damage."
+    Action_String: "<User> swings at <Target>."
 
 Attack Crit:
   - Name: Leaf Swipe
@@ -48,7 +48,7 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [1, 2]
     Cost: 0
-    Action_String: "<User> catches <Target> with a leaf swipe for <Damage> damage."
+    Action_String: "<User> catches <Target> with a leaf swipe."
 
 Special:
   - Name: Two Handed Swing
@@ -60,7 +60,7 @@ Special:
     Cost: 3
     Aimed: true
     Range: 1
-    Action_String: "<User> grips with both hands and drives the branch into <Target> for <Damage> damage."
+    Action_String: "<User> grips with both hands and drives the branch into <Target>."
 
 Special Crit:
   - Name: Wrath of Nature
@@ -71,4 +71,4 @@ Special Crit:
     Field: [3, 4]
     Cost: 0
     Range: 1
-    Action_String: "<User> calls down nature's wrath on <Target> for <Damage> damage."
+    Action_String: "<User> calls down nature's wrath on <Target>."

@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 10
     Cost: -4
-    Action_String: "<User> winds their mace in a wide arc, blocking <Damage> damage and restoring momentum."
+    Action_String: "<User> winds their mace in a wide arc, blocking and restoring momentum."
 
   - Name: Menace
     Type: 5
@@ -28,7 +28,7 @@ Defend:
     Cost: -2
     Aimed: true
     Range: 2
-    Action_String: "<User> looms with menace, debuffing <Target>'s attack by 5 for 3 rounds and restoring 2 momentum."
+    Action_String: "<User> looms with menace, cowing <Target> and restoring momentum."
 
 Defend Crit:
   - Name: Can't Touch This
@@ -38,7 +38,7 @@ Defend Crit:
     Damage_Subtype: Blunt
     Value: 7
     Cost: 0
-    Action_String: "<User> keeps the mace spinning — can't touch this — blocking 7 more."
+    Action_String: "<User> keeps the mace spinning — can't touch this."
 
 Attack:
   - Name: Slam
@@ -51,7 +51,7 @@ Attack:
     Aimed: true
     Range: 1
     Area: 2
-    Action_String: "<User> heaves their mace into <Target> and the ground around them, dealing <Damage> damage."
+    Action_String: "<User> heaves their mace into <Target> and the ground around them."
 
 Attack Crit:
   - Name: Heavyweight
@@ -61,7 +61,7 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [4, 4, 5, 20, 20, 24]
     Cost: 0
-    Action_String: "<User> follows through with the full weight of the mace, striking <Target> for <Damage> damage."
+    Action_String: "<User> follows through with the full weight of the mace, striking <Target>."
 
 Special:
   - Name: Skull Crush
@@ -73,7 +73,7 @@ Special:
     Cost: 3
     Aimed: false
     Range: 1
-    Action_String: "<User> drives the mace down onto <Target> for <Damage> damage."
+    Action_String: "<User> drives the mace down onto <Target>."
 
 Special Crit:
   - Name: One More
@@ -83,4 +83,4 @@ Special Crit:
     Damage_Subtype: Blunt
     Field: [7, 7, 8, 14, 14, 15]
     Cost: 0
-    Action_String: "<User> winds up one more and drives it home for <Damage> damage."
+    Action_String: "<User> winds up one more and drives it home."

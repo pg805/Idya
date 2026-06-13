@@ -57,7 +57,7 @@ Weapon:
       Damage_Subtype: Mental
       Value: 0
       Cost: -5
-      Action_String: "<User> draws on the arcane, restoring 5 Golsidaev."
+      Action_String: "<User> draws on the arcane, restoring its Golsidaev."
 
   Defend Crit:
     - Name: Sidaev burst
@@ -68,7 +68,7 @@ Weapon:
       Field: [20, 24, 27, 31, 38, 45, 48]
       Cost: -3
       Range: 2
-      Action_String: "<User> bursts with Sidaev energy, lashing <Target> for <Damage> and drawing 3 Golsidaev."
+      Action_String: "<User> bursts with Sidaev energy, lashing <Target> and drawing Golsidaev."
 
   Attack:
     - Name: SIFIS
@@ -82,7 +82,7 @@ Weapon:
       Area: 3
       Push: 1
       Aimed: true
-      Action_String: "<User> hurls a lance of arcane fire at <Target> for <Damage> damage, hurling it back."
+      Action_String: "<User> hurls a lance of arcane fire at <Target>, hurling it back."
     - Name: SINOS
       Type: 1
       Type_Name: Strike
@@ -92,7 +92,7 @@ Weapon:
       Cost: 3
       Range: 3
       Aimed: false
-      Action_String: "<User> looses a wave of arcane dark over <Target> for <Damage> damage."
+      Action_String: "<User> looses a wave of arcane dark over <Target>."
 
   Attack Crit:
     - Name: Time warp
@@ -115,7 +115,7 @@ Weapon:
       Range: 5
       Cost: 1
       Aimed: false
-      Action_String: "<User> floods <Target>'s mind with panic, weakening its blows by 35 for 5 turns."
+      Action_String: "<User> floods <Target>'s mind with panic, weakening its blows."
     - Name: Focus Sidaev
       Type: 1
       Type_Name: Strike
@@ -126,7 +126,7 @@ Weapon:
       Area: 4
       Range: 3
       Aimed: true
-      Action_String: "<User> focuses the light of Sidaev into a searing beam at <Target> for <Damage> damage."
+      Action_String: "<User> focuses the light of Sidaev into a searing beam at <Target>."
 
   Special Crit:
     - Name: Call Dae

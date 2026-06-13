@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 14
     Cost: -2  # restores 2 stamina
-    Action_String: "<User> enters a defensive pose, preparing to block 14 damage."
+    Action_String: "<User> enters a defensive pose, preparing to block."
 
 Defend Crit:
   - Name: Soil
@@ -28,7 +28,7 @@ Defend Crit:
     Rounds: 2
     Cost: 0
     Range: 1
-    Action_String: "<User> flings soil in <Target>'s face, debuffing their attack by 5 for 2 rounds."
+    Action_String: "<User> flings soil in <Target>'s face, blinding them."
 
 Attack:
   - Name: Whack
@@ -40,7 +40,7 @@ Attack:
     Cost: -2  # restores 2 stamina
     Aimed: false
     Range: 1
-    Action_String: "<User> quickly strikes <Target> with their shovel, dealing <Damage> damage."
+    Action_String: "<User> quickly strikes <Target> with their shovel."
   - Name: Proc
     Type: 1
     Type_Name: Strike
@@ -50,7 +50,7 @@ Attack:
     Cost: 3  # costs 3 stamina
     Aimed: true
     Range: 1
-    Action_String: "<User> winds up and slams <Target> with their shovel, dealing <Damage> damage."
+    Action_String: "<User> winds up and slams <Target> with their shovel."
 
 Attack Crit:
   - Name: Block
@@ -59,7 +59,7 @@ Attack Crit:
     Damage_Type: Physical
     Damage_Subtype: Blunt
     Value: 14
-    Action_String: "<User> recovers to a defensive position, preparing to block 14 damage."
+    Action_String: "<User> recovers to a defensive position, preparing to block."
 
 Special:
   - Name: Dig Trap
@@ -72,7 +72,7 @@ Special:
     Aimed: true
     Range: 2
     Cost: 3  # costs 3 stamina
-    Action_String: "<User> digs a 2x2 of pits — anything that steps in takes 15 damage."
+    Action_String: "<User> digs a cluster of pits — anything that steps in is hurt."
 
 Special Crit:
   - Name: Moat
@@ -83,4 +83,4 @@ Special Crit:
     Value: 5
     Rounds: 3
     Cost: 0
-    Action_String: "<User> banks a moat of earth, shielding 5 damage for 3 rounds."
+    Action_String: "<User> banks a moat of earth, raising a shield."

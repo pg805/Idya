@@ -17,7 +17,7 @@ Defend:
     Value: 20
     Rounds: 2
     Cost: 0
-    Action_String: "<User> raises their wand and conjures a shimmering ward, shielding against 20 damage for 2 rounds."
+    Action_String: "<User> raises their wand and conjures a shimmering ward."
 
 Defend Crit:
   - Name: Obstructo
@@ -27,7 +27,7 @@ Defend Crit:
     Damage_Subtype: Blunt
     Value: 10
     Cost: 0
-    Action_String: "<User> conjures a quick obstruction, blocking 10 more."
+    Action_String: "<User> conjures a quick obstruction."
 
 Attack:
   - Name: Fire Bolt
@@ -40,7 +40,7 @@ Attack:
     Aimed: false
     Range: 2
     Push: 1
-    Action_String: "<User> launches a bolt of flame at <Target>, dealing <Damage> damage and knocking them back a step."
+    Action_String: "<User> launches a bolt of flame at <Target>, knocking them back a step."
 
   - Name: Water Bolt
     Type: 1
@@ -52,7 +52,7 @@ Attack:
     Aimed: false
     Range: 2
     Push: 1
-    Action_String: "<User> hurls a surge of water at <Target>, dealing <Damage> damage and knocking them back a step."
+    Action_String: "<User> hurls a surge of water at <Target>, knocking them back a step."
 
   - Name: Earth Bolt
     Type: 1
@@ -64,7 +64,7 @@ Attack:
     Aimed: false
     Range: 2
     Push: 1
-    Action_String: "<User> flings a shard of stone at <Target>, dealing <Damage> damage and knocking them back a step."
+    Action_String: "<User> flings a shard of stone at <Target>, knocking them back a step."
 
   - Name: Wind Bolt
     Type: 1
@@ -76,7 +76,7 @@ Attack:
     Aimed: false
     Range: 2
     Push: 1
-    Action_String: "<User> sends a blade of wind cutting into <Target>, dealing <Damage> damage and knocking them back a step."
+    Action_String: "<User> sends a blade of wind cutting into <Target>, knocking them back a step."
 
 Attack Crit:
   - Name: Elemental Spray
@@ -86,7 +86,7 @@ Attack Crit:
     Damage_Subtype: Blunt
     Field: [19, 30, 41]
     Cost: 0
-    Action_String: "<User>'s elements converge in a burst, striking <Target> for <Damage> damage."
+    Action_String: "<User>'s elements converge in a burst, striking <Target>."
 
 Special:
   - Name: Fill Self
@@ -107,7 +107,7 @@ Special:
     Cost: 7
     Aimed: true
     Range: 4
-    Action_String: "<User> pours every ounce of Sidaev into a single devastating blast at <Target>, dealing <Damage> damage."
+    Action_String: "<User> pours every ounce of Sidaev into a single devastating blast at <Target>."
 
 Special Crit:
   - Name: Elemental Spark
@@ -118,4 +118,4 @@ Special Crit:
     Field: [8, 14, 20]
     Cost: 0
     Range: 4
-    Action_String: "<User>'s blast throws off an elemental spark, striking <Target> for <Damage> damage."
+    Action_String: "<User>'s blast throws off an elemental spark, striking <Target>."

@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Mental
     Value: 12
     Cost: 0
-    Action_String: "<User> sidesteps the incoming strike, deflecting 12 damage."
+    Action_String: "<User> sidesteps the incoming strike, deflecting it."
 
   - Name: Hidden Blade
     Type: 2
@@ -37,7 +37,7 @@ Defend:
     Cost: 1
     Range: 2
     Aimed: false
-    Action_String: "<User> slashes at <Target>'s legs — their movement is cut to 1 for 4 rounds."
+    Action_String: "<User> slashes at <Target>'s legs, hobbling them."
 
 Defend Crit:
   - Name: Dodge Feint
@@ -48,7 +48,7 @@ Defend Crit:
     Field: [4, 6, 7, 8]
     Cost: 0
     Range: 1
-    Action_String: "<User> feints the dodge and slips the blade back in for <Damage> damage."
+    Action_String: "<User> feints the dodge and slips the blade back in."
 
 Attack:
   - Name: Swipe
@@ -60,7 +60,7 @@ Attack:
     Cost: 1
     Aimed: false
     Range: 1
-    Action_String: "<User> swipes at <Target>, dealing <Damage> damage."
+    Action_String: "<User> swipes at <Target>."
 
   - Name: Throw Blade
     Type: 1
@@ -71,7 +71,7 @@ Attack:
     Cost: 3
     Aimed: false
     Range: 3
-    Action_String: "<User> hurls a blade at <Target>, dealing <Damage> damage."
+    Action_String: "<User> hurls a blade at <Target>."
 
 Attack Crit:
   - Name: Second Dagger
@@ -81,7 +81,7 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [12, 24, 24, 28, 28, 30]
     Cost: 0
-    Action_String: "<User> launches a second dagger at <Target> for <Damage> damage."
+    Action_String: "<User> launches a second dagger at <Target>."
 
 Special:
   - Name: Stiletto
@@ -93,7 +93,7 @@ Special:
     Cost: 2
     Aimed: true
     Range: 1
-    Action_String: "<User> drives their stiletto into <Target> for <Damage> damage."
+    Action_String: "<User> drives their stiletto into <Target>."
 
 Special Crit:
   - Name: Poison Blade
@@ -105,4 +105,4 @@ Special Crit:
     Rounds: 2
     Cost: 0
     Range: 1
-    Action_String: "<User>'s poisoned blade leaves <Target> bleeding for <Damage> a round."
+    Action_String: "<User>'s poisoned blade leaves <Target> bleeding."

@@ -20,7 +20,7 @@ Defend:
     Value: 5
     Area: 1
     Cost: 5
-    Action_String: "<User> digs a hidey hole — allies standing on it block 5 damage."
+    Action_String: "<User> digs a hidey hole — allies standing on it find cover."
   # NEW EFFECT — Buff Tile (Type 10): permanent tile on the caster's square.
   # Allies standing on it deal +Value to their attack rolls (flat, not stacking).
   - Name: Trench Warfare
@@ -31,7 +31,7 @@ Defend:
     Value: 5
     Area: 1
     Cost: 5
-    Action_String: "<User> digs a trench — allies standing on it deal +5 damage."
+    Action_String: "<User> digs a trench — allies standing on it strike harder."
   - Name: Duck
     Type: 2
     Type_Name: Block
@@ -39,7 +39,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 5
     Cost: 1
-    Action_String: "<User> ducks behind their pickaxe, blocking <Damage> damage."
+    Action_String: "<User> ducks behind their pickaxe, blocking."
 
 Defend Crit:
   - Name: Dirty Pride
@@ -50,7 +50,7 @@ Defend Crit:
     Value: 3
     Rounds: 3
     Cost: 0
-    Action_String: "<User> digs in with dirty pride, buffing their attack by 3 for 3 rounds."
+    Action_String: "<User> digs in with dirty pride, spoiling for a fight."
 
 Attack:
   - Name: Mine
@@ -62,7 +62,7 @@ Attack:
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> mines into <Target> for <Damage> damage."
+    Action_String: "<User> mines into <Target>."
 
 Attack Crit:
   - Name: Struck Gold
@@ -71,7 +71,7 @@ Attack Crit:
     Damage_Type: Physical
     Damage_Subtype: Sharp
     Field: [2, 4, 7]
-    Action_String: "<User> struck gold, slamming <Target> for <Damage> damage."
+    Action_String: "<User> struck gold, slamming <Target>."
 
 Special:
   - Name: Dirt Coating
@@ -81,7 +81,7 @@ Special:
     Damage_Subtype: Blunt
     Value: 3
     Cost: -10
-    Action_String: "<User> coats themselves in dirt, blocking <Damage> damage and restoring 10 Dirt."
+    Action_String: "<User> coats themselves in dirt, blocking and restoring their Dirt."
 
 Special Crit:
   - Name: Struck Silver
@@ -92,4 +92,4 @@ Special Crit:
     Value: 3
     Rounds: 3
     Cost: 0
-    Action_String: "<User> strikes silver, shielding 3 damage for 3 rounds."
+    Action_String: "<User> strikes silver, raising a shield."

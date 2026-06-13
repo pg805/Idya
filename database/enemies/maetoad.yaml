@@ -35,7 +35,7 @@ Weapon:
       Damage_Subtype: Mental
       Value: 0
       Cost: -6
-      Action_String: "<User> bleeds Maek, restoring 6 Maek."
+      Action_String: "<User> bleeds Maek, restoring its reserves."
 
   Defend Crit:
     - Name: Hemoglobin
@@ -45,7 +45,7 @@ Weapon:
       Damage_Subtype: Mental
       Value: 0
       Cost: -2
-      Action_String: "<User> clots the wound, recovering 2 Maek."
+      Action_String: "<User> clots the wound, recovering a little Maek."
 
   Attack:
     - Name: Tongue Lash
@@ -57,7 +57,7 @@ Weapon:
       Cost: 2
       Aimed: false
       Range: 2
-      Action_String: "<User> lashes its tongue at <Target> for <Damage> damage."
+      Action_String: "<User> lashes its tongue at <Target>."
 
   Attack Crit:
     - Name: Wound
@@ -67,7 +67,7 @@ Weapon:
       Damage_Subtype: Mental
       Field: [3, 5, 7]
       Rounds: 3
-      Action_String: "<User> opens a wound on <Target>, dealing <Damage> damage for 3 rounds."
+      Action_String: "<User> opens a wound on <Target>, leaving it bleeding."
 
   Special:
     - Name: Bloodlet
@@ -79,7 +79,7 @@ Weapon:
       Cost: -4
       Aimed: true
       Range: 1
-      Action_String: "<User> bloodlets into <Target> for <Damage> damage, restoring 4 Maek."
+      Action_String: "<User> bloodlets into <Target>, restoring its Maek."
     - Name: Maekeav
       Type: 1
       Type_Name: Strike
@@ -89,7 +89,7 @@ Weapon:
       Cost: 4
       Aimed: true
       Range: 2
-      Action_String: "<User> unleashes a surge of Maek into <Target> for <Damage> damage."
+      Action_String: "<User> unleashes a surge of Maek into <Target>."
     # NEW EFFECT — Slow Tile / 2x2 zone (Type 13, NOT YET IN ENGINE): drops a 2x2
     # of slow tiles; leaving a slow tile costs 2 movement (+1). Aimed = the 2x2
     # sprays from the targeted tile; reactive = nearest tile with an enemy on it.
@@ -105,7 +105,7 @@ Weapon:
       Aimed: true
       Range: 3
       Cost: 2
-      Action_String: "<User> floods the ground with Maek, miring a 2x2 area — leaving a mired tile costs 2 movement."
+      Action_String: "<User> floods the ground with Maek, miring the area — slogging out of it is slow."
 
   Special Crit:
     - Name: Platelets
@@ -116,4 +116,4 @@ Weapon:
       Value: 5
       Rounds: 3
       Cost: 0
-      Action_String: "<User> floods platelets, shielding 5 damage for 3 rounds."
+      Action_String: "<User> floods platelets, raising a shield."

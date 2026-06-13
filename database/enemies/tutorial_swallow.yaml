@@ -49,7 +49,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 5
       Cost: 1
-      Action_String: "<User> takes to the air, blocking <Damage> damage."
+      Action_String: "<User> takes to the air, gaining height."
 
   Defend Crit: []
 
@@ -63,7 +63,7 @@ Weapon:
       Cost: 2
       Aimed: true
       Range: 2
-      Action_String: "<User> spits a jet of water at <Target> for <Damage> damage."
+      Action_String: "<User> spits a jet of water at <Target>."
 
     - Name: Peck
       Type: 1
@@ -74,7 +74,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> pecks at <Target> for <Damage> damage."
+      Action_String: "<User> pecks at <Target>."
 
   Attack Crit:
     - Name: Splash
@@ -86,7 +86,7 @@ Weapon:
       Cost: 0
       Aimed: false
       Range: 2
-      Action_String: "<User> splashes <Target> for <Damage> damage."
+      Action_String: "<User> splashes <Target>."
 
   Special:
     - Name: Drench
@@ -99,6 +99,6 @@ Weapon:
       Cost: 3
       Aimed: true
       Range: 2
-      Action_String: "<User> drenches <Target>, debuffing their attack by 1 for 2 rounds."
+      Action_String: "<User> drenches <Target>, fouling their footing."
 
   Special Crit: []

@@ -16,7 +16,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 18
     Cost: 2
-    Action_String: "<User> deflects the incoming strike, bracing for 18 damage."
+    Action_String: "<User> deflects the incoming strike, bracing for the blow."
 
 Defend Crit:
   - Name: Riposte
@@ -27,7 +27,7 @@ Defend Crit:
     Field: [6, 7, 9]
     Cost: 0
     Range: 1
-    Action_String: "<User> turns the parry into a riposte, dealing <Damage> damage."
+    Action_String: "<User> turns the parry into a riposte."
 
 Attack:
   - Name: Slash
@@ -39,7 +39,7 @@ Attack:
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> slashes at <Target>, dealing <Damage> damage."
+    Action_String: "<User> slashes at <Target>."
 
 Attack Crit:
   - Name: Expose
@@ -49,7 +49,7 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [5, 10, 15, 15, 15, 20, 25]
     Cost: 0
-    Action_String: "<User> finds an exposed gap and drives the blade in for <Damage> damage."
+    Action_String: "<User> finds an exposed gap and drives the blade in."
 
 Special:
   - Name: Thrust
@@ -61,7 +61,7 @@ Special:
     Cost: 1
     Aimed: true
     Range: 2
-    Action_String: "<User> commits to a precise lunge at <Target>, dealing <Damage> damage."
+    Action_String: "<User> commits to a precise lunge at <Target>."
 
   - Name: Hone
     Type: 2
@@ -81,4 +81,4 @@ Special Crit:
     Field: [9, 10, 14]
     Cost: 0
     Range: 1
-    Action_String: "<User>'s blade slips clean through the guard for <Damage> damage."
+    Action_String: "<User>'s blade slips clean through the guard."

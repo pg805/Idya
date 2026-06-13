@@ -25,7 +25,7 @@ Defend:
     Damage_Subtype: Blunt
     Value: 5
     Cost: 1
-    Action_String: "<User> raises the axe head to intercept, bracing for 5 damage."
+    Action_String: "<User> raises the axe head to intercept, bracing for the blow."
 
 Defend Crit:
   - Name: Wood Crossguard
@@ -35,7 +35,7 @@ Defend Crit:
     Damage_Subtype: Blunt
     Value: 3
     Cost: 0
-    Action_String: "<User> turns the blow on the wooden crossguard, blocking 3 more."
+    Action_String: "<User> turns the blow on the wooden crossguard, catching it again."
 
 Attack:
   - Name: Chop
@@ -47,7 +47,7 @@ Attack:
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> brings the axe down hard on <Target>, dealing <Damage> damage."
+    Action_String: "<User> brings the axe down hard on <Target>."
 
 Attack Crit:
   - Name: Arterial Cut
@@ -57,7 +57,7 @@ Attack Crit:
     Damage_Subtype: Sharp
     Field: [4, 7, 10]
     Cost: 0
-    Action_String: "<User> catches <Target> across a vital point for <Damage> damage."
+    Action_String: "<User> catches <Target> across a vital point."
 
 Special:
   - Name: Heavy Swing
@@ -69,7 +69,7 @@ Special:
     Cost: 3
     Aimed: true
     Range: 1
-    Action_String: "<User> winds up and brings the full weight of the axe into <Target>, dealing <Damage> damage."
+    Action_String: "<User> winds up and brings the full weight of the axe into <Target>."
 
   # NEW EFFECT — Destroy Obstacle (Type 12): target an obstacle in range, destroy
   # it, and AOE its Field to enemies within 1 tile of it. Conditional (needs an
@@ -83,7 +83,7 @@ Special:
     Cost: 3
     Aimed: true
     Range: 1
-    Action_String: "<User> splits a nearby obstacle apart, showering everything within a tile for <Damage> damage."
+    Action_String: "<User> splits a nearby obstacle apart, showering everything nearby in splinters."
 
 Special Crit:
   - Name: Timber!
@@ -94,4 +94,4 @@ Special Crit:
     Field: [15, 16, 17]
     Cost: 0
     Range: 1
-    Action_String: "<User> drives clean through the guard — timber! — for <Damage> damage."
+    Action_String: "<User> drives clean through the guard — timber!"

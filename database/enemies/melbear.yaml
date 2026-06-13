@@ -59,7 +59,7 @@ Weapon:
       Damage_Subtype: Mental
       Value: 0
       Cost: -6
-      Action_String: "<User> hibernates, restoring 6 Solitude."
+      Action_String: "<User> hibernates, restoring its Solitude."
     - Name: Berry Snack
       Type: 6
       Type_Name: Heal
@@ -67,7 +67,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 35
       Cost: 2
-      Action_String: "<User> snacks on a berry, healing 35 damage."
+      Action_String: "<User> snacks on a berry, mending its wounds."
 
   Defend Crit:
     - Name: Honey Berry
@@ -77,7 +77,7 @@ Weapon:
       Damage_Subtype: Plant
       Value: 15
       Cost: 0
-      Action_String: "<User> digs out a honey berry, healing 15."
+      Action_String: "<User> digs out a honey berry, recovering."
 
   Attack:
     - Name: Ursa Minor
@@ -91,7 +91,7 @@ Weapon:
       Range: 1
       Area: 3
       Smash: true
-      Action_String: "<User> rears up and smashes the ground, tearing into everything around it for <Damage> and flattening the cover."
+      Action_String: "<User> rears up and smashes the ground, tearing into everything around it and flattening the cover."
 
   Attack Crit:
     - Name: Gash
@@ -101,7 +101,7 @@ Weapon:
       Damage_Subtype: Sharp
       Field: [8, 11, 14]
       Rounds: 3
-      Action_String: "<User> opens a deep gash in <Target>, dealing <Damage> damage for 3 rounds."
+      Action_String: "<User> opens a deep gash in <Target>, leaving it bleeding."
 
   Special:
     - Name: Ursa Major
@@ -113,7 +113,7 @@ Weapon:
       Cost: 3
       Aimed: true
       Range: 2
-      Action_String: "<User> calls the Ursa Major down upon <Target> for <Damage> damage."
+      Action_String: "<User> calls the Ursa Major down upon <Target>."
 
   Special Crit:
     - Name: Bear Cub Strike
@@ -124,4 +124,4 @@ Weapon:
       Field: [10, 15, 20]
       Cost: 0
       Range: 2
-      Action_String: "<User>'s cub pounces, raking <Target> for <Damage> damage."
+      Action_String: "<User>'s cub pounces, raking <Target>."

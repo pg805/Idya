@@ -35,7 +35,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 15
       Cost: -6
-      Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 6 Talam."
+      Action_String: "<User> burrows into the earth, blocking and restoring its Talam."
 
   Defend Crit:
     - Name: Wyrm Hole
@@ -46,7 +46,7 @@ Weapon:
       Value: 3
       Area: 1
       Cost: 0
-      Action_String: "<User> digs a wyrm hole — whoever holds the square blocks 3."
+      Action_String: "<User> digs a wyrm hole — whoever holds the square gains cover."
 
   Attack:
     - Name: Tail Whip
@@ -58,7 +58,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> whips its tail at <Target> for <Damage> damage."
+      Action_String: "<User> whips its tail at <Target>."
 
   Attack Crit:
     - Name: Chomp
@@ -68,7 +68,7 @@ Weapon:
       Damage_Subtype: Sharp
       Field: [3, 6, 8, 9]
       Range: 1
-      Action_String: "<User> chomps into <Target> for <Damage> damage."
+      Action_String: "<User> chomps into <Target>."
 
   Special:
     - Name: Crystalize
@@ -79,7 +79,7 @@ Weapon:
       Value: 6
       Rounds: 3
       Cost: 2
-      Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."
+      Action_String: "<User> crystallizes its scales, ready to throw blows back."
     # NEW EFFECT — Hazard Tile (Type 11): permanent tile on the caster's square;
     # opposing units that ENTER it (checked in the move phase) take Value.
     - Name: Crystal Remnants
@@ -92,7 +92,7 @@ Weapon:
       Cost: 2
       Aimed: true
       Range: 3
-      Action_String: "<User> erupts jagged crystal remnants under <Target> — foes that enter the tile take 5 damage."
+      Action_String: "<User> erupts jagged crystal remnants under <Target> — foes that enter the tile are cut."
 
   Special Crit:
     - Name: Aimed Shard
@@ -103,4 +103,4 @@ Weapon:
       Field: [3, 5, 7]
       Cost: 0
       Range: 2
-      Action_String: "<User> spits an aimed crystal shard at <Target> for <Damage> damage."
+      Action_String: "<User> spits an aimed crystal shard at <Target>."

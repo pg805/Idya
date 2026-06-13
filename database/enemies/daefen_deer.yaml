@@ -48,7 +48,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 0
       Cost: -7
-      Action_String: "<User> dips its head in a bow, restoring 7 Rein."
+      Action_String: "<User> dips its head in a bow, restoring its Rein."
 
   Defend Crit:
     - Name: Kneel
@@ -58,7 +58,7 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 7
       Cost: 0
-      Action_String: "<User> kneels behind its antlers, blocking 7 more."
+      Action_String: "<User> kneels behind its antlers, bracing again."
 
   Attack:
     - Name: Horn Crash
@@ -70,7 +70,7 @@ Weapon:
       Cost: 2
       Aimed: false
       Range: 1
-      Action_String: "<User> crashes its horns into <Target> for <Damage> damage."
+      Action_String: "<User> crashes its horns into <Target>."
 
   Attack Crit:
     - Name: Horn Burn
@@ -80,7 +80,7 @@ Weapon:
       Damage_Subtype: Fire
       Field: [5, 6, 10, 14, 14, 20, 25]
       Range: 1
-      Action_String: "<User>'s burning horns scorch <Target> for <Damage> damage."
+      Action_String: "<User>'s burning horns scorch <Target>."
 
   Special:
     - Name: Rain
@@ -94,7 +94,7 @@ Weapon:
       Cost: 3
       Aimed: true
       Range: 3
-      Action_String: "<User> calls down rain over a 3x3 area, dealing <Damage> damage for 3 rounds."
+      Action_String: "<User> calls down rain over a wide area, drenching all beneath it."
 
   Special Crit:
     - Name: Thunder
@@ -104,4 +104,4 @@ Weapon:
       Damage_Subtype: Electric
       Field: [7, 8, 10]
       Cost: 0
-      Action_String: "<User> calls thunder down on <Target> for <Damage> damage."
+      Action_String: "<User> calls thunder down on <Target>."

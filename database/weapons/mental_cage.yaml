@@ -17,7 +17,7 @@ Defend:
     Value: 11
     Rounds: 3
     Cost: 3
-    Action_String: "<User> sharpens their mind to a point, buffing their attack by 11 for 3 rounds."
+    Action_String: "<User> sharpens their mind to a point, focus building."
   - Name: Forewarn
     Type: 2
     Type_Name: Block
@@ -25,7 +25,7 @@ Defend:
     Damage_Subtype: Mental
     Value: 16
     Cost: 2
-    Action_String: "<User> sets the stone to orbit their head, preparing to block for 16 damage."
+    Action_String: "<User> sets the stone to orbit their head, preparing to block."
 
 Defend Crit:
   - Name: Calming Premonition
@@ -35,7 +35,7 @@ Defend Crit:
     Damage_Subtype: Mental
     Value: 0
     Cost: -1
-    Action_String: "<User> reads the blow a moment early, recovering 1 Tranquility."
+    Action_String: "<User> reads the blow a moment early, recovering their Tranquility."
 
 Attack:
   - Name: Mind Spike
@@ -47,7 +47,7 @@ Attack:
     Cost: 0
     Aimed: false
     Range: 1
-    Action_String: "<User> drives a spike of force into <Target>, dealing <Damage> damage."
+    Action_String: "<User> drives a spike of force into <Target>."
 
 Attack Crit:
   - Name: Mental Pressure
@@ -57,7 +57,7 @@ Attack Crit:
     Damage_Subtype: Mental
     Field: [4, 6, 8, 10]
     Rounds: 3
-    Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness. <Target> will take <Damage> damage for 3 rounds."
+    Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness, leaving their mind raw."
 
 Special:
   - Name: Eye Fixation
@@ -70,7 +70,7 @@ Special:
     Cost: 3
     Aimed: true
     Range: 4
-    Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 14 for 4 rounds."
+    Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, rattling their focus."
 
 Special Crit:
   - Name: Headache
@@ -81,4 +81,4 @@ Special Crit:
     Field: [7, 8, 9]
     Cost: 0
     Range: 2
-    Action_String: "<User> splits <Target>'s focus with a searing headache for <Damage> damage."
+    Action_String: "<User> splits <Target>'s focus with a searing headache."
