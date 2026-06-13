@@ -409,7 +409,11 @@ export function resolveIntents(
   // levelled. Then each enemy in the block with LOS from the caster takes the
   // hit; cost is paid once. Shared by the aimed AOE (block centered on the
   // target tile) and the reactive self-burst (block centered on the actor).
-  const resolveAoeStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent, cells: Set<string>, label: string): void => {
+  // Strip apply_cost's "  [−2 Flow]" wrapper down to a bare "−2 Flow" for use as
+  // an indented resolution line under an AOE header.
+  const bareCost = (rs: string): string => rs ? rs.replace(/^\s*\[/, '').replace(/\]$/, '') : '';
+
+  const resolveAoeStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent, cells: Set<string>, label: string, extra: string[] = []): void => {
     const { weapon } = actorMeta;
     if (action.smash) {
       for (const key of cells) {
@@ -420,15 +424,19 @@ export function resolveIntents(
     }
     const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
     if (victims.length === 0) {
-      const rs = actorMeta.state.apply_cost(action);
-      log.push(`${actor.name} — ${action.name}: ${label} catches no one${rs}`);
+      const cost = bareCost(actorMeta.state.apply_cost(action));
+      log.push(`${actor.name} — ${action.name}: ${label} catches no one`);
+      for (const e of extra) log.push(`    ${e}`);   // e.g. "blink to (0,3)"
+      if (cost) log.push(`    ${cost}`);
       return;
     }
     const savedCost = action.cost;
-    actorMeta.state.apply_cost(action);  // pay once
+    const cost = bareCost(actorMeta.state.apply_cost(action));  // pay once
     action.cost = 0;
     if (action.aimed && isDamaging(action)) actorMeta.state.aimed_hit += 1;
     log.push(`${actor.name} — ${action.name}: ${label}.`);
+    for (const e of extra) log.push(`    ${e}`);
+    if (cost) log.push(`    ${cost}`);
     for (const v of victims) {
       const m = session.meta.get(v.id);
       if (!m || m.state.health <= 0) continue;
@@ -544,15 +552,16 @@ export function resolveIntents(
       // Blink-strike (MoveTo): relocate the caster to the aimed tile, then burst
       // from there. The tile must be empty + passable (UI only offers such tiles);
       // if somehow blocked, skip the move and burst from where we stand.
+      const extra: string[] = [];
       if (action.moveTo) {
         const occupied = session.combatants.some(c => c.id !== actor.id && c.pos.x === targetPos.x && c.pos.y === targetPos.y);
         if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos) && !occupied) {
           actor.pos = { x: targetPos.x, y: targetPos.y };
-          log.push(`  ${actor.name} rides the current to ${tileStr}.`);
+          extra.push(`blink to ${tileStr}`);   // shown as a resolution line under the header
         }
       }
       const cells = new Set(areaBlock(targetPos, action.area, actor.pos).map(p => `${p.x},${p.y}`));
-      resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} blast at ${tileStr}`);
+      resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} blast at ${tileStr}`, extra);
       return;
     }
 

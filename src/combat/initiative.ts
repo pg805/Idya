@@ -30,7 +30,7 @@ export function assignInitiative(combatants: Combatant[]): string[] {
 
   const lines = ['Initiative:'];
   sorted.forEach((c, i) => {
-    lines.push(`  ${i + 1}. ${c.name} — ${c.initiative}`);
+    lines.push(`  ${i + 1}. ${c.name} ⚡${c.initiative}  (${c.pos.x},${c.pos.y})`);
   });
   return lines;
 }
