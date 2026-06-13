@@ -110,3 +110,17 @@ recipes:
     output:
       type: weapon
       id: crossbow
+
+  # L4 cross-profession component (R9): the lumberjack's half of the enchanter's Scythe.
+  - id: lj_scythe_handle
+    name: Scythe Handle
+    description: "Shape and balance a long hardwood haft — the spine an enchanter binds a scythe head to."
+    profession: lumberjack
+    required_level: 9
+    ingredients:
+      - item_id: hardwood
+        quantity: 2
+    output:
+      type: item
+      id: scythe_handle
+      quantity: 1

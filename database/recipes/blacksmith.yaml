@@ -107,3 +107,17 @@ recipes:
       type: item
       id: crossbow_limb
       quantity: 1
+
+  # L4 cross-profession component (R9): the smith's half of the enchanter's Scythe.
+  - id: bs_scythe_head
+    name: Scythe Head
+    description: "Grind and curve an alloy blade into a wicked scythe head — the cutting edge of an enchanter's reaper."
+    profession: blacksmith
+    required_level: 9
+    ingredients:
+      - item_id: alloy
+        quantity: 2
+    output:
+      type: item
+      id: scythe_head
+      quantity: 1

@@ -34,6 +34,8 @@ export const ITEMS: Record<string, ItemDef> = {
     // L4 cross-profession components — tier-3, each crafted by one profession for another's L4 weapon (rank-9).
     crossbow_limb: { name: 'Crossbow Limb', description: 'A sprung alloy crossbow limb forged by a blacksmith — half the draw weight of a lumberjack\'s crossbow.', type: 'material' },
     magic_bolts:   { name: 'Magic Bolts',   description: 'A quiver of nodol-tipped bolts enchanted by an enchanter — they fly true and burst on contact.', type: 'material' },
+    scythe_head:   { name: 'Scythe Head',   description: 'A wickedly curved alloy scythe head ground by a blacksmith — an enchanter binds it to a haft.', type: 'material' },
+    scythe_handle: { name: 'Scythe Handle', description: 'A long, balanced hardwood haft shaped by a lumberjack — the spine of an enchanter\'s scythe.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
     swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },

@@ -1,0 +1,85 @@
+Name: Scythe
+Description: An enchanter's reaping scythe — a smith's curved head on a lumberjack's haft, humming with Noko.
+Level: 4
+HP: 250
+Weight: 0
+
+Resource:
+  Name: Noko
+  Max: 10
+
+Defend:
+  - Name: "Nokorna's Aid"
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Dark
+    Value: 0
+    Cost: -10
+    Action_String: "<User> calls on Nokorna's aid, gathering 10 Noko."
+  - Name: Spin Block
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 40
+    Cost: 2
+    Action_String: "<User> spins the haft into a guard, blocking 40 damage."
+
+Defend Crit:
+  - Name: Scratch
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [20, 22, 24, 27, 29, 31]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> rakes the blade across <Target> for <Damage> damage."
+
+Attack:
+  - Name: Harvest
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Field: [20, 26, 29, 34, 38, 41, 47, 52, 55]
+    Cost: 1
+    Range: 2
+    Area: 2
+    Smash: true
+    Aimed: false
+    Action_String: "<User> sweeps the scythe in a wide arc for <Damage> damage, cutting down the cover around it."
+
+Attack Crit:
+  - Name: Reap
+    Type: 6
+    Type_Name: Heal
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
+    Value: 30
+    Cost: 0
+    Action_String: "<User> reaps life from the cut, healing 30 damage."
+
+Special:
+  - Name: "Nokorna's Chosen"
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Dark
+    Field: [0, 68, 70, 72, 90]
+    Cost: 5
+    Range: 1
+    Aimed: true
+    Action_String: "<User> calls on Nokorna and brings the blade down on <Target> for <Damage> damage."
+
+Special Crit:
+  - Name: "Vidali's Blessing"
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Arcane
+    Damage_Subtype: Light
+    Value: 10
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> is wrapped in Vidali's light, shielding 10 for 3 turns."

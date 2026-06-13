@@ -110,6 +110,23 @@ recipes:
       id: magic_bolts
       quantity: 1
 
+  # L4 weapon (R9): an enchanter's scythe — a smith's head, a lumberjack's haft, bound with nodol and Noko.
+  - id: en_scythe
+    name: Scythe
+    description: "Bind a smith's curved head to a lumberjack's balanced haft and channel nodol through the spine — a reaping scythe that hums with Noko."
+    profession: enchanter
+    required_level: 9
+    ingredients:
+      - item_id: scythe_head
+        quantity: 1
+      - item_id: scythe_handle
+        quantity: 1
+      - item_id: nodol
+        quantity: 2
+    output:
+      type: weapon
+      id: scythe
+
   # ── Enchants are NOT recipes (0.2.0 rework) ──────────────────────────────────
   # The four enchant types (health / Sidaev Strike / Sidaev Pulse / Upgrade) are
   # applied directly via the Enchant page (/api/enchant), not crafted. Gating:
