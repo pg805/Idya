@@ -96,6 +96,20 @@ recipes:
       id: nodol
       quantity: 1
 
+  # L4 cross-profession component (R9): the enchanter's half of the lumberjack's Crossbow.
+  - id: en_magic_bolts
+    name: Magic Bolts
+    description: "Cap a quiver of bolts with nodol and bind a bursting charge to each — they fly true and detonate on contact."
+    profession: enchanter
+    required_level: 9
+    ingredients:
+      - item_id: nodol
+        quantity: 2
+    output:
+      type: item
+      id: magic_bolts
+      quantity: 1
+
   # ── Enchants are NOT recipes (0.2.0 rework) ──────────────────────────────────
   # The four enchant types (health / Sidaev Strike / Sidaev Pulse / Upgrade) are
   # applied directly via the Enchant page (/api/enchant), not crafted. Gating:

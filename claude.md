@@ -198,10 +198,12 @@ Each upgrade auto-adds HP + gives EV points (a "point" = +1 EV); the HP:EV split
 | 6 | — (budget) | — (budget) | — (budget; can now enchant **L3** weapons) |
 | 7 | Hardwood (smelt) | Alloy (smelt) | Nodol (smelt) |
 | 8 | — (budget) | — (budget) | — (budget; can now enchant **L4** weapons) |
-| 9 | — | — | — (endgame craft TBD) |
+| 9 | **Crossbow (L4)** + crossbow_limb buy | Nunchaku (L4, TBD) | Scythe (L4, TBD) |
 | 10 | — (budget) | — (budget) | — (budget; can now enchant **L5** weapons) |
 
 **L3 cross-profession components (rank 5).** Each L3 weapon needs a `base`/`hilt` component crafted by a *different* profession — a dependency triangle: **Wand** (EN) ← `wand_base` (BS, 10 talamite); **Kustaff** (LJ) ← `staff_base` (EN, 10 hiruos); **Battle Axe** (BS) ← `battle_axe_hilt` (LJ, 10 treated_sulwood). Components are craft-gated at rank 5 but freely **buyable/sellable** at the maker's shop, so you craft your weapon with a 2nd profession or trade for the part. (Replaced the old per-tier blade/head/handle components, which were dead cruft sold in shops.)
+
+**L4 cross-profession weapons (rank 9).** Each L4 weapon needs **two bespoke tier-3 parts** from the *other two* professions plus its own — deeper interdependency. **Crossbow** (LJ) = `crossbow_limb` (BS, 2 alloy) + `magic_bolts` (EN, 2 nodol) + 2 hardwood; **Nunchaku** (BS, TBD) and **Scythe** (EN, TBD) follow the same pattern. Components craft-gated at R9, buyable at the maker's shop; the L4 weapon itself is **craft-only** (the assembly is the point). Crossbow stats: 190 HP, budget L3.94 (ranged kit reads low; plays L4) — ranged kiter with a 2×2 Exploding Shot + 3×3 web-slow. Sim: stomps L3, ~67% vs melbear (L4), counters the L5 Child via its Physical weakness, loses to Sulgovenath (L6).
 
 (Enchanting unlocks by **weapon level vs Enchanter rank** — rank ≥ 2× level, so L1 weapons enchantable at R2 — not via per-rank recipes. See Enchant rules below.)
 

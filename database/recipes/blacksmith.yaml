@@ -93,3 +93,17 @@ recipes:
       type: item
       id: alloy
       quantity: 1
+
+  # L4 cross-profession component (R9): the smith's half of the lumberjack's Crossbow.
+  - id: bs_crossbow_limb
+    name: Crossbow Limb
+    description: "Forge and temper a sprung alloy limb — the heart of a lumberjack's crossbow."
+    profession: blacksmith
+    required_level: 9
+    ingredients:
+      - item_id: alloy
+        quantity: 2
+    output:
+      type: item
+      id: crossbow_limb
+      quantity: 1

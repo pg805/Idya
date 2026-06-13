@@ -31,6 +31,10 @@ export const ITEMS: Record<string, ItemDef> = {
     staff_base:      { name: 'Staff Base',      description: 'A hiruos-charged staff shaft wound by an enchanter — a lumberjack binds living vines through it for a kustaff.', type: 'material' },
     battle_axe_hilt: { name: 'Battle Axe Hilt', description: 'A heavy treated-sulwood haft shaped by a lumberjack — a smith fits a talamite head to it for a battle axe.', type: 'material' },
 
+    // L4 cross-profession components — tier-3, each crafted by one profession for another's L4 weapon (rank-9).
+    crossbow_limb: { name: 'Crossbow Limb', description: 'A sprung alloy crossbow limb forged by a blacksmith — half the draw weight of a lumberjack\'s crossbow.', type: 'material' },
+    magic_bolts:   { name: 'Magic Bolts',   description: 'A quiver of nodol-tipped bolts enchanted by an enchanter — they fly true and burst on contact.', type: 'material' },
+
     // Bait — consumed to start a battle, bought at the general store
     swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },
     sulfolk_bait: { name: 'Sulfolk Bait',  description: 'A bundle of fresh-cut branches. Sulfolk can\'t resist investigating.',                  type: 'consumable' },

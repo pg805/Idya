@@ -1,0 +1,87 @@
+Name: Crossbow
+Description: A heavy lumberjack's crossbow — a smith's steel limb, an enchanter's bolts, and a stock of good hardwood.
+Level: 4
+HP: 190
+Weight: 0
+
+Resource:
+  Name: Bolts
+  Max: 10
+
+Defend:
+  - Name: Reload
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 20
+    Cost: -7
+    Action_String: "<User> cranks the windlass, bracing for <Damage> and seating 7 fresh bolts."
+
+Defend Crit:
+  - Name: Bob and Weave
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 20
+    Cost: 0
+    Action_String: "<User> rolls aside, shrugging off 20 damage."
+
+Attack:
+  - Name: Shoot Fire Bolt
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Fire
+    Field: [22, 26, 30, 35, 38, 42, 46, 50, 54, 58, 62]
+    Cost: 1
+    Range: 3
+    Aimed: false
+    Action_String: "<User> looses a fire bolt at <Target> for <Damage> damage."
+  - Name: Exploding Shot
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [40, 44, 48, 52, 56, 60, 63, 66, 68, 70]
+    Cost: 2
+    Range: 4
+    Area: 2
+    Aimed: true
+    Action_String: "<User> plants an exploding bolt at <Target>, bursting for <Damage> across the area."
+
+Attack Crit:
+  - Name: Elemental Burst
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Fire
+    Field: [30, 38, 45, 52, 58, 63, 67, 70]
+    Cost: 0
+    Range: 4
+    Action_String: "<User>'s bolt erupts with arcane fire for <Damage> damage."
+
+Special:
+  - Name: Shoot Web
+    Type: 13
+    Type_Name: Slow Tile
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 2
+    Area: 3
+    Range: 3
+    Aimed: true
+    Action_String: "<User> fires a web bolt, miring the ground in a 3x3 of clinging strands."
+
+Special Crit:
+  - Name: Poisoned Net
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Physical
+    Damage_Subtype: Poison
+    Field: [10, 12, 13]
+    Rounds: 3
+    Cost: 0
+    Range: 3
+    Action_String: "<User> snares <Target> in a poisoned net — <Damage> a turn for 3 turns."

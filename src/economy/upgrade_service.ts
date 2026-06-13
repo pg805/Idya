@@ -37,6 +37,8 @@ const WEAPON_PROFESSION: Record<string, Profession> = {
     spellbook:     'enchanter',
     mental_cage:   'enchanter',
     wand:          'enchanter',
+    // L4 weapons (R9): each profession's weapon, assembled with cross-profession parts.
+    crossbow:      'lumberjack',
 };
 
 // The profession(s) that can upgrade a weapon — its crafting profession. Empty

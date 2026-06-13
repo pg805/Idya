@@ -93,3 +93,20 @@ recipes:
       type: item
       id: hardwood
       quantity: 1
+
+  # L4 weapon (R9): a lumberjack's crossbow — a smith's limb, an enchanter's bolts, a hardwood stock.
+  - id: lj_crossbow
+    name: Crossbow
+    description: "Stock a sprung alloy limb in seasoned hardwood and load it with an enchanter's bolts."
+    profession: lumberjack
+    required_level: 9
+    ingredients:
+      - item_id: crossbow_limb
+        quantity: 1
+      - item_id: magic_bolts
+        quantity: 1
+      - item_id: hardwood
+        quantity: 2
+    output:
+      type: weapon
+      id: crossbow
