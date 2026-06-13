@@ -1,6 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root { --cell-size: 48px; }
+:root { --cell-size: 52px; }
 
 body {
   background: var(--bg);
@@ -51,15 +51,22 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #forfeit-btn:disabled,
 #forfeit-btn[hidden] { display: none; }
 
+/* Everything is a STATIC size so content changes (log lines, action sets,
+   telegraphs) never reflow the page. Top row: cards | board | log, all fixed
+   width/height; the action panel sits below at a fixed height. */
 #main-layout {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 14px;
+}
+#top-row {
+  display: flex;
+  gap: 16px;
   align-items: flex-start;
 }
 
-/* Middle rail: combatant cards on top, action panel below — sits beside the
-   board so neither the actions nor the cards land below the fold. */
-#center-col { display: flex; flex-direction: column; gap: 12px; width: 360px; flex: 0 0 360px; min-width: 0; }
+/* Cards — a fixed-width rail on the left, stacked vertically. */
+#combatant-list { display: flex; flex-direction: column; gap: 12px; width: 200px; flex: 0 0 200px; }
 
 /* ---- Board ---- */
 #board {
@@ -203,13 +210,12 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px 16px;
-  min-height: 56px;
+  /* Fixed height so different kits / phases never change the page height. The
+     panel spans the top row's width (flex-column stretch on #main-layout). */
+  height: 212px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  /* Stay within the rail (≈ board height) — a very tall kit scrolls internally
-     instead of pushing the page. */
-  max-height: 480px;
   overflow-y: auto;
 }
 .action-title {
@@ -280,9 +286,12 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-btn.unaffordable .action-key { opacity: 0.5; }
 @media (max-width: 640px) { .action-key { display: none; } }
 
-/* Grouped action list — one block per category, headed by its (conditional) crit. */
-.action-list { display: flex; flex-direction: column; gap: 10px; }
+/* Grouped action list — one block per category, headed by its (conditional) crit.
+   Groups sit side-by-side in the bottom panel (Defend | Attack | Special). */
+.action-list { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
 .action-group {
+  flex: 1 1 0;
+  min-width: 0;
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 4px;
@@ -359,14 +368,15 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
 
 /* ---- Combatant cards ---- */
-#combatant-list { display: flex; gap: 12px; }
 .combatant-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 14px;
-  min-width: 0;
-  flex: 1;   /* the two cards share the rail width evenly */
+  /* Fixed height so a card never grows/shrinks (telegraph or status toggling)
+     and shoves the card below it — keeps the rail static. */
+  height: 172px;
+  overflow: hidden;
 }
 .combatant-card.team-a { border-color: #4a90d9; }
 .combatant-card.team-b { border-color: #d94a4a; }
@@ -408,8 +418,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* ---- Combat log ---- */
 #right-col {
-  flex: 1;
-  min-width: 240px;
+  width: 320px;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -468,15 +478,17 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border: 1px solid var(--border);
   border-radius: 0 0 6px 6px;
   padding: 10px 12px;
-  height: 420px;
-  overflow-y: auto;
+  height: 506px;          /* fixed — matches the board height so the row is static */
+  overflow-y: auto;       /* new lines scroll INSIDE; the page never grows */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 0.78rem;
   line-height: 1.4;
 }
-#combat-log p { color: var(--text-2); padding-bottom: 1px; }
+/* Long lines wrap instead of widening the fixed-width column (the jump source). */
+#combat-log p { color: var(--text-2); padding-bottom: 1px; overflow-wrap: anywhere; }
 #combat-log p.turn-divider { color: var(--gold); font-weight: bold; text-align: center; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--gold-dim); }
 #combat-log p.turn-divider:first-child { margin-top: 0; border-top: none; }
 #combat-log p.phase-header { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px; padding-top: 2px; }
@@ -508,20 +520,19 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   :root { --cell-size: 28px; }
   #battle-shell { padding: 8px; gap: 8px; }
   #main-layout {
-    flex-direction: column;
     gap: 10px;
     width: 100%;
-    align-items: stretch;
   }
-  #center-col { width: 100%; flex-basis: auto; }
-  #action-panel { max-height: none; }
-  #right-col { width: 100%; }
+  #top-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  #right-col { width: 100%; flex-basis: auto; }
   #combat-log { height: 240px; }
+  #action-panel { height: auto; }
+  .action-list { flex-direction: column; }
   .combatant { width: 32px; height: 32px; font-size: 0.7rem; border-width: 1px; }
   .combatant-name { display: none; }
   .cell[data-coord]::after { display: none; }
-  #combatant-list { flex-wrap: wrap; }
-  .combatant-card { min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
+  #combatant-list { width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap; }
+  .combatant-card { height: auto; min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
   h1 { font-size: 1rem; }
   #log-header { padding: 6px 10px; }
   #log-filters { font-size: 0.65rem; gap: 3px 8px; }
