@@ -509,12 +509,10 @@ function renderBoard() {
 
 function renderActionPanel() {
   actionPanelEl.innerHTML = '';
+  actionPanelEl.classList.remove('active', 'dim');
 
-  if (ui.phase === 'waiting') {
-    actionPanelEl.innerHTML = '<div class="action-title">Intent submitted — waiting for resolution…</div>';
-    return;
-  }
   if (ui.phase === 'ended') {
+    actionPanelEl.classList.add('dim');
     actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
     const again = document.createElement('a');
     again.className = 'battle-again-btn';
@@ -532,6 +530,7 @@ function renderActionPanel() {
   }
 
   if (ui.phase === 'selecting_target' && ui.action) {
+    actionPanelEl.classList.add('active');
     const row = document.createElement('div');
     row.className = 'action-buttons';
 
@@ -568,28 +567,30 @@ function renderActionPanel() {
     return;
   }
 
-  if (ui.phase === 'selecting_move') {
-    const hint = document.createElement('div');
-    hint.className = 'action-title';
-    hint.innerHTML = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
-    actionPanelEl.appendChild(hint);
-    return;
-  }
+  // Every other phase shows the action list — LIT when it's your turn to pick
+  // (selecting_action), DIMMED as a preview otherwise (move / waiting / idle) so
+  // the panel below the board is never just empty space.
+  const active = ui.phase === 'selecting_action';
+  actionPanelEl.classList.add(active ? 'active' : 'dim');
 
-  if (ui.phase !== 'selecting_action' || !state) return;
-
-  const player = myPlayerCombatant();
-  if (!player?.weaponInfo) return;
-
-  const fromPos = ui.moveTo ?? ui.selected?.pos;
-  if (!fromPos) return;
+  if (!state) return;
 
   const title = document.createElement('div');
   title.className = 'action-title';
-  title.textContent = ui.moveTo
-    ? `Moving to (${ui.moveTo.x},${ui.moveTo.y}) — choose action`
-    : 'Holding position — choose action';
+  if (ui.phase === 'waiting')
+    title.textContent = 'Intent submitted — waiting for resolution…';
+  else if (ui.phase === 'selecting_move')
+    title.innerHTML = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
+  else if (active)
+    title.textContent = ui.moveTo
+      ? `Moving to (${ui.moveTo.x},${ui.moveTo.y}) — choose action`
+      : 'Holding position — choose action';
+  else
+    title.textContent = 'Awaiting your turn…';
   actionPanelEl.appendChild(title);
+
+  const player = myPlayerCombatant();
+  if (!player?.weaponInfo) return;
 
   // Grouped action list: one block per category (defend / attack / special), each
   // headed by that category's crit + the triangle condition that fires it. Number
@@ -654,7 +655,7 @@ function renderActionPanel() {
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
 
-  if (ui.action && !ui.action.needsTarget) {
+  if (active && ui.action && !ui.action.needsTarget) {
     const submit = document.createElement('button');
     submit.className = 'submit-btn';
     submit.textContent = 'Submit Intent →';

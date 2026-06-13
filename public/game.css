@@ -215,9 +215,18 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   height: 300px;
   display: flex;
   flex-direction: column;
+  align-items: center;   /* center the action list below the board */
   gap: 10px;
   overflow-y: auto;
+  transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
+/* Off-turn (move / waiting / idle): the list is a dimmed, non-interactive
+   preview so the space below the board reads as "not your turn yet". */
+#action-panel.dim .action-list { opacity: 0.4; filter: grayscale(0.35); pointer-events: none; }
+#action-panel.dim .action-title { color: var(--text-faint); }
+/* On-turn: lit up + a gold edge to say "pick now". */
+#action-panel.active { border-color: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-dim); }
+#action-panel.active .action-title { color: var(--gold-bright); }
 .action-title {
   font-size: 0.8rem;
   color: var(--text-muted);
