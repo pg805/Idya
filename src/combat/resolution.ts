@@ -348,22 +348,23 @@ export function resolveIntents(
       log.push(`${c.name} steps on a hazard at (${step.x},${step.y}): −${tile.value} HP`);
     }
   }
-  // Move section: every alive unit's initiative + full traversed path
-  // (from → … → dest), in move-resolution order. Holders show just their square.
-  // Movement always reads the same way; a unit that was denied a square appends
-  // "✗ (denied)" — whether it stayed put ("(from) ✗ (dest)") or got re-routed
-  // partway ("(from) → (mid) ✗ (dest)").
+  // Move section: only units that actually MOVED (or were denied a square) — a
+  // holder standing still says nothing, so it's dropped. The line: ⚡initiative,
+  // name, the full traversed path; a denied unit appends "✗ (denied)", whether it
+  // stayed put ("(from) ✗ (dest)") or re-routed partway ("(from) → (mid) ✗ (dest)").
   const moveLines: string[] = [];
   for (const c of [...session.combatants].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
     const meta = session.meta.get(c.id);
     if (!meta || meta.state.health <= 0) continue;
     const from = preMovePos.get(c.id) ?? c.pos;
-    let pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
     const denied = blockedDest.get(c.id);
+    const moved = from.x !== c.pos.x || from.y !== c.pos.y;
+    if (!moved && !denied) continue;   // a unit that held its square is noise
+    let pathStr = [from, ...(moverPaths.get(c.id) ?? [])].map(p => `(${p.x},${p.y})`).join(' → ');
     if (denied) pathStr += ` ✗ (${denied.x},${denied.y})`;
     moveLines.push(`⚡${c.initiative} ${c.name}  ${pathStr}`);
   }
-  log.splice(moveStart, 0, '▸ Move', ...moveLines);
+  if (moveLines.length) log.splice(moveStart, 0, '▸ Move', ...moveLines);
 
   // Capture this turn's structured record for the downloadable replay: every
   // unit's traversed path (every square entered) + the action it committed.
@@ -465,6 +466,14 @@ export function resolveIntents(
         if (live.length > 1) resolveLines.push(`    vs ${v.name}:`);
         const { damage, lines } = strikeBreakdown(actorMeta.state, m.state, action as Strike);
         resolveLines.push(...lines, `    Total ${damage}`);
+        // A struck victim's reflect bounces back to the caster (the single-target
+        // path gets this via resolve_action; the merged AOE path must do it too).
+        if (m.state.reflect.value > 0) {
+          const refl = m.state.reflect.value;
+          actorMeta.state.health = Math.max(actorMeta.state.health - refl, 0);
+          actorMeta.state.damage_taken += refl;
+          resolveLines.push(`    ↺ ${refl} reflected to ${actor.name}`);
+        }
         if (action.push > 0 && m.state.health > 0) knockback(actor.pos, v, action.push, session, resolveLines);
       }
       if (cost) resolveLines.push(`    ${cost}`);   // shared cost, paid once — at the foot of the stack

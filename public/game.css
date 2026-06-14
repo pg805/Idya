@@ -76,7 +76,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 
 /* Cards — a fixed-width rail on the left, stacked vertically. */
-#combatant-list { display: flex; flex-direction: column; gap: 12px; width: 200px; flex: 0 0 200px; }
+/* Cards hold the telegraph + HP — the decision-relevant read — so the rail gets
+   real width rather than being the thinnest column. */
+#combatant-list { display: flex; flex-direction: column; gap: 12px; width: 236px; flex: 0 0 236px; }
 
 /* ---- Board ---- */
 #board {
@@ -424,8 +426,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border-radius: 6px;
   padding: 10px 14px;
   /* Fixed height so a card never grows/shrinks (telegraph or status toggling)
-     and shoves the card below it — keeps the rail static. */
-  height: 172px;
+     and shoves the card below it — keeps the rail static. The wider card (236px)
+     lets badges/telegraph fit in fewer rows, so this can be tighter than before. */
+  height: 162px;
   overflow: hidden;
 }
 .combatant-card.team-a { border-color: #4a90d9; }
@@ -506,25 +509,29 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 #log-download:hover { color: var(--gold); }
 .init-badge { font-size: 0.7rem; color: var(--gold); font-weight: 600; }
-#log-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
+/* Detail dial: a 3-stop segmented control (Standard / Story / Full). */
+#log-detail {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 0.7rem;
 }
-#log-filters label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+#log-detail button {
+  background: var(--bg-darkest);
+  border: none;
+  border-left: 1px solid var(--border);
   color: var(--text-faint);
+  font: inherit;
+  font-size: 0.68rem;
+  padding: 3px 10px;
   cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
 }
-#log-filters input { accent-color: var(--gold); cursor: pointer; }
-#log-filters label:hover { color: var(--text-2); }
+#log-detail button:first-child { border-left: none; }
+#log-detail button:hover { color: var(--text-2); }
+#log-detail button.active { background: var(--gold-bg); color: var(--gold); }
 #combat-log {
   background: var(--bg-deep);
   border: 1px solid var(--border);
@@ -595,6 +602,6 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   .combatant-card { height: auto; min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
   h1 { font-size: 1rem; }
   #log-header { padding: 6px 10px; }
-  #log-filters { font-size: 0.65rem; gap: 3px 8px; }
+  #log-detail button { font-size: 0.62rem; padding: 3px 7px; }
   .action-btn { font-size: 0.8rem; padding: 5px 10px; }
 }

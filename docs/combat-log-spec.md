@@ -11,22 +11,36 @@ Dev-facing. Producers: `src/combat/resolution.ts` (phases, moves, AOE) and
 
 ## Line categories
 
-| Category | Looks like | Toggle | Notes |
-|---|---|---|---|
-| `turn-divider` | `━━━ Turn N ━━━` | — | always shown |
-| `phase-header` | `▸ Move` / `▸ Defend` / `▸ Attack` / `▸ Special` | — | sub-phase markers |
-| `move` | `⚡<init> <name> <square>[ → <square>…][ ✗ <denied>]` | **Moves** | positions: initiative list + movement |
-| `crit` | `★ <attacker> counters <target>!` | — | triangle-crit announcement |
-| `status` | `<unit> is defeated!`, effect expirations | — | |
-| `flavor` | prose, italic + dim | **Flavor** | leads each action block; tagged with U+200B |
-| `action` (`action-head`) | `<actor> — <action>[ → <target>][: <result>]` | **Actions** | the glance line |
-| `resolve` (`mechanics`) | 4-space-indented derivation | **Resolve** | full mechanics; **off by default** |
+| Category | Looks like | Notes |
+|---|---|---|
+| `turn-divider` | `━━━ Turn N ━━━` | always shown |
+| `phase-header` | `▸ Move` / `▸ Defend` / `▸ Attack` / `▸ Special` | sub-phase markers |
+| `move` | `⚡<init> <name> <square>[ → <square>…][ ✗ <denied>]` | positions: initiative list + movement |
+| `crit` | `★ <attacker> counters <target>!` | triangle-crit announcement |
+| `status` | `<unit> is defeated!`, effect expirations | |
+| `flavor` | prose, italic + dim | leads each action block; tagged with U+200B |
+| `action` (`action-head`) | `<actor> — <action>[ → <target>][: <result>]` | the glance line |
+| `resolve` (`mechanics`) | 4-space-indented derivation | full mechanics |
 
 Classification is by leading marker / shape, in priority order (see
 `classifyLogLine`): U+200B → flavor; `━━━` → divider; `▸` → phase; `★` → crit;
 `is defeated` → status; contains `⚡N` → move; leading whitespace → resolve;
 contains ` — ` → action; else flavor. Flavor is U+200B-tagged precisely because
 the prose often contains an em-dash and would otherwise look like an action line.
+
+### Detail dial
+
+The player picks a detail level — one dial, three stops — rather than toggling
+each category (16 combinations, most nonsense). Actions + moves are always on:
+
+| Preset | Shows | For |
+|---|---|---|
+| **Standard** (default) | action + move | the concise play-by-play |
+| **Story** | + flavor | narration on |
+| **Full** | + flavor + resolve | the mechanics / teaching view |
+
+Drives the `hide-flavor` / `hide-mechanics` classes on `#combat-log`
+(`LOG_PRESETS` in `game.js`).
 
 ## The action block
 
@@ -40,10 +54,12 @@ the math:
     …
 ```
 
-Because **Resolve is hidden by default**, the action line must carry the headline
-value on its own. The resolve stack then repeats it inside the full derivation —
-that duplication is intentional: the action line is the summary, the resolve stack
-is the complete, self-contained story (and ends in `Total`).
+Because **Resolve is hidden by default** (Standard/Story), the action line must
+carry the headline value on its own. The resolve stack is then the **full
+derivation and nothing redundant** — only what you can't read off the action
+line. A flat effect (block/shield/buff/…) *is* its number, so it gets no echo,
+just its cost; a rolled effect (strike/DOT) shows the dice → modifiers → `Total`
+that produced it.
 
 ### Action-line `<result>` — the glance value
 
@@ -51,19 +67,28 @@ is the complete, self-contained story (and ends in `Total`).
 |---|---|---|
 | Strike | `: <dmg>` | mode? · dice · modifiers · cost · `Total <dmg>` |
 | DOT | `: <dmg> per turn · <R> turns` | mode? · dice · cost · `Total <dmg> per turn · <R> turns` |
-| Block | `: Block <N>` | `block <N>` · cost |
-| Shield | `: Shield <N> · <R> turns` | `shield <N> · <R> turns` · cost |
-| Reflect | `: Reflect <N> · <R> turns` | `reflect <N> · <R> turns` · cost |
-| Buff | `: Buff <N> · <R> turns` | `buff <N> · <R> turns` · cost |
-| Debuff | `: Debuff <N> · <R> turns` | `debuff <N> · <R> turns` · cost |
-| Slow (move debuff) | `: Slow <N> · <R> turns` | `slow <N> · <R> turns` · cost |
-| Heal | `: Heal <N>` | `heal <N>` · cost |
+| Block | `: Block <N>` | cost · `Total <running>` *(only if stacked)* |
+| Shield | `: Shield <N> · <R> turns` | cost |
+| Reflect | `: Reflect <N> · <R> turns` | cost |
+| Buff | `: Buff <N> · <R> turns` | cost |
+| Debuff | `: Debuff <N> · <R> turns` | cost |
+| Slow (move debuff) | `: Slow <N> · <R> turns` | cost |
+| Heal | `: Heal <N>` | cost |
 | **Restore** (value-0 block) | *(blank)* | the regain `+<N> <resource>` |
 
-**Restores are the one exception**: their only effect is the resource they return,
-so the action line is blank and the gain (`+7 Flow`) shows as a resolve line.
-The resource delta is the *actual* gain (capped at max) — full value when you have
-room for it.
+Notes:
+- **No flat echo.** A flat effect's resolve is just its cost (often nothing on a
+  free crit). The value lives only on the action line.
+- **Stacked block** is the exception that proves the rule: a 2nd guard the same
+  turn (a defend-crit on top of the main block) adds a `Total <running>` resolve
+  line — `4` then `Block 3` → `Total 7` — because the running total is a real
+  derivation you can't read off `Block 3`. A first/only block has none.
+- **Restores** are the other special case: blank action line (value is 0), with
+  the regain (`+7 Flow`) as the resolve line — their only effect is the resource.
+  The delta is the *actual* gain (capped at max).
+- **Overwrites are silent.** A 2nd DOT replaces the first; a buff clears a debuff
+  (and vice-versa); a re-applied shield/reflect refreshes its rounds. The log just
+  shows the new state — no "X was overwritten" line.
 
 ### Resolve-stack lines
 
@@ -97,7 +122,9 @@ generic per-victim path (their resolution differs from a strike's).
 
 ## Movement
 
-One consistent shape for every unit, holders included:
+One consistent shape, but **only for units that actually moved or were denied a
+square** — a unit holding its position says nothing and is dropped (the whole
+`▸ Move` block is omitted when no one moved).
 
 ```
 ⚡<init> <name> <from>[ → <step>…][ ✗ <denied>]
@@ -109,7 +136,8 @@ One consistent shape for every unit, holders included:
   `(from) → (mid) ✗ (dest)`, a full block `(from) ✗ (dest)`. There is no separate
   "blocked by" line.
 
-The battle-start initiative list uses the same `⚡<init> <name> (square)` shape.
+The battle-start initiative list uses the same `⚡<init> <name> (square)` shape
+(every unit, since it's the starting roster).
 
 ## Misses / fizzles
 

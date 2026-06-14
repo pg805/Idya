@@ -25,34 +25,33 @@ const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
 const logEl           = document.getElementById('combat-log');
 
-// ---- Combat log filters ----
-const LOG_FILTER_KEY = 'idya.log_filters';
-// Mechanics (roll math) is opt-in — useful for debugging, noise for normal
-// play. Everything else defaults visible.
-const LOG_FILTER_DEFAULTS = { flavor: true, 'action-head': true, mechanics: false, move: true };
-const LOG_FILTER_KEYS = Object.keys(LOG_FILTER_DEFAULTS);
-function loadLogFilters() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}');
-    return { ...LOG_FILTER_DEFAULTS, ...stored };
-  } catch (_) { return { ...LOG_FILTER_DEFAULTS }; }
+// ---- Combat log detail level ----
+// One dial with three sane stops instead of four independent toggles (most of
+// whose 16 combinations are nonsense). Actions + moves are always on; the dial
+// adds narration (flavor), then mechanics (resolve). Resolve is the heavy
+// teaching view — off until you ask for it.
+const LOG_DETAIL_KEY = 'idya.log_detail';
+const LOG_PRESETS = {
+  standard: { flavor: false, 'action-head': true, mechanics: false, move: true },
+  story:    { flavor: true,  'action-head': true, mechanics: false, move: true },
+  full:     { flavor: true,  'action-head': true, mechanics: true,  move: true },
+};
+function loadLogDetail() {
+  const v = localStorage.getItem(LOG_DETAIL_KEY);
+  return LOG_PRESETS[v] ? v : 'standard';
 }
-function applyLogFilters(state) {
-  for (const key of LOG_FILTER_KEYS) {
-    logEl.classList.toggle(`hide-${key}`, state[key] === false);
-    const box = document.querySelector(`#log-filters input[data-filter="${key}"]`);
-    if (box) box.checked = state[key] !== false;
-  }
+function applyLogDetail(preset) {
+  const state = LOG_PRESETS[preset] ?? LOG_PRESETS.standard;
+  for (const key of Object.keys(state)) logEl.classList.toggle(`hide-${key}`, state[key] === false);
+  document.querySelectorAll('#log-detail button[data-preset]').forEach(b =>
+    b.classList.toggle('active', b.dataset.preset === preset));
 }
-(function initLogFilters() {
-  const state = loadLogFilters();
-  applyLogFilters(state);
-  document.querySelectorAll('#log-filters input[data-filter]').forEach(box => {
-    box.addEventListener('change', () => {
-      const next = loadLogFilters();
-      next[box.dataset.filter] = box.checked;
-      localStorage.setItem(LOG_FILTER_KEY, JSON.stringify(next));
-      applyLogFilters(next);
+(function initLogDetail() {
+  applyLogDetail(loadLogDetail());
+  document.querySelectorAll('#log-detail button[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localStorage.setItem(LOG_DETAIL_KEY, btn.dataset.preset);
+      applyLogDetail(btn.dataset.preset);
     });
   });
   // Download the full structured replay (board + roster + per-turn paths/actions
@@ -84,9 +83,11 @@ function applyLogFilters(state) {
 })();
 
 // ---- Socket ----
+const connWrap = document.getElementById('conn-wrap');
 socket.on('connect', () => {
   connStatusEl.textContent = 'Connected';
   connStatusEl.className = 'connected';
+  if (connWrap) connWrap.style.display = 'none';   // healthy = invisible; only surface problems
   const sessionId = window.location.pathname.split('/').pop() || 'test';
   socket.emit('join_session', sessionId);
 });
@@ -94,6 +95,7 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
   connStatusEl.textContent = 'Disconnected';
   connStatusEl.className = 'disconnected';
+  if (connWrap) connWrap.style.display = '';
 });
 
 // Server emits this with { message: 'Session X not found' } when the player

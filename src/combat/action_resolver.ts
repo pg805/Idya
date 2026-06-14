@@ -87,13 +87,15 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             const added = (action as Block).value;
             actor.block += added;
             const cost = costStr(actor, action);   // "+7 Flow" (regain) / "−1 Flow" / ""
-            // value>0: "Block N" on the action line + a "block N" resolve line.
-            // value==0 (pure restore, e.g. Wellspring): BLANK action line — its only
-            // effect is the regain, which shows in resolve as "+N <resource>".
+            // value>0: "Block N" on the action line. value==0 (pure restore, e.g.
+            // Wellspring): BLANK action line — its only effect is the regain, shown
+            // in resolve as "+N <resource>".
             const effect = added > 0 ? `: Block ${added}` : '';
             const lines: string[] = [];
-            if (added > 0) lines.push(`    block ${added}`);
             if (cost) lines.push(`    ${cost}`);
+            // Stacked guard (a 2nd block this turn — e.g. a defend-crit on top of the
+            // main guard) shows the running total: a real derivation, not an echo.
+            if (added > 0 && actor.block > added) lines.push(`    Total ${actor.block}`);
             action_string += block(`<User> — ${action.name}${effect}`, lines, action.action_string);
             logger.info(`Resolving ${actor.name} Block: ${action.name}\nValue: ${added}  Total: ${actor.block}`);
         }
@@ -102,9 +104,7 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             actor.reflect.value  = (action as Reflect).value;
             actor.reflect.rounds = (action as Reflect).rounds;
             const cost = costStr(actor, action);
-            const lines = [`    reflect ${actor.reflect.value} · ${actor.reflect.rounds} turns`];
-            if (cost) lines.push(`    ${cost}`);
-            action_string += block(`<User> — ${action.name}: Reflect ${actor.reflect.value} · ${actor.reflect.rounds} turns`, lines, action.action_string);
+            action_string += block(`<User> — ${action.name}: Reflect ${actor.reflect.value} · ${actor.reflect.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${actor.name} Reflect: ${action.name}\nValue: ${actor.reflect.value}  Rounds: ${actor.reflect.rounds}`);
         }
 
@@ -112,9 +112,7 @@ function apply_self_actions(actor: CombatantState, actions: Action[]): string {
             actor.shield.value  = (action as Shield).value;
             actor.shield.rounds = (action as Shield).rounds;
             const cost = costStr(actor, action);
-            const lines = [`    shield ${actor.shield.value} · ${actor.shield.rounds} turns`];
-            if (cost) lines.push(`    ${cost}`);
-            action_string += block(`<User> — ${action.name}: Shield ${actor.shield.value} · ${actor.shield.rounds} turns`, lines, action.action_string);
+            action_string += block(`<User> — ${action.name}: Shield ${actor.shield.value} · ${actor.shield.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${actor.name} Shield: ${action.name}\nValue: ${actor.shield.value}  Rounds: ${actor.shield.rounds}`);
         }
     }
@@ -167,9 +165,7 @@ function apply_hostile_actions(
             target.buff.value  = 0;
             target.buff.rounds = 0;
             const cost = costStr(attacker, action);
-            const lines = [`    debuff ${target.debuff.value} · ${target.debuff.rounds} turns`];
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}: Debuff ${target.debuff.value} · ${target.debuff.rounds} turns`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Debuff ${target.debuff.value} · ${target.debuff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving Debuff on ${target.name}: ${action.name}\nValue: ${target.debuff.value}  Rounds: ${target.debuff.rounds}`);
         }
 
@@ -177,9 +173,7 @@ function apply_hostile_actions(
             target.moveDebuff.value  = (action as MoveDebuff).value;
             target.moveDebuff.rounds = (action as MoveDebuff).rounds;
             const cost = costStr(attacker, action);
-            const lines = [`    slow ${target.moveDebuff.value} · ${target.moveDebuff.rounds} turns`];
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}: Slow ${target.moveDebuff.value} · ${target.moveDebuff.rounds} turns`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Slow ${target.moveDebuff.value} · ${target.moveDebuff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving Move Debuff on ${target.name}: ${action.name}\nCap: ${target.moveDebuff.value}  Rounds: ${target.moveDebuff.rounds}`);
         }
 
@@ -189,9 +183,7 @@ function apply_hostile_actions(
             target.debuff.value  = 0;
             target.debuff.rounds = 0;
             const cost = costStr(attacker, action);
-            const lines = [`    buff ${target.buff.value} · ${target.buff.rounds} turns`];
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}: Buff ${target.buff.value} · ${target.buff.rounds} turns`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Buff ${target.buff.value} · ${target.buff.rounds} turns`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${attacker.name} Buff on ${target.name}: ${action.name}\nValue: ${target.buff.value}  Rounds: ${target.buff.rounds}`);
         }
 
@@ -201,9 +193,7 @@ function apply_hostile_actions(
             target.health = Math.min(target.health + heal, target.max_health);
             const actualHeal = target.health - hp_before;
             const cost = costStr(attacker, action);
-            const lines = [`    heal ${actualHeal}`];
-            if (cost) lines.push(`    ${cost}`);
-            target_string += block(`<User> — ${action.name}${arrow}: Heal ${actualHeal}`, lines, action.action_string);
+            target_string += block(`<User> — ${action.name}${arrow}: Heal ${actualHeal}`, cost ? [`    ${cost}`] : [], action.action_string);
             logger.info(`Resolving ${attacker.name} Heal on ${target.name}: ${action.name}\nValue: ${heal}  HP: ${hp_before} → ${target.health}`);
         }
     }

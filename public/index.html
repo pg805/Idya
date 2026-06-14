@@ -17,8 +17,7 @@
       <span id="turn-label">Turn 1</span>
       <span class="sep">·</span>
       <span id="phase-label">waiting</span>
-      <span class="sep">·</span>
-      <span id="connection-status" class="disconnected">Connecting...</span>
+      <span id="conn-wrap"><span class="sep">·</span><span id="connection-status" class="disconnected">Connecting...</span></span>
       <button id="forfeit-btn" type="button" title="Leave this battle. Bait is gone, no other penalty.">Forfeit</button>
     </div>
 
@@ -32,11 +31,10 @@
         <div id="right-col">
           <div id="log-header">
             <span>Combat Log</span>
-            <div id="log-filters">
-              <label><input type="checkbox" data-filter="flavor"     checked> Flavor</label>
-              <label><input type="checkbox" data-filter="action-head" checked> Actions</label>
-              <label><input type="checkbox" data-filter="mechanics"          > Resolve</label>
-              <label><input type="checkbox" data-filter="move"       checked> Moves</label>
+            <div id="log-detail" role="group" aria-label="Log detail">
+              <button type="button" data-preset="standard" title="Actions + moves — the concise play-by-play">Standard</button>
+              <button type="button" data-preset="story" title="Adds the flavor narration">Story</button>
+              <button type="button" data-preset="full" title="Adds the full resolve breakdown (dice, modifiers, totals)">Full</button>
             </div>
             <button id="log-download" type="button" title="Download full log">⤓</button>
           </div>
