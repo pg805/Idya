@@ -17,6 +17,7 @@ detail lives in [`battle-ideas.md`](battle-ideas.md); pre-alpha must-dos live in
 - Fishing minigame
 - Chef class
 - Alchemist class
+- Musician class
 - Consumables
 
 ## Customization & content
