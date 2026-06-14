@@ -6,7 +6,7 @@ Condensed, player-facing changelog posted to the #updates channel on each new re
 
 The big combat & crafting overhaul.
 
-- **Smarter enemies.** Enemies now think for themselves instead of running a fixed script — they kite, brace, heal, and pick targets to suit the fight. Expect a tougher hunt.
+- **Smarter enemies.** Enemies now read the fight and decide for themselves instead of running a fixed script — closing in, backing off, bracing, healing, and picking targets based on what's happening on the board.
 - **Livelier markets.** Prices recover and move more naturally now. Check the Market page before you sell.
 - **Combat log, rebuilt.** Every action now reads as a clean block — a line of flavor, the action and its result, and (if you want it) the full breakdown of the math behind it. One **detail dial** — Minimal / Standard / Story — sets how much you see.
 - **Battle screen redesign.** Steadier layout that doesn't jump around, actions grouped by category with their crits, and your stats clearer at a glance.
