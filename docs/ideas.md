@@ -24,7 +24,12 @@ detail lives in [`battle-ideas.md`](battle-ideas.md); pre-alpha must-dos live in
 - Customize weapons / flavor
 - Upload new image (player-supplied sprite/portrait)
 
-## Social & progression
+## Social & world
 
 - Chat in the web app
+- NPC conversation system (choice-based shopkeeper dialogue — design spec in [`npc-dialogue-system.md`](npc-dialogue-system.md))
+
+## Progression & onboarding
+
 - Trophies → titles (evolve trophies into earned titles)
+- **TODO:** rework tutorial and onboarding
