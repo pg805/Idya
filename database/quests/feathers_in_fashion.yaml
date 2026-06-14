@@ -1,0 +1,12 @@
+id: feathers_in_fashion
+name: Feathers in fashion
+lore: >
+  The current fashion of the Chaevul has incorporated many natural elements to
+  try to show how in tune with nature they are. Fendalok sees an opportunity to
+  collect swallow feathers and sell them to the traveling caravans at a markup
+  to help pay down the town's taxes.
+item: swallow_feather
+target: 1000
+price: 15
+starts_at: "2026-06-14T07:00:00Z"
+duration_minutes: 10080

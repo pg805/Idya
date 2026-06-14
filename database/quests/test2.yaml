@@ -1,9 +1,0 @@
-# Second test — verify auto-refresh (card auto-appears, then auto-ends + toasts).
-id: test2
-name: test two
-lore: A short test to watch the page update itself.
-item: swallow_feather
-target: 10
-price: 10
-starts_at: "2026-06-12T23:25:00Z"
-duration_minutes: 3
