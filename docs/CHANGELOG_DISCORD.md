@@ -2,6 +2,25 @@
 
 Condensed, player-facing changelog posted to the #updates channel on each new release. For full detail see `docs/CHANGELOG.md`.
 
+## 0.2.0 — 2026-06-13
+
+The big combat & crafting overhaul.
+
+- **Combat log, rebuilt.** Every action now reads as a clean block — a line of flavor, the action and its result, and (if you want it) the full breakdown of the math behind it. One **detail dial** — Minimal / Standard / Story — sets how much you see.
+- **Battle screen redesign.** Steadier layout that doesn't jump around, actions grouped by category with their crits, and your stats clearer at a glance.
+- **Crits are a triangle now.** Defend beats Attack beats Special beats Defend — win the matchup and your crit fires automatically. Read your opponent.
+- **Upgrading, reworked.** Upgrades now give you a pool of points to spend across a weapon's actions, and each upgrade adds HP automatically. You upgrade your own profession's weapons.
+- **Enchanting, reworked.** Four enchant kinds — add HP, add a melee strike, add a ranged attack, or pour extra power into an action you already have. Three slots, applied by the Enchanter once your rank is high enough for that weapon.
+- **Three new top-tier weapons** to craft, each one needing parts from all three professions to assemble — including one that blinks across the board mid-swing.
+- **Two new endgame foes** stalk the deep forest. Bring your best — and a fitting bait.
+- **Town Square quests** — timed community deposit goals, with rank trophies for the biggest contributors.
+- **Livelier markets** — prices recover and move more naturally. Check the Market page before you sell.
+- The in-game **Reference** page is fully up to date with all the new systems.
+
+> Heads up: a few weapons and the old-style enchants from before this update are retired. Any you're holding get cleared and **refunded automatically** the first time the update runs.
+
+---
+
 ## 0.1.6 — 2026-06-06
 
 - New enemy: **Tinpul** (Lv 1). Squishy little tin shooter — pokes from range, panics into melee, shields up when cornered. Pulled by Tin Bait at the general store.
