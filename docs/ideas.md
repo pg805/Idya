@@ -33,4 +33,5 @@ detail lives in [`battle-ideas.md`](battle-ideas.md); pre-alpha must-dos live in
 ## Progression & onboarding
 
 - Trophies → titles (evolve trophies into earned titles)
+- Capstone reward at profession rank 11/12 (beyond the current rank-10 cap)
 - **TODO:** rework tutorial and onboarding
