@@ -32,9 +32,9 @@ const logEl           = document.getElementById('combat-log');
 // teaching view — off until you ask for it.
 const LOG_DETAIL_KEY = 'idya.log_detail';
 const LOG_PRESETS = {
-  standard: { flavor: false, 'action-head': true, mechanics: false, move: true },
-  story:    { flavor: true,  'action-head': true, mechanics: false, move: true },
-  full:     { flavor: true,  'action-head': true, mechanics: true,  move: true },
+  minimal:  { flavor: false, 'action-head': true, mechanics: false, move: false }, // just the action lines
+  standard: { flavor: false, 'action-head': true, mechanics: true,  move: true },  // + the resolve math + moves
+  story:    { flavor: true,  'action-head': true, mechanics: true,  move: true },  // + the flavor narration
 };
 function loadLogDetail() {
   const v = localStorage.getItem(LOG_DETAIL_KEY);
@@ -951,6 +951,7 @@ const FLAVOR_MARK = String.fromCharCode(0x200B);   // zero-width space; server t
 function classifyLogLine(line) {
   if (line.startsWith(FLAVOR_MARK))             return 'flavor';      // marked prose (may contain " — ")
   if (line.startsWith('━━━'))                  return 'turn-divider';
+  if (line === '▸ Move' || line === '▸ Initiative') return 'move';   // positional headers travel with their roster
   if (line.startsWith('▸ '))                    return 'phase-header';
   if (line.startsWith('★'))                     return 'crit';
   if (/ is defeated/.test(line))                return 'status';

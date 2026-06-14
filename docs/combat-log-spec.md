@@ -31,16 +31,20 @@ the prose often contains an em-dash and would otherwise look like an action line
 ### Detail dial
 
 The player picks a detail level — one dial, three stops — rather than toggling
-each category (16 combinations, most nonsense). Actions + moves are always on:
+each category (16 combinations, most nonsense). Action lines are always on:
 
 | Preset | Shows | For |
 |---|---|---|
-| **Standard** (default) | action + move | the concise play-by-play |
+| **Minimal** | action only | the barest skeleton — who did what |
+| **Standard** (default) | + resolve + moves | the full play-by-play, math and positions |
 | **Story** | + flavor | narration on |
-| **Full** | + flavor + resolve | the mechanics / teaching view |
 
-Drives the `hide-flavor` / `hide-mechanics` classes on `#combat-log`
-(`LOG_PRESETS` in `game.js`).
+Resolve is **on by default** (Standard) — so costs, reflect, knockback and the
+roll math are visible without opting in; Minimal is the one place they're hidden.
+Drives the `hide-flavor` / `hide-mechanics` / `hide-move` classes on `#combat-log`
+(`LOG_PRESETS` in `game.js`). The positional phase headers `▸ Move` / `▸ Initiative`
+are classed as `move`, so they hide with their roster in Minimal; the action-phase
+headers `▸ Defend` / `▸ Attack` / `▸ Special` always show as orientation.
 
 ## The action block
 
@@ -136,8 +140,15 @@ square** — a unit holding its position says nothing and is dropped (the whole
   `(from) → (mid) ✗ (dest)`, a full block `(from) ✗ (dest)`. There is no separate
   "blocked by" line.
 
-The battle-start initiative list uses the same `⚡<init> <name> (square)` shape
-(every unit, since it's the starting roster).
+The battle-start initiative list is its own positional block — a `▸ Initiative`
+header (a `move`-classed phase header, not prose) over the roster in the same
+`⚡<init> <name> (square)` shape, every unit:
+
+```
+▸ Initiative
+⚡99 Lithkem Swallow (3,1)
+⚡82 Player (1,1)
+```
 
 ## Misses / fizzles
 

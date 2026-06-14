@@ -28,7 +28,7 @@ export function assignInitiative(combatants: Combatant[]): string[] {
   });
   sorted.forEach((c, i) => { c.initiativeRank = i; });
 
-  const lines = ['Initiative:'];
+  const lines = ['▸ Initiative'];
   // Standard positional order: ⚡initiative, name, square (initiative already
   // conveys turn order, so no separate rank number).
   sorted.forEach((c) => {
