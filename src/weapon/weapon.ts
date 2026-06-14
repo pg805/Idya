@@ -12,6 +12,9 @@ import Heal from './action/heal.js';
 import Strike from './action/strike.js';
 import Reflect from './action/reflect.js';
 import Shield from './action/shield.js';
+import TileAction from './action/tile_action.js';
+import DestroyObstacle from './action/destroy_obstacle.js';
+import MoveDebuff from './action/move_debuff.js';
 
 type ActionData = {
     'Name': string,
@@ -25,6 +28,10 @@ type ActionData = {
     'Damage_Subtype'?: string,
     'Cost'?: number,
     'Range'?: number,
+    'Area'?: number,
+    'Push'?: number,
+    'Smash'?: boolean,
+    'MoveTo'?: boolean,
     'Aimed'?: boolean,
     'Targeted'?: boolean
 }
@@ -64,6 +71,22 @@ function from_json(action_object: ActionData): Action {
             logger.info(`Adding Shield to Weapon: ${action_object['Name']}`);
             action = new Shield(action_object['Name'], action_object['Action_String'], action_object['Value'], action_object['Rounds']);
             break;
+        case 9:
+        case 10:
+        case 11:
+        case 13:
+            logger.info(`Adding Tile (${action_object['Type']}) to Weapon: ${action_object['Name']}`);
+            action = new TileAction(action_object['Name'], action_object['Action_String'], action_object['Type'], action_object['Value']);
+            action.type_name = action_object['Type_Name'];
+            break;
+        case 12:
+            logger.info(`Adding Destroy Obstacle to Weapon: ${action_object['Name']}`);
+            action = new DestroyObstacle(action_object['Name'], action_object['Action_String'], new Result_Field(action_object['Field']));
+            break;
+        case 14:
+            logger.info(`Adding Move Debuff to Weapon: ${action_object['Name']}`);
+            action = new MoveDebuff(action_object['Name'], action_object['Action_String'], action_object['Value'], action_object['Rounds']);
+            break;
         default:
             action = new Action('Error', 'Error');
     }
@@ -71,6 +94,10 @@ function from_json(action_object: ActionData): Action {
     action.damage_subtype = action_object['Damage_Subtype'] ?? '';
     action.cost           = action_object['Cost']           ?? 0;
     action.range          = action_object['Range']          ?? 1;
+    action.area           = action_object['Area']           ?? 1;
+    action.push           = action_object['Push']           ?? 0;
+    action.smash          = action_object['Smash']          ?? false;
+    action.moveTo         = action_object['MoveTo']         ?? false;
     action.aimed          = action_object['Aimed']          ?? false;
     action.targeted       = action_object['Targeted']       ?? false;
     return action;
@@ -161,12 +188,12 @@ export default class Weapon {
             weapon_data['Weight'] ?? 0,
             weapon_data['Resource']['Name'],
             weapon_data['Resource']['Max'],
-            weapon_data['Defend'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Defend Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Attack'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Attack Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Special'].flatMap((action_object: ActionData) => from_json(action_object)),
-            weapon_data['Special Crit'].flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Defend']        ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Defend Crit']   ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Attack']        ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Attack Crit']   ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Special']       ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
+            (weapon_data['Special Crit']  ?? []).flatMap((action_object: ActionData) => from_json(action_object)),
         );
     }
 }

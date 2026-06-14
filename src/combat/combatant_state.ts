@@ -1,6 +1,6 @@
 import logger from '../utility/logger.js';
 import Action from '../weapon/action.js';
-import { RollMode } from '../infrastructure/stance.js';
+import { RollMode } from '../infrastructure/roll_mode.js';
 
 export interface StatusEffect {
     value: number;
@@ -16,11 +16,17 @@ export class CombatantState {
     resource_current: number
     resistances: Record<string, number>
     block = 0
+    // Transient +damage from standing on a friendly buff tile this round. Set at
+    // the start of each action phase, cleared at end_round (like block).
+    tileBuff = 0
     dot:     StatusEffect = { value: 0, rounds: 0 }
     buff:    StatusEffect = { value: 0, rounds: 0 }
     debuff:  StatusEffect = { value: 0, rounds: 0 }
     reflect: StatusEffect = { value: 0, rounds: 0 }
     shield:  StatusEffect = { value: 0, rounds: 0 }
+    // Unit-attached movement debuff: while rounds > 0, the unit's movement range
+    // is capped to `value` (see effectiveMove). Distinct from positional slow tiles.
+    moveDebuff: StatusEffect = { value: 0, rounds: 0 }
     // Running tally of HP lost across the whole battle (strikes + DOT + reflect).
     // Reads at game_over to populate damage_dealt/damage_received on BattleLog.
     // Heals don't count (they go up, not down), which matches "damage taken".
@@ -32,6 +38,10 @@ export class CombatantState {
     aimed_attempted = 0
     aimed_hit = 0
     restores = 0
+    // The action category ('defend' | 'attack' | 'special') this unit committed
+    // last turn — fed to the planner for a slight nudge AWAY from repeating it, so
+    // a unit varies categories instead of locking into one (e.g. heal-looping).
+    last_category: string | null = null
 
     constructor(
         name: string,
@@ -68,7 +78,10 @@ export class CombatantState {
         if (action.cost === 0) return '';
         const before = this.resource_current;
         this.resource_current = Math.max(0, Math.min(this.resource_max, this.resource_current - action.cost));
-        return `  [${this.resource_name}: ${before} → ${this.resource_current}]`;
+        const delta = this.resource_current - before;
+        if (delta === 0) return '';
+        const sign = delta < 0 ? '−' : '+';
+        return `  [${sign}${Math.abs(delta)} ${this.resource_name}]`;
     }
 
     private tick_effect(effect: StatusEffect, label: string): string {
@@ -82,6 +95,7 @@ export class CombatantState {
     end_round(): string {
         let action_string = '';
         this.block = 0;
+        this.tileBuff = 0;
 
         if (this.dot.rounds > 0) {
             const hp_before = this.health;
@@ -93,11 +107,19 @@ export class CombatantState {
             if (this.dot.rounds === 0) this.dot.value = 0;
         }
 
-        action_string += this.tick_effect(this.buff,    'buff');
-        action_string += this.tick_effect(this.debuff,  'debuff');
-        action_string += this.tick_effect(this.reflect, 'reflect');
-        action_string += this.tick_effect(this.shield,  'shield');
+        action_string += this.tick_effect(this.buff,      'buff');
+        action_string += this.tick_effect(this.debuff,    'debuff');
+        action_string += this.tick_effect(this.reflect,   'reflect');
+        action_string += this.tick_effect(this.shield,    'shield');
+        action_string += this.tick_effect(this.moveDebuff, 'movement');
 
         return action_string;
     }
+}
+
+// Effective movement range for a unit: capped to its move-debuff value while that
+// debuff is active, otherwise the base range. Used everywhere a unit's reach is
+// computed (resolution, AI, server validation, and the serialized client state).
+export function effectiveMove(baseRange: number, state: CombatantState): number {
+    return state.moveDebuff.rounds > 0 ? Math.min(baseRange, state.moveDebuff.value) : baseRange;
 }

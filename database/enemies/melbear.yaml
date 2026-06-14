@@ -1,23 +1,35 @@
 Name: Melbear
 Health: 300
-Level: 5
+Level: 4
+Telegraph:
+  hostile:
+    closing: "Charging, frothing at the mouth"
+    holding: "Frothing at the mouth"
+    fleeing: "Backing off, still snarling"
+  defensive:
+    closing: "Lumbering in, favoring a wound"
+    holding: "Hunkering down, licking its wounds"
+    fleeing: "Lumbering away to recover"
 Loot:
   Items:
     - id: crude_talamite
       type: material
-      Field: [0, 1, 2, 2, 2, 3, 3, 4]
+      Field: [0, 8, 10, 11, 12, 13, 14, 16]
     - id: talamite
       type: material
-      Field: [0, 0, 1, 1, 2, 2, 2]
+      Field: [0, 3, 4, 5, 5]
     - id: sulwood
       type: material
-      Field: [0, 0, 0, 1, 1, 2]
+      Field: [0, 2, 3, 3, 4]
+    - id: treated_sulwood
+      type: material
+      Field: [0, 1, 2, 2, 3]
     - id: melstone
       type: valuable
-      Field: [0, 1, 1, 1, 1, 2, 2, 2]
+      Field: [0, 2, 3, 3, 4]
     - id: venison
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 1, 1, 2]
     - id: bear_paw
       type: valuable
       Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
@@ -47,17 +59,25 @@ Weapon:
       Damage_Subtype: Mental
       Value: 0
       Cost: -6
-      Action_String: "<User> hibernates, restoring 6 Solitude."
+      Action_String: "<User> hibernates, restoring its Solitude."
     - Name: Berry Snack
       Type: 6
       Type_Name: Heal
       Damage_Type: Arcane
       Damage_Subtype: Plant
-      Value: 30
+      Value: 35
       Cost: 2
-      Action_String: "<User> snacks on a berry, healing 30 damage."
+      Action_String: "<User> snacks on a berry, mending its wounds."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Honey Berry
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 15
+      Cost: 0
+      Action_String: "<User> digs out a honey berry, recovering."
 
   Attack:
     - Name: Ursa Minor
@@ -65,11 +85,13 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [0, 5, 7, 10, 12, 14, 20]
+      Field: [15, 21, 27, 33, 39]
       Cost: 2
       Aimed: false
       Range: 1
-      Action_String: "<User> swipes <Target> for <Damage> damage."
+      Area: 3
+      Smash: true
+      Action_String: "<User> rears up and smashes the ground, tearing into everything around it and flattening the cover."
 
   Attack Crit:
     - Name: Gash
@@ -77,10 +99,9 @@ Weapon:
       Type_Name: DOT
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [4, 7, 8]
+      Field: [8, 11, 14]
       Rounds: 3
-      Range: 1
-      Action_String: "<User> opens a deep gash in <Target>, dealing <Damage> damage for 3 rounds."
+      Action_String: "<User> opens a deep gash in <Target>, leaving it bleeding."
 
   Special:
     - Name: Ursa Major
@@ -88,10 +109,19 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Arcane
       Damage_Subtype: Mental
-      Field: [5, 7, 9, 10, 12, 18, 18, 18, 20, 25, 36]
+      Field: [25, 30, 35, 40, 45, 50, 55, 60]
       Cost: 3
       Aimed: true
       Range: 2
-      Action_String: "<User> calls the Ursa Major down upon <Target> for <Damage> damage."
+      Action_String: "<User> calls the Ursa Major down upon <Target>."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Bear Cub Strike
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [10, 15, 20]
+      Cost: 0
+      Range: 2
+      Action_String: "<User>'s cub pounces, raking <Target>."

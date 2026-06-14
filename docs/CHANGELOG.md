@@ -3,6 +3,117 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.2.0 — 2026-06-13
+
+The combat-stats overhaul 0.1.6 promised. Upgrades and enchants reworked from
+the ground up, three L4 weapons, two endgame enemies, a fully rebuilt combat log
+and battle page, livelier markets, and global quests.
+
+### Combat log — full rework
+
+- **Three-tier action block**: flavor → action line → resolve stack. The action
+  line carries the glance value (`: 47`, `: Block 4`, `: Shield 20 · 2 turns`);
+  the resolve stack is the *derivation only* (mode header, per-die fields with the
+  rolled face bolded, `− block`/`+ buff` modifiers, cost, `Total`) — no flat echo.
+- **Restores** show a blank action line + the regain in resolve (`+7 Flow`).
+  **Stacked block** (a defend-crit on top of a guard) shows a running `Total`.
+- **Detail dial** (Minimal / Standard / Story) replaces the four filter
+  checkboxes; resolve is on by default in Standard, so costs/reflect/knockback are
+  visible without opting in.
+- **Movement**: `⚡initiative`-first lines, full traversed path, `✗ (denied)`
+  marker (no separate "blocked by" line), holders dropped, `▸ Initiative` header.
+- **AOE strikes** merge into one block (blink + per-victim breakdown + shared cost).
+- Misses standardized; flavor rewritten number-free; `roll_detail` exposes the
+  rolled dice. The whole grammar is specced in `docs/combat-log-spec.md`.
+
+### Battle page rework
+
+- Fully **static layout** (no reflow): combatant-card rail / board + action panel
+  / log. Action panel sits under the board at board width, grouped by category
+  with crit headers, standardized "TYPE value" stats, auto-submit, aimed/reactive
+  + range tokens.
+- Defeated cards stay on screen; big green return button on win; connection status
+  hides when healthy; cards rail widened for the telegraph.
+
+### Crits — category triangle
+
+- **Defend ▶ Attack ▶ Special ▶ Defend**: every category that beats an opponent's
+  fires its matching crit (`defend_crit` / `attack_crit` / `special_crit`), range-
+  gated, resolved alongside its trigger. Fixes: crit now requires a real
+  interaction (not two self-actions); mixed crit payloads target the right unit
+  (self-Buff/Heal vs foe); knockback-on-crit (Breaker's push) was a no-op.
+
+### AI
+
+- The utility **planner is now the standard enemy AI**; the `AI: smart` flag is
+  retired (`smart` = opponent-read, used only for the player-side sim). Heal
+  weighted by missing HP; nudge away from repeating the last category.
+
+### Weapons — L4 tier + roster
+
+- **Three L4 weapons** (rank 9), each assembled from two cross-profession parts:
+  **Crossbow** (LJ), **Scythe** (EN), **Nunchaku** (BS). Nunchaku introduces the
+  **MoveTo blink** (Riptide — an aimed area that relocates the caster, then bursts).
+- **L3 cross-profession components** (`wand_base` / `staff_base` /
+  `battle_axe_hilt`). Weapon→profession map finalized (`kustaff` → LJ,
+  `pickaxe` → BS L1).
+- Removed dead weapons (`quarterstaff`, `wand_talamite`, `sword_talamite`) →
+  refund migration (below).
+
+### Enemies — 10-enemy roster (levels 0–6)
+
+- Added **L5 Child of Sidaev** (arcane glass cannon) and **L6 Sulgovenath**
+  (sword-wielding final boss), with huntable wiring + baits (`sidaev_bait`,
+  `sulgovenath_bait`). Archived rat/zombie/mushroom stay gone.
+
+### Upgrades — rework
+
+- **EV-pool + auto-HP** model with a per-weapon HP:EV split; rank-based budget
+  schedule; upgrades climb from the weapon's crafted level; costs keyed to the
+  level climbed (bands `[5,10,5,12]`); tier-3 smelt 2:1 → 12:1. **One weapon → one
+  profession** — you only upgrade your own profession's weapons.
+
+### Enchants — rework
+
+- **Four types** (health / melee / ranged / upgrade), 3 slots, a layer separate
+  from upgrades. Melee/ranged inject the **Sidaev Strike / Pulse** abilities; all
+  values scale off the level budget. **Rank gate** (Enchanter rank ≥ 2× weapon
+  level); cost in hiruos/nodol. The old physical/arcane/elemental enchant *recipes*
+  were removed — enchants are applied on the Enchant page, not crafted.
+
+### Economy
+
+- **Market dynamics rework** (prices stay alive and recover) + `ShopPriceTick`
+  price history for real-data graphs + a market sim (quiet vs heavy-trading
+  panels, SVG charts). Base material prices rescaled (buy 100→50, sell 20→10).
+  Recipe rank gating re-mapped to the new progression; flat material→weapon
+  recipes reconciled to the real roster. `pacing_sim` (fights-per-rank /
+  fights-per-weapon).
+
+### Global quests (Town Square)
+
+- YAML-authored **timed deposit-for-korel quests** + rank-tiered trophies; live
+  countdown + end detection; korel header refresh on deposit.
+
+### Docs / tooling
+
+- Reference info page (`/app/reference`) updated for every 0.2.0 system;
+  `docs/combat-log-spec.md` added. Canonical sim snapshot in `docs/sim/0.2.0.json`
+  (`npm run sim:save`, now run with a raised heap).
+
+### Production migration required on release
+
+- Run `node lib/tools/migrate_cleanup.js --apply` (dry-run without `--apply`;
+  idempotent; needs `DATABASE_URL`). It:
+  - Strips pre-0.2.0 enchants (action-keyed minor/major) and **refunds** their
+    material cost (minor 3 thuvel + 6 hiruos; major +9 nodol); keeps new-format
+    enchants.
+  - **Deletes** weapons whose YAML is gone (`quarterstaff`, `wand_talamite`,
+    `sword_talamite`), refunds the recipe material cost, and nulls any
+    `equipped_weapon_id` that pointed at them.
+- Delete the test quest YAMLs before release: `database/quests/test.yaml`,
+  `database/quests/test2.yaml`.
+
 ## 0.1.6 — 2026-06-06
 
 The "active battles, market page, economy plumbing" release. 0.2.0 is being

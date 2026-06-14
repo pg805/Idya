@@ -1,7 +1,7 @@
 Name: Deck of Cards
 Description: The cards in this deck are razor sharp and fly with precision. An worthy weapon for any adventurer.
-Level: 3
-HP: 25
+Level: 1
+HP: 15
 Weight: 0
 
 Resource:
@@ -16,9 +16,18 @@ Defend:
     Damage_Subtype: Blunt
     Value: 4
     Cost: -15  # restores 15 luck
-    Action_String: "<User> shuffles their deck, preparing to block for 4 damage."
+    Action_String: "<User> shuffles their deck, preparing to block."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Stack the Deck
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> stacks the deck, raising a shield."
 
 Attack:
   - Name: Rank
@@ -30,7 +39,7 @@ Attack:
     Cost: 2  # costs 2 luck
     Aimed: false
     Range: 3
-    Action_String: "<User> pulls a card and throws it at <Target>, dealing <Damage> damage."
+    Action_String: "<User> pulls a card and throws it at <Target>."
   - Name: Ace
     Type: 1
     Type_Name: Strike
@@ -40,7 +49,7 @@ Attack:
     Cost: 4  # costs 4 luck
     Aimed: true
     Range: 3
-    Action_String: "<User> pulls an ace and throws it at <Target>, dealing <Damage> damage."
+    Action_String: "<User> pulls an ace and throws it at <Target>."
 
 Attack Crit:
   - Name: Joker
@@ -48,9 +57,9 @@ Attack Crit:
     Type_Name: Debuff
     Damage_Type: Arcane
     Damage_Subtype: Mental
-    Value: 6
+    Value: 2
     Rounds: 2
-    Action_String: "<User> pulls a joker and throws it at <Target>, debuffing <Target>'s attack by 6 for 2 rounds."
+    Action_String: "<User> pulls a joker and throws it at <Target>, fouling their aim."
 
 Special:
   - Name: Suit
@@ -62,7 +71,7 @@ Special:
     Cost: 4  # costs 4 luck
     Aimed: false
     Range: 3
-    Action_String: "<User> pulls a suit card and throws it at <Target>, dealing <Damage> damage."
+    Action_String: "<User> pulls a suit card and throws it at <Target>."
   - Name: Spades
     Type: 1
     Type_Name: Strike
@@ -72,6 +81,15 @@ Special:
     Cost: 7  # costs all luck
     Aimed: true
     Range: 3
-    Action_String: "<User> pulls the ace of spades and throws it at <Target>, dealing <Damage> damage."
+    Action_String: "<User> pulls the ace of spades and throws it at <Target>."
 
-Special Crit: []
+Special Crit:
+  - Name: Second Joker
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [1, 2]
+    Rounds: 2
+    Cost: 0
+    Action_String: "<User> slips in a second joker — <Target> bleeds."

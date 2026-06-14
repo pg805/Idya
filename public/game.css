@@ -1,6 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root { --cell-size: 48px; }
+:root { --cell-size: 44px; }
 
 body {
   background: var(--bg);
@@ -33,17 +33,57 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #turn-label { color: var(--gold); font-weight: bold; }
 #phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
+/* Forfeit lives at the right edge of the status bar so the rest of the row
+   keeps its centered, conversational feel and the bail-out is one obvious
+   click away. */
+#forfeit-btn {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+#forfeit-btn:hover { color: var(--warn-bright); border-color: var(--warn-dim); }
+#forfeit-btn:disabled,
+#forfeit-btn[hidden] { display: none; }
+
+/* Everything is a STATIC size so content changes (log lines, action sets,
+   telegraphs) never reflow the page. Top row: cards | board | log, all fixed
+   width/height; the action panel sits below at a fixed height. */
 #main-layout {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 14px;
+}
+#top-row {
+  display: flex;
+  gap: 16px;
   align-items: flex-start;
 }
 
-#left-col { display: flex; flex-direction: column; gap: 12px; }
+/* Middle column: the board with the action panel directly beneath it — both
+   exactly the board's width, so the actions tuck under the grid with no big
+   empty box. */
+#board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+/* Cards — a fixed-width rail on the left, stacked vertically. */
+/* Cards hold the telegraph + HP — the decision-relevant read — so the rail gets
+   real width rather than being the thinnest column. */
+#combatant-list { display: flex; flex-direction: column; gap: 12px; width: 236px; flex: 0 0 236px; }
 
 /* ---- Board ---- */
 #board {
   display: grid;
+  flex: 0 0 auto;   /* hold the board's natural grid width in the flex row */
   gap: 3px;
   background: var(--bg-darkest);
   padding: 8px;
@@ -82,6 +122,20 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .cell.obstacle[data-state="destroyed"] { background: #1a1510; }
 .cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #333; }
 
+/* Board-effect tiles (0.2.0). Tint the cell; combatant/marks sit on top. */
+.cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(80,150,230,0.7);  background: rgba(40,90,150,0.28); }
+.cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(220,180,60,0.7);  background: rgba(150,120,30,0.28); }
+.cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
+.cell.tile-slow   { box-shadow: inset 0 0 0 2px rgba(150,120,60,0.7);  background: rgba(90,75,35,0.34); }
+.cell .tile-mark {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 1px;
+  font-size: 1.05rem; font-weight: bold; line-height: 1;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  opacity: 0.7;                        /* fades the symbol + value together */
+  pointer-events: none; z-index: 2;   /* behind the token (z-index 4) */
+}
+
 /* Reachable highlight — palette buy-blue */
 .cell.reachable {
   background: var(--buy-bg);
@@ -117,10 +171,31 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   box-shadow: inset 0 0 14px rgba(226, 99, 132, 0.4);
 }
 
+/* Blink-strike (MoveTo) targets — teal outline signals you'll teleport ONTO
+   the tile; the crosshair keeps it reading as an attack. Overrides the amaranth
+   target outline so the relocation is unmistakable. */
+.cell.target-blink {
+  outline-color: var(--teal);
+  box-shadow: inset 0 0 10px rgba(56, 189, 178, 0.35);
+}
+.cell.target-blink.target-selected {
+  outline: 3px solid var(--teal);
+  box-shadow: inset 0 0 14px rgba(56, 189, 178, 0.55);
+}
+
+/* AOE blast footprint — every square a lined-up Area attack will hit. Drawn as
+   an inset glow so it layers over tokens/tiles/targetable marks without hiding
+   them (it's an overlay, not a base background). */
+.cell.area-footprint {
+  box-shadow: inset 0 0 0 2px rgba(226, 99, 132, 0.55), inset 0 0 12px rgba(226, 99, 132, 0.3);
+}
+
 /* Combatant tokens */
 .combatant {
-  width: 52px;
-  height: 52px;
+  position: relative;
+  z-index: 4;           /* tokens render above tiles + tile marks */
+  width: var(--cell-size);   /* track the cell so the token stays a true circle */
+  height: var(--cell-size);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -147,11 +222,21 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px 16px;
+  /* Sizes to its content (the action list is constant within a battle, so this
+     doesn't jump) — no internal scrollbar. Width comes from the board column. */
   min-height: 56px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: opacity 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
+/* Off-turn (move / waiting / idle): the list is a dimmed, non-interactive
+   preview so the space below the board reads as "not your turn yet". */
+#action-panel.dim .action-list { opacity: 0.4; filter: grayscale(0.35); pointer-events: none; }
+#action-panel.dim .action-title { color: var(--text-faint); }
+/* On-turn: lit up + a gold edge to say "pick now". */
+#action-panel.active { border-color: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-dim); }
+#action-panel.active .action-title { color: var(--gold-bright); }
 .action-title {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -175,6 +260,24 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   background: var(--teal-dim);
   color: var(--text);
 }
+/* End-of-battle: a normal-sized green button at the top of the (locked-height)
+   panel; the rest of the section just stays empty. */
+.return-big {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
+  background: #2e7d32;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.return-big:hover { background: #388e3c; border-color: #66bb6a; }
 .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .action-btn {
   background: var(--buy-bg);
@@ -219,31 +322,119 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-btn.selected .action-key { color: var(--teal-bright); border-color: var(--teal-dim); }
 .action-btn.unaffordable .action-key { opacity: 0.5; }
 @media (max-width: 640px) { .action-key { display: none; } }
+
+/* Grouped action list — one block per category, headed by its (conditional) crit.
+   Stacked vertically, filling the board-width panel. */
+.action-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.action-group {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.action-group.group-defend  { border-left-color: var(--teal-dim); }
+.action-group.group-attack  { border-left-color: var(--warn-dim); }
+.action-group.group-special { border-left-color: var(--gold-dim); }
+
+.action-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 10px;
+  background: var(--bg-darkest);
+  font-size: 0.72rem;
+}
+.cat-name { font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; color: var(--text-muted); }
+.group-defend  .cat-name { color: var(--teal-bright); }
+.group-attack  .cat-name { color: var(--warn-bright); }
+.group-special .cat-name { color: var(--gold-bright); }
+.cat-crit { text-align: right; color: var(--text-faint); }
+.crit-arrow { color: var(--text-muted); }
+.crit-trigger { opacity: 0.75; font-style: italic; }
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.action-group-head + .action-row { border-top: none; }
+.action-row:hover { background: var(--bg-hover); }
+.action-row.selected { background: var(--teal-bg); box-shadow: inset 3px 0 0 var(--teal); }
+.action-row.unaffordable { opacity: 0.4; cursor: not-allowed; }
+.action-row .action-key { margin-right: 0; flex: 0 0 auto; }
+.action-label { flex: 0 0 auto; font-weight: 500; }
+.action-stat { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
+/* The effect + value as plain text; only the modifiers (below) are boxed. */
+.stat-value { color: var(--text-2); margin-right: 7px; }
+
+/* Each stat token in a thin outlined rectangle (border only, no fill). Used by
+   both the action rows and the crit headers so they read identically. */
+.stat-pill {
+  display: inline-block;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.crit-name { color: var(--text-muted); margin-right: 5px; font-style: italic; }
+.action-cost {
+  flex: 0 0 auto;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 6px;
+}
+.action-cost.gain { color: var(--teal-bright); border-color: var(--teal-dim); }
+.action-cost.free { opacity: 0.5; }
+.action-row.pass-row { color: var(--text-faint); justify-content: flex-start; }
 .submit-btn {
   background: var(--gold-bg);
   border: 1px solid var(--gold-dim);
   border-radius: 4px;
   color: var(--gold);
-  padding: 7px 20px;
+  padding: 9px 20px;
   font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
   letter-spacing: 0.05em;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, color 0.1s, opacity 0.15s;
 }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
 
 /* ---- Combatant cards ---- */
-#combatant-list { display: flex; gap: 12px; }
 .combatant-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 14px;
-  min-width: 130px;
+  /* Fixed height so a card never grows/shrinks (telegraph or status toggling)
+     and shoves the card below it — keeps the rail static. The wider card (236px)
+     lets badges/telegraph fit in fewer rows, so this can be tighter than before. */
+  height: 162px;
+  overflow: hidden;
 }
 .combatant-card.team-a { border-color: #4a90d9; }
 .combatant-card.team-b { border-color: #d94a4a; }
+/* A defeated unit's card stays on screen at 0 HP, greyed out. */
+.combatant-card.defeated { opacity: 0.45; filter: grayscale(0.7); }
 .combatant-card h3 { font-size: 0.9rem; margin-bottom: 2px; }
 .weapon-name { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px; }
 .hp-bar-bg { background: var(--bg-darkest); border-radius: 3px; height: 6px; overflow: hidden; }
@@ -278,15 +469,18 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .badge-buff    { background: var(--teal-bg); color: var(--teal-bright);  border: 1px solid var(--teal-dim); }
 .badge-debuff  { background: var(--warn-bg); color: var(--warn);         border: 1px solid var(--warn-dim); }
 .badge-reflect { background: var(--gold-bg); color: var(--gold);         border: 1px solid var(--gold-dim); }
+.badge-movedebuff { background: var(--warn-bg); color: var(--warn);      border: 1px solid var(--warn-dim); }
 
 /* ---- Combat log ---- */
 #right-col {
-  width: 260px;
+  width: 320px;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 #log-header {
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-bottom: none;
@@ -300,51 +494,83 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   flex-direction: column;
   gap: 6px;
 }
-#log-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
+#log-download {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 1px 7px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+#log-download:hover { color: var(--gold); }
+.init-badge { font-size: 0.7rem; color: var(--gold); font-weight: 600; }
+/* Detail dial: a 3-stop segmented control (Standard / Story / Full). */
+#log-detail {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 0.7rem;
 }
-#log-filters label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+#log-detail button {
+  background: var(--bg-darkest);
+  border: none;
+  border-left: 1px solid var(--border);
   color: var(--text-faint);
+  font: inherit;
+  font-size: 0.68rem;
+  padding: 3px 10px;
   cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
 }
-#log-filters input { accent-color: var(--gold); cursor: pointer; }
-#log-filters label:hover { color: var(--text-2); }
+#log-detail button:first-child { border-left: none; }
+#log-detail button:hover { color: var(--text-2); }
+#log-detail button.active { background: var(--gold-bg); color: var(--gold); }
 #combat-log {
   background: var(--bg-deep);
   border: 1px solid var(--border);
   border-radius: 0 0 6px 6px;
   padding: 10px 12px;
-  height: 420px;
-  overflow-y: auto;
+  height: 506px;          /* fixed — matches the board height so the row is static */
+  overflow-y: auto;       /* new lines scroll INSIDE; the page never grows */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 0.78rem;
   line-height: 1.4;
 }
-#combat-log p { color: var(--text-2); border-bottom: 1px solid var(--border-soft); padding-bottom: 3px; }
-#combat-log p.turn-divider { color: var(--gold); font-weight: bold; border-bottom-color: var(--gold-dim); }
+/* Long lines wrap instead of widening the fixed-width column (the jump source). */
+#combat-log p { color: var(--text-2); padding-bottom: 1px; overflow-wrap: anywhere; }
+#combat-log p.turn-divider { color: var(--gold); font-weight: bold; text-align: center; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--gold-dim); }
+#combat-log p.turn-divider:first-child { margin-top: 0; border-top: none; }
+#combat-log p.phase-header { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px; padding-top: 2px; }
 #combat-log p.crit         { color: var(--gold-bright); font-weight: bold; }
-#combat-log p.action-head  { color: var(--text); font-weight: 600; }
-#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.85; padding-left: 8px; }
-#combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; padding-left: 8px; }
-#combat-log p.move         { color: var(--text-faint); font-size: 0.74rem; }
+#combat-log p.action-head  { color: var(--text); font-weight: 500; margin-top: 6px; }
+/* Flavor LEADS each action block (prose above the header), at action level (not
+   the resolution indent), italic + dim. It carries the inter-block gap; the
+   header that follows tucks tight beneath it. */
+#combat-log p.flavor       { color: var(--gold); font-style: italic; opacity: 0.72; font-size: 0.74rem; margin-top: 6px; }
+#combat-log p.flavor + p.action-head { margin-top: 0; }
+/* Resolution lines (rolls / modifiers / total / cost) — indented, monospace. */
+#combat-log p.mechanics    { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; padding-left: 16px; opacity: 0.9; }
+#combat-log p.mechanics b  { color: var(--gold-bright); font-weight: bold; }   /* the die(s) that came up */
+#combat-log p.move         { color: var(--text-faint); font-size: 0.76rem; }
 #combat-log p.status       { color: var(--warn-bright); }
 #combat-log p.tutorial-aside { color: var(--teal-bright); font-style: italic; border-left: 2px solid var(--teal-dim); padding-left: 6px; }
 #combat-log p.tutorial-ooc { color: var(--buy); font-size: 0.72rem; border-left: 2px solid var(--buy-dim); padding-left: 6px; }
 
-/* Filter: hide categories the player has toggled off */
+/* Filter: hide categories the player has toggled off. Mechanics is off by
+   default — it's roll math, useful when debugging but noise day-to-day. */
 #combat-log.hide-flavor      p.flavor      { display: none; }
+/* With flavor hidden, the header is the block's top line again — restore its gap. */
+#combat-log.hide-flavor      p.flavor + p.action-head { margin-top: 6px; }
 #combat-log.hide-action-head p.action-head { display: none; }
 #combat-log.hide-mechanics   p.mechanics   { display: none; }
 #combat-log.hide-move        p.move        { display: none; }
@@ -356,27 +582,26 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* ---- Mobile (portrait phones) ----
    Stack main-layout vertically and shrink board cells so a 7-wide board
-   fits inside a ~390px viewport without overflow. The js-driven width on
-   #left-col is overridden with !important since it's set inline. */
+   fits inside a ~390px viewport without overflow. */
 @media (max-width: 640px) {
   :root { --cell-size: 28px; }
   #battle-shell { padding: 8px; gap: 8px; }
   #main-layout {
-    flex-direction: column;
     gap: 10px;
     width: 100%;
-    align-items: stretch;
   }
-  #left-col { width: 100% !important; }
-  #right-col { width: 100%; }
+  #top-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  #right-col { width: 100%; flex-basis: auto; }
   #combat-log { height: 240px; }
-  .combatant { width: 32px; height: 32px; font-size: 0.7rem; border-width: 1px; }
+  #action-panel { height: auto; }
+  .action-list { flex-direction: column; }
+  .combatant { font-size: 0.7rem; border-width: 1px; }
   .combatant-name { display: none; }
   .cell[data-coord]::after { display: none; }
-  #combatant-list { flex-wrap: wrap; }
-  .combatant-card { min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
+  #combatant-list { width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap; }
+  .combatant-card { height: auto; min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
   h1 { font-size: 1rem; }
   #log-header { padding: 6px 10px; }
-  #log-filters { font-size: 0.65rem; gap: 3px 8px; }
+  #log-detail button { font-size: 0.62rem; padding: 3px 7px; }
   .action-btn { font-size: 0.8rem; padding: 5px 10px; }
 }

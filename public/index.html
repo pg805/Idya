@@ -17,27 +17,29 @@
       <span id="turn-label">Turn 1</span>
       <span class="sep">·</span>
       <span id="phase-label">waiting</span>
-      <span class="sep">·</span>
-      <span id="connection-status" class="disconnected">Connecting...</span>
+      <span id="conn-wrap"><span class="sep">·</span><span id="connection-status" class="disconnected">Connecting...</span></span>
+      <button id="forfeit-btn" type="button" title="Leave this battle. Bait is gone, no other penalty.">Forfeit</button>
     </div>
 
     <div id="main-layout">
-      <div id="left-col">
-        <div id="board"></div>
-        <div id="action-panel"></div>
+      <div id="top-row">
         <div id="combatant-list"></div>
-      </div>
-      <div id="right-col">
-        <div id="log-header">
-          <span>Combat Log</span>
-          <div id="log-filters">
-            <label><input type="checkbox" data-filter="flavor"     checked> Flavor</label>
-            <label><input type="checkbox" data-filter="action-head" checked> Actions</label>
-            <label><input type="checkbox" data-filter="mechanics"  checked> Mechanics</label>
-            <label><input type="checkbox" data-filter="move"       checked> Moves</label>
-          </div>
+        <div id="board-col">
+          <div id="board"></div>
+          <div id="action-panel"></div>
         </div>
-        <div id="combat-log"></div>
+        <div id="right-col">
+          <div id="log-header">
+            <span>Combat Log</span>
+            <div id="log-detail" role="group" aria-label="Log detail">
+              <button type="button" data-preset="minimal" title="Just the action lines">Minimal</button>
+              <button type="button" data-preset="standard" title="Actions + moves + the resolve breakdown (dice, modifiers, totals)">Standard</button>
+              <button type="button" data-preset="story" title="Adds the flavor narration">Story</button>
+            </div>
+            <button id="log-download" type="button" title="Download full log">⤓</button>
+          </div>
+          <div id="combat-log"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -50,7 +52,7 @@
   <script>
     (async function initBattleLayout() {
       await claimAuthFromUrl();
-      await mountLayout({ title: 'Combat' });
+      await mountLayout({ title: 'Combat', compact: true });
     })();
   </script>
 </body>

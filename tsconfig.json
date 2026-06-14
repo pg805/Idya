@@ -68,5 +68,5 @@
     "skipLibCheck": true,                     /* Skip type checking of declaration files. */
     "forceConsistentCasingInFileNames": true  /* Disallow inconsistently-cased references to the same file. */
   },
-  "exclude": ["prisma.config.ts", "node_modules", "src/**/__tests__/**"]
+  "exclude": ["prisma.config.ts", "node_modules", "archive", "src/**/__tests__/**"]
 }

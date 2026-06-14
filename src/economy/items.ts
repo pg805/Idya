@@ -25,26 +25,19 @@ export const ITEMS: Record<string, ItemDef> = {
     alloy:           { name: 'Alloy',            description: 'A superior metal fused from talamite under extreme heat. Only the best blacksmiths can produce it.',type: 'material'   },
     nodol:           { name: 'Nodol',            description: 'Crystallized hiruos. Rare and precisely attuned — the finest enchanting material.',                 type: 'material'   },
 
-    // Weapon components — crafted, sold at profession shops
-    sword_hilt:           { name: 'Sword Hilt',           description: 'A wrapped sulwood hilt, ready to receive a blade.',                       type: 'material' },
-    axe_handle:           { name: 'Axe Handle',           description: 'A thick sulwood handle, balanced for a heavy head.',                      type: 'material' },
-    shovel_handle:        { name: 'Shovel Handle',        description: 'A sturdy sulwood handle, ready for a blade.',                             type: 'material' },
-    sword_blade_wood:     { name: 'Sword Blade (Wood)',   description: 'A hardened sulwood blade, shaped and edged for cutting.',                 type: 'material' },
-    axe_head_wood:        { name: 'Axe Head (Wood)',      description: 'A rough-hewn sulwood axe head, edged and hardened.',                     type: 'material' },
-    shovel_head_wood:     { name: 'Shovel Head (Wood)',   description: 'A shaped sulwood blade, ready to be fitted to a handle.',                 type: 'material' },
-    wand_base_wood:       { name: 'Wand Base (Wood)',     description: 'A slender sulwood rod, blank until attuned by an enchanter.',             type: 'material' },
-    sword_blade_hardwood: { name: 'Sword Blade (Hardwood)', description: 'A hardwood blade — denser grain, holds a finer edge.',                 type: 'material' },
-    axe_head_hardwood:    { name: 'Axe Head (Hardwood)',  description: 'A hardwood axe head — heavier and better balanced than treated sulwood.', type: 'material' },
-    shovel_head_hardwood: { name: 'Shovel Head (Hardwood)', description: 'A hardwood shovel blade — sturdier and better balanced.',              type: 'material' },
-    wand_base_hardwood:   { name: 'Wand Base (Hardwood)', description: 'A hardwood wand rod — denser grain, holds attunement more cleanly.',     type: 'material' },
-    sword_blade_talamite: { name: 'Sword Blade (Talamite)', description: 'A talamite blade, edged and ready for a hilt.',                       type: 'material' },
-    axe_head_talamite:    { name: 'Axe Head (Talamite)',  description: 'A talamite axe head — takes an edge sulwood never could.',               type: 'material' },
-    shovel_head_talamite: { name: 'Shovel Head (Talamite)', description: 'A talamite shovel blade — stays sharp no matter the abuse.',           type: 'material' },
-    wand_base_talamite:   { name: 'Wand Base (Talamite)', description: 'A rod of talamite, cold and dense. Blank until attuned by an enchanter.',type: 'material' },
-    sword_blade_alloy:    { name: 'Sword Blade (Alloy)',  description: 'An alloy blade — holds an edge far longer than talamite.',               type: 'material' },
-    axe_head_alloy:       { name: 'Axe Head (Alloy)',     description: 'An alloy axe head — weight and edge in perfect balance.',                type: 'material' },
-    shovel_head_alloy:    { name: 'Shovel Head (Alloy)',  description: 'An alloy shovel blade — sharper and more durable than talamite.',        type: 'material' },
-    wand_base_alloy:      { name: 'Wand Base (Alloy)',    description: 'A rod of refined alloy. Channels arcane energy with exceptional precision.', type: 'material' },
+    // L3 cross-profession components — each crafted by one profession, used in
+    // another's L3 weapon (rank-5 craft; buyable/sellable at the maker's shop).
+    wand_base:       { name: 'Wand Base',       description: 'A dense talamite rod cast by a blacksmith — blank until an enchanter attunes it into a wand.', type: 'material' },
+    staff_base:      { name: 'Staff Base',      description: 'A hiruos-charged staff shaft wound by an enchanter — a lumberjack binds living vines through it for a kustaff.', type: 'material' },
+    battle_axe_hilt: { name: 'Battle Axe Hilt', description: 'A heavy treated-sulwood haft shaped by a lumberjack — a smith fits a talamite head to it for a battle axe.', type: 'material' },
+
+    // L4 cross-profession components — tier-3, each crafted by one profession for another's L4 weapon (rank-9).
+    crossbow_limb: { name: 'Crossbow Limb', description: 'A sprung alloy crossbow limb forged by a blacksmith — half the draw weight of a lumberjack\'s crossbow.', type: 'material' },
+    magic_bolts:   { name: 'Magic Bolts',   description: 'A quiver of nodol-tipped bolts enchanted by an enchanter — they fly true and burst on contact.', type: 'material' },
+    scythe_head:   { name: 'Scythe Head',   description: 'A wickedly curved alloy scythe head ground by a blacksmith — an enchanter binds it to a haft.', type: 'material' },
+    scythe_handle: { name: 'Scythe Handle', description: 'A long, balanced hardwood haft shaped by a lumberjack — the spine of an enchanter\'s scythe.', type: 'material' },
+    hardwood_bar:  { name: 'Hardwood Bar',  description: 'A short, balanced hardwood bar turned by a lumberjack — one half of a nunchaku.', type: 'material' },
+    sidaev_bar:    { name: 'Sidaev Bar',    description: 'An arcane bar humming with Sidaev as water, attuned by an enchanter — the other half of a nunchaku.', type: 'material' },
 
     // Bait — consumed to start a battle, bought at the general store
     swallow_bait: { name: 'Swallow Bait',  description: 'A handful of breadcrumbs and river stones, gifted by Dolan. Hand it to a swallow and it follows you — every time. Always-on permit to hunt lithkem swallows.', type: 'unlock' },
@@ -55,6 +48,8 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_bait:    { name: 'Bear Bait',     description: 'A bloody slab of game wrapped in waxed cloth. A melbear can smell it from a den away.', type: 'consumable' },
     tar_bait:     { name: 'Tar Bait',      description: 'A pungent slick of black resin. Golnosar nest in tar pools and rise when they smell their own.', type: 'consumable' },
     tin_bait:     { name: 'Tin Bait',      description: 'A rattling pouch of polished tin shavings. Tinpul mistake the sound for one of their own.', type: 'consumable' },
+    sidaev_bait:  { name: 'Sidaev Bait',   description: 'A charm humming with caged arcane light. A Child of Sidaev drifts toward it, drawn to its own kind.', type: 'consumable' },
+    sulgovenath_bait: { name: 'Sulgovenath Bait', description: 'A vial of thick, ancient sap. Its scent of old-growth wood rouses a Sulgovenath from the deep forest.', type: 'consumable' },
 
     // Misc materials sold at the general store
     card_deck:    { name: 'Card Deck',     description: 'A simple deck of cards with the Chae emperor, Gustavus, as the king. Common in town, occasionally enchanted by those who know how.', type: 'material'   },
@@ -70,6 +65,8 @@ export const ITEMS: Record<string, ItemDef> = {
     bear_paw:        { name: 'Bear Paw',        description: 'A massive melbear paw, fur and claws intact. The lumberjack pays well for one.',  type: 'valuable'   },
     bottle_of_tar:   { name: 'Bottle of Tar',   description: 'A glass bottle of black, oily resin drained from a golnosar. The lumberjack uses it for waterproofing tools.', type: 'valuable'   },
     lifgem:          { name: 'Lifgem',          description: 'A faintly pulsing gemstone. The enchanter pays for any that come through the door.', type: 'valuable'   },
+    nosgem:          { name: 'Nosgem',          description: 'A rare gem of condensed arcane darkness, recovered only from a fallen Child of Sidaev. The enchanter will empty the till for one.', type: 'valuable' },
+    razor_sharp_blade: { name: 'Razor-Sharp Blade', description: 'A shard of a Sulgovenath\'s greatblade, still keen enough to part a hair. The blacksmith covets it.', type: 'valuable' },
 
     // Enemy trophies — permanent character-bound mementos granted on the
     // first defeat of each enemy. The defeated-count shown on each is queried
@@ -83,6 +80,8 @@ export const ITEMS: Record<string, ItemDef> = {
     golnosar_trophy:        { name: 'Golnosar Trophy', description: 'A sliver of hardened tar, pressed into the shape of a coin.',            type: 'unlock' },
     melbear_trophy:         { name: 'Melbear Trophy', description: 'A single claw from a melbear, wrapped at the base in dyed sinew.',        type: 'unlock' },
     tinpul_trophy:          { name: 'Tinpul Trophy', description: 'A flattened scrap of tin, beaten thin enough to wear.',                    type: 'unlock' },
+    child_of_sidaev_trophy: { name: 'Child of Sidaev Trophy', description: 'A mote of caught light that never fades, taken from your first Child of Sidaev.', type: 'unlock' },
+    sulgovenath_trophy:     { name: 'Sulgovenath Trophy', description: 'A length of petrified bramble-bark from your first Sulgovenath — still faintly green at the core.', type: 'unlock' },
 };
 
 // Convention used by the trophy grant + inventory enrichment paths.

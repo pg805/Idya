@@ -1,0 +1,95 @@
+Name: Pickaxe
+Description: A sturdy miner's pickaxe. Shapes the ground as much as it strikes.
+Level: 1
+HP: 30
+Weight: 0
+
+Resource:
+  Name: Dirt
+  Max: 10
+
+Defend:
+  # NEW EFFECT — Block Tile (Type 9): drops a permanent tile on the caster's
+  # square. Allies standing on it gain block = Value each round. Overwrites any
+  # tile already there.
+  - Name: Hidey Hole
+    Type: 9
+    Type_Name: Block Tile
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Value: 5
+    Area: 1
+    Cost: 5
+    Action_String: "<User> digs a hidey hole — allies standing on it find cover."
+  # NEW EFFECT — Buff Tile (Type 10): permanent tile on the caster's square.
+  # Allies standing on it deal +Value to their attack rolls (flat, not stacking).
+  - Name: Trench Warfare
+    Type: 10
+    Type_Name: Buff Tile
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 5
+    Area: 1
+    Cost: 5
+    Action_String: "<User> digs a trench — allies standing on it strike harder."
+  - Name: Duck
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 5
+    Cost: 1
+    Action_String: "<User> ducks behind their pickaxe, blocking."
+
+Defend Crit:
+  - Name: Dirty Pride
+    Type: 3
+    Type_Name: Buff
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> digs in with dirty pride, spoiling for a fight."
+
+Attack:
+  - Name: Mine
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [0, 3, 4, 5, 6, 7]
+    Cost: 2
+    Aimed: false
+    Range: 1
+    Action_String: "<User> mines into <Target>."
+
+Attack Crit:
+  - Name: Struck Gold
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [2, 4, 7]
+    Action_String: "<User> struck gold, slamming <Target>."
+
+Special:
+  - Name: Dirt Coating
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Cost: -10
+    Action_String: "<User> coats themselves in dirt, blocking and restoring their Dirt."
+
+Special Crit:
+  - Name: Struck Silver
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Rounds: 3
+    Cost: 0
+    Action_String: "<User> strikes silver, raising a shield."

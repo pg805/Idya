@@ -1,0 +1,74 @@
+/* Dev AI Replay view. Board + combatant cards mirror the live combat screen
+   (cards reuse the same bar structure as game.css, with palette fallbacks so it
+   matches the app theme without depending on game.css's global body rule). */
+#dr-shell { --dr-cell: 36px; padding: 4px 2px; }
+#dr-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+#dr-controls label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b8b8c4; }
+#dr-controls select { background: #1b1b24; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 5px 8px; }
+#dr-controls button, #dr-turnbar button { background: #2a2a38; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+#dr-controls button:hover, #dr-turnbar button:hover { background: #34344a; }
+#dr-status { color: #c89a6a; font-size: 13px; }
+#dr-empty { color: #8a8a98; font-size: 14px; padding: 40px 8px; }
+#dr-matchup { font-size: 15px; margin-bottom: 12px; }
+.dr-lvl { font-size: 0.7rem; color: #c89a6a; font-weight: 600; vertical-align: middle; }
+
+#dr-body { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+#dr-turnbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+#dr-turnlabel { font-variant-numeric: tabular-nums; min-width: 110px; }
+#dr-hint { color: #8a8a98; font-size: 12px; }
+
+/* Combatant cards — same shape as the live combat screen */
+#dr-cards { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+#dr-cards .combatant-card { background: var(--bg-surface, #1b1b24); border: 1px solid var(--border, #3a3a48); border-radius: 6px; padding: 10px 14px; min-width: 150px; cursor: pointer; }
+#dr-cards .combatant-card.team-a { border-color: #4a90d9; }
+#dr-cards .combatant-card.team-b { border-color: #d94a4a; }
+#dr-cards .combatant-card.dr-sel { box-shadow: 0 0 0 2px #8a5ad0; }
+#dr-cards .combatant-card h3 { font-size: 0.9rem; margin: 0 0 2px; }
+#dr-cards .dr-ai { opacity: 0.5; font-size: 0.65rem; }
+#dr-cards .dr-init { font-size: 0.7rem; color: #c89a6a; font-weight: 600; }
+#dr-cards .weapon-name { font-size: 0.7rem; color: var(--text-muted, #9a9aa8); margin-bottom: 6px; }
+#dr-cards .hp-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 6px; overflow: hidden; }
+#dr-cards .hp-bar { height: 100%; border-radius: 3px; transition: width 0.2s, background 0.2s; }
+#dr-cards .hp-text { font-size: 0.75rem; color: var(--text-faint, #8a8a98); margin-top: 3px; }
+#dr-cards .res-bar-bg { background: var(--bg-darkest, #0e0e12); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 6px; }
+#dr-cards .res-bar { height: 100%; border-radius: 3px; background: var(--buy, #4a90d9); transition: width 0.2s; }
+#dr-cards .dr-telegraph { font-size: 0.7rem; color: var(--gold, #c89a6a); margin-top: 7px; font-style: italic; letter-spacing: 0.04em; }
+
+/* Board */
+#dr-board { display: grid; gap: 2px; background: #15151c; padding: 8px; border-radius: 8px; }
+#dr-board .cell { width: var(--dr-cell); height: var(--dr-cell); background: #1b1b24; border-radius: 3px; position: relative; display: flex; align-items: center; justify-content: center; }
+#dr-board .cell.obstacle { background: #2a1e10; }
+#dr-board .cell.obstacle::before { content: '▪'; color: #7a5a3a; font-size: 1.3rem; }
+#dr-board .cell.obstacle[data-state="destroyed"] { background: #1a1510; }
+#dr-board .cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #444; }
+#dr-board .cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(80,150,230,0.7);  background: rgba(40,90,150,0.28); }
+#dr-board .cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(220,180,60,0.7);  background: rgba(150,120,30,0.28); }
+#dr-board .cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
+#dr-board .cell.tile-slow   { box-shadow: inset 0 0 0 2px rgba(150,120,60,0.7);  background: rgba(90,75,35,0.34); }
+#dr-board .tile-mark { position: absolute; bottom: 0; right: 2px; font-size: 8px; color: #e8e8f0; }
+#dr-board .combatant { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; z-index: 2; }
+#dr-board .combatant.team-a { background: #1a4a7a; border: 1px solid #4a90d9; color: #d0e8ff; }
+#dr-board .combatant.team-b { background: #7a1a1a; border: 1px solid #d94a4a; color: #ffd0d0; }
+#dr-board .cell.rp-move   { outline: 3px solid #4ad07a; outline-offset: -3px; }
+#dr-board .cell.rp-target { box-shadow: inset 0 0 0 3px rgba(226,99,132,0.9); }
+
+/* Reasoning panel + log column (the log lives in its own right-hand column so
+   stepping turns never shifts the board/cards on the left) */
+#dr-panel { width: 440px; max-width: 100%; font-size: 13px; }
+#dr-logcol { width: 320px; max-width: 100%; font-size: 13px; }
+#dr-plan { background: #1a1a22; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
+#dr-heatinfo { color: #c89a6a; font-size: 12px; margin-bottom: 8px; }
+#dr-panel h4, #dr-logcol h4 { margin: 12px 0 4px; color: #9a9aa8; font-weight: 500; }
+#dr-turnbar button.dr-auto-on { background: #4a3a6a; border-color: #8a5ad0; color: #e8dcff; }
+#dr-cands table { width: 100%; border-collapse: collapse; }
+#dr-cands th, #dr-cands td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #23232c; font-variant-numeric: tabular-nums; }
+#dr-cands th { color: #8a8a98; font-weight: 500; }
+#dr-cands tr.chosen { background: rgba(74,208,122,0.16); }
+#dr-cands tr.chosen td:first-child { color: #4ad07a; font-weight: 700; }
+#dr-log { background: #141419; border-radius: 6px; padding: 4px 6px; font-size: 12px; color: #b8b8c4; max-height: 62vh; overflow-y: auto; }
+#dr-log .dr-turn { padding: 4px 6px; border-radius: 4px; cursor: pointer; border-left: 2px solid transparent; }
+#dr-log .dr-turn:hover { background: #1c1c24; }
+#dr-log .dr-turn.cur { background: #20202c; border-left-color: #8a5ad0; }
+#dr-log .dr-turn-h { color: #8a8a98; font-weight: 600; margin: 2px 0; }
+#dr-log .dr-turn div { padding: 1px 0; }
+#dr-log .dr-noop { opacity: 0.4; }

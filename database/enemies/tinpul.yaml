@@ -1,17 +1,19 @@
 Name: Tinpul
 Health: 10
-Level: 1
+Level: 0
+Resistances:
+  Earth: 1.25
 Loot:
   Items:
     - id: sulwood
       type: material
-      Field: [0, 0, 1, 1, 1, 2]
+      Field: [0, 1, 2, 2]
     - id: crude_talamite
       type: material
-      Field: [0, 0, 0, 1, 1]
+      Field: [0, 1, 1, 2]
     - id: lifgem
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Tin Drink
   - [2, 0]   # Attack: Pea Shot
@@ -40,9 +42,17 @@ Weapon:
       Damage_Subtype: Blunt
       Value: 4
       Cost: -7
-      Action_String: "<User> drinks from its own body, blocking <Damage> damage and restoring 7 Tin."
+      Action_String: "<User> drinks from its own body, blocking and restoring its Tin."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Copper Aid
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 2
+      Cost: 0
+      Action_String: "<User> patches itself with copper, mending a little."
 
   Attack:
     - Name: Pea Shot
@@ -50,21 +60,21 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [0, 1, 1, 2, 2, 3]
+      Field: [0, 1, 1, 1, 2, 2, 2, 3, 5, 6]
       Cost: 2
       Aimed: false
-      Range: 4
-      Action_String: "<User> spits a pea of tin at <Target> for <Damage> damage."
+      Range: 6
+      Action_String: "<User> spits a pea of tin at <Target>."
     - Name: Tin Punch
       Type: 1
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [0, 4, 4, 4, 5]
+      Field: [0, 4, 4, 5, 5, 6]
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> punches <Target> with a tin fist for <Damage> damage."
+      Action_String: "<User> punches <Target> with a tin fist."
 
   Attack Crit:
     - Name: Tin Coating
@@ -72,8 +82,8 @@ Weapon:
       Type_Name: Debuff
       Damage_Type: Physical
       Damage_Subtype: Mental
-      Value: 4
-      Rounds: 2
+      Value: 5
+      Rounds: 4
       Action_String: "<User> coats <Target> in clinging tin, dazing them."
 
   Special:
@@ -82,9 +92,18 @@ Weapon:
       Type_Name: Shield
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Value: 7
+      Value: 8
       Rounds: 2
       Cost: 4
-      Action_String: "<User> hardens its tin shell, shielding 7 damage for 2 rounds."
+      Action_String: "<User> hardens its tin shell, raising a shield."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Copper Spike
+      Type: 7
+      Type_Name: Reflect
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Value: 2
+      Rounds: 2
+      Cost: 0
+      Action_String: "<User> bristles with copper spikes, ready to throw blows back."

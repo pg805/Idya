@@ -1,7 +1,7 @@
 Name: Mental Cage
 Description: A lattice of psychic force worn on the mind — invisible to anyone else, crushing to its wearer's enemies. It does not bind you. It binds them.
-Level: 3
-HP: 30
+Level: 2
+HP: 80
 Weight: 0
 
 Resource:
@@ -14,20 +14,28 @@ Defend:
     Type_Name: Buff
     Damage_Type: Arcane
     Damage_Subtype: Force
-    Value: 7
+    Value: 11
     Rounds: 3
     Cost: 3
-    Action_String: "<User> sharpens their mind to a point, buffing their attack by 7 for 3 rounds."
+    Action_String: "<User> sharpens their mind to a point, focus building."
   - Name: Forewarn
     Type: 2
     Type_Name: Block
     Damage_Type: Arcane
     Damage_Subtype: Mental
-    Value: 10
+    Value: 16
     Cost: 2
-    Action_String: "<User> sets the stone to orbit their head, preparing to block for 10 damage."
+    Action_String: "<User> sets the stone to orbit their head, preparing to block."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Calming Premonition
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Mental
+    Value: 0
+    Cost: -1
+    Action_String: "<User> reads the blow a moment early, recovering their Tranquility."
 
 Attack:
   - Name: Mind Spike
@@ -35,11 +43,11 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Force
-    Field: [1, 1, 1, 5, 5, 5, 9, 9, 9]
+    Field: [5, 5, 5, 9, 9, 9, 12, 12]
     Cost: 0
     Aimed: false
-    Range: 3
-    Action_String: "<User> drives a spike of force into <Target>, dealing <Damage> damage."
+    Range: 1
+    Action_String: "<User> drives a spike of force into <Target>."
 
 Attack Crit:
   - Name: Mental Pressure
@@ -47,9 +55,9 @@ Attack Crit:
     Type_Name: DOT
     Damage_Type: Arcane
     Damage_Subtype: Mental
-    Field: [2, 4, 6, 8]
+    Field: [4, 6, 8, 10]
     Rounds: 3
-    Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness. <Target> will take <Damage> damage for 3 rounds."
+    Action_String: "<User> presses into the thoughts of <Target> in a moment of weakness, leaving their mind raw."
 
 Special:
   - Name: Eye Fixation
@@ -57,11 +65,20 @@ Special:
     Type_Name: Debuff
     Damage_Type: Physical
     Damage_Subtype: Mental
-    Value: 8
+    Value: 14
     Rounds: 4
     Cost: 3
     Aimed: true
-    Range: 3
-    Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, debuffing <Target>'s attack by 8 for 4 rounds."
+    Range: 4
+    Action_String: "<User> projects a loud, distracting bang into the mind of <Target>, rattling their focus."
 
-Special Crit: []
+Special Crit:
+  - Name: Headache
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [7, 8, 9]
+    Cost: 0
+    Range: 2
+    Action_String: "<User> splits <Target>'s focus with a searing headache."

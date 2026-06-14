@@ -1,32 +1,46 @@
 Name: Golnosar
-Health: 110
-Level: 4
+Health: 150
+Level: 3
+Telegraph:
+  hostile:
+    closing: "Oozing toward you"
+    holding: "Leaking ominously"
+    fleeing: "Seeping back, tendrils reaching"
+  defensive:
+    closing: "Sloshing closer, congealing"
+    holding: "Pooling, hardening its shell"
+    fleeing: "Seeping away"
+Resistances:
+  Light: 1.25   # the dark tar-sludge recoils from radiant light
 Loot:
   Items:
     - id: thuvel
       type: material
-      Field: [0, 1, 1, 2, 2]
+      Field: [0, 3, 4, 5, 6, 6, 7]
     - id: hiruos
       type: material
-      Field: [0, 0, 1, 1, 2]
+      Field: [0, 2, 3, 3, 4, 4]
     - id: crude_talamite
       type: material
-      Field: [0, 0, 0, 1, 1, 1, 1]
+      Field: [0, 2, 2, 3]
     - id: sulwood
       type: material
-      Field: [0, 0, 1, 1, 1, 1, 1]
+      Field: [0, 1, 2, 2, 3]
+    - id: treated_sulwood
+      type: material
+      Field: [0, 1, 1, 2]
     - id: bottle_of_tar
       type: valuable
-      Field: [0, 1, 1, 2, 3, 3]
+      Field: [0, 2, 2, 3, 4]
     - id: lifgem
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Pattern:
   - [1, 0]   # Defend: Tar Drink
+  - [3, 1]   # Special: Tar Pit (slow the approach)
+  - [3, 0]   # Special: Fistar (burn)
   - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
-  - [2, 0]   # Attack: Tar Shot
+  - [1, 0]   # Defend: Tar Drink
   - [3, 0]   # Special: Fistar
   - [2, 0]   # Attack: Tar Shot
   - [2, 0]   # Attack: Tar Shot
@@ -48,9 +62,18 @@ Weapon:
       Damage_Subtype: Plant
       Value: 10
       Cost: -10
-      Action_String: "<User> drinks deeply from its own tar pool, blocking 10 damage and restoring 10 Tar."
+      Action_String: "<User> drinks deeply from its own tar pool, blocking and restoring its Tar."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Tar Source
+      Type: 10
+      Type_Name: Buff Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 5
+      Area: 1
+      Cost: 0
+      Action_String: "<User> wells up a tar source — whoever holds the square strikes harder."
 
   Attack:
     - Name: Tar Shot
@@ -58,22 +81,22 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [0, 1, 2, 5, 6, 7, 8]
+      Field: [10, 11, 12, 14, 15]
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> spits a thick wad of tar at <Target> for <Damage> damage."
+      Action_String: "<User> spits a thick wad of tar at <Target>."
 
   Attack Crit:
     - Name: Blind
-      Type: 4
-      Type_Name: DOT
+      Type: 5
+      Type_Name: Debuff
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Field: [10]
+      Value: 14
       Rounds: 3
       Range: 2
-      Action_String: "<User> blinds <Target> with a faceful of tar, dealing <Damage> damage per round for 3 rounds."
+      Action_String: "<User> blinds <Target> with a faceful of tar."
 
   Special:
     - Name: Fistar
@@ -86,6 +109,26 @@ Weapon:
       Cost: 4
       Aimed: true
       Range: 4
-      Action_String: "<User> ignites a fistar above <Target>, burning for <Damage> damage per round for 5 rounds."
+      Action_String: "<User> ignites a fistar above <Target>, setting them ablaze."
 
-  Special Crit: []
+    - Name: Tar Pit
+      Type: 13
+      Type_Name: Slow Tile
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 2
+      Area: 3
+      Aimed: true
+      Range: 3
+      Cost: 3
+      Action_String: "<User> floods a wide area with sticky tar — slogging through it is slow going."
+
+  Special Crit:
+    - Name: Tar Suck
+      Type: 6
+      Type_Name: Heal
+      Damage_Type: Arcane
+      Damage_Subtype: Plant
+      Value: 8
+      Cost: 0
+      Action_String: "<User> draws the spent tar back into itself, mending."

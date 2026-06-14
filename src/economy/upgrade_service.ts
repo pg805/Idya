@@ -1,6 +1,8 @@
-// Cumulative upgrade budget per weapon, indexed by profession level 0–10.
-// Level 7 unlocks tier-3 material crafting but grants no additional budget.
-const UPGRADE_BUDGET: readonly number[] = [0, 0, 0, 0, 3, 7, 12, 12, 18, 25, 35];
+// Upgrades unlocked per profession rank (0–10). THREE upgrades complete a weapon
+// level: R2(1)+R4(2) = L1→L2, R6(3) = L2→L3, R7(1)+R8(2) = L3→L4, R10(3) = L4→L5.
+// R2/R7 are the partial (1-upgrade) ranks that ride the tier-2/tier-3 smelting
+// unlocks; R9 is open. Total 12 upgrades = the full L1→L5 climb.
+const UPGRADE_BUDGET: readonly number[] = [0, 0, 1, 1, 3, 3, 6, 7, 9, 9, 12];
 
 export type Profession = 'lumberjack' | 'blacksmith' | 'enchanter';
 
@@ -18,40 +20,80 @@ const TIER3: Record<Profession, string> = {
     enchanter:  'nodol',
 };
 
-// Hybrid weapons have a wood handle (LJ) and metal head (BS) — both professions can upgrade them.
-const HYBRID_WEAPONS = new Set(['sword_talamite', 'axe_talamite', 'shovel_talamite']);
-
-const SINGLE_PROFESSION: Record<string, Profession> = {
-    quarterstaff:  'lumberjack',
-    bow:           'lumberjack',
-    sword_wood:    'lumberjack',
+// You upgrade a weapon with the profession that CRAFTS it (one each). Mirrors the
+// recipe's `profession`. Combined/hybrid weapons are crafted by a single
+// profession (battle_axe → BS, kustaff → LJ, wand → EN), so they upgrade through
+// that one — you can only upgrade your own profession's weapons.
+const WEAPON_PROFESSION: Record<string, Profession> = {
     axe_wood:      'lumberjack',
+    sword_wood:    'lumberjack',
     shovel_wood:   'lumberjack',
+    kustaff:       'lumberjack',
+    pickaxe:       'blacksmith',
     dagger:        'blacksmith',
     mace:          'blacksmith',
-    spellbook:     'enchanter',
-    kustaff:       'enchanter',
-    wand:          'enchanter',
-    wand_talamite: 'enchanter',
+    battle_axe:    'blacksmith',
     deck_of_cards: 'enchanter',
+    spellbook:     'enchanter',
     mental_cage:   'enchanter',
+    wand:          'enchanter',
+    // L4 weapons (R9): each profession's weapon, assembled with cross-profession parts.
+    crossbow:      'lumberjack',
+    scythe:        'enchanter',
+    nunchaku:      'blacksmith',
 };
 
-// All professions that can upgrade a given weapon.
+// The profession(s) that can upgrade a weapon — its crafting profession. Empty
+// for an unknown weapon (not upgradeable). Kept array-shaped for callers.
 export function weaponUpgradeProfessions(weaponKey: string): Profession[] {
-    if (HYBRID_WEAPONS.has(weaponKey)) return ['lumberjack', 'blacksmith'];
-    return [SINGLE_PROFESSION[weaponKey] ?? 'lumberjack'];
+    const p = WEAPON_PROFESSION[weaponKey];
+    return p ? [p] : [];
 }
 
 export function budgetForLevel(level: number): number {
     return UPGRADE_BUDGET[Math.min(Math.max(level, 0), 10)] ?? 0;
 }
 
-// Upgrade N (1-indexed) costs N tier-2 material if N ≤ 12,
-// or (N - 10) tier-3 material if N ≥ 13 (so upgrade 13 → 3 units, 35 → 25 units).
-export function upgradeCost(n: number, profession: Profession): { quantity: number; material: string } {
-    if (n <= 12) return { quantity: n, material: TIER2[profession] };
-    return { quantity: n - 10, material: TIER3[profession] };
+// Budget/EV points the Nth upgrade (1-indexed) is worth, for a weapon of base
+// (crafted) level `baseLevel`. Upgrades climb FROM the weapon's own level: an L2
+// weapon's first upgrade is the L2→L3 jump (skipping L1→L2), an L3 weapon's is
+// L3→L4, etc. Gap(L→L+1) = 25(L+2), split across that level's 3 upgrades — so a
+// higher-base weapon's upgrades are fewer but bigger (battle_axe L3 → 42 each).
+export function upgradePointValue(n: number, baseLevel: number): number {
+    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;
+    return Math.round((25 * (fromLevel + 2)) / 3);
+}
+
+// How many upgrades a weapon can ever take — 3 per level from its base up to L5.
+// L1 weapon → 12, L2 → 9, L3 → 6. (The profession rank budget gates how many of
+// these are unlocked at a time.)
+export function maxUpgrades(baseLevel: number): number {
+    return Math.max(0, 3 * (5 - baseLevel));
+}
+
+// The Nth upgrade's split for a weapon of base level + HP ratio: total value,
+// the HP it auto-adds, and the EV points the player distributes. hp + ev = value.
+export function upgradeSplit(n: number, baseLevel: number, ratio: number): { value: number; hp: number; ev: number } {
+    const value = upgradePointValue(n, baseLevel);
+    const hp = Math.round(value * ratio);
+    return { value, hp, ev: value - hp };
+}
+
+// Material cost of the Nth upgrade for a weapon of base level. Keyed to the
+// LEVEL the upgrade climbs from, so it's fair across weapons and never overlaps.
+// Per-band base cost (indexed by fromLevel: L1→L2, L2→L3, L3→L4, L4→L5); within
+// a band the 3 upgrades are base +0/+1/+2. The back bands are small COUNTS but
+// tier-3 material is a 12:1 compression of tier-2, so each of those units is
+// dear — L4→L5 = 12/13/14 alloy ≈ 144+ talamite each. Material follows the level:
+// tier-2 climbing to L2/L3, tier-3 climbing to L4/L5 — so an L3-crafted weapon's
+// L3→L4 is tier-3 and needs R7 smelting before it can be upgraded.
+// UPGRADE_COST_BAND is the sim-tuned knob.
+const UPGRADE_COST_BAND = [5, 10, 5, 12];
+export function upgradeCost(n: number, profession: Profession, baseLevel: number): { quantity: number; material: string } {
+    const fromLevel = baseLevel + Math.ceil(n / 3) - 1;   // the level this upgrade climbs from (1..4)
+    const quantity  = UPGRADE_COST_BAND[fromLevel - 1] + ((n - 1) % 3);
+    const material  = fromLevel <= 2 ? TIER2[profession] : TIER3[profession];
+    return { quantity, material };
 }
 
 // Player upgrades are stored nested by profession: { lumberjack: { Slash: [...] }, blacksmith: { ... } }
@@ -151,6 +193,7 @@ export type RawAction = {
 export type RawWeapon = {
     Name: string;
     Description: string;
+    Level?: number;
     Resource: { Name: string; Max: number };
     Defend: RawAction[];
     'Defend Crit': RawAction[];
@@ -212,54 +255,4 @@ export function buildFieldLenMap(raw: RawWeapon): Map<string, number> {
     return m;
 }
 
-// ---- Enchant system ----
-
-export type EnchantKind = 'minor' | 'major';
-
-export interface Enchant {
-    kind:     EnchantKind;
-    category?: string;  // physical/arcane/elemental
-    subtype:  string;
-    type?:    string;  // only set for major enchants
-    delta:    number | number[];
-}
-
-export type WeaponEnchants = Record<string, Enchant>;
-
-export const ENCHANT_SLOTS = 3;
-// Minor: subtype only, +1 delta. Major: type + subtype, +3 delta.
-export const ENCHANT_MINOR_COST = { thuvel: 3, hiruos: 6 } as const;
-export const ENCHANT_MAJOR_COST = { thuvel: 3, hiruos: 6, nodol: 9 } as const;
-
-export const ENCHANT_CATEGORIES = ['physical', 'arcane', 'elemental'] as const;
-export type EnchantCategory = typeof ENCHANT_CATEGORIES[number];
-
-export const ENCHANT_SUBTYPES: Record<EnchantCategory, string[]> = {
-    physical:  ['sharp', 'blunt'],
-    arcane:    ['mental', 'force'],
-    elemental: ['fire', 'water', 'earth', 'wind', 'plant'],
-};
-
-// The Damage_Type value written into the enchant for major enchants.
-export const ENCHANT_DAMAGE_TYPE: Record<EnchantCategory, string> = {
-    physical:  'Physical',
-    arcane:    'Arcane',
-    elemental: 'Elemental',
-};
-
-// Minimum enchanter level required per category and kind.
-export const ENCHANT_LEVEL_REQUIRED: Record<EnchantCategory, Record<EnchantKind, number>> = {
-    physical:  { minor: 4, major: 8 },
-    arcane:    { minor: 5, major: 9 },
-    elemental: { minor: 6, major: 10 },
-};
-
-export function enchantDelta(kind: EnchantKind): number { return kind === 'minor' ? 1 : 3; }
-
-export function canEnchant(enchants: WeaponEnchants, actionName: string): { ok: boolean; reason?: string } {
-    if (enchants[actionName]) return { ok: false, reason: 'This action is already enchanted.' };
-    if (Object.keys(enchants).length >= ENCHANT_SLOTS) {
-        return { ok: false, reason: `This weapon already has ${ENCHANT_SLOTS} enchants (maximum).` };
-    }
-    return { ok: true };
-}
+// The enchant system lives in enchant_service.ts (0.2.0 rework — its own layer).

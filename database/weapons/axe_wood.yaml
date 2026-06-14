@@ -1,7 +1,7 @@
 ﻿Name: Sulwood Axe
 Description: Heavy and unforgiving. Put your whole body into it and it shows.
-Level: 3
-HP: 55
+Level: 1
+HP: 30
 Weight: 0
 
 Resource:
@@ -25,9 +25,17 @@ Defend:
     Damage_Subtype: Blunt
     Value: 5
     Cost: 1
-    Action_String: "<User> raises the axe head to intercept, bracing for 5 damage."
+    Action_String: "<User> raises the axe head to intercept, bracing for the blow."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Wood Crossguard
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 3
+    Cost: 0
+    Action_String: "<User> turns the blow on the wooden crossguard, catching it again."
 
 Attack:
   - Name: Chop
@@ -35,11 +43,11 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 5, 10, 12]
+    Field: [0, 4, 8, 10]
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> brings the axe down hard on <Target>, dealing <Damage> damage."
+    Action_String: "<User> brings the axe down hard on <Target>."
 
 Attack Crit:
   - Name: Arterial Cut
@@ -47,11 +55,9 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [8, 12, 15, 18, 22]
+    Field: [4, 7, 10]
     Cost: 0
-    Aimed: false
-    Range: 1
-    Action_String: "<User> catches <Target> across a vital point for <Damage> damage."
+    Action_String: "<User> catches <Target> across a vital point."
 
 Special:
   - Name: Heavy Swing
@@ -59,10 +65,33 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [10, 20, 20, 20, 20, 40]
+    Field: [2, 7, 15]
     Cost: 3
     Aimed: true
     Range: 1
-    Action_String: "<User> winds up and brings the full weight of the axe into <Target>, dealing <Damage> damage."
+    Action_String: "<User> winds up and brings the full weight of the axe into <Target>."
 
-Special Crit: []
+  # NEW EFFECT — Destroy Obstacle (Type 12): target an obstacle in range, destroy
+  # it, and AOE its Field to enemies within 1 tile of it. Conditional (needs an
+  # obstacle + an adjacent enemy).
+  - Name: Tree Chop
+    Type: 12
+    Type_Name: Destroy Obstacle
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [7, 8, 11, 16, 19, 20]
+    Cost: 3
+    Aimed: true
+    Range: 1
+    Action_String: "<User> splits a nearby obstacle apart, showering everything nearby in splinters."
+
+Special Crit:
+  - Name: Timber!
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Nature
+    Field: [15, 16, 17]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> drives clean through the guard — timber!"

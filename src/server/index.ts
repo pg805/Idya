@@ -17,33 +17,39 @@ import prisma from '../database/prisma.js';
 import { Prisma } from '@prisma/client';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
-import worldConfig from '../discord/world_config.js';
+import worldConfig from './world_config.js';
 import Weapon from '../weapon/weapon.js';
+import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
-import { CombatantState } from '../combat/combatant_state.js';
+import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
-import { generateAIIntent, findAffordableEntry } from '../combat/ai.js';
+import { generateAIIntent } from '../combat/ai.js';
+import { generateReplay, runMatrix } from '../combat/replay_sim.js';
+import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
-import { SELF_TARGET_TYPES } from '../weapon/action.js';
 import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
+import { startQuestScheduler } from '../economy/quest_service.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
 import {
-  budgetForLevel, upgradeCost, totalUpgradesUsed,
+  budgetForLevel, upgradeCost, totalUpgradesUsed, maxUpgrades, upgradeSplit,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
   allRawActions, weaponUpgradeProfessions, normalizePlayerUpgrades,
   summedFieldBonus, summedValueBonus, totalUpgradesOnWeapon, weaponUpgradeCap,
-  canEnchant, enchantDelta,
-  ENCHANT_SLOTS, ENCHANT_MINOR_COST, ENCHANT_MAJOR_COST,
-  ENCHANT_CATEGORIES, ENCHANT_SUBTYPES, ENCHANT_DAMAGE_TYPE, ENCHANT_LEVEL_REQUIRED,
-  type Profession, type RawWeapon, type RawAction, type WeaponEnchants, type EnchantKind, type EnchantCategory,
+  type Profession, type RawWeapon, type RawAction,
 } from '../economy/upgrade_service.js';
+import {
+  ENCHANT_SLOTS, enchantRankRequired, DAMAGE_TYPES, DAMAGE_SUBTYPES,
+  enchantHealthHp, upgradeEnchantEv, sidaevField, SIDAEV_DEF, buildSidaevAction,
+  enchantSlotKey, enchantSlotsUsed, canAddEnchant, enchantCost,
+  type EnchantType, type WeaponEnchant, type WeaponEnchants,
+} from '../economy/enchant_service.js';
 import yaml from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -139,36 +145,7 @@ function getOrCreateToken(discordId: string): string {
   return token;
 }
 
-// ---- Telegraph ----
-
-const TELEGRAPH: Record<string, Record<string, string>> = {
-  defend:  { closing: 'Pulling back',       holding: 'Bracing',             retreating: 'Retreating' },
-  attack:  { closing: 'Closing in',         holding: 'Poised to strike',    retreating: 'Breaking away' },
-  special: { closing: 'Moving with intent', holding: 'Preparing something', retreating: 'Buying time' },
-};
-
-function computeTelegraph(meta: CombatantMeta, ai: Combatant, enemies: Combatant[]): string {
-  if (meta.pattern.length === 0 || enemies.length === 0) return '';
-
-  // Use the same affordability walk the AI does so the telegraph reflects the
-  // action that will actually fire — not whatever happens to be at the current
-  // pattern index (which the AI may skip because it can't afford it).
-  const resolved = findAffordableEntry(meta);
-  if (!resolved) return '';
-
-  const { choice, action } = resolved;
-
-  if (SELF_TARGET_TYPES.has(action.type)) {
-    return TELEGRAPH[choice].holding;
-  }
-
-  const nearest = enemies.reduce((a, b) =>
-    chebyshevDist(ai.pos, a.pos) <= chebyshevDist(ai.pos, b.pos) ? a : b
-  );
-  const dist = chebyshevDist(ai.pos, nearest.pos);
-  const movement = dist <= action.range ? 'holding' : 'closing';
-  return TELEGRAPH[choice][movement];
-}
+// ---- Telegraph ---- (computeTelegraph lives in combat/telegraph.ts, shared with the replay)
 
 function refreshTelegraphs(session: CombatSession): void {
   session.telegraphs = {};
@@ -176,13 +153,13 @@ function refreshTelegraphs(session: CombatSession): void {
     const meta = session.meta.get(c.id);
     if (!meta) continue;
     const enemies = session.combatants.filter(e => e.teamId !== c.teamId);
-    session.telegraphs[c.id] = computeTelegraph(meta, c, enemies);
+    session.telegraphs[c.id] = computeTelegraph(meta, c, enemies, session);
   }
 }
 
 // ---- Session creation ----
 
-const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear', 'tinpul'] as const;
+const VALID_ENEMIES = ['lithkem_swallow', 'sulfolk', 'talwyrm', 'daefen_deer', 'maetoad', 'golnosar', 'melbear', 'tinpul', 'child_of_sidaev', 'sulgovenath'] as const;
 type EnemyKey = typeof VALID_ENEMIES[number];
 
 const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
@@ -194,6 +171,8 @@ const BAIT_TO_ENEMY: Record<string, EnemyKey> = {
   tar_bait:     'golnosar',
   bear_bait:    'melbear',
   tin_bait:     'tinpul',
+  sidaev_bait:      'child_of_sidaev',
+  sulgovenath_bait: 'sulgovenath',
 };
 const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 
@@ -203,7 +182,7 @@ const BAIT_ITEM_IDS = Object.keys(BAIT_TO_ENEMY);
 type WeaponUpgradesJson = {
   base?:     Record<string, number | number[]>;
   player?:   unknown;
-  enchants?: Record<string, { kind?: string; subtype?: string; type?: string; delta?: number | number[] }>;
+  enchants?: WeaponEnchants;
 };
 function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJson: unknown): void {
   if (!upgradesJson || typeof upgradesJson !== 'object') return;
@@ -213,33 +192,50 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
   const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
   const enchants       = upgrades.enchants ?? {};
 
+  // Upgrade-enchants are keyed `upgrade:<action>`; index them by action name so
+  // their EV bonus + optional retype ride the matching action below.
+  const upgradeEnch: Record<string, WeaponEnchant> = {};
+  for (const e of Object.values(enchants)) if (e.type === 'upgrade' && e.action) upgradeEnch[e.action] = e;
+
   const allCategories = [weapon.defend, weapon.defend_crit, weapon.attack, weapon.attack_crit, weapon.special, weapon.special_crit];
   for (const category of allCategories) {
     for (const action of category) {
       const name = action.name;
       const a    = action as unknown as { field?: { field: number[]; length: number }; value?: number; damage_type?: string; damage_subtype?: string };
+      const enchB = upgradeEnch[name]?.delta;
 
       if (a.field && Array.isArray(a.field.field) && a.field.field.length > 0) {
         const base    = a.field.field;
         const baseB   = (baseDeltas[name] as number[] | undefined) ?? base.map(() => 0);
         const playerB = summedFieldBonus(playerUpgrades, professions, name, base.length);
-        const enchB   = enchants[name]?.delta;
         const enchArr = Array.isArray(enchB) ? enchB : base.map(() => 0);
         a.field.field = base.map((v, i) => v + (baseB[i] ?? 0) + (playerB[i] ?? 0) + (enchArr[i] ?? 0));
       } else if (typeof a.value === 'number' && a.value > 0) {
         const baseB   = (baseDeltas[name] as number | undefined) ?? 0;
         const playerB = summedValueBonus(playerUpgrades, professions, name);
-        const enchB   = enchants[name]?.delta;
         const enchV   = typeof enchB === 'number' ? enchB : 0;
         a.value = a.value + baseB + playerB + enchV;
       }
 
-      const ench = enchants[name];
+      const ench = upgradeEnch[name];
       if (ench) {
-        if (ench.subtype) a.damage_subtype = ench.subtype;
-        if (ench.type)    a.damage_type    = ench.type;
+        if (ench.damage_subtype) a.damage_subtype = ench.damage_subtype;
+        if (ench.damage_type)    a.damage_type    = ench.damage_type;
       }
     }
+  }
+
+  // Auto-HP from upgrades — the HP-portion of each committed upgrade (the EV
+  // portion of each upgrade is the action deltas applied above).
+  const hpBonus = (upgrades as { hpBonus?: number }).hpBonus;
+  if (typeof hpBonus === 'number' && hpBonus > 0) weapon.hp += hpBonus;
+
+  // Enchants: flat health, and injected Sidaev abilities (Attack-category).
+  const weaponLevel = loadWeaponYaml(weaponKey, __dirname)?.Level ?? 1;
+  for (const e of Object.values(enchants)) {
+    if (e.type === 'health')      weapon.hp += enchantHealthHp(weaponLevel);
+    else if (e.type === 'melee')  weapon.attack.push(buildSidaevAction('melee',  weaponLevel));
+    else if (e.type === 'ranged') weapon.attack.push(buildSidaevAction('ranged', weaponLevel));
   }
 }
 
@@ -483,6 +479,9 @@ function createSession(
       // Tutorial enemies always start at pattern index 0 so the lesson
       // plays in the intended order (Fendalok's asides time off it).
       randomizePatternStart: !isTutorial,
+      // Only the tutorial bird is scripted (walks its Pattern); every real hunt
+      // enemy uses the utility planner.
+      scripted: isTutorial,
     });
     if (suffix !== null) {
       loaded.combatant.name = `${loaded.combatant.name} ${suffix}`;
@@ -571,6 +570,47 @@ app.use((req: Request, res: Response, next) => {
 
 app.use(express.static(join(__dirname, '../../public')));
 app.use(express.json());
+
+// --- Dev: AI replay generator (powers the dev replay view) ---
+app.get('/api/dev/replay/options', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  // Each option carries its Level; sorted by level then name for the dropdowns.
+  const list = (dir: string) => fs.readdirSync(join(__dirname, dir))
+    .filter(f => f.endsWith('.yaml') && f !== 'tutorial_swallow.yaml')
+    .map(f => ({ name: f.replace('.yaml', ''), level: (yaml.load(fs.readFileSync(join(__dirname, dir, f), 'utf8')) as { Level?: number }).Level ?? 0 }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  res.json({ weapons: list('../../database/weapons'), enemies: list('../../database/enemies') });
+});
+
+app.get('/api/dev/replay', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const weapon = String(req.query.weapon || 'battle_axe');
+  const enemy = String(req.query.enemy || 'golnosar');
+  if (!/^[a-z0-9_]+$/i.test(weapon) || !/^[a-z0-9_]+$/i.test(enemy)) { res.status(400).json({ error: 'bad name' }); return; }
+  try {
+    res.json(generateReplay(weapon, enemy));
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+// Full weapon×enemy sweep for the dev matrix page. Heavy (runs N battles per
+// matchup synchronously) — N is clamped low so the request returns in seconds.
+app.get('/api/dev/matrix', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const n = Math.max(5, Math.min(50, Number(req.query.n) || 20));
+  try {
+    res.json({ n, ...runMatrix(n) });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
 
 // Client-side error capture — SPA posts unhandled errors here; we log to
 // stdout (PM2 captures) so we can debug white screens / runtime crashes
@@ -717,10 +757,9 @@ function weaponBonusCount(weaponKey: string, upgradesJson: unknown): number {
     enchants?: Record<string, unknown>;
   };
   const fieldLens = buildFieldLenMap(raw);
-  const professions = weaponUpgradeProfessions(weaponKey);
-  const playerUpgrades = normalizePlayerUpgrades(upgrades.player, professions[0]);
-
-  const playerCount = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
+  // Player upgrade count is stored directly now (EV deltas don't normalize to a
+  // count) — each upgrade shows as "+1" (3 = a weapon level).
+  const playerCount = (upgrades as { upgradesDone?: number }).upgradesDone ?? 0;
   const baseCount   = totalUpgradesUsed((upgrades.base ?? {}) as Record<string, number | number[]>, fieldLens);
   const enchantCount = upgrades.enchants ? Object.keys(upgrades.enchants).length : 0;
 
@@ -828,6 +867,45 @@ app.get('/api/info/about', (_req: Request, res: Response) => {
   res.json({ sections: parseMarkdownSections(join(__dirname, '../../docs/about.md')) });
 });
 
+// ---- Battle replay download ----
+// Returns the self-contained structured replay for a session (board, roster,
+// per-turn paths/actions, readable log). Lives as long as the session does, so
+// it's downloadable from the result screen until the player leaves/claims.
+app.get('/api/session/:id/replay', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const session = sessions.get(id);
+  if (!session?.replay) { res.status(404).json({ error: 'no replay for this session' }); return; }
+  res.setHeader('Content-Disposition', `attachment; filename="battle-replay-${id}.json"`);
+  res.json(session.replay);
+});
+
+// ---- Settings ----
+// Per-user preferences. New columns get added to the User table as features
+// land; the endpoint returns a flat object the client can render against.
+
+app.get('/api/settings', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const u = await prisma.user.findUnique({
+    where: { discord_id: discordId },
+    select: { ping_on_action: true },
+  });
+  res.json({ ping_on_action: u?.ping_on_action ?? false });
+});
+
+app.post('/api/settings', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const body = req.body ?? {};
+  const update: { ping_on_action?: boolean } = {};
+  if (typeof body.ping_on_action === 'boolean') update.ping_on_action = body.ping_on_action;
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: 'No valid settings in request.' }); return;
+  }
+  await prisma.user.update({ where: { discord_id: discordId }, data: update }).catch(() => {});
+  res.json({ ok: true, ...update });
+});
+
 // Public market overview: every shop item's current price, expected R-curve
 // range, and how long until the daily tick rolls. Useful for players watching
 // for cheap buying windows or peak selling opportunities. Recomputes per
@@ -911,12 +989,17 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
         ? Math.max(0, Math.round((lastTick.getTime() + TICK_MS - now) / 1000))
         : null;
 
+      // Most shop items are in ITEMS, but craftable weapons live in their
+      // own YAML and don't appear there — fall back to the weapon's Name
+      // field so the market shows "Deck of Cards" instead of "deck_of_cards".
+      const weaponYaml = ITEMS[item.id] ? null : loadWeaponYaml(item.id, __dirname);
+      const itemName = ITEMS[item.id]?.name ?? (weaponYaml?.Name as string | undefined) ?? item.id;
       rows.push({
         shop_id:           shopKey,
         shop_name:         config.name,
         item_id:           item.id,
-        item_name:         ITEMS[item.id]?.name ?? item.id,
-        item_type:         ITEMS[item.id]?.type ?? 'unknown',
+        item_name:         itemName,
+        item_type:         ITEMS[item.id]?.type ?? (weaponYaml ? 'weapon' : 'unknown'),
         category:          categoryOf(item.id),
         source:            recipe ? 'recipe' : 'raw',
         recipe_id:         recipe?.id ?? null,
@@ -938,7 +1021,11 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
 // ---- Dev Stats ----
 // Pre-0.2.0 rows have NULL version/weapon_key; they bucket under these labels
 // in the filter UI so legacy data stays selectable instead of disappearing.
-const PRE_VERSION_LABEL = 'pre-0.2.0';
+// Bucket label for BattleLog rows that predate the version column (added
+// in 0.1.6). The column was first stamped in 0.1.6, so anything with NULL
+// version is genuinely "before 0.1.6". Update this string if the labelling
+// regime changes.
+const PRE_VERSION_LABEL = 'pre-0.1.6';
 const UNKNOWN_WEAPON_LABEL = 'unknown';
 
 function loadWeaponNames(): Record<string, string> {
@@ -1624,12 +1711,29 @@ app.get('/api/inventory', async (req: Request, res: Response) => {
     };
   });
 
+  // Quest trophies — the player's participation in completed global quests
+  // (rank-tiered on the stats page: 1st gold / 2nd silver / 3rd copper / else grey).
+  const questDeposits = await prisma.questDeposit.findMany({
+    where:   { character_id: char.id, quest: { status: 'completed' } },
+    include: { quest: true },
+    orderBy: { quest: { ends_at: 'desc' } },
+  });
+  const questTrophies = questDeposits.map(d => ({
+    quest_id:  d.quest_id,
+    name:      d.quest.name,
+    lore:      d.quest.lore,
+    item_name: ITEMS[d.quest.item_id]?.name ?? d.quest.item_id,
+    quantity:  d.quantity,
+    rank:      d.rank,
+  }));
+
   res.json({
     characterName: char.name,
     equipped_weapon_id: char.equipped_weapon_id,
     korel:   user?.korel ?? 0,
     items:   itemList,
     weapons: weaponList,
+    quest_trophies: questTrophies,
   });
 });
 
@@ -1919,9 +2023,10 @@ app.post('/api/shop/:shopKey/buy', async (req: Request, res: Response) => {
   const buyResult = await buyItem(shopKey, item, chars[0].id, discordId, quantity);
   res.json(buyResult);
   if (buyResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> bought **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** from ${config.npc}.`,
+      `${mention} bought **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** from ${config.npc}.`,
     );
   }
 });
@@ -1944,9 +2049,10 @@ app.post('/api/shop/:shopKey/sell', async (req: Request, res: Response) => {
   const sellResult = await sellItem(shopKey, item, chars[0].id, discordId, quantity);
   res.json(sellResult);
   if (sellResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> sold **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+      `${mention} sold **${quantity}× ${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
     );
   }
 });
@@ -1971,9 +2077,10 @@ app.post('/api/shop/:shopKey/sell-all', async (req: Request, res: Response) => {
   const sellAllResult = await sellItem(shopKey, item, chars[0].id, discordId, inv.quantity);
   res.json(sellAllResult);
   if (sellAllResult.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     void pingChannel(
       (worldConfig.channels as Record<string, string>)[shopKey],
-      `<@${discordId}> sold their **${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
+      `${mention} sold their **${ITEMS[itemId]?.name ?? itemId}** to ${config.npc}.`,
     );
   }
 });
@@ -2024,8 +2131,20 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   for (const b of buys) {
     const item = findItem(b.itemId);
     if (!item || item.buy == null) { res.json({ success: false, message: `${b.itemId} is not for sale.` }); return; }
-    totalCost += item.buy * b.quantity;
-    buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: b.quantity, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
+    // Unlock items: quantity is hard-capped at 1, and if the character
+    // already owns one the line silently drops. Players can put 5 in the
+    // cart without seeing an error; the cart just resolves to 1 (or 0)
+    // for that line at checkout.
+    let qty = b.quantity;
+    if (isUnlock(b.itemId)) {
+      const existing = await prisma.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: charId, item_id: b.itemId } },
+      });
+      if (existing && existing.quantity >= 1) continue; // already owned, skip
+      qty = 1;
+    }
+    totalCost += item.buy * qty;
+    buyLines.push({ id: b.itemId, name: ITEMS[b.itemId]?.name ?? b.itemId, quantity: qty, unitPrice: item.buy, infinite: item.infinite ?? false, stockMax: item.stock_max });
   }
 
   // Weapon buys — each unit creates a new CharacterWeapon instance.
@@ -2249,7 +2368,8 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
   res.json(result);
 
   if (result.success) {
-    const ping = formatCartPing(discordId, config.npc, (result as unknown as {
+    const mention = await playerMention(discordId, chars[0].name);
+    const ping = formatCartPing(mention, config.npc, (result as unknown as {
       buys: typeof buyLines; sells: typeof sellLines;
       buyWeapons: typeof weaponBuyLines; sellWeapons: typeof weaponSellLines;
     }));
@@ -2258,7 +2378,7 @@ app.post('/api/shop/:shopKey/checkout', async (req: Request, res: Response) => {
 });
 
 function formatCartPing(
-  discordId: string,
+  mention: string,
   npc: string,
   result: {
     buys:        Array<{ name: string; quantity: number }>;
@@ -2267,7 +2387,7 @@ function formatCartPing(
     sellWeapons: Array<{ name: string; bonus_count: number }>;
   },
 ): string {
-  const lines: string[] = [`<@${discordId}> at ${npc}'s shop:`];
+  const lines: string[] = [`${mention} at ${npc}'s shop:`];
   for (const b of result.buys)        lines.push(`- bought ${b.quantity}× ${b.name}`);
   for (const w of result.buyWeapons)  lines.push(`- bought ${w.quantity > 1 ? `${w.quantity}× ` : ''}${w.name}`);
   for (const s of result.sells)       lines.push(`- sold ${s.quantity}× ${s.name}`);
@@ -2361,9 +2481,6 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
   const allRecipes = loadAllRecipes(RECIPES_DIR);
   const recipe = allRecipes.find(r => r.id === String(req.params.recipeId));
   if (!recipe) { res.status(404).json({ error: 'Recipe not found' }); return; }
-  if (recipe.output.type === 'enchant') {
-    res.status(400).json({ error: 'Enchant recipes are applied via /api/enchant, not /api/craft.' }); return;
-  }
 
   const prof = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: chars[0].id, profession: recipe.profession } },
@@ -2449,9 +2566,10 @@ app.post('/api/craft/:recipeId', async (req: Request, res: Response) => {
 
   res.json(result);
   if (result.success) {
+    const mention = await playerMention(discordId, chars[0].name);
     const pingMsg = qty > 1
-      ? `<@${discordId}> crafted **${qty}× ${recipe.name}**!`
-      : `<@${discordId}> crafted a **${recipe.name}**!`;
+      ? `${mention} crafted **${qty}× ${recipe.name}**!`
+      : `${mention} crafted a **${recipe.name}**!`;
     void pingChannel(PROFESSION_CHANNEL[recipe.profession], pingMsg);
   }
 });
@@ -2516,26 +2634,19 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
     if (!raw) continue;
 
     const professions  = weaponUpgradeProfessions(row.weapon_key);
-    const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown };
+    const profession   = professions[0];
+    const upgrades     = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; upgradesDone?: number; hpBonus?: number };
     const baseDeltas   = (upgrades.base ?? {}) as Record<string, number | number[]>;
-    const playerUpgrades  = normalizePlayerUpgrades(upgrades.player, professions[0]);
-    const fieldLens       = buildFieldLenMap(raw);
-    const weaponTotal     = totalUpgradesOnWeapon(playerUpgrades, professions, fieldLens);
-    const profBudgets     = professions.map(p => budgetForLevel(profLevelOf(p)));
-    const weaponCap       = weaponUpgradeCap(profBudgets);
-    const weaponAtCap     = weaponTotal >= weaponCap;
+    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, profession);
 
-    const professionInfo = professions.map((prof, i) => {
-      const profDeltas = playerUpgrades[prof] ?? {};
-      const profUsed = totalUpgradesUsed(profDeltas, fieldLens);
-      const budget   = profBudgets[i];
-      const atCap    = profUsed >= budget || weaponAtCap;
-      const cost = atCap ? null : upgradeCost(weaponTotal + 1, prof);
-      return {
-        profession: prof, used: profUsed, budget, at_cap: atCap,
-        next_cost: cost ? { ...cost, material_name: ITEMS[cost.material]?.name ?? cost.material } : null,
-      };
-    });
+    const baseLevel    = (raw as { Level?: number }).Level ?? 1;
+    const weaponObj    = Weapon.from_file(join(__dirname, `../../database/weapons/${row.weapon_key}.yaml`));
+    const ratio        = hpBudgetRatio(weaponObj, baseLevel);
+    const upgradesDone = upgrades.upgradesDone ?? 0;
+    const hpBonus      = upgrades.hpBonus ?? 0;
+    const cap          = profession ? Math.min(budgetForLevel(profLevelOf(profession)), maxUpgrades(baseLevel)) : 0;
+    const next         = (profession && upgradesDone < cap) ? upgradeSplit(upgradesDone + 1, baseLevel, ratio) : null;
+    const nextCost     = next && profession ? upgradeCost(upgradesDone + 1, profession, baseLevel) : null;
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
@@ -2561,9 +2672,14 @@ app.get('/api/upgrade', async (req: Request, res: Response) => {
       name: raw.Name,
       equipped: row.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
-      weapon_total: weaponTotal,
-      weapon_cap: weaponCap,
-      upgrade_professions: professionInfo,
+      profession: profession ?? null,
+      base_level: baseLevel,
+      upgrades_done: upgradesDone,
+      upgrade_cap: cap,
+      hp_bonus: hpBonus,
+      base_hp: weaponObj.hp,
+      next_upgrade: next,   // { value, hp, ev } | null
+      next_cost: nextCost ? { ...nextCost, material_name: ITEMS[nextCost.material]?.name ?? nextCost.material } : null,
       actions,
     });
   }
@@ -2579,9 +2695,12 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const char = chars[0];
 
   const weaponId = String(req.params['weaponId']);
-  const { action, delta, profession: requestedProfession } = req.body as {
-    action: string; delta: number | number[]; profession?: string;
-  };
+  // One atomic upgrade: distribute its EV pool across one or more actions
+  // ({ actionName: delta }). The HP portion auto-applies on commit.
+  const { distribution } = req.body as { distribution: Record<string, number | number[]> };
+  if (!distribution || typeof distribution !== 'object') {
+    res.json({ success: false, message: 'Expected a distribution.' }); return;
+  }
 
   const weaponRowEarly = await prisma.characterWeapon.findUnique({ where: { id: weaponId } });
   if (!weaponRowEarly || weaponRowEarly.character_id !== char.id) {
@@ -2592,101 +2711,100 @@ app.post('/api/upgrade/:weaponId', async (req: Request, res: Response) => {
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
 
-  const validProfessions = weaponUpgradeProfessions(weaponKey);
-  const profession = (requestedProfession ?? validProfessions[0]) as Profession;
-  if (!validProfessions.includes(profession)) {
-    res.json({ success: false, message: `${profession} cannot upgrade this weapon.` });
-    return;
-  }
+  const profession = weaponUpgradeProfessions(weaponKey)[0];
+  if (!profession) { res.json({ success: false, message: 'This weapon cannot be upgraded.' }); return; }
 
-  const rawAction = allRawActions(raw).find(a => a.Name === action);
-  if (!rawAction) { res.json({ success: false, message: 'Action not found.' }); return; }
-
-  const kind = upgradeKind(rawAction);
-  if (!kind) { res.json({ success: false, message: 'This action cannot be upgraded.' }); return; }
-
-  if (kind === 'field') {
-    if (!Array.isArray(delta)) { res.json({ success: false, message: 'Expected array delta for field action.' }); return; }
-    const len = rawAction.Field!.length;
-    if (delta.length !== len) { res.json({ success: false, message: `Delta must have ${len} entries.` }); return; }
-    if (!delta.every(v => Number.isInteger(v) && v >= 0)) { res.json({ success: false, message: 'Delta values must be non-negative integers.' }); return; }
-    if (delta.reduce((a, b) => a + b, 0) !== len) { res.json({ success: false, message: `Field delta must sum to ${len}.` }); return; }
-  } else {
-    if (delta !== 1) { res.json({ success: false, message: 'Value delta must be 1.' }); return; }
-  }
-
-  const fieldLens = buildFieldLenMap(raw);
+  const baseLevel = (raw as { Level?: number }).Level ?? 1;
+  const weaponObj = Weapon.from_file(join(__dirname, `../../database/weapons/${weaponKey}.yaml`));
+  const ratio     = hpBudgetRatio(weaponObj, baseLevel);
+  const rawByName = new Map(allRawActions(raw).map(a => [a.Name, a]));
 
   const result = await prisma.$transaction(async tx => {
     const weaponRow = await tx.characterWeapon.findUnique({ where: { id: weaponId } });
     if (!weaponRow || weaponRow.character_id !== char.id) {
       return { success: false, message: 'You do not own this weapon.' };
     }
+    const profRow   = await tx.characterProfession.findFirst({ where: { character_id: char.id, profession } });
+    const cap       = Math.min(budgetForLevel(profRow?.level ?? 0), maxUpgrades(baseLevel));
 
-    const profRows = await tx.characterProfession.findMany({
-      where: { character_id: char.id, profession: { in: validProfessions } },
-    });
-    const profLevelOf = (p: Profession) => profRows.find(r => r.profession === p)?.level ?? 0;
-    const budget     = budgetForLevel(profLevelOf(profession));
-    const weaponCap  = weaponUpgradeCap(validProfessions.map(p => budgetForLevel(profLevelOf(p))));
-
-    const upgrades       = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown> };
-    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, validProfessions[0]);
-    const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
-    const profUsed    = totalUpgradesUsed(profDeltas, fieldLens);
-    const weaponTotal = totalUpgradesOnWeapon(playerUpgrades, validProfessions, fieldLens);
-
-    if (profUsed >= budget) {
-      return { success: false, message: `Upgrade budget full (${profUsed}/${budget}). Level up ${profession} to unlock more.` };
+    const upgrades     = (weaponRow.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: Record<string, unknown>; upgradesDone?: number; hpBonus?: number };
+    const upgradesDone = upgrades.upgradesDone ?? 0;
+    if (upgradesDone >= cap) {
+      return { success: false, message: `No upgrade available — level up ${profession} to unlock more (${upgradesDone}/${cap}).` };
     }
-    if (weaponTotal >= weaponCap) {
-      return { success: false, message: `This weapon is at its upgrade cap (${weaponTotal}/${weaponCap}).` };
+    const split = upgradeSplit(upgradesDone + 1, baseLevel, ratio);  // { value, hp, ev }
+
+    // Validate the distribution. A point = +1 EV: for a field action the field
+    // sum rises by `field_length` per point (so the average/EV rises by 1), so
+    // its EV cost = sum(delta)/length; a value action costs its delta directly.
+    // The total EV spent must equal the upgrade's pool exactly.
+    let totalEv = 0;
+    for (const [name, delta] of Object.entries(distribution)) {
+      const a = rawByName.get(name);
+      if (!a) return { success: false, message: `Unknown action: ${name}.` };
+      const kind = upgradeKind(a);
+      if (!kind) return { success: false, message: `${name} cannot be upgraded.` };
+      if (kind === 'field') {
+        const len = a.Field!.length;
+        if (!Array.isArray(delta) || delta.length !== len || !delta.every(v => Number.isInteger(v) && v >= 0)) {
+          return { success: false, message: `Bad delta for ${name}.` };
+        }
+        const sum = delta.reduce((s, v) => s + v, 0);
+        if (sum % len !== 0) return { success: false, message: `${name}: spread points to a whole +EV (a multiple of ${len}).` };
+        totalEv += sum / len;
+      } else {
+        if (typeof delta !== 'number' || !Number.isInteger(delta) || delta < 0) {
+          return { success: false, message: `Bad delta for ${name}.` };
+        }
+        totalEv += delta;
+      }
+    }
+    if (totalEv !== split.ev) {
+      return { success: false, message: `Spend exactly ${split.ev} points (you spent ${totalEv}).` };
     }
 
-    const cost = upgradeCost(weaponTotal + 1, profession);
-    const invRow = await tx.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
-    });
+    // Material cost (placeholder — to be tuned via the economy sim).
+    const cost   = upgradeCost(upgradesDone + 1, profession, baseLevel);
+    const invRow = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
     if ((invRow?.quantity ?? 0) < cost.quantity) {
       return { success: false, message: `Need ${cost.quantity} ${ITEMS[cost.material]?.name ?? cost.material} (have ${invRow?.quantity ?? 0}).` };
     }
-
     if (invRow!.quantity === cost.quantity) {
       await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } } });
     } else {
-      await tx.inventoryItem.update({
-        where: { character_id_item_id: { character_id: char.id, item_id: cost.material } },
-        data: { quantity: { decrement: cost.quantity } },
-      });
+      await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: char.id, item_id: cost.material } }, data: { quantity: { decrement: cost.quantity } } });
     }
 
-    if (kind === 'field') {
-      const existing = (profDeltas[action] as number[] | undefined) ?? rawAction.Field!.map(() => 0);
-      profDeltas[action] = existing.map((v, i) => v + (delta as number[])[i]);
-    } else {
-      profDeltas[action] = ((profDeltas[action] as number | undefined) ?? 0) + 1;
+    // Apply: fold each delta into the stored per-action deltas, bank the HP, bump the count.
+    const playerUpgrades = normalizePlayerUpgrades(upgrades.player, profession);
+    const profDeltas: Record<string, number | number[]> = { ...(playerUpgrades[profession] ?? {}) };
+    for (const [name, delta] of Object.entries(distribution)) {
+      const a = rawByName.get(name)!;
+      if (upgradeKind(a) === 'field') {
+        const existing = (profDeltas[name] as number[] | undefined) ?? a.Field!.map(() => 0);
+        profDeltas[name] = existing.map((v, i) => v + (delta as number[])[i]);
+      } else {
+        profDeltas[name] = ((profDeltas[name] as number | undefined) ?? 0) + (delta as number);
+      }
     }
-
     const updatedPlayer = { ...playerUpgrades, [profession]: profDeltas };
     await tx.characterWeapon.update({
       where: { id: weaponId },
-      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer } as Prisma.InputJsonValue },
+      data: { upgrades: { ...upgrades, base: upgrades.base ?? {}, player: updatedPlayer, upgradesDone: upgradesDone + 1, hpBonus: (upgrades.hpBonus ?? 0) + split.hp } as Prisma.InputJsonValue },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId, event_type: 'weapon_upgraded',
-      payload: { weapon_id: weaponId, weapon_key: weaponKey, action, profession } as unknown as Prisma.InputJsonValue,
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, profession, upgrade: upgradesDone + 1 } as unknown as Prisma.InputJsonValue,
     }}).catch(() => {});
 
-    return { success: true, message: `Upgraded ${action} via ${profession}.` };
+    return { success: true, message: `Upgrade ${upgradesDone + 1} applied: +${split.hp} HP, +${split.ev} EV.` };
   });
 
   res.json(result);
   if (result.success) {
-    void pingChannel(
-      PROFESSION_CHANNEL[profession],
-      `<@${discordId}> upgraded **${raw.Name}** — ${action}!`,
-    );
+    const mention = await playerMention(discordId, chars[0].name);
+    void pingChannel(PROFESSION_CHANNEL[profession], `${mention} upgraded **${raw.Name}**!`);
   }
 });
 
@@ -2718,6 +2836,7 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
   const weapons = weaponRows.map(row => {
     const raw = loadWeaponYaml(row.weapon_key, __dirname);
     if (!raw) return null;
+    const level = (raw.Level ?? 1) as number;
     const upgrades = (row.upgrades ?? {}) as { base?: Record<string, unknown>; player?: unknown; enchants?: WeaponEnchants };
     const enchants = upgrades.enchants ?? {};
     const baseDeltas      = (upgrades.base ?? {}) as Record<string, number | number[]>;
@@ -2726,7 +2845,6 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
 
     const actions = actionsWithCategories(raw).map(({ category, action: a }) => {
       const kind = upgradeKind(a);
-      const existing = enchants[a.Name];
       const ar = a as unknown as Record<string, unknown>;
       let effective: number | number[] = 0;
       if (kind === 'field') {
@@ -2748,11 +2866,7 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
         effective,
         damage_type:    (ar['Damage_Type']    ?? '') as string,
         damage_subtype: (ar['Damage_Subtype'] ?? '') as string,
-        enchant: existing ? {
-          kind: existing.kind, category: existing.category,
-          subtype: existing.subtype, delta: existing.delta,
-          ...(existing.type ? { type: existing.type } : {}),
-        } : null,
+        enchanted: !!enchants[enchantSlotKey('upgrade', a.Name)],
       };
     });
 
@@ -2760,10 +2874,18 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
       id: row.id,
       weapon_key: row.weapon_key,
       name: raw.Name,
+      level,
       equipped: row.id === char.equipped_weapon_id,
       bonus_count: weaponBonusCount(row.weapon_key, row.upgrades),
       enchant_slots: ENCHANT_SLOTS,
-      enchants_used: Object.keys(enchants).length,
+      enchants_used: enchantSlotsUsed(enchants),
+      enchants,
+      rank_required: enchantRankRequired(level),
+      health_hp:  enchantHealthHp(level),
+      upgrade_ev: upgradeEnchantEv(level),
+      melee:  { ...SIDAEV_DEF.melee,  field: sidaevField('melee',  level) },
+      ranged: { ...SIDAEV_DEF.ranged, field: sidaevField('ranged', level) },
+      cost: enchantCost(level),
       actions,
     };
   }).filter(Boolean);
@@ -2778,12 +2900,9 @@ app.get('/api/enchant', async (req: Request, res: Response) => {
     characterName: char.name,
     enchanter_level: encLvl,
     materials,
-    minor_cost: ENCHANT_MINOR_COST,
-    major_cost: ENCHANT_MAJOR_COST,
-    categories: ENCHANT_CATEGORIES,
-    subtypes: ENCHANT_SUBTYPES,
-    damage_types: ENCHANT_DAMAGE_TYPE,
-    level_required: ENCHANT_LEVEL_REQUIRED,
+    enchant_slots: ENCHANT_SLOTS,
+    damage_types: DAMAGE_TYPES,
+    damage_subtypes: DAMAGE_SUBTYPES,
     weapons,
   });
 });
@@ -2802,59 +2921,62 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
     return;
   }
   const weaponKey = weaponRowEarly.weapon_key;
-  const { action: actionName, kind, category, subtype, delta } = req.body as {
-    action: string; kind: string; category: string; subtype: string; delta: number | number[];
+  const { type, action: actionName, delta, damage_type, damage_subtype } = req.body as {
+    type: string; action?: string; delta?: number | number[]; damage_type?: string; damage_subtype?: string;
   };
 
-  if (kind !== 'minor' && kind !== 'major') {
-    res.status(400).json({ error: "kind must be 'minor' or 'major'" }); return;
-  }
-  if (!ENCHANT_CATEGORIES.includes(category as EnchantCategory)) {
-    res.status(400).json({ error: `category must be one of: ${ENCHANT_CATEGORIES.join(', ')}` }); return;
-  }
-  const enchantKind = kind as EnchantKind;
-  const enchantCategory = category as EnchantCategory;
-
-  if (!ENCHANT_SUBTYPES[enchantCategory].includes(subtype)) {
-    res.json({ success: false, message: `Invalid subtype '${subtype}' for ${enchantCategory} enchant. Valid: ${ENCHANT_SUBTYPES[enchantCategory].join(', ')}.` }); return;
-  }
+  const ENCHANT_TYPES = ['health', 'melee', 'ranged', 'upgrade'];
+  if (!ENCHANT_TYPES.includes(type)) { res.status(400).json({ error: 'type must be one of: ' + ENCHANT_TYPES.join(', ') }); return; }
+  const enchType = type as EnchantType;
 
   const raw = loadWeaponYaml(weaponKey, __dirname);
   if (!raw) { res.status(404).json({ error: 'Weapon not found' }); return; }
+  const level = (raw.Level ?? 1) as number;
 
-  const action = allRawActions(raw).find(a => a.Name === actionName);
-  if (!action) { res.json({ success: false, message: 'Action not found on this weapon.' }); return; }
-
-  const uk = upgradeKind(action);
-  if (!uk) { res.json({ success: false, message: 'This action cannot be enchanted.' }); return; }
-
-  const perCell = enchantDelta(enchantKind);
-  if (uk === 'field') {
-    const fieldLen = action.Field?.length ?? 0;
-    if (!Array.isArray(delta) || delta.length !== fieldLen) {
-      res.json({ success: false, message: 'Delta must be an array matching action field length.' }); return;
+  // Validate the upgrade-enchant payload (EV distribution + optional retype).
+  let storedDelta: number | number[] | undefined;
+  let storedDT: string | undefined;
+  let storedDST: string | undefined;
+  if (enchType === 'upgrade') {
+    if (!actionName) { res.json({ success: false, message: 'Pick an ability to enchant.' }); return; }
+    const action = allRawActions(raw).find(a => a.Name === actionName);
+    if (!action) { res.json({ success: false, message: 'Action not found on this weapon.' }); return; }
+    const uk = upgradeKind(action);
+    if (!uk) { res.json({ success: false, message: 'This ability cannot be enchanted.' }); return; }
+    const ev = upgradeEnchantEv(level);
+    if (uk === 'field') {
+      const fieldLen = action.Field?.length ?? 0;
+      if (!Array.isArray(delta) || delta.length !== fieldLen) {
+        res.json({ success: false, message: 'Delta must be an array matching the ability field length.' }); return;
+      }
+      if ((delta as number[]).reduce((a, b) => a + b, 0) !== ev * fieldLen) {
+        res.json({ success: false, message: `Distribute exactly ${ev} EV (field entries must sum to ${ev * fieldLen}).` }); return;
+      }
+      storedDelta = delta;
+    } else {
+      if (delta !== ev) { res.json({ success: false, message: `Delta must be ${ev} for this ability.` }); return; }
+      storedDelta = delta;
     }
-    const expected = perCell * fieldLen;
-    if ((delta as number[]).reduce((a, b) => a + b, 0) !== expected) {
-      res.json({ success: false, message: `Delta must sum to ${expected} for a ${enchantKind} enchant.` }); return;
-    }
-  } else {
-    if (delta !== perCell) {
-      res.json({ success: false, message: `Delta must be ${perCell} for a ${enchantKind} enchant.` }); return;
+    if (damage_type || damage_subtype) {
+      if (damage_type && !(DAMAGE_TYPES as readonly string[]).includes(damage_type)) { res.json({ success: false, message: 'Invalid damage type.' }); return; }
+      if (damage_subtype && !(DAMAGE_SUBTYPES as readonly string[]).includes(damage_subtype)) { res.json({ success: false, message: 'Invalid damage subtype.' }); return; }
+      storedDT  = damage_type  || undefined;
+      storedDST = damage_subtype || undefined;
     }
   }
 
-  // Check enchanter level for this category + kind
+  // Enchanter rank gate — 2× the weapon level (all types unlock together).
   const encProfRow = await prisma.characterProfession.findUnique({
     where: { character_id_profession: { character_id: char.id, profession: 'enchanter' } },
   });
   const encLvl = encProfRow?.level ?? 0;
-  const requiredLvl = ENCHANT_LEVEL_REQUIRED[enchantCategory][enchantKind];
-  if (encLvl < requiredLvl) {
-    res.json({ success: false, message: `Requires Enchanter level ${requiredLvl} for ${enchantCategory} ${enchantKind} enchants.` }); return;
+  const requiredRank = enchantRankRequired(level);
+  if (encLvl < requiredRank) {
+    res.json({ success: false, message: `Requires Enchanter rank ${requiredRank} to enchant a level ${level} weapon.` }); return;
   }
 
-  const cost = enchantKind === 'minor' ? ENCHANT_MINOR_COST : ENCHANT_MAJOR_COST;
+  const cost = enchantCost(level);
+  const ENCH_LABEL: Record<EnchantType, string> = { health: 'Health', melee: 'Sidaev Strike', ranged: 'Sidaev Pulse', upgrade: 'Upgrade' };
 
   const result = await prisma.$transaction(async tx => {
     for (const [mat, qty] of Object.entries(cost)) {
@@ -2886,15 +3008,18 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
     };
     const enchants: WeaponEnchants = upgrades.enchants ?? {};
 
-    const check = canEnchant(enchants, actionName);
+    const check = canAddEnchant(enchants, enchType, actionName);
     if (!check.ok) return { success: false, message: check.reason };
 
-    const newEnchant = {
-      kind:     enchantKind,
-      category: enchantCategory,
-      subtype,
-      ...(enchantKind === 'major' ? { type: ENCHANT_DAMAGE_TYPE[enchantCategory] } : {}),
-      delta,
+    const slotKey = enchantSlotKey(enchType, actionName);
+    const newEnchant: WeaponEnchant = {
+      type: enchType,
+      ...(enchType === 'upgrade' ? {
+        action: actionName,
+        delta: storedDelta,
+        ...(storedDT  ? { damage_type:    storedDT  } : {}),
+        ...(storedDST ? { damage_subtype: storedDST } : {}),
+      } : {}),
     };
 
     await tx.characterWeapon.update({
@@ -2902,30 +3027,106 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
       data: {
         upgrades: {
           ...upgrades,
-          enchants: { ...enchants, [actionName]: newEnchant },
-        } as Prisma.InputJsonValue,
+          enchants: { ...enchants, [slotKey]: newEnchant },
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 
     await tx.eventLog.create({ data: {
       discord_id: discordId,
       event_type: 'weapon_enchanted',
-      payload: { weapon_id: weaponId, weapon_key: weaponKey, action: actionName, kind: enchantKind, category: enchantCategory, subtype },
+      payload: { weapon_id: weaponId, weapon_key: weaponKey, enchant_type: enchType, action: actionName ?? null },
     }}).catch(() => {});
 
-    return { success: true, message: `${actionName} enchanted with ${enchantCategory} (${subtype}).` };
+    const label = enchType === 'upgrade' ? `${ENCH_LABEL.upgrade} on ${actionName}` : ENCH_LABEL[enchType];
+    return { success: true, message: `${raw.Name} enchanted — ${label}.` };
   });
 
   res.json(result);
   if (result.success) {
+    const mention = await playerMention(discordId, chars[0].name);
+    const label = enchType === 'upgrade' ? `Upgrade on ${actionName}` : ENCH_LABEL[enchType];
     void pingChannel(
       PROFESSION_CHANNEL.enchanter,
-      `<@${discordId}> enchanted **${raw.Name}** — ${actionName} with ${enchantCategory} (${subtype})!`,
+      `${mention} enchanted **${raw.Name}** — ${label}!`,
     );
   }
 });
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);
+
+// ---- Global quests (Town Square) ----
+startQuestScheduler(prisma, join(__dirname, '../../database/quests'));
+
+// Town Square state: active quest cards (progress, your deposit, leaderboard), or none.
+app.get('/api/townsquare', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const active = await prisma.globalQuest.findMany({ where: { status: 'active' }, orderBy: { ends_at: 'asc' } });
+
+  const quests = await Promise.all(active.map(async q => {
+    const [myDep, topDeps, inv] = await Promise.all([
+      prisma.questDeposit.findUnique({ where: { quest_id_character_id: { quest_id: q.id, character_id: char.id } } }),
+      prisma.questDeposit.findMany({ where: { quest_id: q.id }, orderBy: [{ quantity: 'desc' }, { created_at: 'asc' }], take: 10 }),
+      prisma.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: q.item_id } } }),
+    ]);
+    const names   = topDeps.length ? await prisma.character.findMany({ where: { id: { in: topDeps.map(d => d.character_id) } }, select: { id: true, name: true } }) : [];
+    const nameById = new Map(names.map(n => [n.id, n.name]));
+    return {
+      id: q.id, name: q.name, lore: q.lore,
+      item_id: q.item_id, item_name: ITEMS[q.item_id]?.name ?? q.item_id,
+      target: q.target, price: q.price, deposited: q.deposited, ends_at: q.ends_at,
+      my_deposit:   myDep?.quantity ?? 0,
+      my_inventory: inv?.quantity ?? 0,
+      leaderboard:  topDeps.map((d, i) => ({ rank: i + 1, name: nameById.get(d.character_id) ?? '???', quantity: d.quantity, you: d.character_id === char.id })),
+    };
+  }));
+
+  res.json({ characterName: char.name, quests });
+});
+
+// Deposit N of the quest item: removes them, pays N × the fixed price in korel,
+// and advances the global + per-player totals. (Quest completes at its deadline,
+// not at target — the full window stays open so people can climb the leaderboard.)
+app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const questId  = String(req.params['id']);
+  const quantity = Math.floor(Number((req.body as { quantity?: number }).quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) { res.json({ success: false, message: 'Enter a positive amount.' }); return; }
+
+  const result = await prisma.$transaction(async tx => {
+    const quest = await tx.globalQuest.findUnique({ where: { id: questId } });
+    if (!quest || quest.status !== 'active' || new Date() >= quest.ends_at) return { success: false, message: 'This quest is not accepting deposits.' };
+
+    const key = { character_id_item_id: { character_id: char.id, item_id: quest.item_id } };
+    const inv = await tx.inventoryItem.findUnique({ where: key });
+    if (!inv || inv.quantity < quantity) return { success: false, message: `You only have ${inv?.quantity ?? 0} to deposit.` };
+
+    if (inv.quantity === quantity) await tx.inventoryItem.delete({ where: key });
+    else await tx.inventoryItem.update({ where: key, data: { quantity: { decrement: quantity } } });
+
+    const payout = quantity * quest.price;
+    await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: payout } } });
+    await tx.globalQuest.update({ where: { id: questId }, data: { deposited: { increment: quantity } } });
+    await tx.questDeposit.upsert({
+      where:  { quest_id_character_id: { quest_id: questId, character_id: char.id } },
+      update: { quantity: { increment: quantity } },
+      create: { quest_id: questId, character_id: char.id, quantity },
+    });
+    return { success: true, message: `Deposited ${quantity} ${ITEMS[quest.item_id]?.name ?? quest.item_id} for ${payout} korel.` };
+  });
+
+  res.json(result);
+});
 
 // ---- Socket.io ----
 
@@ -2973,7 +3174,9 @@ io.on('connection', (socket: Socket) => {
       const occupied = new Set(
         session.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
       );
-      const reachable = reachableTiles(combatant.pos, combatant.movementRange, session.board, occupied);
+      const vMeta = session.meta.get(combatant.id);
+      const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }
@@ -2988,8 +3191,33 @@ io.on('connection', (socket: Socket) => {
 
     session.phase = 'resolving';
     const playerIntent = session.pendingIntents.get('player-1');
+
+    // Lazy-start the downloadable replay on turn 1, while units are still at
+    // their spawns (captured BEFORE resolveIntents moves them).
+    let replay = session.replay;
+    if (!replay) {
+      replay = {
+        version: 1,
+        board: session.board.toJSON(),
+        roster: session.combatants.map(c => {
+          const m = session.meta.get(c.id);
+          return {
+            id: c.id, name: c.name, team: c.teamId,
+            role: m?.weapon?.name ?? c.weaponInfo?.name ?? c.name,
+            isAI: c.isAI, startPos: [c.pos.x, c.pos.y] as [number, number],
+            maxHp: c.maxHp, initiative: c.initiative,
+          };
+        }),
+        turns: [], result: null,
+      };
+      session.replay = replay;
+    }
+
     const result = resolveIntents(session, session.pendingIntents);
     refreshTelegraphs(session);
+
+    replay.turns.push({ turn: replay.turns.length + 1, intents: result.record.intents, log: result.log });
+    if (result.winner) replay.result = { winner: result.winner, rounds: replay.turns.length };
 
     io.to(sessionId).emit('session_state', session.toState());
     io.to(sessionId).emit('turn_result', { log: result.log });
@@ -3089,9 +3317,10 @@ io.on('connection', (socket: Socket) => {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
+              const mention = await playerMention(meta.discordUserId, char?.name ?? 'A hunter');
               const msg = rewardSummary !== 'No drops.'
-                ? `<@${meta.discordUserId}> returns from the forest!\n${rewardSummary}`
-                : `<@${meta.discordUserId}> returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
+                ? `${mention} returns from the forest!\n${rewardSummary}`
+                : `${mention} returns from the forest. The ${meta.enemyName.toLowerCase()} didn't have anything interesting.`;
               await (ch as import('discord.js').TextChannel).send(msg);
             } else {
               console.warn('Battle win ping: forest channel not found or not text-based', worldConfig.channels.forest);
@@ -3125,9 +3354,10 @@ io.on('connection', (socket: Socket) => {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
             if (ch?.isTextBased() && 'send' in ch) {
+              const mention = await playerMention(meta.discordUserId, char?.name ?? 'A hunter');
               const msg = fee > 0
-                ? `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
-                : `<@${meta.discordUserId}> was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
+                ? `${mention} was defeated by the ${meta.enemyName.toLowerCase()} and paid ${fee} Korel in healing fees.`
+                : `${mention} was defeated by the ${meta.enemyName.toLowerCase()} and returned empty-handed.`;
               await (ch as import('discord.js').TextChannel).send(msg);
             } else {
               console.warn('Battle loss ping: forest channel not found or not text-based', worldConfig.channels.forest);
@@ -3432,6 +3662,20 @@ function isAdmin(member: GuildMember | APIInteractionGuildMember): boolean {
 
 function isDev(userId: string): boolean {
   return worldConfig.dev.includes(userId);
+}
+
+// Returns the right way to identify a player in a Discord channel post,
+// based on their ping_on_action setting:
+//   true  → "<@discordId>" (actual ping, notifies them)
+//   false → "**Character Name**" (bold name, no ping — the default)
+// Welcome / first-character flows still hard-code the ping since the user
+// hasn't picked a character name yet at that point.
+async function playerMention(discordId: string, charName: string): Promise<string> {
+  const u = await prisma.user.findUnique({
+    where: { discord_id: discordId },
+    select: { ping_on_action: true },
+  }).catch(() => null);
+  return u?.ping_on_action ? `<@${discordId}>` : `**${charName}**`;
 }
 
 // Writes one BattleLog row per enemy fought, so multi-enemy spawns show
@@ -3890,7 +4134,12 @@ if (discordToken) {
     if (sub === 'giveitem') {
       const target   = interaction.options.getUser('user', true);
       const itemId   = interaction.options.getString('item', true).toLowerCase().trim();
-      const quantity = interaction.options.getInteger('quantity') ?? 1;
+      const rawQty   = interaction.options.getInteger('quantity') ?? 1;
+      // Clamp to a sane range. The Discord integer option type accepts up to
+      // 2^53, which overflows our INT4 column at 2^31; cap at 1 million —
+      // anything larger is a typo, not a legitimate admin grant.
+      const QTY_MAX  = 1_000_000;
+      const quantity = Math.max(1, Math.min(QTY_MAX, rawQty));
       const itemDef = ITEMS[itemId];
       if (!itemDef) {
         await interaction.reply({ content: `No item found with ID \`${itemId}\`.`, flags: MessageFlags.Ephemeral });
@@ -3901,6 +4150,17 @@ if (discordToken) {
         await interaction.reply({ content: `${target.username} doesn't have a character.`, flags: MessageFlags.Ephemeral });
         return;
       }
+      // Cap against the existing stack so an increment can't push past QTY_MAX
+      // either. Belt-and-suspenders on the INT4 column.
+      const existing = await prisma.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
+      });
+      const wouldBe = (existing?.quantity ?? 0) + quantity;
+      const effectiveQty = wouldBe > QTY_MAX ? Math.max(0, QTY_MAX - (existing?.quantity ?? 0)) : quantity;
+      if (effectiveQty <= 0) {
+        await interaction.reply({ content: `${target.username} already has ${(existing?.quantity ?? 0).toLocaleString()}× ${itemDef.name}, at or above the cap.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
       await prisma.item.upsert({
         where:  { id: itemId },
         update: {},
@@ -3908,10 +4168,10 @@ if (discordToken) {
       });
       await prisma.inventoryItem.upsert({
         where:  { character_id_item_id: { character_id: chars[0].id, item_id: itemId } },
-        update: { quantity: { increment: quantity } },
-        create: { character_id: chars[0].id, item_id: itemId, quantity },
+        update: { quantity: { increment: effectiveQty } },
+        create: { character_id: chars[0].id, item_id: itemId, quantity: effectiveQty },
       });
-      await interaction.reply({ content: `Gave ${quantity}× **${itemDef.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `Gave ${effectiveQty}× **${itemDef.name}** to ${target.username}.`, flags: MessageFlags.Ephemeral });
     }
     if (sub === 'giveprofession') {
       const target     = interaction.options.getUser('user', true);

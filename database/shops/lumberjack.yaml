@@ -6,8 +6,8 @@ Greeting: "Vetha looks up from her work. 'What do you need?'"
 Items:
   # Raw material
   - id: sulwood
-    Base_Buy: 100
-    Base_Sell: 20
+    Base_Buy: 50
+    Base_Sell: 10
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 50
@@ -40,28 +40,6 @@ Items:
     Restock_Field: [3, 5, 6, 8, 0]
 
   # Weapons
-  - id: quarterstaff
-    Base_Buy: 500
-    Base_Sell: 100
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 4
-    Transaction_Threshold: 5
-    Stock_Max: 20
-    Stock_Influence: 0.3
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: bow
-    Base_Buy: 700
-    Base_Sell: 140
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 4
-    Transaction_Threshold: 5
-    Stock_Max: 20
-    Stock_Influence: 0.3
-    Restock_Field: [1, 2, 2, 3, 0]
-
   - id: sword_wood
     Base_Buy: 800
     Base_Sell: 160
@@ -95,89 +73,10 @@ Items:
     Stock_Influence: 0.3
     Restock_Field: [1, 2, 2, 3, 0]
 
-  # Components (2 treated_sulwood)
-  - id: sword_hilt
-    Base_Buy: 300
-    Base_Sell: 60
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: axe_handle
-    Base_Buy: 300
-    Base_Sell: 60
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: shovel_handle
-    Base_Buy: 300
-    Base_Sell: 60
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: wand_base_wood
-    Base_Buy: 300
-    Base_Sell: 60
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  # Components (3 treated_sulwood)
-  - id: sword_blade_wood
-    Base_Buy: 400
-    Base_Sell: 80
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: axe_head_wood
-    Base_Buy: 400
-    Base_Sell: 80
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: shovel_head_wood
-    Base_Buy: 400
-    Base_Sell: 80
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  # Hardwood components (2x base)
-  - id: sword_blade_hardwood
-    Base_Buy: 800
-    Base_Sell: 160
+  # L3 cross-profession component (10 treated_sulwood) — the LJ's half of the smith's Battle Axe
+  - id: battle_axe_hilt
+    Base_Buy: 1000
+    Base_Sell: 200
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 5
@@ -186,38 +85,29 @@ Items:
     Stock_Influence: 0.25
     Restock_Field: [1, 2, 2, 3, 0]
 
-  - id: axe_head_hardwood
-    Base_Buy: 800
-    Base_Sell: 160
+  # L4 cross-profession component (2 hardwood) — the LJ's half of the EN's Scythe
+  - id: scythe_handle
+    Base_Buy: 2500
+    Base_Sell: 500
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
+    Volume_Sensitivity: 4
+    Transaction_Threshold: 3
+    Stock_Max: 15
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]
 
-  - id: shovel_head_hardwood
-    Base_Buy: 800
-    Base_Sell: 160
+  # L4 cross-profession component (2 hardwood) — the LJ's half of the BS's Nunchaku
+  - id: hardwood_bar
+    Base_Buy: 2500
+    Base_Sell: 500
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: wand_base_hardwood
-    Base_Buy: 600
-    Base_Sell: 120
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
+    Volume_Sensitivity: 4
+    Transaction_Threshold: 3
+    Stock_Max: 15
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]
 
   # Valuables
   - id: felt_hat

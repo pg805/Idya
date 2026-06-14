@@ -1,7 +1,7 @@
 import { Board, Pos, BoardConfig } from './board.js';
 import { CombatIntent } from './intent.js';
 import Weapon from '../weapon/weapon.js';
-import { CombatantState } from './combatant_state.js';
+import { CombatantState, effectiveMove } from './combatant_state.js';
 import { PatternEntry } from '../infrastructure/pattern.js';
 import { assignInitiative } from './initiative.js';
 
@@ -13,15 +13,31 @@ export interface ActionInfo {
   aimed: boolean;
   targeted: boolean;      // true for Heal/Buff that can target any combatant incl. friendlies
   canTargetSelf: boolean; // true for Heal/Buff — own tile is a valid target
+  targetsObstacle?: boolean; // true for Destroy Obstacle — target an obstacle tile, not a combatant
   range: number;
   cost: number;
+  stat: StatInfo;         // effect value (plain text) + boxed modifier tokens
+  area: number;           // N×N footprint (1 = single target/tile)
+  push: number;           // knockback squares applied to whatever it hits (0 = none)
+  smash: boolean;         // an Area strike that also flattens obstacles in the block
+  moveTo: boolean;        // aimed Area strike that blinks the caster to the aimed tile, then bursts from there
+  selfBurst: boolean;     // reactive Area>1 strike — the block is centered on the actor, no target tile
 }
+
+// A stat: the effect value (plain text, e.g. "Strike [25, 33, …]") + its
+// modifier tokens (boxed pills, e.g. ["aimed", "3×3", "blink"]).
+export interface StatInfo { value: string; mods: string[]; }
+export interface CritInfo { name: string; stat: StatInfo; }
 
 export interface WeaponInfo {
   name: string;
   resourceName: string;
   maxResource: number;
   actions: ActionInfo[];
+  // Per-category crit summary — one entry per action in the crit payload, each
+  // with its name + the same stat string a normal action uses. One crit list
+  // rides every action of its category (the triangle). Undefined = no crit.
+  crits: { defend?: CritInfo[]; attack?: CritInfo[]; special?: CritInfo[] };
 }
 
 export interface CombatantStatus {
@@ -31,6 +47,7 @@ export interface CombatantStatus {
   debuff:  { value: number; rounds: number };
   reflect: { value: number; rounds: number };
   shield:  { value: number; rounds: number };
+  moveDebuff: { value: number; rounds: number };
 }
 
 export interface Combatant {
@@ -58,6 +75,13 @@ export interface CombatantMeta {
   state: CombatantState;
   pattern: PatternEntry[];
   patternIndex: number;
+  scripted?: boolean;  // true → walk the fixed Pattern (tutorial only); default is the utility planner (choosePlan)
+  // Per-enemy body-language telegraph phrases, keyed by disposition then movement
+  // intent. Any missing key falls back to a generic mood.
+  telegraph?: {
+    hostile?:   { closing?: string; holding?: string; fleeing?: string };
+    defensive?: { closing?: string; holding?: string; fleeing?: string };
+  };
 }
 
 export interface Team {
@@ -78,6 +102,24 @@ export interface SessionState {
   telegraphs: Record<string, string>; // combatantId → flavor text of next intent
 }
 
+// --- Replay record: a self-contained, downloadable log that recreates a battle ---
+export interface ReplayIntent {
+  path: [number, number][];   // every square entered this turn, [start … dest]
+  action: { cat: string; name: string; target: [number, number] | null };
+}
+export interface ReplayTurn { turn: number; intents: Record<string, ReplayIntent>; log: string[]; }
+export interface ReplayRosterEntry {
+  id: string; name: string; team: string; role: string;
+  isAI: boolean; startPos: [number, number]; maxHp: number; initiative: number;
+}
+export interface ReplayLog {
+  version: number;
+  board: ReturnType<Board['toJSON']>;
+  roster: ReplayRosterEntry[];
+  turns: ReplayTurn[];
+  result: { winner: string | null; rounds: number } | null;
+}
+
 export class CombatSession {
   readonly id: string;
   readonly board: Board;
@@ -87,6 +129,8 @@ export class CombatSession {
   turn: number = 0;
   phase: SessionPhase = 'waiting';
   telegraphs: Record<string, string> = {};
+  // Structured replay accumulator (lazily started by the server on turn 1).
+  replay: ReplayLog | null = null;
   // Initiative-roll log captured at session start. Emitted to clients on
   // every join_session so refreshers / late-joiners see it too, and
   // persisted as a synthetic "turn 0" entry in the battle log.
@@ -130,8 +174,12 @@ export class CombatSession {
         debuff:  { ...s.debuff  },
         reflect: { ...s.reflect },
         shield:  { ...s.shield  },
+        moveDebuff: { ...s.moveDebuff },
       } : undefined;
-      return { ...c, status };
+      // Serialize the *effective* movement range so the client's reach preview
+      // shrinks while a move debuff is active (base range stays on the live object).
+      const movementRange = s ? effectiveMove(c.movementRange, s) : c.movementRange;
+      return { ...c, movementRange, status };
     });
     return {
       id: this.id,

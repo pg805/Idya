@@ -1,0 +1,82 @@
+Name: Battle Axe
+Description: A brutal slab of talamite on a hardwood haft — lumberjack's reach married to a smith's edge. Built to bury itself and not let go.
+Level: 3
+HP: 200
+Weight: 0
+
+Resource:
+  Name: Resolve
+  Max: 5
+
+Defend:
+  - Name: Intercept
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 30
+    Cost: 1
+    Action_String: "<User> sets their feet and catches the blow on the haft."
+  - Name: Decide
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 0
+    Cost: -5
+    Action_String: "<User> steadies their breath and recovers their resolve."
+
+Defend Crit:
+  - Name: Push Through
+    Type: 6
+    Type_Name: Heal
+    Damage_Type: Physical
+    Damage_Subtype: Mental
+    Value: 10
+    Cost: 0
+    Action_String: "<User> shrugs off the blow and pushes through, recovering."
+
+Attack:
+  - Name: Overwhelming Attack
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [30]
+    Cost: 1
+    Aimed: true
+    Range: 1
+    Action_String: "<User> brings the axe down on <Target> with overwhelming force."
+
+Attack Crit:
+  - Name: Chunk
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [15]
+    Cost: 0
+    Action_String: "<User> catches <Target> mid-flourish and chunks clean through."
+
+Special:
+  - Name: Spinning Attack
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [22]
+    Cost: 1
+    Aimed: false
+    Range: 1
+    Area: 3
+    Action_String: "<User> spins the axe in a wide arc, cleaving everything around them."
+
+Special Crit:
+  - Name: Cleave Through
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [12]
+    Cost: 0
+    Action_String: "<User>'s arc crashes through <Target>'s guard."

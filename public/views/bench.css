@@ -24,6 +24,9 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
   width: 100%;
 }
 
+/* Hold a steady height so starting/ending an upgrade doesn't jump the layout. */
+#upgrade-panel { min-height: 380px; }
+
 /* ---- Filter bar ---- */
 #recipe-filter {
   display: flex;
@@ -305,6 +308,14 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
   color: var(--gold-bright);
 }
 
+.ench-card-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 140px; }
+.enchant-current { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 20px 8px; }
+.enchant-none { padding: 4px 20px 8px; font-size: 0.78rem; color: var(--text-faint); }
+.enchant-applied { font-size: 0.72rem; color: var(--gold-bright); }
+.ench-cost-note { font-size: 0.7rem; color: var(--text-faint); font-weight: normal; }
+.enchant-retype { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; font-size: 0.8rem; }
+.ench-even { font-size: 0.68rem; padding: 1px 6px; margin-left: 6px; }
+
 .enchant-dropdowns {
   display: flex;
   gap: 8px;
@@ -396,6 +407,18 @@ code  { background: var(--bg-darkest); padding: 2px 7px; border-radius: 3px; col
   cursor: pointer;
 }
 .fe-controls button:hover { background: var(--bg-hover); }
+
+/* Apply upgrade — stand it out (green, like Start upgrade) so it isn't missed. */
+.fe-controls .upg-btn {
+  flex: 1;
+  background: var(--teal-bg);
+  border: 1px solid var(--teal-bright);
+  color: var(--teal-bright);
+  font-weight: 600;
+  padding: 9px 14px;
+}
+.fe-controls .upg-btn:hover:not(:disabled) { background: var(--teal-dim); color: var(--text); }
+.fe-controls .upg-btn:disabled { opacity: 0.35; background: var(--bg-surface); border-color: var(--border); color: var(--text-muted); font-weight: 400; }
 
 /* ---- Toast ---- */
 #craft-toast {

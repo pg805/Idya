@@ -12,6 +12,9 @@ model User {
   korel              Int         @default(0)
   tutorial_complete  Boolean     @default(false)
   created_at         DateTime    @default(now())
+  // When true, Discord announcements that name the player use a <@id> ping
+  // instead of the bare character name. Default false (quieter for most).
+  ping_on_action     Boolean     @default(false)
   characters         Character[]
 }
 
@@ -141,6 +144,20 @@ model ShopTransaction {
   created_at DateTime @default(now())
 }
 
+// Tick-level price-state history — one snapshot per item per hour (the demand
+// state x + stock). Enough to reconstruct the sell/buy price at any past tick
+// and graph the real market the same way the sim does. Pruned to ~30 days.
+model ShopPriceTick {
+  id      String   @id @default(uuid())
+  shop_id String
+  item_id String
+  at      DateTime @default(now())
+  x       Float
+  stock   Int
+
+  @@index([shop_id, item_id, at])
+}
+
 model InventoryItem {
   character_id  String
   item_id       String
@@ -150,4 +167,37 @@ model InventoryItem {
   item          Item      @relation(fields: [item_id], references: [id])
 
   @@id([character_id, item_id])
+}
+
+// Global timed quest: players deposit an item toward a shared target for a fixed
+// price; participants earn a rank-tiered trophy when it completes. Authored as a
+// YAML in database/quests/ and materialized into a row when its start time hits.
+model GlobalQuest {
+  id          String         @id
+  name        String
+  lore        String
+  item_id     String
+  target      Int
+  price       Int            // korel paid per item deposited (fixed for the quest)
+  deposited   Int            @default(0)
+  starts_at   DateTime
+  ends_at     DateTime
+  status      String         @default("scheduled") // scheduled | active | completed
+  created_at  DateTime       @default(now())
+  deposits    QuestDeposit[]
+}
+
+model QuestDeposit {
+  id            String      @id @default(uuid())
+  quest_id      String
+  character_id  String
+  quantity      Int         @default(0)
+  rank          Int?        // frozen 1/2/3/… at completion; null while active
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  quest         GlobalQuest @relation(fields: [quest_id], references: [id])
+
+  @@unique([quest_id, character_id])
+  @@index([character_id])
 }

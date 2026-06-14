@@ -1,19 +1,19 @@
 recipes:
-  # BS1 ─────────────────────────────────────────────────────────────────────
+  # L1 weapons use raw tier-1; L2/L3 use smelted tier-2 (talamite), which also
+  # drops from stronger enemies (farm fewer as you get stronger).
+  # Cost in raw-equivalent: L1 = 12, L2 = 100 (10 tier-2), L3 = 200 (10+10).
 
-  - id: bs_dagger
-    name: Dagger
-    description: "Shape crude talamite into a short, concealable blade."
+  - id: bs_pickaxe
+    name: Pickaxe
+    description: "Forge a sturdy miner's pickaxe from crude talamite."
     profession: blacksmith
     required_level: 1
     ingredients:
       - item_id: crude_talamite
-        quantity: 4
+        quantity: 12
     output:
       type: weapon
-      id: dagger
-
-  # BS2 ─────────────────────────────────────────────────────────────────────
+      id: pickaxe
 
   - id: bs_talamite
     name: Talamite
@@ -22,27 +22,23 @@ recipes:
     required_level: 2
     ingredients:
       - item_id: crude_talamite
-        quantity: 2
+        quantity: 10
     output:
       type: item
       id: talamite
       quantity: 1
 
-  - id: bs_dagger_talamite
-    name: Dagger (Talamite)
-    description: "A dagger forged from refined talamite — sharper edge, better balance."
+  - id: bs_dagger
+    name: Dagger
+    description: "Forge refined talamite into a slim, quick blade."
     profession: blacksmith
-    required_level: 2
+    required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 4
+        quantity: 10
     output:
       type: weapon
       id: dagger
-      base_bonus:
-        attack: 1
-
-  # BS3 ─────────────────────────────────────────────────────────────────────
 
   - id: bs_mace
     name: Mace
@@ -51,254 +47,94 @@ recipes:
     required_level: 3
     ingredients:
       - item_id: talamite
-        quantity: 5
+        quantity: 10
     output:
       type: weapon
       id: mace
 
-  - id: bs_sword_blade_talamite
-    name: Sword Blade (Talamite)
-    description: "A talamite blade, edged and ready for a hilt."
+  # Hybrid (talamite edge on a treated-sulwood haft). Needs a lumberjack's haft too.
+  - id: bs_battle_axe
+    name: Battle Axe
+    description: "A brutal slab of talamite on a treated-sulwood haft — a smith's edge with a lumberjack's reach."
     profession: blacksmith
-    required_level: 3
+    required_level: 5
     ingredients:
-      - item_id: talamite
-        quantity: 3
-    output:
-      type: item
-      id: sword_blade_talamite
-      quantity: 1
-
-  - id: bs_axe_head_talamite
-    name: Axe Head (Talamite)
-    description: "A talamite axe head — takes an edge sulwood never could."
-    profession: blacksmith
-    required_level: 3
-    ingredients:
-      - item_id: talamite
-        quantity: 3
-    output:
-      type: item
-      id: axe_head_talamite
-      quantity: 1
-
-  - id: bs_shovel_head_talamite
-    name: Shovel Head (Talamite)
-    description: "A talamite shovel blade — stays sharp no matter the abuse."
-    profession: blacksmith
-    required_level: 3
-    ingredients:
-      - item_id: talamite
-        quantity: 3
-    output:
-      type: item
-      id: shovel_head_talamite
-      quantity: 1
-
-  - id: bs_wand_talamite
-    name: Wand Base (Talamite)
-    description: "A rod of talamite — cold and dense where sulwood is warm. Blank until attuned."
-    profession: blacksmith
-    required_level: 3
-    ingredients:
-      - item_id: talamite
-        quantity: 2
-    output:
-      type: item
-      id: wand_base_talamite
-      quantity: 1
-
-  - id: bs_sword_talamite
-    name: Talamite Sword
-    description: "Fit the talamite blade to a sulwood hilt."
-    profession: blacksmith
-    required_level: 3
-    ingredients:
-      - item_id: sword_hilt
+      - item_id: battle_axe_hilt
         quantity: 1
-      - item_id: sword_blade_talamite
-        quantity: 1
+      - item_id: talamite
+        quantity: 10
     output:
       type: weapon
-      id: sword_talamite
+      id: battle_axe
 
-  - id: bs_axe_talamite
-    name: Talamite Axe
-    description: "Lash the talamite head to a sulwood handle."
+  # Cross-profession component: the smith's half of the enchanter's Wand.
+  - id: bs_wand_base
+    name: Wand Base
+    description: "Cast and temper a dense talamite rod — blank until an enchanter attunes it into a wand."
     profession: blacksmith
-    required_level: 3
+    required_level: 5
     ingredients:
-      - item_id: axe_handle
-        quantity: 1
-      - item_id: axe_head_talamite
-        quantity: 1
+      - item_id: talamite
+        quantity: 10
     output:
-      type: weapon
-      id: axe_talamite
-
-  - id: bs_shovel_talamite
-    name: Talamite Shovel
-    description: "Set the talamite blade onto a sulwood handle."
-    profession: blacksmith
-    required_level: 3
-    ingredients:
-      - item_id: shovel_handle
-        quantity: 1
-      - item_id: shovel_head_talamite
-        quantity: 1
-    output:
-      type: weapon
-      id: shovel_talamite
-
-  # BS7 ─────────────────────────────────────────────────────────────────────
+      type: item
+      id: wand_base
+      quantity: 1
 
   - id: bs_alloy
     name: Alloy
-    description: "Fuse talamite with a binding agent under extreme heat to produce a superior alloy."
+    description: "Fuse talamite with a binding agent under extreme heat into a superior alloy."
     profession: blacksmith
     required_level: 7
     ingredients:
       - item_id: talamite
-        quantity: 3
+        quantity: 12
     output:
       type: item
       id: alloy
       quantity: 1
 
-  - id: bs_dagger_alloy
-    name: Dagger (Alloy)
-    description: "A dagger of refined alloy — the finest edge a blacksmith can produce."
+  # L4 cross-profession component (R9): the smith's half of the lumberjack's Crossbow.
+  - id: bs_crossbow_limb
+    name: Crossbow Limb
+    description: "Forge and temper a sprung alloy limb — the heart of a lumberjack's crossbow."
     profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: alloy
-        quantity: 2
-    output:
-      type: weapon
-      id: dagger
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: bs_mace_alloy
-    name: Mace (Alloy)
-    description: "A mace of refined alloy — heavier, denser, and harder to stop."
-    profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: alloy
-        quantity: 2
-    output:
-      type: weapon
-      id: mace
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: bs_sword_blade_alloy
-    name: Sword Blade (Alloy)
-    description: "An alloy blade — holds an edge far longer than talamite."
-    profession: blacksmith
-    required_level: 7
+    required_level: 9
     ingredients:
       - item_id: alloy
         quantity: 2
     output:
       type: item
-      id: sword_blade_alloy
+      id: crossbow_limb
       quantity: 1
 
-  - id: bs_sword_talamite_alloy
-    name: Talamite Sword (Alloy)
-    description: "Fit the alloy blade to a sulwood hilt."
+  # L4 weapon (R9): a blacksmith's nunchaku — a lumberjack's wood bar, an enchanter's arcane bar, chained on alloy.
+  - id: bs_nunchaku
+    name: Nunchaku
+    description: "Chain a lumberjack's hardwood bar to an enchanter's Sidaev bar with a length of alloy — Flow courses the moment it swings."
     profession: blacksmith
-    required_level: 7
+    required_level: 9
     ingredients:
-      - item_id: sword_hilt
+      - item_id: hardwood_bar
         quantity: 1
-      - item_id: sword_blade_alloy
+      - item_id: sidaev_bar
         quantity: 1
+      - item_id: alloy
+        quantity: 2
     output:
       type: weapon
-      id: sword_talamite
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
+      id: nunchaku
 
-  - id: bs_axe_head_alloy
-    name: Axe Head (Alloy)
-    description: "An alloy axe head — weight and edge in perfect balance."
+  # L4 cross-profession component (R9): the smith's half of the enchanter's Scythe.
+  - id: bs_scythe_head
+    name: Scythe Head
+    description: "Grind and curve an alloy blade into a wicked scythe head — the cutting edge of an enchanter's reaper."
     profession: blacksmith
-    required_level: 7
+    required_level: 9
     ingredients:
       - item_id: alloy
         quantity: 2
     output:
       type: item
-      id: axe_head_alloy
-      quantity: 1
-
-  - id: bs_axe_talamite_alloy
-    name: Talamite Axe (Alloy)
-    description: "Lash the alloy head to a sulwood handle."
-    profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: axe_handle
-        quantity: 1
-      - item_id: axe_head_alloy
-        quantity: 1
-    output:
-      type: weapon
-      id: axe_talamite
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: bs_shovel_head_alloy
-    name: Shovel Head (Alloy)
-    description: "An alloy shovel blade — sharper and more durable than talamite."
-    profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: alloy
-        quantity: 2
-    output:
-      type: item
-      id: shovel_head_alloy
-      quantity: 1
-
-  - id: bs_shovel_talamite_alloy
-    name: Talamite Shovel (Alloy)
-    description: "Set the alloy blade onto a sulwood handle."
-    profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: shovel_handle
-        quantity: 1
-      - item_id: shovel_head_alloy
-        quantity: 1
-    output:
-      type: weapon
-      id: shovel_talamite
-      base_bonus:
-        defend: 1
-        attack: 1
-        special: 1
-
-  - id: bs_wand_talamite_alloy
-    name: Wand Base (Alloy)
-    description: "A rod of refined alloy — more precisely attuned to channeling. Blank until an enchanter awakens it."
-    profession: blacksmith
-    required_level: 7
-    ingredients:
-      - item_id: alloy
-        quantity: 1
-    output:
-      type: item
-      id: wand_base_alloy
+      id: scythe_head
       quantity: 1

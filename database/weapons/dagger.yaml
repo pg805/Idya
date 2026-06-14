@@ -1,7 +1,7 @@
 Name: Dagger
 Description: A slim talamite blade, quick in the hand. Keep it close or throw it — either way, it draws blood.
 Level: 2
-HP: 30
+HP: 50
 Weight: 0
 
 Resource:
@@ -14,9 +14,9 @@ Defend:
     Type_Name: Block
     Damage_Type: Physical
     Damage_Subtype: Mental
-    Value: 5
+    Value: 12
     Cost: 0
-    Action_String: "<User> sidesteps the incoming strike, deflecting 5 damage."
+    Action_String: "<User> sidesteps the incoming strike, deflecting it."
 
   - Name: Hidden Blade
     Type: 2
@@ -27,7 +27,28 @@ Defend:
     Cost: -3
     Action_String: "<User> draws a concealed blade, resetting their poise."
 
-Defend Crit: []
+  - Name: Cut Tendons
+    Type: 14
+    Type_Name: Move Debuff
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Value: 1
+    Rounds: 4
+    Cost: 1
+    Range: 2
+    Aimed: false
+    Action_String: "<User> slashes at <Target>'s legs, hobbling them."
+
+Defend Crit:
+  - Name: Dodge Feint
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Sharp
+    Field: [4, 6, 7, 8]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> feints the dodge and slips the blade back in."
 
 Attack:
   - Name: Swipe
@@ -35,22 +56,22 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    Field: [10, 11, 12, 13, 15, 16, 17, 19, 20]
     Cost: 1
     Aimed: false
     Range: 1
-    Action_String: "<User> swipes at <Target>, dealing <Damage> damage."
+    Action_String: "<User> swipes at <Target>."
 
   - Name: Throw Blade
     Type: 1
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [0, 5, 6, 7, 8, 8, 10, 10]
+    Field: [5, 10, 10, 11, 12, 14, 15, 16]
     Cost: 3
     Aimed: false
     Range: 3
-    Action_String: "<User> hurls a blade at <Target>, dealing <Damage> damage."
+    Action_String: "<User> hurls a blade at <Target>."
 
 Attack Crit:
   - Name: Second Dagger
@@ -58,11 +79,9 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [4, 4, 4, 8, 8, 8]
+    Field: [12, 24, 24, 28, 28, 30]
     Cost: 0
-    Aimed: false
-    Range: 3
-    Action_String: "<User> launches a second dagger at <Target> for <Damage> damage."
+    Action_String: "<User> launches a second dagger at <Target>."
 
 Special:
   - Name: Stiletto
@@ -70,10 +89,20 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Sharp
-    Field: [5, 10, 10, 10, 15]
+    Field: [5, 15, 15, 15, 25]
     Cost: 2
     Aimed: true
     Range: 1
-    Action_String: "<User> drives their stiletto into <Target> for <Damage> damage."
+    Action_String: "<User> drives their stiletto into <Target>."
 
-Special Crit: []
+Special Crit:
+  - Name: Poison Blade
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Elemental
+    Damage_Subtype: Water
+    Field: [4, 5, 6]
+    Rounds: 2
+    Cost: 0
+    Range: 1
+    Action_String: "<User>'s poisoned blade leaves <Target> bleeding."

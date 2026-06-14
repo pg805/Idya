@@ -1,7 +1,7 @@
 Name: Branch
 Description: A sturdy fallen branch. Not much, but it'll do.
-Level: 1
-HP: 30
+Level: 0
+HP: 20
 Weight: 0
 
 Resource:
@@ -16,9 +16,17 @@ Defend:
     Damage_Subtype: Blunt
     Value: 2
     Cost: -6
-    Action_String: "<User> picks up their branch, bracing for 2 damage."
+    Action_String: "<User> picks up their branch, bracing for the blow."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Blessing of Nature
+    Type: 6
+    Type_Name: Heal
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Value: 2
+    Cost: 0
+    Action_String: "<User> draws on nature's blessing, mending a little."
 
 Attack:
   - Name: Swing
@@ -26,11 +34,11 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [1, 2, 4, 5, 7, 8]
+    Field: [1, 2, 3, 4]
     Cost: 2
     Aimed: false
     Range: 1
-    Action_String: "<User> swings at <Target> for <Damage> damage."
+    Action_String: "<User> swings at <Target>."
 
 Attack Crit:
   - Name: Leaf Swipe
@@ -38,11 +46,9 @@ Attack Crit:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [4, 5, 6]
+    Field: [1, 2]
     Cost: 0
-    Aimed: false
-    Range: 1
-    Action_String: "<User> catches <Target> with a leaf swipe for <Damage> damage."
+    Action_String: "<User> catches <Target> with a leaf swipe."
 
 Special:
   - Name: Two Handed Swing
@@ -50,10 +56,19 @@ Special:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [2, 3, 5, 6, 8, 10]
+    Field: [2, 2, 3, 5, 6]
     Cost: 3
     Aimed: true
     Range: 1
-    Action_String: "<User> grips with both hands and drives the branch into <Target> for <Damage> damage."
+    Action_String: "<User> grips with both hands and drives the branch into <Target>."
 
-Special Crit: []
+Special Crit:
+  - Name: Wrath of Nature
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Nature
+    Field: [3, 4]
+    Cost: 0
+    Range: 1
+    Action_String: "<User> calls down nature's wrath on <Target>."

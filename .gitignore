@@ -31,6 +31,9 @@ package-lock.json
 # ignore data.zip
 data.zip
 
+# generated dev replay capture (regenerate via spatial_sim.js replay)
+public/replay.json
+
 old.js
 
 old

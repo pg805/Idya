@@ -65,9 +65,7 @@
 
   function renderRecipes() {
     const list = document.getElementById('recipe-list');
-    const visible = data.recipes.filter(r =>
-      r.output?.type !== 'enchant' && activeProfs.has(r.profession)
-    );
+    const visible = data.recipes.filter(r => activeProfs.has(r.profession));
 
     if (visible.length === 0) {
       list.innerHTML = '<p class="empty">No recipes here yet.</p>';

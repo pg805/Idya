@@ -35,7 +35,12 @@
 
     const grouped = {};
     for (const t of TYPE_ORDER) grouped[t] = [];
-    for (const i of data.items) (grouped[i.type] ?? grouped.material).push(i);
+    for (const i of data.items) {
+      // Drop unlocks entirely — they belong on the Stats page. Any type we
+      // don't have a section for (future weird types) is also skipped here
+      // rather than silently dumped into Materials.
+      if (grouped[i.type]) grouped[i.type].push(i);
+    }
 
     let sectionsHtml = '';
 

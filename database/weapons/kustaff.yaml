@@ -1,7 +1,7 @@
 Name: Kustaff
 Description: A quarterstaff woven through with living vines and hardened thorns. It grows, constricts, and reflects — the wood doesn't end where the plant begins.
 Level: 3
-HP: 60
+HP: 160
 Weight: 0
 
 Resource:
@@ -14,21 +14,29 @@ Defend:
     Type_Name: Reflect
     Damage_Type: Elemental
     Damage_Subtype: Sharp
-    Value: 5
+    Value: 15
     Rounds: 3
     Cost: -1  # restores 1 connection
-    Action_String: "Thorns grow around <User>, reflecting 5 damage for 3 rounds."
+    Action_String: "Thorns grow around <User>, ready to lash back at attackers."
   - Name: Vines
     Type: 8
     Type_Name: Shield
     Damage_Type: Elemental
     Damage_Subtype: Blunt
-    Value: 5
+    Value: 15
     Rounds: 3
     Cost: -2  # restores 2 connection
-    Action_String: "Vines grow around <User>, shielding 5 damage for 3 rounds."
+    Action_String: "Vines grow around <User>, shielding them."
 
-Defend Crit: []
+Defend Crit:
+  - Name: Connect
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Value: 0
+    Cost: -1
+    Action_String: "<User> draws on the bond, recovering their Connection."
 
 Attack:
   - Name: Lash
@@ -36,11 +44,11 @@ Attack:
     Type_Name: Strike
     Damage_Type: Physical
     Damage_Subtype: Blunt
-    Field: [0, 2, 2, 3, 4, 5]
+    Field: [9, 10, 10, 11, 14]
     Cost: 0
     Aimed: false
     Range: 1
-    Action_String: "<User> lashes at <Target> with the vine-wrapped staff, dealing <Damage> damage."
+    Action_String: "<User> lashes at <Target> with the vine-wrapped staff."
 
 Attack Crit:
   - Name: Regrow
@@ -48,20 +56,30 @@ Attack Crit:
     Type_Name: Heal
     Damage_Type: Elemental
     Damage_Subtype: Plant
-    Value: 5
-    Action_String: "The power of nature restores <User>, healing 5 damage."
+    Value: 8
+    Action_String: "The power of nature restores <User>, mending their wounds."
 
 Special:
-  - Name: Constrict
+  - Name: Brambles
+    Type: 11
+    Type_Name: Hazard Tile
+    Damage_Type: Elemental
+    Damage_Subtype: Sharp
+    Value: 10
+    Area: 3
+    Aimed: true
+    Range: 3
+    Cost: 3
+    Action_String: "<User> erupts a thicket of thorns — anything that moves into it is torn."
+
+Special Crit:
+  - Name: Poison Oak
     Type: 4
     Type_Name: DOT
-    Damage_Type: Elemental
-    Damage_Subtype: Blunt
-    Field: [1, 3]
-    Rounds: 3
-    Cost: 3
-    Aimed: true
-    Range: 4
-    Action_String: "<User> sends vines lashing at <Target>. <Target> will take <Damage> damage for 3 rounds."
-
-Special Crit: []
+    Damage_Type: Arcane
+    Damage_Subtype: Nature
+    Field: [7, 9, 14]
+    Rounds: 2
+    Cost: 0
+    Range: 2
+    Action_String: "<User>'s thicket erupts with poison oak — <Target> festers."

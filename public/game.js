@@ -25,37 +25,69 @@ const phaseLabelEl    = document.getElementById('phase-label');
 const connStatusEl    = document.getElementById('connection-status');
 const logEl           = document.getElementById('combat-log');
 
-// ---- Combat log filters ----
-const LOG_FILTER_KEY = 'idya.log_filters';
-function loadLogFilters() {
-  try { return JSON.parse(localStorage.getItem(LOG_FILTER_KEY) ?? '{}'); }
-  catch (_) { return {}; }
+// ---- Combat log detail level ----
+// One dial with three sane stops instead of four independent toggles (most of
+// whose 16 combinations are nonsense). Actions + moves are always on; the dial
+// adds narration (flavor), then mechanics (resolve). Resolve is the heavy
+// teaching view — off until you ask for it.
+const LOG_DETAIL_KEY = 'idya.log_detail';
+const LOG_PRESETS = {
+  minimal:  { flavor: false, 'action-head': true, mechanics: false, move: false }, // just the action lines
+  standard: { flavor: false, 'action-head': true, mechanics: true,  move: true },  // + the resolve math + moves
+  story:    { flavor: true,  'action-head': true, mechanics: true,  move: true },  // + the flavor narration
+};
+function loadLogDetail() {
+  const v = localStorage.getItem(LOG_DETAIL_KEY);
+  return LOG_PRESETS[v] ? v : 'standard';
 }
-const LOG_FILTER_KEYS = ['flavor', 'action-head', 'mechanics', 'move'];
-function applyLogFilters(state) {
-  for (const key of LOG_FILTER_KEYS) {
-    logEl.classList.toggle(`hide-${key}`, state[key] === false);
-    const box = document.querySelector(`#log-filters input[data-filter="${key}"]`);
-    if (box) box.checked = state[key] !== false;
-  }
+function applyLogDetail(preset) {
+  const state = LOG_PRESETS[preset] ?? LOG_PRESETS.standard;
+  for (const key of Object.keys(state)) logEl.classList.toggle(`hide-${key}`, state[key] === false);
+  document.querySelectorAll('#log-detail button[data-preset]').forEach(b =>
+    b.classList.toggle('active', b.dataset.preset === preset));
 }
-(function initLogFilters() {
-  const state = loadLogFilters();
-  applyLogFilters(state);
-  document.querySelectorAll('#log-filters input[data-filter]').forEach(box => {
-    box.addEventListener('change', () => {
-      const next = loadLogFilters();
-      next[box.dataset.filter] = box.checked;
-      localStorage.setItem(LOG_FILTER_KEY, JSON.stringify(next));
-      applyLogFilters(next);
+(function initLogDetail() {
+  applyLogDetail(loadLogDetail());
+  document.querySelectorAll('#log-detail button[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localStorage.setItem(LOG_DETAIL_KEY, btn.dataset.preset);
+      applyLogDetail(btn.dataset.preset);
     });
+  });
+  // Download the full structured replay (board + roster + per-turn paths/actions
+  // + the readable log) — a self-contained record that recreates the battle.
+  // Falls back to a plain-text scrape if the server has no replay (e.g. an old
+  // session that predates the feature).
+  document.getElementById('log-download')?.addEventListener('click', async () => {
+    const sessionId = window.location.pathname.split('/').pop() || 'test';
+    try {
+      const resp = await fetch(`/api/session/${sessionId}/replay`);
+      if (resp.ok) {
+        const replay = await resp.json();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(replay, null, 2)], { type: 'application/json' }));
+        a.download = 'battle-replay.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+    } catch { /* fall through to text scrape */ }
+    const text = [...logEl.children].map(p => p.textContent).join('\n');
+    if (!text) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    a.download = 'battle-log.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
   });
 })();
 
 // ---- Socket ----
+const connWrap = document.getElementById('conn-wrap');
 socket.on('connect', () => {
   connStatusEl.textContent = 'Connected';
   connStatusEl.className = 'connected';
+  if (connWrap) connWrap.style.display = 'none';   // healthy = invisible; only surface problems
   const sessionId = window.location.pathname.split('/').pop() || 'test';
   socket.emit('join_session', sessionId);
 });
@@ -63,6 +95,7 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
   connStatusEl.textContent = 'Disconnected';
   connStatusEl.className = 'disconnected';
+  if (connWrap) connWrap.style.display = '';
 });
 
 // Server emits this with { message: 'Session X not found' } when the player
@@ -96,8 +129,47 @@ socket.on('game_over', ({ winner }) => {
   resetUI();
   ui.phase = 'ended';
   appendLog([`━━━ Game Over! ${winnerTeam ? winnerTeam.name + ' wins!' : 'Draw!'} ━━━`], 'turn-divider');
+  // Hide but KEEP its box — `hidden`/display:none would shrink the status bar
+  // (the forfeit button is its tallest item) and jump the whole page up.
+  const ffBtn = document.getElementById('forfeit-btn');
+  if (ffBtn) ffBtn.style.visibility = 'hidden';
   render();
 });
+
+// ---- Forfeit (button + 'F' keybind) ----
+// Lives in the status bar so players always know they can leave a battle
+// without backing out via Hunt. POSTs to the same endpoint the Hunt-page
+// forfeit button uses; the server emits game_over({reason: 'forfeit'}),
+// which lands here through the normal socket flow and ends the battle
+// like any other game_over — player decides when to navigate away.
+async function triggerForfeit() {
+  if (ui.phase === 'ended') return;
+  const btn = document.getElementById('forfeit-btn');
+  if (btn?.disabled) return;
+  if (!confirm('Forfeit this battle?')) return;
+  if (btn) btn.disabled = true;
+  const sessionId = window.location.pathname.split('/').pop();
+  try {
+    await fetch(`/api/active-battles/${sessionId}/forfeit`, { method: 'POST' });
+  } catch (_) {
+    if (btn) btn.disabled = false;
+  }
+}
+
+(function wireForfeit() {
+  const btn = document.getElementById('forfeit-btn');
+  if (btn) btn.addEventListener('click', triggerForfeit);
+  // Keybind: bare 'f' fires forfeit. Ignore when the user is typing somewhere
+  // (no inputs in combat today, but future-proof anyway) and ignore the
+  // modified variants so Ctrl+F / browser find still works.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'f' && e.key !== 'F') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    e.preventDefault();
+    triggerForfeit();
+  });
+})();
 
 socket.on('reward_result', ({ summary }) => {
   appendLog([summary], 'crit');
@@ -130,51 +202,82 @@ function myPlayerCombatant() {
 
 // ---- Movement BFS (mirrors server) ----
 // Diagonals use alternating cost (1-2-1-2): even diagonal in path = 1, odd = 2.
+// Hazard-aware movement search (mirrors server src/combat/movement.ts). Does a
+// Pareto (movement-cost, hazard-damage) search so the previewed path — and the
+// `parents` chain it reconstructs — routes around opposing hazard tiles (and slow,
+// which is baked into cost) when a within-range detour exists. Reachability is
+// unchanged (hazards alter the route, not which tiles are reachable). The server
+// runs the same avoidance, so the green outline matches the damage actually taken.
 function computeReachable(combatant) {
   const { width, height, obstacles } = state.board;
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
+  const tiles = state.board.tiles || [];
+  const slowSet = new Set(tiles.filter(t => t.kind === 'slow').map(t => `${t.pos.x},${t.pos.y}`));
+  const hazardVal = new Map(); // 'x,y' → damage, opposing-team hazard tiles only
+  for (const t of tiles) {
+    if (t.kind === 'hazard' && t.teamId !== combatant.teamId) hazardVal.set(`${t.pos.x},${t.pos.y}`, t.value);
+  }
   const occupiedSet = new Set(
     state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
-  const stateCosts = new Map([[`${startKey}:0`, 0]]); // 'x,y:parity' → cost (BFS correctness)
-  const tileCosts  = new Map([[startKey, 0]]);         // 'x,y' → best cost (parent tracking)
-  const parents = new Map([[startKey, null]]);
-  const queue = [[combatant.pos, 0, 0]]; // pos, cost, diagParity
-  const reachable = new Set();
 
-  while (queue.length) {
-    const [pos, cost, diagParity] = queue.shift();
+  // Pareto-optimal (cost, hazard) labels per 'x,y:parity'.
+  const nondom = new Map();
+  const dominated = (k, cost, hazard) => (nondom.get(k) || []).some(l => l.cost <= cost && l.hazard <= hazard);
+  const record = (k, cost, hazard) => {
+    const arr = (nondom.get(k) || []).filter(l => !(cost <= l.cost && hazard <= l.hazard));
+    arr.push({ cost, hazard });
+    nondom.set(k, arr);
+  };
+
+  const best = new Map();    // 'x,y' → {cost, hazard} chosen for display (least hazard, then cost)
+  const parents = new Map([[startKey, null]]);
+  const reachable = new Set();
+  const frontier = [{ pos: combatant.pos, parity: 0, cost: 0, hazard: 0, parentKey: null }];
+
+  while (frontier.length) {
+    frontier.sort((a, b) => a.cost - b.cost || a.hazard - b.hazard);
+    const cur = frontier.shift();
+    const ck = `${cur.pos.x},${cur.pos.y}:${cur.parity}`;
+    if (dominated(ck, cur.cost, cur.hazard)) continue;
+    record(ck, cur.cost, cur.hazard);
+
+    const tk = `${cur.pos.x},${cur.pos.y}`;
+    if (cur.parentKey !== null) {  // skip the origin
+      const prev = best.get(tk);
+      if (!prev || cur.hazard < prev.hazard || (cur.hazard === prev.hazard && cur.cost < prev.cost)) {
+        best.set(tk, { cost: cur.cost, hazard: cur.hazard });
+        parents.set(tk, cur.parentKey);
+        reachable.add(tk);
+      }
+    }
+
+    const slowPenalty = slowSet.has(tk) ? 1 : 0;  // leaving a slow tile costs +1
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = pos.x + dx, ny = pos.y + dy;
+        const nx = cur.pos.x + dx, ny = cur.pos.y + dy;
         const k = `${nx},${ny}`;
         const isDiag = dx !== 0 && dy !== 0;
-        const stepCost = isDiag ? (diagParity === 0 ? 1 : 2) : 1;
-        const newCost = cost + stepCost;
-        const newParity = isDiag ? 1 - diagParity : diagParity;
-        const sk = `${k}:${newParity}`;
+        const stepCost = (isDiag ? (cur.parity === 0 ? 1 : 2) : 1) + slowPenalty;
+        const newCost = cur.cost + stepCost;
+        const newParity = isDiag ? 1 - cur.parity : cur.parity;
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
         if (obstacleSet.has(k)) continue;
         // No diagonal corner-cutting (mirrors server-side movement BFS).
         if (isDiag) {
-          const ka = `${pos.x},${ny}`, kb = `${nx},${pos.y}`;
+          const ka = `${cur.pos.x},${ny}`, kb = `${nx},${cur.pos.y}`;
           if (obstacleSet.has(ka) && obstacleSet.has(kb)) continue;
         }
         if (newCost > range) continue;
-        if ((stateCosts.get(sk) ?? Infinity) <= newCost) continue;
         if (occupiedSet.has(k)) continue;
-        stateCosts.set(sk, newCost);
-        if (newCost < (tileCosts.get(k) ?? Infinity)) {
-          tileCosts.set(k, newCost);
-          parents.set(k, `${pos.x},${pos.y}`);
-        }
-        reachable.add(k);
-        queue.push([{ x: nx, y: ny }, newCost, newParity]);
+        const newHazard = cur.hazard + (hazardVal.get(k) || 0);
+        if (dominated(`${k}:${newParity}`, newCost, newHazard)) continue;
+        frontier.push({ pos: { x: nx, y: ny }, parity: newParity, cost: newCost, hazard: newHazard, parentKey: tk });
       }
     }
   }
@@ -234,12 +337,23 @@ function computeTargetableTiles(actionInfo, fromPos) {
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
+  // A blink-strike (moveTo) relocates you onto the aimed tile, so it can only
+  // target an empty passable square — never one a combatant is standing on.
+  const occupiedSet = actionInfo.moveTo
+    ? new Set(state.combatants.filter(c => c.hp > 0).map(c => `${c.pos.x},${c.pos.y}`))
+    : null;
   const tiles = new Set();
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       const k = `${x},${y}`;
-      if (obstacleSet.has(k)) continue;
       const d = chebyshev(fromPos, { x, y });
+      // Destroy Obstacle targets the obstacles themselves (any intact one in range).
+      if (actionInfo.targetsObstacle) {
+        if (obstacleSet.has(k) && d >= 1 && d <= actionInfo.range) tiles.add(k);
+        continue;
+      }
+      if (obstacleSet.has(k)) continue;
+      if (occupiedSet && occupiedSet.has(k)) continue;
       const minDist = actionInfo.canTargetSelf ? 0 : 1;
       if (d >= minDist && d <= actionInfo.range) {
         if (d === 0 || actionInfo.range === 1 || hasLineOfSight(fromPos, { x, y }, state.board)) {
@@ -249,6 +363,35 @@ function computeTargetableTiles(actionInfo, fromPos) {
     }
   }
   return tiles;
+}
+
+// Mirror of areaBlock() in resolution.ts — the N×N footprint of an Area action.
+// Odd N centers on `center`; even N puts `center` at the corner nearest `caster`
+// and sprays away. Off-board squares are dropped. Keep in sync with the server.
+function areaCells(center, area, caster) {
+  const out = new Set();
+  const { width, height } = state.board;
+  const add = (x, y) => { if (x >= 0 && x < width && y >= 0 && y < height) out.add(`${x},${y}`); };
+  if (area % 2 === 1) {
+    const off = (area - 1) / 2;
+    for (let dx = 0; dx < area; dx++) for (let dy = 0; dy < area; dy++) add(center.x - off + dx, center.y - off + dy);
+  } else {
+    const dirX = Math.sign(center.x - caster.x) || 1;
+    const dirY = Math.sign(center.y - caster.y) || 1;
+    for (let i = 0; i < area; i++) for (let j = 0; j < area; j++) add(center.x + dirX * i, center.y + dirY * j);
+  }
+  return out;
+}
+
+// A reactive self-burst centers on the actor. Odd N needs no caster; even N
+// sprays toward the nearest enemy (NW if none) — mirrors resolveReactiveStrike.
+function selfBurstCaster(center, area) {
+  if (area % 2 === 1) return center;
+  const foes = state.combatants.filter(c => c.teamId !== playerTeamId);
+  const foe = foes.length ? foes.reduce((a, b) => chebyshev(center, a.pos) <= chebyshev(center, b.pos) ? a : b).pos : null;
+  const dx = foe ? (Math.sign(foe.x - center.x) || -1) : -1;
+  const dy = foe ? (Math.sign(foe.y - center.y) || -1) : -1;
+  return { x: center.x - dx, y: center.y - dy };
 }
 
 function actionIsSelected(action) {
@@ -272,22 +415,29 @@ function renderBoard() {
   // about breakpoints. Re-read each render so a viewport resize takes effect.
   const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'), 10) || 72;
   boardEl.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-  // Lock #left-col to the board's pixel width on wide viewports so the action
-  // panel's flex-wrap row doesn't stretch the column and snap it back between
-  // phases. On phones (<= 640px) the CSS overrides to width:100% — keep this
-  // pixel value off the inline style there so the override actually wins.
-  const boardPxWidth = width * cellSize + (width - 1) * 3 + 18; // cells + gaps + padding(16) + border(2)
-  document.getElementById('left-col').style.width = window.innerWidth <= 640 ? '' : `${boardPxWidth}px`;
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
   const combatantMap = new Map(state.combatants.map(c => [`${c.pos.x},${c.pos.y}`, c]));
+  const tileMap = new Map((state.board.tiles || []).map(t => [`${t.pos.x},${t.pos.y}`, t]));
   const moveTargetKey = ui.moveTo ? `${ui.moveTo.x},${ui.moveTo.y}` : null;
   const selectedKey = ui.selected ? `${ui.selected.pos.x},${ui.selected.pos.y}` : null;
   const targetTileKey = ui.targetTile ? `${ui.targetTile.x},${ui.targetTile.y}` : null;
   const targetableTiles = (ui.phase === 'selecting_target' && ui.action)
     ? computeTargetableTiles(ui.action, ui.moveTo ?? ui.selected?.pos ?? { x: 0, y: 0 })
     : new Set();
+
+  // Preview the blast footprint of an AOE the player is lining up: an aimed AOE
+  // around the chosen target tile, a reactive self-burst around the player's own
+  // (post-move) square. Lets you see what the area will hit before submitting.
+  const aoeFrom = ui.moveTo ?? ui.selected?.pos ?? { x: 0, y: 0 };
+  let areaFootprint = new Set();
+  if (ui.action && ui.action.area > 1) {
+    if (ui.action.selfBurst && ui.phase === 'selecting_action')
+      areaFootprint = areaCells(aoeFrom, ui.action.area, selfBurstCaster(aoeFrom, ui.action.area));
+    else if (ui.action.needsTarget && ui.targetTile && ui.phase === 'selecting_target')
+      areaFootprint = areaCells(ui.targetTile, ui.action.area, aoeFrom);
+  }
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -298,41 +448,62 @@ function renderBoard() {
 
       const obstacle = obstacleMap.get(k);
       const combatant = combatantMap.get(k);
+      const tile = tileMap.get(k);
+      // A destroyed obstacle is walkable rubble — still drawn, but it behaves like
+      // an empty tile (tokens + tiles can sit on it). Only intact/damaged walls block.
+      const solidObstacle = obstacle && obstacle.state !== 'destroyed';
 
       if (obstacle) {
         cell.classList.add('obstacle');
-        cell.dataset.state = obstacle.state;
-      } else if (combatant) {
-        const isOwn = combatant.teamId === playerTeamId;
-        const el = document.createElement('div');
-        el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
-        if (combatant.sprite) {
-          el.style.backgroundImage = `url('${combatant.sprite}')`;
-          el.style.backgroundSize = 'contain';
-          el.style.backgroundRepeat = 'no-repeat';
-          el.style.backgroundPosition = 'center';
-          el.innerHTML = `<span class="combatant-name">${combatant.name}</span>`;
-        } else {
-          const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-          el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
+        cell.dataset.state = obstacle.state;   // bottom layer (rubble when destroyed)
+      }
+
+      if (!solidObstacle) {
+        if (tile) {  // middle layer: tile tint + mark (z-index in CSS keeps it above rubble)
+          cell.classList.add('tile', `tile-${tile.kind}`, tile.teamId === playerTeamId ? 'tile-ally' : 'tile-foe');
+          const mark = document.createElement('div');
+          mark.className = 'tile-mark';
+          const sym = tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : tile.kind === 'slow' ? '🐌' : '⚠';
+          mark.textContent = `${sym}${tile.value}`;
+          cell.appendChild(mark);
         }
-        cell.appendChild(el);
+        if (combatant) {  // top layer: token
+          const isOwn = combatant.teamId === playerTeamId;
+          const el = document.createElement('div');
+          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
+          if (combatant.sprite) {
+            el.style.backgroundImage = `url('${combatant.sprite}')`;
+            el.style.backgroundSize = 'contain';
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.innerHTML = `<span class="combatant-name">${combatant.name}</span>`;
+          } else {
+            const initials = combatant.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            el.innerHTML = `${initials}<span class="combatant-name">${combatant.name}</span>`;
+          }
+          cell.appendChild(el);
+        }
       }
 
       if (k === targetTileKey) {
         cell.classList.add('target-selected');
+        if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (targetableTiles.has(k)) {
         cell.classList.add('target-valid');
+        if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (k === moveTargetKey) {
         cell.classList.add('move-target');
-      } else if (ui.pathTiles.has(k) && !obstacle && !combatant) {
+      } else if (ui.pathTiles.has(k) && !solidObstacle && !combatant) {
         cell.classList.add('path-tile');
-      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !obstacle && !combatant) {
+      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !solidObstacle && !combatant) {
         // Keep reachable highlights up through the whole selecting_move phase
         // (used to clear once moveTo was set) so arrow-key users can see how
         // far they can still go from the current target.
         cell.classList.add('reachable');
       }
+
+      // Overlay: any square the lined-up AOE will hit (coexists with other marks).
+      if (areaFootprint.has(k)) cell.classList.add('area-footprint');
 
       cell.addEventListener('click', () => onCellClick(x, y));
       boardEl.appendChild(cell);
@@ -340,119 +511,113 @@ function renderBoard() {
   }
 }
 
+// A stat { value, mods } → plain effect text + an outline-pill box per modifier.
+function statHtml(stat) {
+  if (!stat) return '';
+  const value = stat.value ? `<span class="stat-value">${stat.value}</span>` : '';
+  const mods = (stat.mods || []).map(m => `<span class="stat-pill">${m}</span>`).join('');
+  return value + mods;
+}
+
 function renderActionPanel() {
   actionPanelEl.innerHTML = '';
+  actionPanelEl.classList.remove('active', 'dim');
 
-  if (ui.phase === 'waiting') {
-    actionPanelEl.innerHTML = '<div class="action-title">Intent submitted — waiting for resolution…</div>';
-    return;
-  }
   if (ui.phase === 'ended') {
-    actionPanelEl.innerHTML = '<div class="action-title">Battle ended.</div>';
+    // Keep the panel the exact size it was during the battle (the locked height)
+    // and fill it with one big return button — no "Battle ended" text, no jump.
+    // Tutorial drops you on the character page so app.js fires the town tour.
     const again = document.createElement('a');
-    again.className = 'battle-again-btn';
-    if (isTutorial) {
-      // Tutorial drops you on the character page with the town-tour flag so
-      // app.js fires the sidebar walkthrough on first arrival.
-      again.href = '/app/character?tour=1';
-      again.innerHTML = 'Go to Town <span class="action-key">↵</span>';
-    } else {
-      again.href = '/app/hunt';
-      again.innerHTML = 'Return to Town <span class="action-key">↵</span>';
-    }
+    again.className = 'return-big';
+    again.href = isTutorial ? '/app/character?tour=1' : '/app/hunt';
+    again.innerHTML = `${isTutorial ? 'Go to Town' : 'Return to Town'} <span class="action-key">↵</span>`;
     actionPanelEl.appendChild(again);
     return;
   }
 
-  if (ui.phase === 'selecting_target' && ui.action) {
-    const row = document.createElement('div');
-    row.className = 'action-buttons';
+  // Every phase but "ended" shows the action list. LIT when it's your turn to
+  // pick or aim (selecting_action / selecting_target), DIMMED otherwise. There's
+  // NO header at any stage — the panel sizes to the list and stays put, and the
+  // board (highlighted target tiles) guides aiming. A chosen aimed action stays
+  // highlighted in the list while you click its target tile on the board.
+  const active = ui.phase === 'selecting_action' || ui.phase === 'selecting_target';
+  actionPanelEl.classList.add(active ? 'active' : 'dim');
 
-    const back = document.createElement('button');
-    back.className = 'action-btn';
-    back.textContent = '← Back';
-    back.addEventListener('click', () => {
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
-    });
-    row.appendChild(back);
-
-    const title = document.createElement('div');
-    title.className = 'action-title';
-    title.textContent = ui.targetTile
-      ? `${ui.action.label} → tile (${ui.targetTile.x},${ui.targetTile.y})`
-      : `${ui.action.label} — click a tile to target`;
-    row.appendChild(title);
-    actionPanelEl.appendChild(row);
-
-    if (ui.targetTile) {
-      const submit = document.createElement('button');
-      submit.className = 'submit-btn';
-      submit.textContent = 'Submit Intent →';
-      submit.addEventListener('click', submitIntent);
-      actionPanelEl.appendChild(submit);
-    }
-    return;
-  }
-
-  if (ui.phase === 'selecting_move') {
-    const hint = document.createElement('div');
-    hint.className = 'action-title';
-    hint.innerHTML = `Click or arrow keys to move · <span class="action-key">↵</span> to skip movement`;
-    actionPanelEl.appendChild(hint);
-    return;
-  }
-
-  if (ui.phase !== 'selecting_action' || !state) return;
-
+  if (!state) return;
   const player = myPlayerCombatant();
   if (!player?.weaponInfo) return;
 
-  const fromPos = ui.moveTo ?? ui.selected?.pos;
-  if (!fromPos) return;
+  // Grouped action list: one block per category (defend / attack / special), each
+  // headed by that category's crit + the triangle condition that fires it. Number
+  // keys map to the flat actions order (defend→attack→special→pass), so the row
+  // number = the action's global index, preserved across the visual grouping.
+  const CAT = {
+    defend:  { label: 'Defend',  icon: '🛡', arrow: '⤵', trigger: 'if the foe attacks' },
+    attack:  { label: 'Attack',  icon: '⚔', arrow: '⤴', trigger: 'if the foe uses a Special' },
+    special: { label: 'Special', icon: '✦', arrow: '✦', trigger: 'if the foe guards' },
+  };
+  const acts = player.weaponInfo.actions;
+  const crits = player.weaponInfo.crits || {};
 
-  const title = document.createElement('div');
-  title.className = 'action-title';
-  title.textContent = ui.moveTo
-    ? `Moving to (${ui.moveTo.x},${ui.moveTo.y}) — choose action`
-    : 'Holding position — choose action';
-  actionPanelEl.appendChild(title);
+  const renderRow = (action, num, canAfford) => {
+    const isPass = action.choice === 'pass';
+    const row = document.createElement('button');
+    row.className = `action-row${isPass ? ' pass-row' : ''}${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
+    if (!canAfford) row.disabled = true;
+    const costHtml = isPass ? ''
+      : action.cost === 0 ? '<span class="action-cost free">free</span>'
+      : `<span class="action-cost${action.cost < 0 ? ' gain' : ''}">${action.cost < 0 ? '+' + (-action.cost) : action.cost}</span>`;
+    row.innerHTML =
+        `<span class="action-key">${num <= 9 ? num : ''}</span>`
+      + `<span class="action-label">${action.label}</span>`
+      + `<span class="action-stat">${statHtml(action.stat)}</span>`
+      + costHtml;
+    if (!isPass && action.cost !== 0) row.title = `${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}${action.needsTarget ? ' · range ' + action.range : ''}`;
+    else if (action.needsTarget) row.title = `range ${action.range}`;
+    row.addEventListener('click', () => pickAction(action));
+    return row;
+  };
 
-  const btns = document.createElement('div');
-  btns.className = 'action-buttons';
+  const list = document.createElement('div');
+  list.className = 'action-list';
 
-  const allActions = [...player.weaponInfo.actions, PASS_ACTION];
+  for (const cat of ['defend', 'attack', 'special']) {
+    const rows = acts.map((a, idx) => ({ a, idx })).filter(x => x.a.choice === cat);
+    if (rows.length === 0) continue;
+    const group = document.createElement('div');
+    group.className = `action-group group-${cat}`;
 
-  for (let i = 0; i < allActions.length; i++) {
-    const action = allActions[i];
-    const canAfford = action.cost <= 0 || action.cost <= player.resource;
-    const btn = document.createElement('button');
-    btn.className = `action-btn${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
-    const keyHint = i < 9 ? `<span class="action-key">${i + 1}</span>` : '';
-    btn.innerHTML = action.choice && action.choice !== 'pass'
-      ? `${keyHint}<span class="action-tag">${action.choice}</span> ${action.label}`
-      : `${keyHint}${action.label}`;
-    if (!canAfford) btn.disabled = true;
+    const head = document.createElement('div');
+    head.className = 'action-group-head';
+    const c = CAT[cat];
+    head.innerHTML = `<span class="cat-name">${c.icon} ${c.label}</span>`
+      + (crits[cat]?.length
+          ? `<span class="cat-crit"><span class="crit-arrow">${c.arrow}</span> `
+            + crits[cat].map(cr => `<span class="crit-name">${cr.name}</span>${statHtml(cr.stat)}`).join(' ')
+            + `</span>`
+          : '');
+    group.appendChild(head);
 
-    const parts = [];
-    if (action.cost !== 0) parts.push(`${action.cost > 0 ? 'costs' : 'restores'} ${Math.abs(action.cost)} ${player.weaponInfo.resourceName}`);
-    if (action.needsTarget) parts.push(`range ${action.range}`);
-    if (parts.length) btn.title = parts.join(' · ');
-
-    btn.addEventListener('click', () => pickAction(action));
-    btns.appendChild(btn);
+    for (const { a, idx } of rows) {
+      const canAfford = a.cost <= 0 || a.cost <= player.resource;
+      group.appendChild(renderRow(a, idx + 1, canAfford));
+    }
+    list.appendChild(group);
   }
-  actionPanelEl.appendChild(btns);
 
-  if (ui.action && !ui.action.needsTarget) {
-    const submit = document.createElement('button');
-    submit.className = 'submit-btn';
-    submit.textContent = 'Submit Intent →';
-    submit.addEventListener('click', submitIntent);
-    actionPanelEl.appendChild(submit);
-  }
+  // Pass is not an offered option — by design every weapon always has an
+  // affordable action (a restore / free defend). Only fall back to it if nothing
+  // at all is affordable, so a 0-resource edge case can't soft-lock the turn.
+  if (!acts.some(a => a.cost <= 0 || a.cost <= player.resource))
+    list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
+  actionPanelEl.appendChild(list);
+
+  // Lock the panel to its current list height so it never resizes — including the
+  // end-of-battle return button. Reset first, then re-measure each turn, so a
+  // layout-width change that re-wraps the rows can't leave a stale (too-small)
+  // lock that makes the panel shrink (jump) at battle end.
+  actionPanelEl.style.minHeight = '';
+  actionPanelEl.style.minHeight = actionPanelEl.offsetHeight + 'px';
 }
 
 function statusBadgesHtml(status) {
@@ -465,29 +630,41 @@ function statusBadgesHtml(status) {
   if (status.buff?.rounds > 0)    badges.push(`<span class="badge badge-buff">▲ ${status.buff.value} <i>${status.buff.rounds}r</i></span>`);
   if (status.debuff?.rounds > 0)  badges.push(`<span class="badge badge-debuff">▼ ${status.debuff.value} <i>${status.debuff.rounds}r</i></span>`);
   if (status.reflect?.rounds > 0) badges.push(`<span class="badge badge-reflect">↺ ${status.reflect.value} <i>${status.reflect.rounds}r</i></span>`);
+  if (status.moveDebuff?.rounds > 0) badges.push(`<span class="badge badge-movedebuff">🐌 →${status.moveDebuff.value} <i>${status.moveDebuff.rounds}r</i></span>`);
   return badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
 }
+
+// Every combatant we've seen this battle, in first-seen order. The server drops
+// dead units from `state.combatants`, so we keep their last snapshot here and
+// keep their card on screen (at 0 HP, greyed) rather than vanishing it.
+const seenCombatants = new Map();
 
 function renderCombatantList() {
   combatantListEl.innerHTML = '';
   if (!state) return;
-  for (const c of state.combatants) {
+  const live = new Map(state.combatants.map(c => [c.id, c]));
+  for (const c of state.combatants) seenCombatants.set(c.id, c);   // refresh + record order
+
+  for (const [id, snap] of seenCombatants) {
+    const cur = live.get(id);
+    const defeated = !cur;
+    const c = cur ?? { ...snap, hp: 0 };
     const isOwn = c.teamId === playerTeamId;
     const card = document.createElement('div');
-    card.className = `combatant-card ${isOwn ? 'team-a' : 'team-b'}`;
+    card.className = `combatant-card ${isOwn ? 'team-a' : 'team-b'}${defeated ? ' defeated' : ''}`;
     const hpPct  = Math.max(0, (c.hp / c.maxHp) * 100);
     const resPct = c.maxResource > 0 ? Math.max(0, (c.resource / c.maxResource) * 100) : 0;
     const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
-    const telegraph = c.isAI && state.telegraphs?.[c.id];
+    const telegraph = !defeated && c.isAI && state.telegraphs?.[c.id];
     const weaponLine = (!c.isAI && c.weaponInfo) ? `<div class="weapon-name">${c.weaponInfo.name}</div>` : '';
     card.innerHTML = `
-      <h3>${c.name}${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
+      <h3>${c.name} <span class="init-badge" title="initiative — higher acts first">⚡${c.initiative}</span>${c.isAI ? ' <span style="font-size:0.65rem;opacity:0.5">[AI]</span>' : ''}</h3>
       ${weaponLine}
       <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
-      <div class="hp-text">${c.hp} / ${c.maxHp} HP</div>
+      <div class="hp-text">${c.hp} / ${c.maxHp} HP${defeated ? ' — defeated' : ''}</div>
       <div class="res-bar-bg"><div class="res-bar" style="width:${resPct}%"></div></div>
       <div class="hp-text">${c.resource ?? '?'} / ${c.maxResource ?? '?'} ${c.resourceName ?? ''}</div>
-      ${statusBadgesHtml(c.status)}
+      ${defeated ? '' : statusBadgesHtml(c.status)}
       ${telegraph ? `<div class="telegraph">${telegraph}</div>` : ''}
     `;
     combatantListEl.appendChild(card);
@@ -507,7 +684,8 @@ function pickAction(action) {
     ui.phase = 'selecting_target';
     render();
   } else {
-    renderActionPanel();
+    // Clicking the action IS the confirm — no separate submit step.
+    submitIntent();
   }
 }
 
@@ -523,7 +701,7 @@ function onKey(e) {
   // Post-battle: Enter follows the Return/Go to Town link
   if (ui.phase === 'ended') {
     if (e.key === 'Enter' || e.key === ' ') {
-      const link = actionPanelEl.querySelector('a.battle-again-btn');
+      const link = actionPanelEl.querySelector('a.return-big, a.battle-again-btn');
       if (link?.href) {
         e.preventDefault();
         location.href = link.href;
@@ -608,8 +786,7 @@ function onKey(e) {
         e.preventDefault();
         const player = myPlayerCombatant();
         if (!player?.weaponInfo) return;
-        const allActions = [...player.weaponInfo.actions, PASS_ACTION];
-        const action = allActions[num - 1];
+        const action = player.weaponInfo.actions[num - 1];
         if (action) pickAction(action);
         return;
       }
@@ -717,7 +894,8 @@ function onCellClick(x, y) {
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };
-      render();
+      // Picking the target tile IS the confirm — submit straight away.
+      submitIntent();
     }
     return;
   }
@@ -760,26 +938,44 @@ function resetSession() {
 }
 
 // ---- Log ----
+// Categories drive CSS styling AND the filter checkboxes in the log header:
+//   turn-divider  — turn separators (━━━ Turn N ━━━, ━━━ Game Over ━━━)
+//   phase-header  — sub-phase markers (▸ Move / ▸ Defend / ▸ Attack / ▸ Special)
+//   crit          — ★ critical-hit announcements
+//   status        — deaths, expirations
+//   move          — "<Name> moves to (x,y)"
+//   action-head   — main per-action lines (the source-of-truth row)
+//   mechanics     — indented detail under an action (roll math)
+//   flavor        — indented narrative prose under an action
+const FLAVOR_MARK = String.fromCharCode(0x200B);   // zero-width space; server tags flavor lines with it
 function classifyLogLine(line) {
-  if (line.startsWith('━━━'))                                    return 'turn-divider';
-  if (line.startsWith('★'))                                      return 'crit';
-  if (line.includes('is defeated'))                              return 'status';
-  if (/ moves \(\d+,\d+\) → \(\d+,\d+\)\.?$/.test(line))         return 'move';
-  if (line.includes('yields to') || line.includes('tie for the same tile')) return 'move';
-  if (/^Roll:/.test(line) || /^DOT:/.test(line))                 return 'mechanics';
-  if (line.includes('takes') && line.includes('DOT damage'))     return 'mechanics';
-  if (line.includes('damage reflected to'))                      return 'mechanics';
-  if (/expired|wore off/i.test(line))                            return 'status';
-  if (line.includes(' — '))                                      return 'action-head';
-  // Default: narrative prose from the action_string template.
-  return 'flavor';
+  if (line.startsWith(FLAVOR_MARK))             return 'flavor';      // marked prose (may contain " — ")
+  if (line.startsWith('━━━'))                  return 'turn-divider';
+  if (line === '▸ Move' || line === '▸ Initiative') return 'move';   // positional headers travel with their roster
+  if (line.startsWith('▸ '))                    return 'phase-header';
+  if (line.startsWith('★'))                     return 'crit';
+  if (/ is defeated/.test(line))                return 'status';
+  if (/⚡\d/.test(line))                          return 'move';        // "⚡24 <Name> (x,y) → …" + initiative list
+  if (/^\s/.test(line))                          return 'mechanics';   // any indent = a resolution line
+  if (/ — /.test(line))                          return 'action-head'; // "<Actor> — <Action> …" at top level
+  if (/expired|wore off|fades/i.test(line))      return 'status';
+  return 'flavor';                                                     // top-level prose
+}
+
+// Strip the classification markers (leading indent + the U+200B flavor marker —
+// CSS provides the visual indent) and turn **x** markers into bold (the rolled
+// die faces), escaping the rest.
+function renderLogLine(line) {
+  const esc = line.replace(new RegExp('^[\\s' + FLAVOR_MARK + ']+'), '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return esc.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 }
 
 function appendLog(lines, cls = '') {
   for (const line of lines) {
     const p = document.createElement('p');
     p.className = cls || classifyLogLine(line);
-    p.textContent = line;
+    p.innerHTML = renderLogLine(line);
     logEl.appendChild(p);
   }
   logEl.scrollTop = logEl.scrollHeight;

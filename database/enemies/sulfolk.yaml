@@ -1,28 +1,31 @@
 Name: Sulfolk
 Health: 40
-Level: 2
+Level: 1
+Resistances:
+  Fire: 1.25
+  Plant: 0.75
+  Water: 0.75
 Loot:
   Items:
     - id: sulwood
       type: material
-      Field: [0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3]
+      Field: [0, 2, 3, 3, 4, 4, 5]
+    - id: thuvel
+      type: material
+      Field: [0, 1, 2, 2, 2]
     - id: felt_hat
       type: valuable
-      Field: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      Field: [0, 0, 0, 0, 1]
 Pattern:
-  - [3, 0]   # Special: Camouflage
-  - [2, 0]   # Attack: Scratch
-  - [1, 1]   # Defend: Shield Arm
-  - [3, 1]   # Special: Ingrain
-  - [1, 0]   # Defend: Regrow Limb
-  - [3, 0]   # Special: Camouflage
-  - [3, 1]   # Special: Ingrain
   - [2, 0]   # Attack: Scratch
   - [2, 0]   # Attack: Scratch
   - [1, 1]   # Defend: Shield Arm
-  - [3, 1]   # Special: Ingrain
+  - [2, 0]   # Attack: Scratch
   - [1, 0]   # Defend: Regrow Limb
+  - [3, 1]   # Special: Ingrain
+  - [2, 0]   # Attack: Scratch
   - [3, 0]   # Special: Camouflage
+  - [2, 0]   # Attack: Scratch
   - [3, 1]   # Special: Ingrain
 Image: ""
 
@@ -40,19 +43,27 @@ Weapon:
       Type_Name: Heal
       Damage_Type: Elemental
       Damage_Subtype: Plant
-      Value: 10
+      Value: 11
       Cost: 4
-      Action_String: "<User> regrows a limb, healing 10 damage."
+      Action_String: "<User> regrows a limb, mending itself."
     - Name: Shield Arm
       Type: 2
       Type_Name: Block
       Damage_Type: Elemental
       Damage_Subtype: Blunt
-      Value: 10
+      Value: 7
       Cost: 3
-      Action_String: "<User> raises a shield arm, blocking <Damage> damage."
+      Action_String: "<User> raises a shield arm, blocking."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Hardwood
+      Type: 2
+      Type_Name: Block
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 3
+      Cost: 0
+      Action_String: "<User> hardens its bark, bracing again."
 
   Attack:
     - Name: Scratch
@@ -60,11 +71,11 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Elemental
       Damage_Subtype: Sharp
-      Field: [0, 2, 2, 4, 4, 6, 7, 8]
+      Field: [0, 3, 4, 5, 6, 8]
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> scratches <Target> for <Damage> damage."
+      Action_String: "<User> scratches <Target>."
 
   Attack Crit:
     - Name: Claws Sunk In
@@ -72,9 +83,9 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Elemental
       Damage_Subtype: Sharp
-      Field: [3, 3, 4, 4, 5]
+      Field: [4, 5, 7]
       Range: 1
-      Action_String: "<User>'s claws sink into <Target> for <Damage> damage."
+      Action_String: "<User>'s claws sink into <Target>."
 
   Special:
     - Name: Camouflage
@@ -82,10 +93,10 @@ Weapon:
       Type_Name: Shield
       Damage_Type: Elemental
       Damage_Subtype: Plant
-      Value: 5
+      Value: 4
       Rounds: 3
       Cost: 4
-      Action_String: "<User> blends into the surroundings, shielding 5 damage for 3 rounds."
+      Action_String: "<User> blends into the surroundings, raising a shield."
     - Name: Ingrain
       Type: 2
       Type_Name: Block
@@ -93,6 +104,16 @@ Weapon:
       Damage_Subtype: Plant
       Value: 0
       Cost: -8
-      Action_String: "<User> ingrains into the earth, restoring 8 Nutrients."
+      Action_String: "<User> ingrains into the earth, restoring its Nutrients."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Poison Ivy
+      Type: 4
+      Type_Name: DOT
+      Damage_Type: Physical
+      Damage_Subtype: Nature
+      Field: [1, 2, 4]
+      Rounds: 3
+      Cost: 0
+      Range: 1
+      Action_String: "<User> lashes <Target> with poison ivy, leaving it bleeding."

@@ -1,7 +1,7 @@
 Name: Spellbook
 Description: A tome of bound spells — each page a strike, each chapter a strategy.
 Level: 2
-HP: 35
+HP: 65
 Weight: 0
 
 Resource:
@@ -14,11 +14,31 @@ Defend:
     Type_Name: Block
     Damage_Type: Arcane
     Damage_Subtype: Blunt
-    Value: 3
+    Value: 8
     Cost: -4
-    Action_String: "<User> turns to the next chapter, blocking <Damage> damage and restoring 4 Pages."
+    Action_String: "<User> turns to the next chapter, blocking and restoring their Pages."
 
-Defend Crit: []
+  - Name: Bookmark
+    Type: 10
+    Type_Name: Buff Tile
+    Damage_Type: Arcane
+    Damage_Subtype: Force
+    Value: 10
+    Area: 3
+    Aimed: true
+    Range: 2
+    Cost: 3
+    Action_String: "<User> marks the page — a ward where their spells strike harder."
+
+Defend Crit:
+  - Name: Dogear
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Blunt
+    Value: 5
+    Cost: 0
+    Action_String: "<User> dogears the page, bracing to block again."
 
 Attack:
   - Name: Plot Point
@@ -26,11 +46,11 @@ Attack:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Sharp
-    Field: [3, 3, 3, 4, 5, 6, 7, 7, 7]
+    Field: [5, 5, 5, 9, 9, 11, 11, 11]
     Cost: 1
     Aimed: true
     Range: 2
-    Action_String: "<User> drives a plot point into <Target> for <Damage> damage."
+    Action_String: "<User> drives a plot point into <Target>."
 
 Attack Crit:
   - Name: Denouement
@@ -39,8 +59,7 @@ Attack Crit:
     Damage_Type: Arcane
     Damage_Subtype: Sharp
     Field: [5, 6, 7, 8, 9]
-    Range: 2
-    Action_String: "<User>'s denouement lands on <Target> for <Damage> damage."
+    Action_String: "<User>'s denouement lands on <Target>."
 
 Special:
   - Name: Climax
@@ -48,10 +67,19 @@ Special:
     Type_Name: Strike
     Damage_Type: Arcane
     Damage_Subtype: Sharp
-    Field: [5, 7, 9, 11, 13, 15, 15, 15]
+    Field: [9, 11, 13, 15, 19, 20, 22]
     Cost: 3
     Aimed: true
     Range: 3
-    Action_String: "<User> builds to a climax, striking <Target> for <Damage> damage."
+    Action_String: "<User> builds to a climax, striking <Target>."
 
-Special Crit: []
+Special Crit:
+  - Name: Falling Action
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Sharp
+    Field: [6, 7]
+    Rounds: 2
+    Cost: 0
+    Action_String: "<User>'s falling action lingers — <Target> suffers."

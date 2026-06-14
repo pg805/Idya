@@ -1,4 +1,4 @@
-Name: Barrel Hopp Blacksmith
+Name: Barrel Hoop Blacksmith
 NPC: Kethalis
 Title: Blacksmith
 Greeting: "Kethalis grins through the heat. 'What can I do for you?'"
@@ -6,8 +6,8 @@ Greeting: "Kethalis grins through the heat. 'What can I do for you?'"
 Items:
   # Raw material
   - id: crude_talamite
-    Base_Buy: 100
-    Base_Sell: 20
+    Base_Buy: 50
+    Base_Sell: 10
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 50
@@ -62,128 +62,41 @@ Items:
     Stock_Influence: 0.3
     Restock_Field: [1, 2, 2, 3, 0]
 
-  - id: sword_talamite
+  # L3 cross-profession component (10 talamite) — the smith's half of the enchanter's Wand
+  - id: wand_base
     Base_Buy: 1000
     Base_Sell: 200
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 4
+    Volume_Sensitivity: 5
     Transaction_Threshold: 5
-    Stock_Max: 20
-    Stock_Influence: 0.3
+    Stock_Max: 25
+    Stock_Influence: 0.25
     Restock_Field: [1, 2, 2, 3, 0]
 
-  - id: axe_talamite
-    Base_Buy: 1000
-    Base_Sell: 200
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 4
-    Transaction_Threshold: 5
-    Stock_Max: 20
-    Stock_Influence: 0.3
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: shovel_talamite
-    Base_Buy: 1000
-    Base_Sell: 200
+  # L4 cross-profession component (2 alloy) — the smith's half of the LJ's Crossbow
+  - id: crossbow_limb
+    Base_Buy: 2500
+    Base_Sell: 500
     R: 2.0
     R_Max: 3.4
     Volume_Sensitivity: 4
-    Transaction_Threshold: 5
-    Stock_Max: 20
+    Transaction_Threshold: 3
+    Stock_Max: 15
     Stock_Influence: 0.3
-    Restock_Field: [1, 2, 2, 3, 0]
+    Restock_Field: [1, 1, 1, 2, 0]
 
-  # Components — talamite (3 talamite each)
-  - id: sword_blade_talamite
-    Base_Buy: 600
-    Base_Sell: 120
+  # L4 cross-profession component (2 alloy) — the smith's half of the EN's Scythe
+  - id: scythe_head
+    Base_Buy: 2500
+    Base_Sell: 500
     R: 2.0
     R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: axe_head_talamite
-    Base_Buy: 600
-    Base_Sell: 120
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: shovel_head_talamite
-    Base_Buy: 600
-    Base_Sell: 120
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  - id: wand_base_talamite
-    Base_Buy: 400
-    Base_Sell: 80
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 8
-    Transaction_Threshold: 8
-    Stock_Max: 50
-    Stock_Influence: 0.2
-    Restock_Field: [3, 5, 6, 8, 0]
-
-  # Components — alloy (L7, premium)
-  - id: sword_blade_alloy
-    Base_Buy: 1200
-    Base_Sell: 240
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: axe_head_alloy
-    Base_Buy: 1200
-    Base_Sell: 240
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: shovel_head_alloy
-    Base_Buy: 1200
-    Base_Sell: 240
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
-
-  - id: wand_base_alloy
-    Base_Buy: 800
-    Base_Sell: 160
-    R: 2.0
-    R_Max: 3.4
-    Volume_Sensitivity: 5
-    Transaction_Threshold: 5
-    Stock_Max: 25
-    Stock_Influence: 0.25
-    Restock_Field: [1, 2, 2, 3, 0]
+    Volume_Sensitivity: 4
+    Transaction_Threshold: 3
+    Stock_Max: 15
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]
 
   # Valuables
   - id: melstone
@@ -196,3 +109,14 @@ Items:
     Stock_Max: 1000
     Stock_Influence: 0.15
     Restock_Field: [15, 25, 30, 40, 0]
+
+  - id: razor_sharp_blade
+    Base_Buy: 4000
+    Base_Sell: 2000
+    R: 3.0
+    R_Max: 3.99
+    Volume_Sensitivity: 15
+    Transaction_Threshold: 3
+    Stock_Max: 20
+    Stock_Influence: 0.3
+    Restock_Field: [1, 1, 1, 2, 0]

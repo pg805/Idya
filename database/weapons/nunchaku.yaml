@@ -1,0 +1,100 @@
+Name: Nunchaku
+Description: A blacksmith's chained nunchaku — twin alloy bars on a swivel, Sidaev coursing through the chain as water. Flows where the wielder flows.
+Level: 4
+HP: 210
+Weight: 0
+
+Resource:
+  Name: Flow
+  Max: 7
+
+Defend:
+  - Name: Whirl
+    Type: 8
+    Type_Name: Shield
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Value: 20
+    Rounds: 2
+    Cost: 1
+    Action_String: "<User> whirls the chain into a blurring guard."
+
+Defend Crit:
+  - Name: Snapback
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Blunt
+    Field: [20, 25, 25, 29, 29, 33, 37]
+    Cost: 0
+    Range: 1
+    Action_String: "<User>'s guard snaps the chain back into <Target>."
+
+Attack:
+  - Name: Cascade
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Water
+    Field: [25, 33, 33, 33, 40, 47, 47, 47, 55]
+    Cost: 1
+    Range: 1
+    Aimed: false
+    Action_String: "<User> unleashes a cascade of blows on <Target>."
+  - Name: Riptide
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Arcane
+    Damage_Subtype: Water
+    Field: [25, 28, 28, 28, 33, 36, 36, 36, 40]
+    Cost: 2
+    Range: 1
+    Area: 3
+    Aimed: true
+    MoveTo: true
+    Action_String: "<User> rides the current to a new square and bursts outward."
+
+Attack Crit:
+  - Name: Breaker
+    Type: 1
+    Type_Name: Strike
+    Damage_Type: Physical
+    Damage_Subtype: Water
+    Field: [20, 26, 26, 32, 32, 36, 40]
+    Push: 1
+    Cost: 0
+    Range: 1
+    Action_String: "<User> breaks over <Target> like a wave, driving them back."
+
+Special:
+  - Name: Wellspring
+    Type: 2
+    Type_Name: Block
+    Damage_Type: Arcane
+    Damage_Subtype: Water
+    Value: 0
+    Cost: -7
+    Action_String: "<User> draws on the wellspring, Flow surging back."
+  - Name: Undertow
+    Type: 4
+    Type_Name: DOT
+    Damage_Type: Arcane
+    Damage_Subtype: Water
+    Field: [22, 28, 33, 37]
+    Rounds: 3
+    Cost: 3
+    Range: 2
+    Aimed: true
+    Action_String: "<User> drags <Target> under, the undertow pulling."
+
+Special Crit:
+  - Name: Wane
+    Type: 5
+    Type_Name: Debuff
+    Damage_Type: Arcane
+    Damage_Subtype: Water
+    Value: 7
+    Rounds: 4
+    Cost: -2
+    Range: 2
+    Action_String: "<User> leaves <Target> waning, weakened; the ebb pulls Flow back."

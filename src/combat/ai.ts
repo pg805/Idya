@@ -1,9 +1,11 @@
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
 import { chebyshevDist } from './board.js';
-import { reachableTiles } from './movement.js';
+import { reachableDanger } from './movement.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
+import { effectiveMove } from './combatant_state.js';
+import { choosePlan } from './ai_planner.js';
 
 export interface ResolvedEntry {
   choice: ActionChoice;
@@ -43,7 +45,13 @@ export function findAffordableEntry(meta: CombatantMeta): ResolvedEntry | null {
 
 export function generateAIIntent(ai: Combatant, session: CombatSession): CombatIntent {
   const meta = session.meta.get(ai.id);
-  if (!meta || meta.pattern.length === 0) return pass(ai.id);
+  if (!meta) return pass(ai.id);
+
+  // The utility planner is the standard AI for every enemy; only scripted units
+  // (the tutorial bird) walk a fixed Pattern so their lesson plays in order.
+  if (!meta.scripted) return choosePlan(ai, session);
+
+  if (meta.pattern.length === 0) return pass(ai.id);
 
   const enemies = session.combatants.filter(c => c.teamId !== ai.teamId);
   if (enemies.length === 0) return pass(ai.id);
@@ -61,14 +69,29 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   const occupied = new Set(
     session.combatants.filter(c => c.id !== ai.id).map(c => `${c.pos.x},${c.pos.y}`)
   );
-  const reachable = reachableTiles(ai.pos, ai.movementRange, session.board, occupied);
+  const aiMove = effectiveMove(ai.movementRange, meta.state);
+  const reachable = reachableDanger(ai.pos, aiMove, session.board, occupied, ai.teamId);
 
+  // Pick the tile that gets closest to the target. Tiebreak, in order: take the
+  // least opposing-hazard damage to get there, then prefer a non-slow destination,
+  // then the cheaper path (fewer slow crossings). Closing distance always wins, so
+  // the AI still wades through hazards/slow when that's the only way forward.
+  const isSlow = (pos: { x: number; y: number }) => (session.board.getTile(pos)?.kind === 'slow' ? 1 : 0);
   let bestPos = ai.pos;
   let bestDist = chebyshevDist(ai.pos, target.pos);
+  let bestHazard = 0;        // staying put takes no new hazard
+  let bestSlow = isSlow(ai.pos);
+  let bestCost = 0;
 
-  for (const pos of reachable.values()) {
+  for (const { pos, cost, hazard } of reachable.values()) {
     const d = chebyshevDist(pos, target.pos);
-    if (d < bestDist) { bestDist = d; bestPos = pos; }
+    const slow = isSlow(pos);
+    const better =
+      d < bestDist ||
+      (d === bestDist && hazard < bestHazard) ||
+      (d === bestDist && hazard === bestHazard && slow < bestSlow) ||
+      (d === bestDist && hazard === bestHazard && slow === bestSlow && cost < bestCost);
+    if (better) { bestDist = d; bestHazard = hazard; bestSlow = slow; bestCost = cost; bestPos = pos; }
   }
 
   const moveTo = bestPos === ai.pos ? null : bestPos;

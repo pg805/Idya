@@ -1,17 +1,20 @@
 Name: Talwyrm
-Health: 40
-Level: 2
+Health: 35
+Level: 1
+Resistances:
+  Arcane: 0.75
 Loot:
   Items:
     - id: crude_talamite
       type: material
-      Field: [0, 0, 1, 1, 1, 1, 2, 2, 2, 2]
+      Field: [0, 3, 4, 4, 5, 5]
     - id: crystal_tooth
       type: valuable
-      Field: [0, 0, 0, 1, 1, 2]
+      Field: [0, 1, 1, 2]
 Pattern:
   - [1, 0]   # Defend: Dig
   - [2, 0]   # Attack: Tail Whip
+  - [3, 1]   # Special: Crystal Remnants
   - [2, 0]   # Attack: Tail Whip
   - [3, 0]   # Special: Crystalize
 Image: ""
@@ -22,7 +25,7 @@ Weapon:
   Weight: 0
   Resource:
     Name: Talam
-    Max: 4
+    Max: 6
 
   Defend:
     - Name: Dig
@@ -30,11 +33,20 @@ Weapon:
       Type_Name: Block
       Damage_Type: Physical
       Damage_Subtype: Blunt
-      Value: 20
-      Cost: -4
-      Action_String: "<User> burrows into the earth, blocking <Damage> damage and restoring 4 Talam."
+      Value: 15
+      Cost: -6
+      Action_String: "<User> burrows into the earth, blocking and restoring its Talam."
 
-  Defend Crit: []
+  Defend Crit:
+    - Name: Wyrm Hole
+      Type: 9
+      Type_Name: Block Tile
+      Damage_Type: Physical
+      Damage_Subtype: Blunt
+      Value: 3
+      Area: 1
+      Cost: 0
+      Action_String: "<User> digs a wyrm hole — whoever holds the square gains cover."
 
   Attack:
     - Name: Tail Whip
@@ -46,7 +58,7 @@ Weapon:
       Cost: 1
       Aimed: false
       Range: 1
-      Action_String: "<User> whips its tail at <Target> for <Damage> damage."
+      Action_String: "<User> whips its tail at <Target>."
 
   Attack Crit:
     - Name: Chomp
@@ -54,9 +66,9 @@ Weapon:
       Type_Name: Strike
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Field: [3, 6, 8, 9, 9, 9]
+      Field: [3, 6, 8, 9]
       Range: 1
-      Action_String: "<User> chomps into <Target> for <Damage> damage."
+      Action_String: "<User> chomps into <Target>."
 
   Special:
     - Name: Crystalize
@@ -64,9 +76,31 @@ Weapon:
       Type_Name: Reflect
       Damage_Type: Physical
       Damage_Subtype: Sharp
-      Value: 4
+      Value: 6
       Rounds: 3
       Cost: 2
-      Action_String: "<User> crystallizes its scales, reflecting <Damage> damage for 3 rounds."
+      Action_String: "<User> crystallizes its scales, ready to throw blows back."
+    # NEW EFFECT — Hazard Tile (Type 11): permanent tile on the caster's square;
+    # opposing units that ENTER it (checked in the move phase) take Value.
+    - Name: Crystal Remnants
+      Type: 11
+      Type_Name: Hazard Tile
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Value: 5
+      Area: 1
+      Cost: 2
+      Aimed: true
+      Range: 3
+      Action_String: "<User> erupts jagged crystal remnants under <Target> — foes that enter the tile are cut."
 
-  Special Crit: []
+  Special Crit:
+    - Name: Aimed Shard
+      Type: 1
+      Type_Name: Strike
+      Damage_Type: Physical
+      Damage_Subtype: Sharp
+      Field: [3, 5, 7]
+      Cost: 0
+      Range: 2
+      Action_String: "<User> spits an aimed crystal shard at <Target>."
