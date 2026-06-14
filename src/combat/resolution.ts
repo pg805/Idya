@@ -47,6 +47,25 @@ const OFFENSIVE_TYPES = new Set<number>([
 ]);
 const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.has(a.type);
 
+// Did `action` (with its `intent`) actually act ON `tgtPos` this turn — not just
+// pick a winning category? An AIMED attack engages only the tile it was aimed at
+// (or, for an AOE, a tile inside the block centered there); a REACTIVE attack
+// engages foes within its range, or anything in its self-burst block. A non-
+// offensive or un-aimed-at-nothing action engages no one. This is what gates a
+// crit: attacking empty air or a different unit provokes no counter.
+function critEngages(action: Action | undefined, intent: CombatIntent | undefined, srcPos: { x: number; y: number }, tgtPos: { x: number; y: number }): boolean {
+  if (!isOffensive(action) || !intent) return false;
+  const hits = (p: { x: number; y: number }): boolean => p.x === tgtPos.x && p.y === tgtPos.y;
+  if (action!.aimed) {
+    const tp = intent.action.targetPos;
+    if (!tp) return false;                                   // aimed at nothing
+    return action!.area > 1 ? areaBlock(tp, action!.area, srcPos).some(hits) : hits(tp);
+  }
+  return action!.area > 1
+    ? areaBlock(srcPos, action!.area, srcPos).some(hits)     // reactive self-burst
+    : chebyshevDist(srcPos, tgtPos) <= (action!.range ?? 1); // reactive single: nearest in range
+}
+
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
   const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
   const CRIT: Record<string, string> = { attack: 'attack_crit', special: 'special_crit', defend: 'defend_crit' };
@@ -77,13 +96,15 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       const fMeta = session.meta.get(foe.id);
       if (!fMeta || fMeta.state.health <= 0) continue;
       const foeAction = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex];
-      const foeRange = foeAction?.range ?? 1;
-      // Neither side acted on the other (both pure self/utility actions) → no real
-      // counter happened, so no crit. One of them must be targeting the opponent.
-      if (!isOffensive(myAction) && !isOffensive(foeAction)) continue;
+      // A crit only fires when one side actually TARGETED the other this turn — not
+      // just because the categories line up. So a defend-crit counters an attacker
+      // only if that attacker actually attacked the defender (aimed at its tile, or
+      // a reactive/AOE that caught it); attacking empty air provokes no counter.
+      const engaged = critEngages(myAction, aIntent, actor.pos, foe.pos)
+                   || critEngages(foeAction, fIntent, foe.pos, actor.pos);
+      if (!engaged) continue;
       const dist = chebyshevDist(actor.pos, foe.pos);
-      if (dist > Math.max(myRange, foeRange)) continue;   // not engaged this turn
-      if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must reach
+      if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
       if (isTile) {
