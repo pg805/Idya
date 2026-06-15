@@ -72,4 +72,7 @@
 .prof-budget-total { color: var(--text-faint); font-size: 0.78rem; }
 .prof-none         { color: var(--text-faint); }
 
+.prof-note { margin-top: 10px; color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
+.prof-note b { color: var(--text-2); font-weight: 600; }
+
 .prof-empty { padding: 40px; text-align: center; color: var(--text-faint); font-style: italic; }
