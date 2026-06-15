@@ -33,7 +33,7 @@ import { chebyshevDist } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
-import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
+import { getPrices, buyItem, sellItem, tickAllDue, TICK_INTERVAL_MS } from '../economy/shop_service.js';
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { startQuestScheduler } from '../economy/quest_service.js';
 import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
@@ -912,7 +912,7 @@ app.post('/api/settings', async (req: Request, res: Response) => {
 // request — no caching, since prices only meaningfully change on tick.
 app.get('/api/info/market', async (_req: Request, res: Response) => {
   const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
-  const TICK_MS = 24 * 60 * 60 * 1000;
+  const TICK_MS = TICK_INTERVAL_MS;   // 4h — single source of truth (was a stale 24h hardcode)
   const now = Date.now();
 
   // Item market category. Raw items use ITEMS[].type ('material' / 'consumable'
@@ -3642,7 +3642,7 @@ httpServer.listen(PORT, () => {
 // closure — so we have to defer the first invocation until after SHOP_DIR
 // is bound. Calling `void runShopTick()` synchronously here would hit a
 // TDZ error ("Cannot access 'SHOP_DIR' before initialization").
-const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
+const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — sweep granularity for the 4h price gate
 async function runShopTick(): Promise<void> {
   try {
     const n = await tickAllDue(SHOP_DIR);
