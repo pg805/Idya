@@ -374,9 +374,11 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-row.unaffordable { opacity: 0.4; cursor: not-allowed; }
 .action-row .action-key { margin-right: 0; flex: 0 0 auto; }
 .action-label { flex: 0 0 auto; font-weight: 500; }
-.action-stat { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
+/* min-width:0 lets the stat shrink below its content so a long value wraps inside
+   the board-width panel instead of pushing it wider. */
+.action-stat { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
 /* The effect + value as plain text; only the modifiers (below) are boxed. */
-.stat-value { color: var(--text-2); margin-right: 7px; }
+.stat-value { color: var(--text-2); margin-right: 7px; overflow-wrap: anywhere; }
 
 /* Each stat token in a thin outlined rectangle (border only, no fill). Used by
    both the action rows and the crit headers so they read identically. */

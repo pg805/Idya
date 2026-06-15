@@ -31,7 +31,12 @@ type EnemyData = {
 // collapses to a single number.
 const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
-  return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
+  if (arr.every(v => v === arr[0])) return `${arr[0]}`;
+  // Long fields (e.g. the Wand's reservoir-scaled "Empty Self" — 60+ entries) blow
+  // out the board-width action panel if listed in full; collapse them to a
+  // min–max range. Normal fields (≤12 entries) still show every value.
+  if (arr.length > 12) return `[${Math.min(...arr)}–${Math.max(...arr)}]`;
+  return `[${arr.join(', ')}]`;
 };
 
 // A player-facing stat split into:
