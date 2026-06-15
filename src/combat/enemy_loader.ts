@@ -32,11 +32,18 @@ type EnemyData = {
 const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
   if (arr.every(v => v === arr[0])) return `${arr[0]}`;
-  // Long fields (e.g. the Wand's reservoir-scaled "Empty Self" — 60+ entries) blow
-  // out the board-width action panel if listed in full; collapse them to a
-  // min–max range. Normal fields (≤12 entries) still show every value.
-  if (arr.length > 12) return `[${Math.min(...arr)}–${Math.max(...arr)}]`;
-  return `[${arr.join(', ')}]`;
+  // Run-length encode runs of equal values as "value×count" — lossless, but it
+  // shows the full distribution (every possible roll AND how heavily it's weighted)
+  // without a wall of duplicates. e.g. [25,33,33,33,40] → "[25, 33×3, 40]", and the
+  // Wand's 66-entry "Empty Self" → "[7, 14×2, … 77×11]" instead of 66 numbers.
+  const parts: string[] = [];
+  for (let i = 0; i < arr.length;) {
+    let j = i;
+    while (j < arr.length && arr[j] === arr[i]) j++;
+    parts.push(j - i > 1 ? `${arr[i]}×${j - i}` : `${arr[i]}`);
+    i = j;
+  }
+  return `[${parts.join(', ')}]`;
 };
 
 // A player-facing stat split into:
