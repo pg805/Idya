@@ -46,13 +46,13 @@
       const recipeText = lvl.recipes.length
         ? lvl.recipes.map(r => esc(r.name)).join(', ')
         : '<span class="prof-none">—</span>';
-      const budgetText = lvl.budget > 0
-        ? `<span class="prof-budget-total">${lvl.budget} upgrade${lvl.budget !== 1 ? 's' : ''}</span> <span class="prof-budget">→ Lv ${reachLevel(lvl.budget)}</span>`
-        : '<span class="prof-none">—</span>';
+      const upgrades = lvl.budget > 0 ? `${lvl.budget}` : '<span class="prof-none">—</span>';
+      const maxLevel = lvl.budget > 0 ? `<span class="prof-budget">Lv ${reachLevel(lvl.budget)}</span>` : '<span class="prof-none">—</span>';
       return `<tr>
         <td class="prof-lvl">${lvl.level}</td>
         <td class="prof-unlocks">${recipeText}</td>
-        <td class="prof-budget-cell">${budgetText}</td>
+        <td class="prof-budget-cell">${upgrades}</td>
+        <td class="prof-budget-cell">${maxLevel}</td>
       </tr>`;
     }).join('');
 
@@ -61,11 +61,12 @@
         <thead><tr>
           <th>Rank</th>
           <th>Recipes Unlocked</th>
-          <th>Upgrades / Weapon</th>
+          <th>Upgrades</th>
+          <th>Max Level</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="prof-note">Each weapon can take this many upgrades — <b>3 upgrades = 1 weapon level</b>, climbing toward Lv 5. The level shown is for a <b>Lv 1</b> weapon; a higher-level weapon reaches Lv 5 with fewer (a Lv 3 weapon caps at 6 upgrades, a Lv 4 weapon at 3). One upgrade ≈ +0.3 of a level (1.0 → 1.3 → 1.6 → 2.0).</p>
+      <p class="prof-note"><b>Upgrades</b> is how many upgrades you can put on a single weapon at this rank. <b>Max Level</b> is the combat level that takes a weapon to — <b>3 upgrades = 1 level</b>, climbing toward Lv 5 (one upgrade ≈ +0.3: 1.0 → 1.3 → 1.6 → 2.0). The level shown is for a <b>Lv 1</b> weapon; a higher-level weapon reaches Lv 5 with fewer upgrades (a Lv 3 weapon caps at 6, a Lv 4 weapon at 3).</p>
     `;
   }
 

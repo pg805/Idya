@@ -66,7 +66,7 @@
 }
 
 .prof-unlocks { color: var(--text-2); }
-.prof-budget-cell { width: 220px; }
+.prof-budget-cell { width: 110px; }
 
 .prof-budget       { color: var(--teal-bright); font-weight: 600; }
 .prof-budget-total { color: var(--text-faint); font-size: 0.78rem; }
