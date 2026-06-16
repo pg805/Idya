@@ -3124,10 +3124,33 @@ app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
       update: { quantity: { increment: quantity } },
       create: { quest_id: questId, character_id: char.id, quantity },
     });
-    return { success: true, message: `Deposited ${quantity} ${ITEMS[quest.item_id]?.name ?? quest.item_id} for ${payout} korel.` };
+    const itemName = ITEMS[quest.item_id]?.name ?? quest.item_id;
+    return {
+      success: true,
+      message: `Deposited ${quantity} ${itemName} for ${payout} korel.`,
+      quest_name: quest.name,
+      item_name:  itemName,
+      quantity,
+      deposited:  quest.deposited + quantity,
+      target:     quest.target,
+    };
   });
 
   res.json(result);
+
+  // Mirror the contribution to the Town Square channel so progress shows in
+  // Discord in real time (like shop buys/sells).
+  if (result.success) {
+    const r = result as unknown as {
+      quest_name: string; item_name: string; quantity: number; deposited: number; target: number;
+    };
+    const mention = await playerMention(discordId, char.name);
+    const pct = Math.min(100, Math.round((100 * r.deposited) / Math.max(1, r.target)));
+    void pingChannel(
+      worldConfig.channels.town_square,
+      `${mention} contributed **${r.quantity} ${r.item_name}** to *${r.quest_name}* — now ${r.deposited.toLocaleString()}/${r.target.toLocaleString()} (${pct}%).`,
+    );
+  }
 });
 
 // ---- Socket.io ----
