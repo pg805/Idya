@@ -4034,7 +4034,9 @@ async function syncProgressionRoles(discordId: string): Promise<void> {
   }
 }
 
-// One-time backfill: grant earned roles to every existing player (throttled).
+// Reconcile every player on startup: grant any earned-but-missing role. Runs on
+// each restart (called from ClientReady), so it catches up anyone who leveled
+// while the bot was down, or after a threshold/role change. Add-only, throttled.
 async function backfillProgressionRoles(): Promise<void> {
   try {
     const rows = await prisma.character.findMany({ select: { discord_id: true } });
@@ -4616,7 +4618,7 @@ if (discordToken) {
     );
     await maybeAnnounceVersion();
     await ensureProgressionRoles();        // create the roles if missing, cache their ids
-    void backfillProgressionRoles();       // grant earned roles to existing players
+    void backfillProgressionRoles();       // every restart: grant any earned-but-missing role to all players
   });
 
   discord.on('error', (err) => {
