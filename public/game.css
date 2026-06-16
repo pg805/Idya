@@ -33,11 +33,24 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #turn-label { color: var(--gold); font-weight: bold; }
 #phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
-/* Forfeit lives at the right edge of the status bar so the rest of the row
-   keeps its centered, conversational feel and the bail-out is one obvious
-   click away. */
-#forfeit-btn {
+/* Commit-mode toggle + forfeit group at the right edge of the status bar; the
+   toggle's auto-margin pushes the pair right, forfeit just gaps after it. */
+#commit-toggle {
   margin-left: auto;
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+#commit-toggle:hover { color: var(--text-2); border-color: var(--border-strong); }
+#commit-toggle.quick { color: var(--gold); border-color: var(--gold-dim); }
+
+#forfeit-btn {
+  margin-left: 8px;
   font-size: 0.72rem;
   padding: 4px 12px;
   background: transparent;
@@ -420,6 +433,21 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   transition: background 0.1s, color 0.1s, opacity 0.15s;
 }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
+
+/* Back / Confirm controls under the action list. Always present (fixed height)
+   so the panel doesn't jump as the buttons appear and disappear. */
+.action-controls { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-top: 8px; }
+.ctrl-back {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 4px; padding: 5px 14px; font-size: 0.8rem; cursor: pointer;
+}
+.ctrl-back:hover { color: var(--text); border-color: var(--border-strong); }
+.ctrl-confirm {
+  background: var(--gold-bg); border: 1px solid var(--gold-dim); color: var(--gold);
+  border-radius: 4px; padding: 5px 18px; font-size: 0.85rem; font-weight: bold; cursor: pointer;
+}
+.ctrl-confirm:hover { background: var(--gold-dim); color: var(--text); }
+.ctrl-hint { margin-left: auto; color: var(--text-faint); font-size: 0.7rem; }
 
 /* ---- Combatant cards ---- */
 .combatant-card {

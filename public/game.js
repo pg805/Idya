@@ -16,6 +16,26 @@ const ui = {
   targetTile: null,  // {x, y} | null
 };
 
+// ---- Commit mode: ✓ Confirm (stage, then commit) vs ⚡ Quick (one click fires) ----
+// Defaults to Confirm — forgiving for most; speed players flip the toggle.
+const COMMIT_KEY = 'idya.battle_quick';
+const quickMode = () => localStorage.getItem(COMMIT_KEY) === '1';
+function applyCommitToggle() {
+  const btn = document.getElementById('commit-toggle');
+  if (!btn) return;
+  const q = quickMode();
+  btn.textContent = q ? '⚡ Quick' : '✓ Confirm';
+  btn.title = q ? 'Actions fire the instant you pick them. Tap to require a Confirm step.'
+                : 'Pick freely, then Confirm to commit. Tap for one-click (Quick) actions.';
+  btn.classList.toggle('quick', q);
+}
+document.getElementById('commit-toggle')?.addEventListener('click', () => {
+  localStorage.setItem(COMMIT_KEY, quickMode() ? '0' : '1');
+  applyCommitToggle();
+  renderActionPanel();
+});
+applyCommitToggle();
+
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
 const actionPanelEl   = document.getElementById('action-panel');
@@ -612,6 +632,34 @@ function renderActionPanel() {
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
 
+  // Controls row: a Back button (surfaces Escape — back one stage) during any
+  // selection stage, plus a Confirm button in Confirm mode once the intent is
+  // ready. Always rendered (fixed min-height) so the panel doesn't jump as the
+  // buttons come and go.
+  const controls = document.createElement('div');
+  controls.className = 'action-controls';
+  if (active) {
+    const back = document.createElement('button');
+    back.className = 'ctrl-back';
+    back.innerHTML = '← Back';
+    back.addEventListener('click', goBack);
+    controls.appendChild(back);
+
+    const intentReady = ui.action && (!ui.action.needsTarget || ui.targetTile);
+    if (!quickMode() && intentReady) {
+      const confirm = document.createElement('button');
+      confirm.className = 'ctrl-confirm';
+      confirm.innerHTML = 'Confirm <span class="action-key">↵</span>';
+      confirm.addEventListener('click', submitIntent);
+      controls.appendChild(confirm);
+    }
+    const hint = document.createElement('span');
+    hint.className = 'ctrl-hint';
+    hint.textContent = quickMode() ? 'Esc to go back' : 'Esc back · Enter confirm';
+    controls.appendChild(hint);
+  }
+  actionPanelEl.appendChild(controls);
+
   // Lock the panel to its current list height so it never resizes — including the
   // end-of-battle return button. Reset first, then re-measure each turn, so a
   // layout-width change that re-wraps the rows can't leave a stale (too-small)
@@ -683,10 +731,18 @@ function pickAction(action) {
   if (action.needsTarget) {
     ui.phase = 'selecting_target';
     render();
+  } else if (quickMode()) {
+    submitIntent();   // Quick: the action click IS the confirm.
   } else {
-    // Clicking the action IS the confirm — no separate submit step.
-    submitIntent();
+    render();         // Confirm: stage it; the Confirm button / Enter commits.
   }
+}
+
+// Step back one stage in the selection flow — shared by the Back button and Escape.
+function goBack() {
+  if (ui.phase === 'selecting_target') { ui.phase = 'selecting_action'; ui.action = null; ui.targetTile = null; render(); }
+  else if (ui.phase === 'selecting_action') { ui.phase = 'selecting_move'; ui.action = null; render(); }
+  else if (ui.phase === 'selecting_move') { resetUI(); render(); }
 }
 
 // ---- Keyboard ----
@@ -793,14 +849,7 @@ function onKey(e) {
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (ui.phase === 'selecting_action') {
-        ui.phase = 'selecting_move';
-        ui.action = null;
-        render();
-      } else if (ui.phase === 'selecting_move') {
-        resetUI();
-        render();
-      }
+      goBack();
       return;
     }
   }
@@ -813,10 +862,7 @@ function onKey(e) {
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
+      goBack();
       return;
     }
     if (dx !== 0 || dy !== 0) {
@@ -894,8 +940,9 @@ function onCellClick(x, y) {
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };
-      // Picking the target tile IS the confirm — submit straight away.
-      submitIntent();
+      // Quick: the tile click IS the confirm. Confirm: stage it for the Confirm button.
+      if (quickMode()) submitIntent();
+      else render();
     }
     return;
   }
