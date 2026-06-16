@@ -77,6 +77,11 @@ function renderLayout() {
               <input id="settings-ping" type="checkbox" class="layout-settings-toggle">
             </div>
             <p class="layout-settings-help">When on, Discord posts that mention you (battles, shops, crafts) ping you. Off uses your character name instead.</p>
+            <div class="layout-settings-row">
+              <label for="settings-quick" class="layout-settings-label">Quick actions</label>
+              <input id="settings-quick" type="checkbox" class="layout-settings-toggle">
+            </div>
+            <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
           </div>
         </div>
       </div>
@@ -124,5 +129,15 @@ async function wireSettingsPopover() {
       body: JSON.stringify({ ping_on_action }),
     }).catch(() => {});
   });
+
+  // Quick actions — a client-side (per-device) combat preference read by game.js.
+  const quickToggle = document.getElementById('settings-quick');
+  if (quickToggle) {
+    quickToggle.checked = localStorage.getItem('idya.battle_quick') === '1';
+    quickToggle.addEventListener('change', () => {
+      localStorage.setItem('idya.battle_quick', quickToggle.checked ? '1' : '0');
+      window.dispatchEvent(new CustomEvent('commitmode-change'));
+    });
+  }
 }
 

@@ -16,25 +16,12 @@ const ui = {
   targetTile: null,  // {x, y} | null
 };
 
-// ---- Commit mode: ✓ Confirm (stage, then commit) vs ⚡ Quick (one click fires) ----
-// Defaults to Confirm — forgiving for most; speed players flip the toggle.
+// ---- Commit mode: ✓ Confirm (stage, then commit) vs ⚡ Quick (one click fires).
+// Defaults to Confirm; toggled from the global settings dropdown (layout.js) — we
+// just read the key and re-render the panel when it flips mid-battle. ----
 const COMMIT_KEY = 'idya.battle_quick';
 const quickMode = () => localStorage.getItem(COMMIT_KEY) === '1';
-function applyCommitToggle() {
-  const btn = document.getElementById('commit-toggle');
-  if (!btn) return;
-  const q = quickMode();
-  btn.textContent = q ? '⚡ Quick' : '✓ Confirm';
-  btn.title = q ? 'Actions fire the instant you pick them. Tap to require a Confirm step.'
-                : 'Pick freely, then Confirm to commit. Tap for one-click (Quick) actions.';
-  btn.classList.toggle('quick', q);
-}
-document.getElementById('commit-toggle')?.addEventListener('click', () => {
-  localStorage.setItem(COMMIT_KEY, quickMode() ? '0' : '1');
-  applyCommitToggle();
-  renderActionPanel();
-});
-applyCommitToggle();
+window.addEventListener('commitmode-change', () => renderActionPanel());
 
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
