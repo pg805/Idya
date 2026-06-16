@@ -3987,21 +3987,24 @@ const ROLE_DEFS: Record<string, { name: string; color: number }> = {
 };
 const progressionRoleIds: Record<string, string> = {};
 
-// Ensure the five roles exist in the guild, creating any that are missing. Best-effort.
-async function ensureProgressionRoles(): Promise<void> {
-  if (!discord) return;
+// Ensure the five roles exist in the guild, creating any that are missing. Returns
+// how many are now usable vs failed (a failure usually = missing Manage Roles perm).
+async function ensureProgressionRoles(): Promise<{ ok: number; failed: number; err?: string }> {
+  let ok = 0, failed = 0, err: string | undefined;
+  if (!discord) return { ok, failed, err: 'no discord client' };
   const guild = await discord.guilds.fetch(worldConfig.guild_id).catch(() => null);
-  if (!guild) return;
+  if (!guild) return { ok, failed, err: 'guild not found' };
   const existing = await guild.roles.fetch().catch(() => null);
-  if (!existing) return;
+  if (!existing) return { ok, failed, err: 'could not fetch roles' };
   for (const [key, def] of Object.entries(ROLE_DEFS)) {
     let role = existing.find(r => r.name === def.name) ?? null;
     if (!role) {
       role = await guild.roles.create({ name: def.name, color: def.color, reason: 'Idya progression role' })
-        .catch(err => { console.error(`ensureProgressionRoles: create ${def.name} failed`, err?.message ?? err); return null; });
+        .catch(e => { err = e?.message ?? String(e); console.error(`ensureProgressionRoles: create ${def.name} failed`, err); return null; });
     }
-    if (role) progressionRoleIds[key] = role.id;
+    if (role) { progressionRoleIds[key] = role.id; ok++; } else failed++;
   }
+  return { ok, failed, err };
 }
 
 // Which role keys a set of profession levels earns.
@@ -4015,36 +4018,44 @@ function earnedRoleKeys(levels: Record<string, number>): string[] {
 }
 
 // Grant any roles a player has earned (never removes — milestones are permanent).
-async function syncProgressionRoles(discordId: string): Promise<void> {
-  if (!discord || Object.keys(progressionRoleIds).length === 0) return;
+// Returns how many roles were newly added.
+async function syncProgressionRoles(discordId: string): Promise<number> {
+  if (!discord || Object.keys(progressionRoleIds).length === 0) return 0;
   const guild = discord.guilds.cache.get(worldConfig.guild_id);
-  if (!guild) return;
+  if (!guild) return 0;
   const member = await guild.members.fetch(discordId).catch(() => null);
-  if (!member) return;
+  if (!member) return 0;
   const chars = await charRepo.list(discordId);
-  if (chars.length === 0) return;
+  if (chars.length === 0) return 0;
   const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
   const levels: Record<string, number> = {};
   for (const p of profRows) levels[p.profession] = p.level;
+  let added = 0;
   for (const key of earnedRoleKeys(levels)) {
     const id = progressionRoleIds[key];
     if (id && !member.roles.cache.has(id)) {
-      await member.roles.add(id, 'Idya progression').catch(err => console.error(`role add ${key} for ${discordId} failed`, err?.message ?? err));
+      const done = await member.roles.add(id, 'Idya progression').then(() => true)
+        .catch(err => { console.error(`role add ${key} for ${discordId} failed`, err?.message ?? err); return false; });
+      if (done) added++;
     }
   }
+  return added;
 }
 
 // Reconcile every player on startup: grant any earned-but-missing role. Runs on
 // each restart (called from ClientReady), so it catches up anyone who leveled
 // while the bot was down, or after a threshold/role change. Add-only, throttled.
-async function backfillProgressionRoles(): Promise<void> {
+async function backfillProgressionRoles(): Promise<{ players: number; granted: number }> {
+  let players = 0, granted = 0;
   try {
     const rows = await prisma.character.findMany({ select: { discord_id: true } });
     for (const id of [...new Set(rows.map(r => r.discord_id))]) {
-      await syncProgressionRoles(id);
+      players++;
+      granted += await syncProgressionRoles(id);
       await new Promise(r => setTimeout(r, 250));
     }
   } catch (err) { console.error('backfillProgressionRoles failed', err); }
+  return { players, granted };
 }
 
 // Split a markdown body into chunks <= maxLen, breaking on '### ' subheadings
@@ -4617,8 +4628,19 @@ if (discordToken) {
       [{ name: 'Commit', value: commitLine }],
     );
     await maybeAnnounceVersion();
-    await ensureProgressionRoles();        // create the roles if missing, cache their ids
-    void backfillProgressionRoles();       // every restart: grant any earned-but-missing role to all players
+    // Progression roles: ensure they exist, grant any earned-but-missing ones, and
+    // post a summary to bot-log so it's visible whether it fired (and if the bot is
+    // missing Manage Roles, you'll see the failure here instead of in silent logs).
+    const roleEnsure = await ensureProgressionRoles();
+    const roleFill = await backfillProgressionRoles();
+    await notifyBotLog(
+      roleEnsure.failed > 0 ? '⚠️ Progression roles — setup incomplete' : '🏷️ Progression roles synced',
+      roleEnsure.failed > 0 ? 0xe67e22 : 0x3498db,
+      [
+        { name: 'Roles ready', value: `${roleEnsure.ok}/5${roleEnsure.failed ? ` · ${roleEnsure.failed} failed${roleEnsure.err ? ` (${roleEnsure.err})` : ''} — check the bot has Manage Roles + a role above these` : ''}` },
+        { name: 'Backfill', value: `granted ${roleFill.granted} role(s) across ${roleFill.players} player(s)` },
+      ],
+    );
   });
 
   discord.on('error', (err) => {
