@@ -4656,19 +4656,10 @@ if (discordToken) {
       [{ name: 'Commit', value: commitLine }],
     );
     await maybeAnnounceVersion();
-    // Progression roles: ensure they exist, grant any earned-but-missing ones, and
-    // post a summary to bot-log so it's visible whether it fired (and if the bot is
-    // missing Manage Roles, you'll see the failure here instead of in silent logs).
-    const roleEnsure = await ensureProgressionRoles();
-    const roleFill = await backfillProgressionRoles();
-    await notifyBotLog(
-      roleEnsure.failed > 0 ? '⚠️ Progression roles — setup incomplete' : '🏷️ Progression roles synced',
-      roleEnsure.failed > 0 ? 0xe67e22 : 0x3498db,
-      [
-        { name: 'Roles ready', value: `${roleEnsure.ok}/5${roleEnsure.failed ? ` · ${roleEnsure.failed} failed${roleEnsure.err ? ` (${roleEnsure.err})` : ''} — check the bot has Manage Roles + a role above these` : ''}` },
-        { name: 'Backfill', value: `granted ${roleFill.granted} role(s) across ${roleFill.players} player(s)` },
-      ],
-    );
+    // Progression roles: ensure they exist and grant any earned-but-missing ones.
+    // (Runs silently now that we've confirmed it fires; failures still hit console.)
+    await ensureProgressionRoles();
+    await backfillProgressionRoles();
   });
 
   discord.on('error', (err) => {
