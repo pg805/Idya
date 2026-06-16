@@ -1997,6 +1997,8 @@ app.post('/api/shop/:shopKey/train', async (req: Request, res: Response) => {
     }}).catch(() => {});
   });
 
+  void syncProgressionRoles(discordId);   // grant any newly-earned progression role
+
   res.json({
     success:  true,
     message:  `${PROFESSION_NAMES[profKey]} trained to level ${currentLevel + 1}.`,
@@ -3971,6 +3973,78 @@ async function maybeAnnounceVersion(): Promise<void> {
   }
 }
 
+// ---- Progression roles ----
+// Discord roles players earn: a badge for each profession (first rank in it), a
+// Journeyman role at total profession level ≥ 5, and Master at total ≥ 10.
+// Add-only — milestones are permanent. Roles are auto-created in the guild on
+// startup; needs the bot to have "Manage Roles" + a role positioned above these.
+const ROLE_DEFS: Record<string, { name: string; color: number }> = {
+  lumberjack: { name: 'Lumberjack', color: 0x4a9d3a },
+  blacksmith: { name: 'Blacksmith', color: 0xc0682f },
+  enchanter:  { name: 'Enchanter',  color: 0x9b59b6 },
+  journeyman: { name: 'Journeyman', color: 0x3498db },
+  master:     { name: 'Master',     color: 0xe0b020 },
+};
+const progressionRoleIds: Record<string, string> = {};
+
+// Ensure the five roles exist in the guild, creating any that are missing. Best-effort.
+async function ensureProgressionRoles(): Promise<void> {
+  if (!discord) return;
+  const guild = await discord.guilds.fetch(worldConfig.guild_id).catch(() => null);
+  if (!guild) return;
+  const existing = await guild.roles.fetch().catch(() => null);
+  if (!existing) return;
+  for (const [key, def] of Object.entries(ROLE_DEFS)) {
+    let role = existing.find(r => r.name === def.name) ?? null;
+    if (!role) {
+      role = await guild.roles.create({ name: def.name, color: def.color, reason: 'Idya progression role' })
+        .catch(err => { console.error(`ensureProgressionRoles: create ${def.name} failed`, err?.message ?? err); return null; });
+    }
+    if (role) progressionRoleIds[key] = role.id;
+  }
+}
+
+// Which role keys a set of profession levels earns.
+function earnedRoleKeys(levels: Record<string, number>): string[] {
+  const keys: string[] = [];
+  for (const prof of ['lumberjack', 'blacksmith', 'enchanter']) if ((levels[prof] ?? 0) >= 1) keys.push(prof);
+  const total = (levels.lumberjack ?? 0) + (levels.blacksmith ?? 0) + (levels.enchanter ?? 0);
+  if (total >= 5)  keys.push('journeyman');
+  if (total >= 10) keys.push('master');
+  return keys;
+}
+
+// Grant any roles a player has earned (never removes — milestones are permanent).
+async function syncProgressionRoles(discordId: string): Promise<void> {
+  if (!discord || Object.keys(progressionRoleIds).length === 0) return;
+  const guild = discord.guilds.cache.get(worldConfig.guild_id);
+  if (!guild) return;
+  const member = await guild.members.fetch(discordId).catch(() => null);
+  if (!member) return;
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) return;
+  const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
+  const levels: Record<string, number> = {};
+  for (const p of profRows) levels[p.profession] = p.level;
+  for (const key of earnedRoleKeys(levels)) {
+    const id = progressionRoleIds[key];
+    if (id && !member.roles.cache.has(id)) {
+      await member.roles.add(id, 'Idya progression').catch(err => console.error(`role add ${key} for ${discordId} failed`, err?.message ?? err));
+    }
+  }
+}
+
+// One-time backfill: grant earned roles to every existing player (throttled).
+async function backfillProgressionRoles(): Promise<void> {
+  try {
+    const rows = await prisma.character.findMany({ select: { discord_id: true } });
+    for (const id of [...new Set(rows.map(r => r.discord_id))]) {
+      await syncProgressionRoles(id);
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } catch (err) { console.error('backfillProgressionRoles failed', err); }
+}
+
 // Split a markdown body into chunks <= maxLen, breaking on '### ' subheadings
 // when possible so each chunk is self-contained.
 function chunkByHeading(body: string, maxLen: number): string[] {
@@ -4541,6 +4615,8 @@ if (discordToken) {
       [{ name: 'Commit', value: commitLine }],
     );
     await maybeAnnounceVersion();
+    await ensureProgressionRoles();        // create the roles if missing, cache their ids
+    void backfillProgressionRoles();       // grant earned roles to existing players
   });
 
   discord.on('error', (err) => {
