@@ -15,10 +15,21 @@
     else cart[side][itemId] = q;
     renderBuy(); renderSell(); renderCart();
   }
-  function adjCart(side, itemId, delta, max) {
-    const cur = getCartQty(side, itemId);
-    const next = Math.max(0, Math.min(max, cur + delta));
-    setCartQty(side, itemId, next);
+  // QtyStepper onchange — sync the cart from an item's stepper, then refresh
+  // ONLY the cart. (Re-rendering the buy/sell lists would steal input focus
+  // mid-type; the stepper inputs already reflect their own value.)
+  function onQtyChange(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v    = QtyStepper.val(id);
+    const side = el.dataset.side;
+    const key  = el.dataset.key;
+    if (side === 'bw') {
+      if (v <= 0) delete cart.buyWeapons[key]; else cart.buyWeapons[key] = v;
+    } else if (side === 'buys' || side === 'sells') {
+      if (v <= 0) delete cart[side][key]; else cart[side][key] = v;
+    }
+    renderCart();
   }
 
   function getBuyWeaponQty(weaponKey) { return cart.buyWeapons[weaponKey] ?? 0; }
@@ -104,12 +115,7 @@
             <span class="shop-item-name${oos ? ' dim' : ''}">${esc(item.name)}</span>
             <span class="shop-item-sub">${oos ? 'out of stock' : `${item.buy} korel · ${stockText}`}</span>
           </div>
-          ${oos ? '' : `
-            <div class="shop-cart-ctrl">
-              <button class="shop-step" onclick="Views.shop.adjCart('buys', '${item.id}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
-              <span class="shop-step-val">${qty}</span>
-              <button class="shop-step" onclick="Views.shop.adjCart('buys', '${item.id}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
-            </div>`}
+          ${oos ? '' : QtyStepper.html({ id: `shop-buys-${item.id}`, value: qty, min: 0, max: maxQty, all: false, onchange: 'Views.shop.onQtyChange', data: { side: 'buys', key: item.id } })}
         </div>
       `;
       list.appendChild(el);
@@ -134,12 +140,7 @@
               <span class="shop-item-name${oos ? ' dim' : ''}">${esc(w.name)}</span>
               <span class="shop-item-sub">${oos ? 'out of stock' : `${w.buy} korel · ${stockText}`}</span>
             </div>
-            ${oos ? '' : `
-              <div class="shop-cart-ctrl">
-                <button class="shop-step" onclick="Views.shop.adjBuyWeapon('${w.weapon_key}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
-                <span class="shop-step-val">${qty}</span>
-                <button class="shop-step" onclick="Views.shop.adjBuyWeapon('${w.weapon_key}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
-              </div>`}
+            ${oos ? '' : QtyStepper.html({ id: `shop-bw-${w.weapon_key}`, value: qty, min: 0, max: maxQty, all: false, onchange: 'Views.shop.onQtyChange', data: { side: 'bw', key: w.weapon_key } })}
           </div>
         `;
         list.appendChild(el);
@@ -178,13 +179,7 @@
             <span class="shop-item-name${room === 0 ? ' dim' : ''}">${esc(inv.name)}</span>
             <span class="shop-item-sub">${esc(note)}</span>
           </div>
-          ${room === 0 ? '' : `
-            <div class="shop-cart-ctrl">
-              <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', -1, ${maxQty})" ${qty <= 0 ? 'disabled' : ''}>−</button>
-              <span class="shop-step-val">${qty}</span>
-              <button class="shop-step" onclick="Views.shop.adjCart('sells', '${inv.item_id}', 1, ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>+</button>
-              <button class="shop-all" onclick="Views.shop.setCartQty('sells', '${inv.item_id}', ${maxQty})" ${qty >= maxQty ? 'disabled' : ''}>ALL</button>
-            </div>`}
+          ${room === 0 ? '' : QtyStepper.html({ id: `shop-sells-${inv.item_id}`, value: qty, min: 0, max: maxQty, all: true, onchange: 'Views.shop.onQtyChange', data: { side: 'sells', key: inv.item_id } })}
         </div>
       `;
       list.appendChild(el);
@@ -404,6 +399,6 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, adjCart, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout };
+  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout };
   window.showToast = (msg) => toast(msg, true);
 })();

@@ -77,7 +77,7 @@
         <div class="ts-progress"><div class="ts-progress-bar" style="width:${pct}%"></div></div>
         <p class="ts-progress-label">${q.deposited.toLocaleString()} / ${q.target.toLocaleString()} ${esc(q.item_name)} · paying <strong>${q.price}</strong> korel each</p>
         <div class="ts-deposit">
-          <input id="ts-amt-${esc(q.id)}" type="number" min="1" max="${q.my_inventory}" value="${canDeposit ? 1 : 0}" ${canDeposit ? '' : 'disabled'}>
+          ${QtyStepper.html({ id: `ts-amt-${esc(q.id)}`, value: canDeposit ? 1 : 0, min: 1, max: q.my_inventory, disabled: !canDeposit })}
           <button class="upg-btn" ${canDeposit ? '' : 'disabled'} onclick="Views.town_square.deposit('${esc(q.id)}')">Deposit</button>
           <span class="ts-deposit-info">You have ${q.my_inventory.toLocaleString()} · deposited ${q.my_deposit.toLocaleString()}</span>
         </div>
@@ -89,8 +89,7 @@
   }
 
   async function deposit(id) {
-    const input = document.getElementById('ts-amt-' + id);
-    const quantity = parseInt(input?.value, 10);
+    const quantity = QtyStepper.val('ts-amt-' + id);
     if (!quantity || quantity <= 0) { toast('Enter a positive amount.', false); return; }
     const res = await fetch(`/api/quests/${id}/deposit`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity }),
