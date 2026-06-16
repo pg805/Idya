@@ -1,6 +1,6 @@
 import { CombatSession, Combatant, CombatantMeta, ReplayIntent } from './combat_session.js';
 import { CombatIntent } from './intent.js';
-import { chebyshevDist } from './board.js';
+import { chebyshevDist, rangeDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action, strikeBreakdown, FLAVOR_MARK } from './action_resolver.js';
 import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
@@ -63,7 +63,7 @@ function critEngages(action: Action | undefined, intent: CombatIntent | undefine
   }
   return action!.area > 1
     ? areaBlock(srcPos, action!.area, srcPos).some(hits)     // reactive self-burst
-    : chebyshevDist(srcPos, tgtPos) <= (action!.range ?? 1); // reactive single: nearest in range
+    : rangeDist(srcPos, tgtPos) <= (action!.range ?? 1); // reactive single: nearest in range
 }
 
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
@@ -103,7 +103,7 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       const engaged = critEngages(myAction, aIntent, actor.pos, foe.pos)
                    || critEngages(foeAction, fIntent, foe.pos, actor.pos);
       if (!engaged) continue;
-      const dist = chebyshevDist(actor.pos, foe.pos);
+      const dist = rangeDist(actor.pos, foe.pos);
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
@@ -425,7 +425,7 @@ export function resolveIntents(
   const nearestEnemyTo = (actor: Combatant): Combatant | null => {
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
     if (enemies.length === 0) return null;
-    return enemies.reduce((a, b) => chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b);
+    return enemies.reduce((a, b) => rangeDist(actor.pos, a.pos) <= rangeDist(actor.pos, b.pos) ? a : b);
   };
 
   // Resolve an N×N strike over a precomputed block of `cells`. If the action
@@ -541,7 +541,7 @@ export function resolveIntents(
     let placePos = { ...actor.pos };
     const tp = intent.action.targetPos;
     if (action.aimed) {
-      placePos = tp && chebyshevDist(actor.pos, tp) <= action.range
+      placePos = tp && rangeDist(actor.pos, tp) <= action.range
         ? { ...tp }
         : randomTileInRange(actor.pos, action.range, session.board);
     }
@@ -577,13 +577,13 @@ export function resolveIntents(
     };
     const targetPos = intent.action.targetPos;
     if (!targetPos) { fizzle('no target'); return; }
-    const dist = chebyshevDist(actor.pos, targetPos);
+    const dist = rangeDist(actor.pos, targetPos);
     if (dist > action.range) { fizzle(`out of range (dist ${dist})`); return; }
     if (!session.board.destroyObstacle(targetPos)) { fizzle(`no obstacle at (${targetPos.x},${targetPos.y}), misses`); return; }
     const field = (action as DestroyObstacle).field;
     log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
     if (cost) log.push(`    ${cost}`);
-    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && rangeDist(c.pos, targetPos) <= 1);
     for (const v of victims) {
       const vMeta = session.meta.get(v.id);
       if (!vMeta || vMeta.state.health <= 0) continue;
@@ -614,7 +614,7 @@ export function resolveIntents(
       return;
     }
 
-    const dist = chebyshevDist(actor.pos, targetPos);
+    const dist = rangeDist(actor.pos, targetPos);
     const tileStr = `(${targetPos.x},${targetPos.y})`;
 
     if (dist > action.range) {
@@ -680,7 +680,7 @@ export function resolveIntents(
       return;
     }
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
-    const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
+    const inRange = enemies.filter(e => rangeDist(actor.pos, e.pos) <= action.range);
 
     if (inRange.length === 0) {
       logMiss(actor, actorMeta, action, 'no target in range');
@@ -688,7 +688,7 @@ export function resolveIntents(
     }
 
     const target = inRange.reduce((a, b) =>
-      chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b
+      rangeDist(actor.pos, a.pos) <= rangeDist(actor.pos, b.pos) ? a : b
     );
     const targetMeta = session.meta.get(target.id);
     if (!targetMeta) return;

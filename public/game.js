@@ -308,6 +308,13 @@ function chebyshev(a, b) {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
+// Action range/reach — matches movement's alternating 1-2-1-2 diagonal cost (so
+// targetable tiles round off like the reachable area). Mirror of board.ts rangeDist.
+function rangeDist(a, b) {
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+  return Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2);
+}
+
 function hasLineOfSight(from, to, board) {
   const obstacleSet = new Set(
     board.obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
@@ -353,7 +360,7 @@ function computeTargetableTiles(actionInfo, fromPos) {
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       const k = `${x},${y}`;
-      const d = chebyshev(fromPos, { x, y });
+      const d = rangeDist(fromPos, { x, y });
       // Destroy Obstacle targets the obstacles themselves (any intact one in range).
       if (actionInfo.targetsObstacle) {
         if (obstacleSet.has(k) && d >= 1 && d <= actionInfo.range) tiles.add(k);
@@ -395,7 +402,7 @@ function areaCells(center, area, caster) {
 function selfBurstCaster(center, area) {
   if (area % 2 === 1) return center;
   const foes = state.combatants.filter(c => c.teamId !== playerTeamId);
-  const foe = foes.length ? foes.reduce((a, b) => chebyshev(center, a.pos) <= chebyshev(center, b.pos) ? a : b).pos : null;
+  const foe = foes.length ? foes.reduce((a, b) => rangeDist(center, a.pos) <= rangeDist(center, b.pos) ? a : b).pos : null;
   const dx = foe ? (Math.sign(foe.x - center.x) || -1) : -1;
   const dy = foe ? (Math.sign(foe.y - center.y) || -1) : -1;
   return { x: center.x - dx, y: center.y - dy };

@@ -94,3 +94,11 @@ export function moveCost(from: Pos, to: Pos): number {
 export function chebyshevDist(a: Pos, b: Pos): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
+
+// Range/reach distance for actions. Matches MOVEMENT's alternating 1-2-1-2
+// diagonal cost (movement.ts), so targetable tiles round off the same way the
+// reachable area does — a diagonal pair costs 3, not 2. dist = max + floor(min/2).
+export function rangeDist(a: Pos, b: Pos): number {
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+  return Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2);
+}
