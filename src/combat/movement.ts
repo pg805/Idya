@@ -1,16 +1,46 @@
-import { Board, Pos } from './board.js';
+import { Board, Pos, footprint, occupies } from './board.js';
+
+// Can a unit of `size` anchored at `anchor` stand here? Every footprint cell must
+// be in bounds, unblocked, and unoccupied by another unit. `occupied` is the union
+// of *other* units' footprint cells (the mover's own cells are excluded by callers).
+// Guarded by `size > 1` at every call site, so single-square units never pay for it.
+function footprintFits(anchor: Pos, size: number, board: Board, occupied: Set<string>): boolean {
+  for (const c of footprint(anchor, size)) {
+    if (!board.inBounds(c)) return false;
+    if (board.isBlocked(c)) return false;
+    if (occupied.has(`${c.x},${c.y}`)) return false;
+  }
+  return true;
+}
+
+// The squares a unit of `size` *newly* covers stepping anchor `from` → `to`
+// (its leading edge). At size 1 that's just `to`. Used to charge hazard once per
+// tile the body sweeps over, not once per tile it occupies each step.
+function sweptCells(from: Pos, to: Pos, size: number): Pos[] {
+  if (size <= 1) return [to];
+  return footprint(to, size).filter(c => !occupies({ pos: from, size }, c));
+}
+
+// Is the unit at `anchor` (size×size) standing on a slow tile? Any footprint cell
+// on slow makes the whole body pay the +1 leave cost.
+function onSlow(anchor: Pos, size: number, board: Board): boolean {
+  if (size <= 1) return board.getTile(anchor)?.kind === 'slow';
+  return footprint(anchor, size).some(c => board.getTile(c)?.kind === 'slow');
+}
 
 // BFS reachable tiles. Diagonals use alternating cost (1-2-1-2): even diagonal = 1, odd = 2.
 // State is (pos, cost, diagParity) so the same tile can be reached via different parity branches.
-// Returns a map of 'x,y' → Pos for every tile the combatant can land on.
+// Returns a map of 'x,y' → Pos for every tile the combatant can land on. `size` is
+// the mover's footprint edge (the returned tiles are valid *anchors*).
 export function reachableTiles(
   from: Pos,
   range: number,
   board: Board,
   occupied: Set<string>,
+  size = 1,
 ): Map<string, Pos> {
   const out = new Map<string, Pos>();
-  for (const [k, v] of reachableCosts(from, range, board, occupied)) out.set(k, v.pos);
+  for (const [k, v] of reachableCosts(from, range, board, occupied, size)) out.set(k, v.pos);
   return out;
 }
 
@@ -23,6 +53,7 @@ export function reachableCosts(
   range: number,
   board: Board,
   occupied: Set<string>,
+  size = 1,
 ): Map<string, { pos: Pos; cost: number }> {
   const reachable = new Map<string, { pos: Pos; cost: number }>();
   const costs = new Map<string, number>(); // 'x,y:parity' → cost
@@ -32,7 +63,7 @@ export function reachableCosts(
   while (queue.length > 0) {
     const [pos, cost, diagParity] = queue.shift()!;
     // Leaving a slow tile costs +1 (difficult terrain — affects everyone on it).
-    const slowPenalty = board.getTile(pos)?.kind === 'slow' ? 1 : 0;
+    const slowPenalty = onSlow(pos, size, board) ? 1 : 0;
     for (const n of neighbors(pos)) {
       const k = key(n);
       const isDiag = n.x !== pos.x && n.y !== pos.y;
@@ -53,6 +84,8 @@ export function reachableCosts(
       }
       if ((costs.get(sk) ?? Infinity) <= newCost) continue;
       if (occupied.has(k)) continue;
+      // Multi-square movers: the whole footprint anchored at n must fit.
+      if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
       costs.set(sk, newCost);
       const existing = reachable.get(k);
       if (!existing || newCost < existing.cost) reachable.set(k, { pos: n, cost: newCost });
@@ -92,6 +125,7 @@ function searchLabels(
   board: Board,
   occupied: Set<string>,
   teamId: string,
+  size = 1,
 ): SearchLabel[] {
   let nextId = 0;
   const settled: SearchLabel[] = [];
@@ -114,7 +148,7 @@ function searchLabels(
     record(ck, cur.cost, cur.hazard);
     settled.push(cur);
 
-    const slowPenalty = board.getTile(cur.pos)?.kind === 'slow' ? 1 : 0;
+    const slowPenalty = onSlow(cur.pos, size, board) ? 1 : 0;
     for (const n of neighbors(cur.pos)) {
       const k = key(n);
       const isDiag = n.x !== cur.pos.x && n.y !== cur.pos.y;
@@ -130,8 +164,13 @@ function searchLabels(
         if (board.inBounds(a) && board.inBounds(b) && board.isBlocked(a) && board.isBlocked(b)) continue;
       }
       if (occupied.has(k)) continue;
-      const tile = board.getTile(n);
-      const haz = tile && tile.kind === 'hazard' && tile.teamId !== teamId ? tile.value : 0;
+      if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
+      // Charge opposing hazard once per tile the body's leading edge sweeps over.
+      let haz = 0;
+      for (const c of sweptCells(cur.pos, n, size)) {
+        const t = board.getTile(c);
+        if (t && t.kind === 'hazard' && t.teamId !== teamId) haz += t.value;
+      }
       const newHazard = cur.hazard + haz;
       const sk = `${k}:${newParity}`;
       if (dominated(sk, newCost, newHazard)) continue;
@@ -152,9 +191,10 @@ export function reachableDanger(
   board: Board,
   occupied: Set<string>,
   teamId: string,
+  size = 1,
 ): Map<string, ReachDanger> {
   const out = new Map<string, ReachDanger>();
-  for (const l of searchLabels(from, range, board, occupied, teamId)) {
+  for (const l of searchLabels(from, range, board, occupied, teamId, size)) {
     if (l.pos.x === from.x && l.pos.y === from.y) continue;
     const tk = key(l.pos);
     const prev = out.get(tk);
@@ -184,9 +224,10 @@ export function findPath(
   occupied: Set<string>,
   teamId: string,
   avoidHazards: boolean,
+  size = 1,
 ): Pos[] | null {
   if (from.x === to.x && from.y === to.y) return [];
-  const labels = searchLabels(from, range, board, occupied, teamId);
+  const labels = searchLabels(from, range, board, occupied, teamId, size);
   const byId = new Map<number, SearchLabel>(labels.map(l => [l.id, l]));
 
   // Best label landing on `to`. AI: least hazard then least cost. Player: least

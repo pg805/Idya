@@ -15,6 +15,7 @@ type EnemyLootData = {
 type EnemyData = {
   Name: string;
   Health: number;
+  Size?: number;   // footprint edge (1 = single square, 2 = a 2×2 unit). Default 1.
   Pattern: [number, number][];
   Weapon: Record<string, unknown>;
   Resistances?: Record<string, number>;
@@ -171,6 +172,7 @@ export function loadEnemy(file: string, options: {
     maxResource: weapon.resource_max,
     resourceName: weapon.resource_name,
     pos: options.pos,
+    size: data.Size ?? 1,
     movementRange: options.movementRange ?? 2,
     isAI: true,
     teamId: options.teamId,

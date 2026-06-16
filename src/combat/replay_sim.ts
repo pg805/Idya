@@ -59,7 +59,7 @@ export function buildPlayerUnit(weapon: Weapon, pos: Pos): { combatant: Combatan
   const combatant: Combatant = {
     id: 'player-1', name: 'Player', hp: weapon.hp, maxHp: weapon.hp,
     resource: weapon.resource_max, maxResource: weapon.resource_max, resourceName: weapon.resource_name,
-    pos: { ...pos }, movementRange: MOVE_RANGE, isAI: false, teamId: 'team-a',
+    pos: { ...pos }, size: 1, movementRange: MOVE_RANGE, isAI: false, teamId: 'team-a',
     weaponInfo: buildWeaponInfo(weapon), weight: weapon.weight, initiative: 0, initiativeRank: 0,
   };
   return { combatant, meta: { weapon, state, pattern: [], patternIndex: 0 } };

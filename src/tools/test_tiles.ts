@@ -49,7 +49,7 @@ function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean)
   const state = new CombatantState(id, weapon.hp || 50, weapon.resource_name, weapon.resource_max);
   const c: Combatant = {
     id, name: id, hp: state.health, maxHp: state.max_health, resource: weapon.resource_max,
-    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos },
+    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos }, size: 1,
     movementRange: 4, isAI, teamId, weaponInfo: buildWeaponInfo(weapon), weight: 0, initiative: 0, initiativeRank: 0,
   };
   return { c, m: { weapon, state, pattern: [], patternIndex: 0 } };

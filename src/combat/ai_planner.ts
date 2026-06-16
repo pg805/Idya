@@ -9,7 +9,7 @@
 // disk around where the unit ends up (dodge = leave range). See predictPlayerTiles.
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { Pos, chebyshevDist } from './board.js';
+import { Pos, chebyshevDist, cellsOf } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
@@ -82,8 +82,8 @@ function maxDamagingRange(c: Combatant): number {
 export function predictPlayerTiles(me: Combatant, foe: Combatant, session: CombatSession): Map<string, number> {
   const fState = session.meta.get(foe.id)?.state;
   const moveRange = fState ? effectiveMove(foe.movementRange, fState) : foe.movementRange;
-  const occupied = new Set(session.combatants.filter(c => c.id !== foe.id).map(c => key(c.pos)));
-  const reach = reachableDanger(foe.pos, moveRange, session.board, occupied, foe.teamId);
+  const occupied = new Set(session.combatants.filter(c => c.id !== foe.id).flatMap(c => cellsOf(c).map(key)));
+  const reach = reachableDanger(foe.pos, moveRange, session.board, occupied, foe.teamId, foe.size);
   const foeRange = maxDamagingRange(foe);
 
   const raw = new Map<string, number>();
@@ -445,8 +445,8 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   }
 
   const moveRange = effectiveMove(me.movementRange, meta.state);
-  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).map(c => key(c.pos)));
-  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId);
+  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).flatMap(c => cellsOf(c).map(key)));
+  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size);
   const dests: { pos: Pos; info?: ReachDanger }[] = [{ pos: me.pos }];
   for (const r of reach.values()) dests.push({ pos: r.pos, info: r });
 

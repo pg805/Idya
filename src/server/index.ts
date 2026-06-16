@@ -29,7 +29,7 @@ import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
-import { chebyshevDist } from '../combat/board.js';
+import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
@@ -516,6 +516,7 @@ function createSession(
           maxResource: weapon.resource_max,
           resourceName: weapon.resource_name,
           pos: playerStartPos,
+          size: 1,
           movementRange: 2,
           isAI: false,
           teamId: 'team-a',
@@ -3197,11 +3198,11 @@ io.on('connection', (socket: Socket) => {
     // Validate moveTo is actually reachable (prevents client spoofing)
     if (intent.moveTo) {
       const occupied = new Set(
-        session.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
+        session.combatants.filter(c => c.id !== combatant.id).flatMap(c => cellsOf(c).map(cell => `${cell.x},${cell.y}`))
       );
       const vMeta = session.meta.get(combatant.id);
       const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
-      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied);
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }

@@ -58,7 +58,8 @@ export interface Combatant {
   resource: number;
   maxResource: number;
   resourceName: string;
-  pos: Pos;
+  pos: Pos;            // anchor (top-left) square of the unit's footprint
+  size: number;        // footprint edge: 1 = single square, 2 = a 2×2 unit
   movementRange: number;
   isAI: boolean;
   teamId: string;

@@ -1,6 +1,6 @@
 import { CombatSession, Combatant, CombatantMeta, ReplayIntent } from './combat_session.js';
 import { CombatIntent } from './intent.js';
-import { chebyshevDist, rangeDist } from './board.js';
+import { chebyshevDist, rangeDist, footprint, occupies, cellsOf, unitDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action, strikeBreakdown, FLAVOR_MARK } from './action_resolver.js';
 import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
@@ -22,6 +22,23 @@ function pushLog(log: string[], text: string) {
     // action header / flavor); drop trailing space and skip blank lines.
     if (line.trim()) log.push(line.replace(/\s+$/, ''));
   }
+}
+
+// --- Multi-square targeting (footprint-aware; all reduce to single-cell at size 1) ---
+
+// Reach from a (possibly 2×2) unit to a single tile: nearest footprint cell.
+function unitDistToPos(u: Combatant, p: { x: number; y: number }): number {
+  let best = Infinity;
+  for (const c of cellsOf(u)) best = Math.min(best, rangeDist(c, p));
+  return best;
+}
+
+// LOS between two units: clear if ANY cell of one sees ANY cell of the other.
+function unitLineOfSight(a: Combatant, b: Combatant, board: CombatSession['board']): boolean {
+  for (const ca of cellsOf(a))
+    for (const cb of cellsOf(b))
+      if (hasLineOfSight(ca, cb, board)) return true;
+  return false;
 }
 
 // Category triangle: Defend ▶ Attack ▶ Special ▶ Defend. Called once per action
@@ -103,7 +120,7 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       const engaged = critEngages(myAction, aIntent, actor.pos, foe.pos)
                    || critEngages(foeAction, fIntent, foe.pos, actor.pos);
       if (!engaged) continue;
-      const dist = rangeDist(actor.pos, foe.pos);
+      const dist = unitDist(actor, foe);
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
@@ -182,7 +199,7 @@ function randomTileInRange(
 // another unit — no shoving through walls or stacking. Used by the Push rider.
 function knockback(
   from: { x: number; y: number },
-  target: { id: string; name: string; pos: { x: number; y: number } },
+  target: Combatant,
   squares: number,
   session: CombatSession,
   log: string[],
@@ -190,12 +207,23 @@ function knockback(
   const dx = Math.sign(target.pos.x - from.x);
   const dy = Math.sign(target.pos.y - from.y);
   if (dx === 0 && dy === 0) return;
+  const size = target.size ?? 1;
   let moved = 0;
   for (let i = 0; i < squares; i++) {
-    const next = { x: target.pos.x + dx, y: target.pos.y + dy };
-    if (!session.board.inBounds(next) || session.board.isBlocked(next)) break;
-    if (session.combatants.some(c => c.id !== target.id && c.pos.x === next.x && c.pos.y === next.y)) break;
-    target.pos = next;
+    const nextAnchor = { x: target.pos.x + dx, y: target.pos.y + dy };
+    // Every cell the body would shift INTO (its footprint at the new anchor,
+    // minus where it already stands) must be clear of edges, obstacles, and
+    // other units. At size 1 this is just the single `nextAnchor` cell.
+    const entering = size > 1
+      ? footprint(nextAnchor, size).filter(c => !occupies({ pos: target.pos, size }, c))
+      : [nextAnchor];
+    let blockedStep = false;
+    for (const cell of entering) {
+      if (!session.board.inBounds(cell) || session.board.isBlocked(cell)) { blockedStep = true; break; }
+      if (session.combatants.some(c => c.id !== target.id && occupies(c, cell))) { blockedStep = true; break; }
+    }
+    if (blockedStep) break;
+    target.pos = nextAnchor;
     moved++;
   }
   if (moved > 0) log.push(`  ${target.name} is knocked back ${moved} square${moved > 1 ? 's' : ''} to (${target.pos.x},${target.pos.y}).`);
@@ -267,7 +295,7 @@ export function resolveIntents(
     const dest = intent.moveTo;
     const stationaryOccupant = snapshot.find(c =>
       c.id !== id &&
-      c.pos.x === dest.x && c.pos.y === dest.y &&
+      occupies(c, dest) &&
       !intents.get(c.id)?.moveTo
     );
     if (stationaryOccupant) { blocked.add(id); blockedDest.set(id, { ...dest }); }
@@ -296,13 +324,13 @@ export function resolveIntents(
     if (!originalDest) continue;
 
     const allOccupied = new Set<string>([
-      ...snapshot.filter(o => o.id !== id).map(o => `${o.pos.x},${o.pos.y}`),
+      ...snapshot.filter(o => o.id !== id).flatMap(o => cellsOf(o).map(cell => `${cell.x},${cell.y}`)),
       ...nonBlockedDests,
     ]);
 
     const cReachMeta = session.meta.get(id);
     const cMove = cReachMeta ? effectiveMove(c.movementRange, cReachMeta.state) : c.movementRange;
-    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied);
+    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied, c.size);
 
     // Pick the reachable tile that: (1) gets us closest to the original
     // destination, (2) uses the fewest steps among equally-close options.
@@ -345,7 +373,11 @@ export function resolveIntents(
     // choice — deliberately picking a different equal-cost route — is future work.)
     const moverMeta = session.meta.get(id);
     const moverRange = moverMeta ? effectiveMove(c.movementRange, moverMeta.state) : c.movementRange;
-    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true) ?? [intent.moveTo];
+    // Empty occupied set on purpose: movement resolves simultaneously, so the
+    // route ignores where others currently stand (collisions are handled by the
+    // destination contest above). Passing size keeps a 2×2 body's route on tiles
+    // its whole footprint can clear.
+    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true, c.size) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
   }
@@ -358,15 +390,25 @@ export function resolveIntents(
     if (!c) continue;
     const meta = session.meta.get(c.id);
     if (!meta) continue;
+    const size = c.size ?? 1;
+    let prev = preMovePos.get(c.id) ?? path[0] ?? c.pos;
     for (const step of path) {
-      const tile = session.board.getTile(step);
-      if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
-      if (meta.state.health <= 0) break;
-      const before = meta.state.health;
-      meta.state.health = Math.max(meta.state.health - tile.value, 0);
-      meta.state.damage_taken += before - meta.state.health;
-      c.hp = meta.state.health;
-      log.push(`${c.name} steps on a hazard at (${step.x},${step.y}): −${tile.value} HP`);
+      // Damage once per opposing-hazard tile the body's leading edge sweeps over
+      // this step (not once per tile it merely sits on). At size 1 that's `step`.
+      const swept = size > 1
+        ? footprint(step, size).filter(cell => !occupies({ pos: prev, size }, cell))
+        : [step];
+      for (const cell of swept) {
+        const tile = session.board.getTile(cell);
+        if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
+        if (meta.state.health <= 0) break;
+        const before = meta.state.health;
+        meta.state.health = Math.max(meta.state.health - tile.value, 0);
+        meta.state.damage_taken += before - meta.state.health;
+        c.hp = meta.state.health;
+        log.push(`${c.name} steps on a hazard at (${cell.x},${cell.y}): −${tile.value} HP`);
+      }
+      prev = step;
     }
   }
   // Move section: only units that actually MOVED (or were denied a square) — a
@@ -425,7 +467,7 @@ export function resolveIntents(
   const nearestEnemyTo = (actor: Combatant): Combatant | null => {
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
     if (enemies.length === 0) return null;
-    return enemies.reduce((a, b) => rangeDist(actor.pos, a.pos) <= rangeDist(actor.pos, b.pos) ? a : b);
+    return enemies.reduce((a, b) => unitDist(actor, a) <= unitDist(actor, b) ? a : b);
   };
 
   // Resolve an N×N strike over a precomputed block of `cells`. If the action
@@ -457,7 +499,7 @@ export function resolveIntents(
           log.push(`  ${action.name} flattens the obstacle at (${x},${y}).`);
       }
     }
-    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cellsOf(c).some(cell => cells.has(`${cell.x},${cell.y}`)));
     if (victims.length === 0) {
       const cost = bareCost(actorMeta.state.apply_cost(action));
       log.push(`${actor.name} — ${action.name}: ${label} catches no one`);
@@ -479,7 +521,7 @@ export function resolveIntents(
       let firstHit: Combatant | undefined;
       for (const v of live) {
         const m = session.meta.get(v.id)!;
-        if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+        if (!unitLineOfSight(actor, v, session.board)) {
           resolveLines.push(`    ${v.name} shielded by an obstacle`);
           continue;
         }
@@ -516,7 +558,7 @@ export function resolveIntents(
       const m = session.meta.get(v.id);
       if (!m || m.state.health <= 0) continue;
       // An obstacle between the caster and a victim shields them from the blast.
-      if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+      if (!unitLineOfSight(actor, v, session.board)) {
         log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
         continue;
       }
@@ -541,7 +583,7 @@ export function resolveIntents(
     let placePos = { ...actor.pos };
     const tp = intent.action.targetPos;
     if (action.aimed) {
-      placePos = tp && rangeDist(actor.pos, tp) <= action.range
+      placePos = tp && unitDistToPos(actor, tp) <= action.range
         ? { ...tp }
         : randomTileInRange(actor.pos, action.range, session.board);
     }
@@ -553,7 +595,7 @@ export function resolveIntents(
     // A hazard dropped under an opposing combatant counts as entering it.
     if (kind === 'hazard') {
       for (const p of cells) {
-        const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === p.x && c.pos.y === p.y);
+        const victim = session.combatants.find(c => c.teamId !== actor.teamId && occupies(c, p));
         const vMeta = victim ? session.meta.get(victim.id) : undefined;
         if (victim && vMeta && vMeta.state.health > 0) {
           const before = vMeta.state.health;
@@ -577,13 +619,13 @@ export function resolveIntents(
     };
     const targetPos = intent.action.targetPos;
     if (!targetPos) { fizzle('no target'); return; }
-    const dist = rangeDist(actor.pos, targetPos);
+    const dist = unitDistToPos(actor, targetPos);
     if (dist > action.range) { fizzle(`out of range (dist ${dist})`); return; }
     if (!session.board.destroyObstacle(targetPos)) { fizzle(`no obstacle at (${targetPos.x},${targetPos.y}), misses`); return; }
     const field = (action as DestroyObstacle).field;
     log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
     if (cost) log.push(`    ${cost}`);
-    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && rangeDist(c.pos, targetPos) <= 1);
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && unitDistToPos(c, targetPos) <= 1);
     for (const v of victims) {
       const vMeta = session.meta.get(v.id);
       if (!vMeta || vMeta.state.health <= 0) continue;
@@ -614,7 +656,7 @@ export function resolveIntents(
       return;
     }
 
-    const dist = rangeDist(actor.pos, targetPos);
+    const dist = unitDistToPos(actor, targetPos);
     const tileStr = `(${targetPos.x},${targetPos.y})`;
 
     if (dist > action.range) {
@@ -632,7 +674,7 @@ export function resolveIntents(
       // if somehow blocked, skip the move and burst from where we stand.
       const extra: string[] = [];
       if (action.moveTo) {
-        const occupied = session.combatants.some(c => c.id !== actor.id && c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+        const occupied = session.combatants.some(c => c.id !== actor.id && occupies(c, targetPos));
         if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos) && !occupied) {
           actor.pos = { x: targetPos.x, y: targetPos.y };
           extra.push(`blink to ${tileStr}`);   // shown as a resolution line under the header
@@ -643,7 +685,7 @@ export function resolveIntents(
       return;
     }
 
-    const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+    const occupant = session.combatants.find(c => occupies(c, targetPos));
     if (!occupant) {
       logMiss(actor, actorMeta, action, `aimed at ${tileStr}, empty space`);
       return;
@@ -680,7 +722,7 @@ export function resolveIntents(
       return;
     }
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
-    const inRange = enemies.filter(e => rangeDist(actor.pos, e.pos) <= action.range);
+    const inRange = enemies.filter(e => unitDist(actor, e) <= action.range);
 
     if (inRange.length === 0) {
       logMiss(actor, actorMeta, action, 'no target in range');
@@ -688,7 +730,7 @@ export function resolveIntents(
     }
 
     const target = inRange.reduce((a, b) =>
-      rangeDist(actor.pos, a.pos) <= rangeDist(actor.pos, b.pos) ? a : b
+      unitDist(actor, a) <= unitDist(actor, b) ? a : b
     );
     const targetMeta = session.meta.get(target.id);
     if (!targetMeta) return;
@@ -774,12 +816,17 @@ export function resolveIntents(
   // attack lands: block tiles add to block (stacks with a defend), buff tiles
   // feed strike damage via tileBuff. Recomputed each round; cleared at end_round.
   for (const c of session.combatants) {
-    const tile = session.board.getTile(c.pos);
-    if (!tile || tile.teamId !== c.teamId) continue;
     const meta = session.meta.get(c.id);
     if (!meta) continue;
-    if (tile.kind === 'block')     meta.state.block += tile.value;
-    else if (tile.kind === 'buff') meta.state.tileBuff = tile.value;
+    // A multi-square unit overlaps up to size² tiles: block stacks across every
+    // friendly block tile it covers; buff takes the strongest. At size 1 this is
+    // the single square under it.
+    for (const cell of cellsOf(c)) {
+      const tile = session.board.getTile(cell);
+      if (!tile || tile.teamId !== c.teamId) continue;
+      if (tile.kind === 'block')     meta.state.block += tile.value;
+      else if (tile.kind === 'buff') meta.state.tileBuff = Math.max(meta.state.tileBuff, tile.value);
+    }
   }
 
   const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];
