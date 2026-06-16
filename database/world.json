@@ -14,7 +14,7 @@
   "prod": {
     "guild_id":   "1083250123284418590",
     "admin_role": "1083251767749390378",
-    "join_role":  "",
+    "join_role":  "1509798467961094225",
     "categories": {
       "admin":    "1083250123783548968",
       "sulkuit":  "1083254328824975380",
@@ -39,7 +39,7 @@
     "sprite_cdn": "https://raw.githubusercontent.com/pg805/Idya/dev/public/sprites",
     "guild_id":   "1505456783655702620",
     "admin_role": "1509771545516703864",
-    "join_role":  "1509798467961094225",
+    "join_role":  "",
     "categories": {
       "admin":    "",
       "sulkuit":  "",
