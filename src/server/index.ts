@@ -4609,6 +4609,10 @@ if (discordToken) {
 
   discord.on(Events.GuildMemberAdd, async (member) => {
     if (member.guild.id !== worldConfig.guild_id) return;
+    if (worldConfig.join_role) {
+      await member.roles.add(worldConfig.join_role, 'Join role')
+        .catch(err => console.error(`join role add for ${member.id} failed`, err?.message ?? err));
+    }
     const channel = member.guild.channels.cache.get(worldConfig.channels.welcome);
     if (!channel?.isTextBased()) return;
     await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
