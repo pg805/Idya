@@ -215,6 +215,20 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 .combatant-name { font-size: 0.55rem; font-weight: normal; opacity: 0.8; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
 
+/* Multi-square unit: one token spanning a `--span`×`--span` block of cells
+   (cells + the 3px grid gaps between them). Pinned to the anchor cell's top-left
+   and lifted so it overlays the squares it covers. */
+.cell.big-anchor { z-index: 6; }
+.combatant.big {
+  position: absolute;
+  top: 0; left: 0;
+  width:  calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
+  height: calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
+  border-radius: 16%;
+  font-size: 1rem;
+  z-index: 6;
+}
+
 /* ---- Action panel ---- */
 #action-panel {
   background: var(--bg-surface);

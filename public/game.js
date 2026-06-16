@@ -227,7 +227,7 @@ function computeReachable(combatant) {
     if (t.kind === 'hazard' && t.teamId !== combatant.teamId) hazardVal.set(`${t.pos.x},${t.pos.y}`, t.value);
   }
   const occupiedSet = new Set(
-    state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
+    state.combatants.filter(c => c.id !== combatant.id).flatMap(combatantCells)
   );
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
@@ -315,6 +315,17 @@ function rangeDist(a, b) {
   return Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2);
 }
 
+// The 'x,y' keys a combatant covers (anchor + size, mirrors board.ts footprint).
+// Index 0 is the anchor. Size 1 → just its own square.
+function combatantCells(c) {
+  const size = c.size || 1;
+  const out = [];
+  for (let dx = 0; dx < size; dx++)
+    for (let dy = 0; dy < size; dy++)
+      out.push(`${c.pos.x + dx},${c.pos.y + dy}`);
+  return out;
+}
+
 function hasLineOfSight(from, to, board) {
   const obstacleSet = new Set(
     board.obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
@@ -354,7 +365,7 @@ function computeTargetableTiles(actionInfo, fromPos) {
   // A blink-strike (moveTo) relocates you onto the aimed tile, so it can only
   // target an empty passable square — never one a combatant is standing on.
   const occupiedSet = actionInfo.moveTo
-    ? new Set(state.combatants.filter(c => c.hp > 0).map(c => `${c.pos.x},${c.pos.y}`))
+    ? new Set(state.combatants.filter(c => c.hp > 0).flatMap(combatantCells))
     : null;
   const tiles = new Set();
   for (let x = 0; x < width; x++) {
@@ -432,7 +443,16 @@ function renderBoard() {
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
-  const combatantMap = new Map(state.combatants.map(c => [`${c.pos.x},${c.pos.y}`, c]));
+  // Every cell a unit covers maps to that unit (so a 2×2 body suppresses path /
+  // reachable highlights on all four squares); anchorCells marks where the single
+  // token actually renders.
+  const combatantMap = new Map();
+  const anchorCells = new Set();
+  for (const c of state.combatants) {
+    const cells = combatantCells(c);
+    anchorCells.add(cells[0]);
+    for (const ck of cells) combatantMap.set(ck, c);
+  }
   const tileMap = new Map((state.board.tiles || []).map(t => [`${t.pos.x},${t.pos.y}`, t]));
   const moveTargetKey = ui.moveTo ? `${ui.moveTo.x},${ui.moveTo.y}` : null;
   const selectedKey = ui.selected ? `${ui.selected.pos.x},${ui.selected.pos.y}` : null;
@@ -481,10 +501,12 @@ function renderBoard() {
           mark.textContent = `${sym}${tile.value}`;
           cell.appendChild(mark);
         }
-        if (combatant) {  // top layer: token
+        if (combatant && anchorCells.has(k)) {  // top layer: token (drawn once, at the anchor)
           const isOwn = combatant.teamId === playerTeamId;
+          const size = combatant.size || 1;
           const el = document.createElement('div');
-          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
+          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}${size > 1 ? ' big' : ''}`;
+          if (size > 1) { el.style.setProperty('--span', size); cell.classList.add('big-anchor'); }
           if (combatant.sprite) {
             el.style.backgroundImage = `url('${combatant.sprite}')`;
             el.style.backgroundSize = 'contain';
