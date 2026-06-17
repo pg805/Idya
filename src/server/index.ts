@@ -3842,7 +3842,7 @@ function buildWelcomeEmbed(
         .setTitle('Welcome to Idya')
         .setDescription(
           `${mention}\n\n` +
-          'A community built around a dynamic, living world.\n\n' +
+          'Become part of a community built around a dynamic, living world.\n\n' +
           'Idya is a tabletop RPG that doesn\'t need a dungeon master.  The world runs itself.  Hunt creatures, craft and trade, and carve out your own place in a fantastical world.\n\n' +
           'Create your character below.\n\n' +
           '> *Idya is in early alpha, so expect rough edges. Reach out anytime with questions or issues.*'
