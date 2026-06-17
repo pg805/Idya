@@ -569,5 +569,72 @@ console.log('\nSmart AI is deterministic (same board → same plan):');
   check(JSON.stringify(a) === JSON.stringify(b), 'two calls produce identical intents');
 }
 
+// A guard with a riposte: Block defend + a Strike defend-crit that hits the
+// attacker. Used to verify defend ▶ attack crit engagement.
+const DEFENDER = Weapon.from_json({
+  Name: 'Defender', Description: '', HP: 200, Weight: 0, Resource: { Name: 'En', Max: 9 },
+  Defend: [{ Name: 'Guard', Type: 2, Type_Name: 'Block', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Value: 5, Cost: 0, Range: 1, Action_String: '<User> guards.' }],
+  'Defend Crit': [{ Name: 'Riposte', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [12, 12, 12], Cost: 0, Range: 1, Action_String: '<User> ripostes <Target>.' }],
+  Attack: [], 'Attack Crit': [], Special: [], 'Special Crit': [],
+} as any);
+
+// ---- Test 26: defend ▶ attack crit fires when a 2×2 reactive pound CATCHES the defender ----
+// Regression: critEngages must use the footprint-centered burst (selfBurstCells),
+// not the old corner-spray areaBlock, or a defender west of the bear reads as
+// "not affected" and the deserved counter is suppressed.
+console.log('\nDefend-crit vs a 2×2 ground-pound: a defender caught in the ring counters:');
+{
+  const bear = enemyWeapon('melbear.yaml');   // Size 2, Ursa Minor = reactive 4×4
+  const um = bear.attack.findIndex(a => a.name === 'Ursa Minor');
+  // Bear 2×2 at (3,1) → body x3..4,y1..2; the 4×4 pound covers x2..5,y0..3.
+  // Defender at (2,1) is WEST of the body but inside the ring (the failing case).
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const D = mk('P', 'A', { x: 2, y: 1 }, DEFENDER, false);
+  const s = session(board, [B, D]);
+  const bearBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['E', act('E', 'attack', um)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'defender countered the pound (defend-crit fired)');
+  check(bearBefore - hp(s, 'E') > 0, `riposte damaged the bear (${bearBefore}→${hp(s, 'E')})`);
+}
+
+// ---- Test 27: ...but NOT when the pound misses the defender ----
+console.log('\nDefend-crit does NOT fire when the pound misses (defender outside the ring):');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const um = bear.attack.findIndex(a => a.name === 'Ursa Minor');
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const D = mk('P', 'A', { x: 7, y: 4 }, DEFENDER, false);   // well outside the 4×4
+  const s = session(board, [B, D]);
+  const bearBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['E', act('E', 'attack', um)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no counter when the pound did not reach the defender');
+  check(hp(s, 'E') === bearBefore, 'bear took no riposte');
+}
+
+// ---- Test 28: destroy-obstacle is outward — its blast engages an attack-crit ----
+console.log('\nDestroy-obstacle crit: blasting a foe by the wreck (mid-Special) triggers the attack-crit:');
+{
+  const SHATTERER = Weapon.from_json({
+    Name: 'Shatterer', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Shatter', Type: 12, Type_Name: 'Destroy Obstacle', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: true, Range: 3, Action_String: '<User> shatters the obstacle.' }],
+    'Attack Crit': [{ Name: 'Splinters', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [8, 8, 8], Cost: 0, Range: 3, Action_String: '<User> follows up on <Target>.' }],
+    Special: [], 'Special Crit': [],
+  } as any);
+  const toadW = enemyWeapon('maetoad.yaml');   // a foe with a Special to set its category
+  // Attacker at (2,1) shatters the obstacle at (4,1); the foe at (5,1) is within 1
+  // of the wreck → caught by the blast. Foe uses Special, attack beats special.
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 4, y: 1 }, state: 'intact' }] };
+  const P = mk('P', 'A', { x: 2, y: 1 }, SHATTERER, false);
+  const F = mk('E', 'B', { x: 5, y: 1 }, toadW, true);
+  const s = session(board, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 4, y: 1 })], ['E', act('E', 'special', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'destroy-obstacle blast engaged the attack-crit');
+  check(foeBefore - hp(s, 'E') > 0, `foe took blast + crit damage (${foeBefore}→${hp(s, 'E')})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

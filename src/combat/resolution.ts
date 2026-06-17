@@ -61,6 +61,9 @@ function unitLineOfSight(a: Combatant, b: Combatant, board: CombatSession['board
 // nothing, so they fire no crit. These are the types that engage an opponent:
 const OFFENSIVE_TYPES = new Set<number>([
   ActionType.Strike, ActionType.DamageOverTime, ActionType.Debuff, ActionType.MoveDebuff, ActionType.HazardTile,
+  // Destroy-obstacle lands a blast on foes by the wreck — outward, so it engages
+  // a crit (unlike the inward block/buff/slow zone tiles).
+  ActionType.DestroyObstacle,
 ]);
 const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.has(a.type);
 
@@ -77,6 +80,12 @@ const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.
 function critEngages(action: Action | undefined, intent: CombatIntent | undefined, src: Combatant, tgt: Combatant): boolean {
   if (!isOffensive(action) || !intent) return false;
   const hits = (p: { x: number; y: number }): boolean => occupies(tgt, p);  // any footprint cell of the target
+  // Destroy-obstacle: its blast lands on foes within 1 of the wrecked obstacle
+  // (matches resolveDestroyObstacle), so it affects `tgt` iff tgt is by the wreck.
+  if (action!.type === ActionType.DestroyObstacle) {
+    const tp = intent.action.targetPos;
+    return tp != null && unitDistToPos(tgt, tp) <= 1;
+  }
   if (action!.aimed) {
     const tp = intent.action.targetPos;
     if (!tp) return false;                                   // aimed at nothing
