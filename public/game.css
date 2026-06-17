@@ -224,7 +224,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   top: 0; left: 0;
   width:  calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
   height: calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
-  border-radius: 16%;
+  border-radius: 50%;
   font-size: 1rem;
   z-index: 6;
 }
