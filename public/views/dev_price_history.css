@@ -1,0 +1,46 @@
+/* Dev Price History view — demand-wave charts replayed from ShopPriceTick.
+   Filters mirror the Market page; grid = small multiples, overlay = one axis. */
+.ph-page { padding: 4px 2px 40px; }
+.ph-head { margin-bottom: 12px; }
+.ph-title { font-size: 22px; margin: 0; }
+.ph-dev-badge { font-size: 0.6em; vertical-align: middle; background: #4a3a6a; color: #e8dcff; border: 1px solid #8a5ad0; border-radius: 4px; padding: 1px 6px; }
+.ph-sub { color: #8a8a98; font-size: 13px; margin: 4px 0 0; }
+
+.ph-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.ph-ctl { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b8b8c4; }
+.ph-ctl select { background: #1b1b24; color: #e0e0e8; border: 1px solid #3a3a48; border-radius: 6px; padding: 5px 8px; }
+.ph-toggle { display: inline-flex; border: 1px solid #3a3a48; border-radius: 6px; overflow: hidden; }
+.ph-toggle button { background: #1b1b24; color: #b8b8c4; border: 0; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.ph-toggle button:hover { background: #26263a; }
+.ph-toggle button.on { background: #4a3a6a; color: #e8dcff; }
+.ph-status { color: #6f88ad; font-size: 12px; }
+
+.ph-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.ph-filter-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ph-filter-label { color: #8a8a98; font-size: 12px; min-width: 76px; }
+.ph-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.ph-chip { background: #1b1b24; color: #9aa0b0; border: 1px solid #3a3a48; border-radius: 14px; padding: 3px 12px; font-size: 12px; cursor: pointer; }
+.ph-chip:hover { border-color: #5a5a70; }
+.ph-chip-on { background: #2a3550; color: #cfe0f5; border-color: #4fa3ff; }
+
+.ph-empty { color: #8a8a98; padding: 30px 6px; }
+
+/* Grid mode — per-shop cards of mini wave charts */
+.ph-body-grid { display: flex; flex-direction: column; gap: 18px; }
+.ph-shop-card { background: #14141c; border: 1px solid #26263a; border-radius: 10px; padding: 12px 14px; }
+.ph-shop-card > header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.ph-shop-card h3 { margin: 0; font-size: 15px; color: #cfe0f5; }
+.ph-shop-meta { color: #6f88ad; font-size: 12px; }
+.ph-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.ph-item { background: #0e1726; border: 1px solid #1d2a40; border-radius: 8px; padding: 8px 10px; }
+.ph-item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.ph-item-name { font-size: 13px; color: #e0e0e8; }
+.ph-tag { font-size: 9px; background: #2a2a3a; color: #9a9aa8; border-radius: 3px; padding: 1px 4px; margin-left: 5px; vertical-align: middle; }
+.ph-item-now { font-size: 11px; color: #4fa3ff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ph-range { color: #6f88ad; }
+.ph-mini { width: 100%; height: 76px; display: block; }
+.ph-mini-empty { height: 76px; display: flex; align-items: center; justify-content: center; color: #4a5a70; font-size: 11px; }
+
+/* Overlay mode — one normalized axis, a line per item */
+.ph-overlay-note { color: #6f88ad; font-size: 12px; margin-bottom: 8px; }
+.ph-overlay { width: 100%; height: auto; max-width: 980px; border-radius: 8px; }

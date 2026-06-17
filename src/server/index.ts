@@ -31,12 +31,13 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
-import { loadShop } from '../economy/shop_loader.js';
+import { loadShop, type ShopItemListing } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
+import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from '../economy/shop_math.js';
 import { getPrices, buyItem, sellItem, tickAllDue, TICK_INTERVAL_MS } from '../economy/shop_service.js';
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { startQuestScheduler } from '../economy/quest_service.js';
-import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
+import { loadAllRecipes, type RecipeOutput, type Recipe } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed, maxUpgrades, upgradeSplit,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
@@ -1021,6 +1022,151 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
   }
 
   res.json({ items: rows });
+});
+
+// ---- Dev: historical price waves ----
+// Replays the ShopPriceTick (x, stock) history through the SAME pricing math
+// the live market uses (mirror of price_resolver.ts): raw items price at
+// base × effectiveMultiplier; crafted items at (Σ ingredient price × qty /
+// outputQty) × effectiveCraftedMultiplier, with ingredients resolved at the
+// same point in time via carry-forward state (most recent tick at-or-before T).
+// Returns one buy/sell series per item, plus the shop/category metadata the
+// market page filters on, so the dev page can reuse the same chip selections.
+// Keep the price formulas in sync with price_resolver.ts.
+app.get('/api/dev/price-history', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const days = Math.min(60, Math.max(1, Number(req.query.days) || 7));
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // item_id → (shopKey, listing, shopName); first-wins like buildPricingContext.
+  const itemIndex = new Map<string, { shopKey: string; listing: ShopItemListing; shopName: string }>();
+  for (const file of fs.readdirSync(SHOP_DIR).filter(f => f.endsWith('.yaml'))) {
+    const shopKey = file.replace(/\.yaml$/, '');
+    let config;
+    try { config = loadShop(shopKey, SHOP_DIR); }
+    catch { continue; }
+    for (const listing of config.items) {
+      if (!itemIndex.has(listing.id)) itemIndex.set(listing.id, { shopKey, listing, shopName: config.name });
+    }
+  }
+  const craftedIndex = new Map<string, Recipe>();
+  for (const recipe of loadAllRecipes(RECIPES_DIR)) {
+    if (recipe.output.id && !craftedIndex.has(recipe.output.id)) craftedIndex.set(recipe.output.id, recipe);
+  }
+
+  // Same commodity/valuable classification as /api/info/market.
+  const categoryMemo = new Map<string, 'commodity' | 'valuable'>();
+  function categoryOf(itemId: string, visited = new Set<string>()): 'commodity' | 'valuable' {
+    if (categoryMemo.has(itemId)) return categoryMemo.get(itemId)!;
+    if (visited.has(itemId)) return 'commodity';
+    visited.add(itemId);
+    const recipe = craftedIndex.get(itemId);
+    let cat: 'commodity' | 'valuable';
+    if (recipe) {
+      cat = 'commodity';
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (ingrId && categoryOf(ingrId, visited) === 'valuable') { cat = 'valuable'; break; }
+      }
+    } else {
+      cat = ITEMS[itemId]?.type === 'valuable' ? 'valuable' : 'commodity';
+    }
+    categoryMemo.set(itemId, cat);
+    visited.delete(itemId);
+    return cat;
+  }
+
+  // Ticks in window, grouped per item ascending by time.
+  const ticks = await prisma.shopPriceTick.findMany({ where: { at: { gte: since } }, orderBy: { at: 'asc' } });
+  const byItem = new Map<string, { t: number; x: number; stock: number }[]>();
+  for (const tk of ticks) {
+    if (!byItem.has(tk.item_id)) byItem.set(tk.item_id, []);
+    byItem.get(tk.item_id)!.push({ t: tk.at.getTime(), x: tk.x, stock: tk.stock });
+  }
+
+  // Carry-forward demand state: the most recent tick of itemId at-or-before t
+  // (falls back to the earliest tick if t predates all of them).
+  function stateAt(itemId: string, t: number): { x: number; stock: number } | null {
+    const arr = byItem.get(itemId);
+    if (!arr || arr.length === 0) return null;
+    let chosen = arr[0];
+    for (const p of arr) { if (p.t <= t) chosen = p; else break; }
+    return chosen;
+  }
+
+  const priceMemo = new Map<string, number | null>();
+  function priceAt(itemId: string, side: 'buy' | 'sell', t: number, visited = new Set<string>()): number | null {
+    const key = `${itemId}:${side}:${t}`;
+    if (priceMemo.has(key)) return priceMemo.get(key)!;
+    if (visited.has(itemId)) return null;
+    visited.add(itemId);
+
+    const entry = itemIndex.get(itemId);
+    if (!entry) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+    const st = stateAt(itemId, t);
+    const recipe = craftedIndex.get(itemId);
+
+    let price: number | null;
+    if (recipe) {
+      const mult = st
+        ? effectiveCraftedMultiplier(entry.listing, st.x, st.stock)
+        : (CRAFTED_MULT_MIN + CRAFTED_MULT_MAX) / 2;
+      let inputCost = 0;
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (!ingrId) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+        const ip = priceAt(ingrId, side, t, visited);
+        if (ip == null) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+        inputCost += ip * ingr.quantity;
+      }
+      price = (inputCost / (recipe.output.quantity ?? 1)) * mult;
+    } else {
+      const mult = st ? effectiveMultiplier(entry.listing, st.x, st.stock) : 1.0;
+      const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
+      price = base == null ? null : base * mult;
+    }
+    priceMemo.set(key, price);
+    visited.delete(itemId);
+    return price;
+  }
+
+  const series = [];
+  const shopsSeen = new Map<string, string>();
+  for (const [itemId, pts] of byItem) {
+    const entry = itemIndex.get(itemId);
+    if (!entry || isUnlock(itemId)) continue;
+    shopsSeen.set(entry.shopKey, entry.shopName);
+    const recipe = craftedIndex.get(itemId);
+    const weaponYaml = ITEMS[itemId] ? null : loadWeaponYaml(itemId, __dirname);
+    const itemName = ITEMS[itemId]?.name ?? (weaponYaml?.Name as string | undefined) ?? itemId;
+    const points = pts.map(p => {
+      const buy  = priceAt(itemId, 'buy',  p.t);
+      const sell = priceAt(itemId, 'sell', p.t);
+      return { t: p.t, buy: buy == null ? null : Math.round(buy), sell: sell == null ? null : Math.round(sell) };
+    });
+    series.push({
+      shop_id:    entry.shopKey,
+      shop_name:  entry.shopName,
+      item_id:    itemId,
+      item_name:  itemName,
+      category:   categoryOf(itemId),
+      source:     recipe ? 'recipe' : 'raw',
+      base_buy:   recipe ? null : (entry.listing.base_buy ?? null),
+      base_sell:  recipe ? null : (entry.listing.base_sell ?? null),
+      points,
+    });
+  }
+  series.sort((a, b) => a.item_name.localeCompare(b.item_name));
+
+  res.json({
+    days,
+    generated_at: new Date().toISOString(),
+    shops: [...shopsSeen.entries()].map(([id, name]) => ({ id, name })),
+    series,
+  });
 });
 
 // ---- Dev Stats ----
