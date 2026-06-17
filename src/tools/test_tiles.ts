@@ -695,5 +695,28 @@ console.log('\nSelf-target crit payload: a defend-crit heal mends the defender, 
   check(hp(s, 'E') === 99, 'the attacker took no damage — the crit was self-targeted, not a riposte');
 }
 
+// ---- Test 32: a 2×2 mover can't slide its footprint onto a 1×1 mover ----
+// Regression: both move to DIFFERENT anchors, but the bear's 2×2 footprint would
+// cover the square the player also moved to. The player (priority) keeps it; the
+// bear is denied rather than stacking on top of the player.
+console.log('\nFootprint-overlap contest: a 2×2 may not move onto a 1×1 that also moved:');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const board: BoardConfig = { width: 8, height: 6, obstacles: [] };
+  const P = mk('P', 'A', { x: 2, y: 1 }, STRIKER, false);       // → (2,3)
+  const B = mk('E', 'B', { x: 3, y: 2 }, bear, true, 2);        // → anchor (2,2): footprint covers (2,3)
+  const s = session(board, [P, B]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 3 })],
+    ['E', act('E', 'pass', 0, { x: 2, y: 2 })],
+  ]));
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  const bp = s.combatants.find(c => c.id === 'E')!.pos;
+  check(pp.x === 2 && pp.y === 3, `player kept its square (${pp.x},${pp.y})`);
+  // The bear must not cover the player's square — denied to its start, or anywhere clear.
+  const bearCells = [0, 1].flatMap(dx => [0, 1].map(dy => `${bp.x + dx},${bp.y + dy}`));
+  check(!bearCells.includes(`${pp.x},${pp.y}`), `bear's footprint does not overlap the player (bear @${bp.x},${bp.y})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

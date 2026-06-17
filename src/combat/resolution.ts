@@ -388,6 +388,34 @@ export function resolveIntents(
     }
   }
 
+  // Footprint-overlap contest (multi-square units). The checks above only catch
+  // movers wanting the same ANCHOR; two units moving to DIFFERENT anchors whose
+  // size×size footprints overlap (a 2×2 sliding onto where a 1×1 also moved)
+  // would both commit and end up stacked. Claim footprints in move-priority order
+  // (players before AI, then initiative); a MOVER whose destination footprint
+  // collides with an already-claimed cell is denied and holds its square. For an
+  // all-1×1 board this is a no-op (same-cell collisions are already resolved), so
+  // it only bites multi-square units.
+  {
+    const claimed = new Map<string, string>();   // cell 'x,y' → unit id holding it
+    const claimAnchor = (c: Combatant) => {
+      const mv = intents.get(c.id)?.moveTo;
+      return (mv && !blocked.has(c.id)) ? mv : (preMovePos.get(c.id) ?? c.pos);
+    };
+    for (const c of [...snapshot].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
+      const m = session.meta.get(c.id);
+      if (m && m.state.health <= 0) continue;
+      let cells = footprint(claimAnchor(c), c.size);
+      const collides = cells.some(p => { const o = claimed.get(`${p.x},${p.y}`); return o !== undefined && o !== c.id; });
+      if (collides && intents.get(c.id)?.moveTo && !blocked.has(c.id)) {
+        blocked.add(c.id);
+        blockedDest.set(c.id, { ...intents.get(c.id)!.moveTo! });
+        cells = footprint(preMovePos.get(c.id) ?? c.pos, c.size);   // fall back to its starting square
+      }
+      for (const p of cells) claimed.set(`${p.x},${p.y}`, c.id);
+    }
+  }
+
   const moveStart = log.length;
   // Track each mover's traversed path so hazard tiles damage on every square
   // entered, not just the destination (movement isn't a teleport).
