@@ -636,5 +636,64 @@ console.log('\nDestroy-obstacle crit: blasting a foe by the wreck (mid-Special) 
   check(foeBefore - hp(s, 'E') > 0, `foe took blast + crit damage (${foeBefore}→${hp(s, 'E')})`);
 }
 
+// ---- Test 29: special ▶ defend crit (the third triangle leg) ----
+console.log('\nSpecial-crit: a Special that lands on a guarding foe crits it (special ▶ defend):');
+{
+  const SMITER = Weapon.from_json({
+    Name: 'Smiter', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Smite', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: false, Range: 1, Action_String: '<User> smites <Target>.' }],
+    'Special Crit': [{ Name: 'Echo', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [7, 7, 7], Cost: 0, Range: 1, Action_String: '<User> echoes onto <Target>.' }],
+  } as any);
+  const P = mk('P', 'A', { x: 2, y: 1 }, SMITER, false);
+  const F = mk('E', 'B', { x: 3, y: 1 }, DEFENDER, true);   // guards (defend index 0)
+  const s = session(EMPTY, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'special', 0)], ['E', act('E', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'special into a defend fired the special-crit');
+  check(foeBefore - hp(s, 'E') > 0, `guarding foe took Smite + Echo (${foeBefore}→${hp(s, 'E')})`);
+  // The reverse leg must NOT fire: defend beats attack, not special, so the
+  // guard does not counter the Special.
+  check(s.meta.get('E')!.state.attack_crits === 0 && hp(s, 'P') === 99, 'the guard did NOT counter a Special');
+}
+
+// ---- Test 30: no engagement → no crit (two inward actions) ----
+console.log('\nNo crit without a real exchange: a self-heal Special vs a self-Block fires nothing:');
+{
+  const SELFCASTER = Weapon.from_json({
+    Name: 'Selfcaster', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Meditate', Type: 6, Type_Name: 'Heal', Damage_Type: 'Arcane', Damage_Subtype: 'Mental', Value: 10, Cost: 0, Action_String: '<User> meditates.' }],
+    'Special Crit': [{ Name: 'Backlash', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [9, 9, 9], Cost: 0, Range: 1, Action_String: '<User> lashes <Target>.' }],
+  } as any);
+  const P = mk('P', 'A', { x: 2, y: 1 }, SELFCASTER, false);  // special, but self-only
+  const F = mk('E', 'B', { x: 3, y: 1 }, DEFENDER, true);     // defend, self-only
+  const s = session(EMPTY, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'special', 0)], ['E', act('E', 'defend', 0)]]));
+  // Categories line up (special ▶ defend) but neither action lands on the other.
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no special-crit when nobody was affected');
+  check(hp(s, 'E') === foeBefore, 'foe took no Backlash (the crit did not fire)');
+}
+
+// ---- Test 31: self-target crit payload lands on the actor, not the foe ----
+console.log('\nSelf-target crit payload: a defend-crit heal mends the defender, doesn\'t hit the attacker:');
+{
+  const MEDIC = Weapon.from_json({
+    Name: 'Medic', Description: '', HP: 200, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [{ Name: 'Guard', Type: 2, Type_Name: 'Block', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Value: 5, Cost: 0, Range: 1, Action_String: '<User> guards.' }],
+    'Defend Crit': [{ Name: 'Second Wind', Type: 6, Type_Name: 'Heal', Damage_Type: 'Arcane', Damage_Subtype: 'Plant', Value: 20, Cost: 0, Action_String: '<User> catches a second wind.' }],
+    Attack: [], 'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  const A = mk('E', 'B', { x: 3, y: 1 }, STRIKER, true);   // attacks (reactive Jab)
+  const D = mk('P', 'A', { x: 2, y: 1 }, MEDIC, false);    // guards
+  D.m.state.health = 50;                                   // hurt, so the self-heal is visible
+  const s = session(EMPTY, [A, D]);
+  resolveIntents(s, new Map([['E', act('E', 'attack', 0)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'defend-crit fired against the attacker');
+  check(hp(s, 'P') > 50, `the heal landed on the defender (50→${hp(s, 'P')})`);
+  check(hp(s, 'E') === 99, 'the attacker took no damage — the crit was self-targeted, not a riposte');
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);
