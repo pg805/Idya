@@ -135,6 +135,14 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions, crits };
 }
 
+// Cheap peek at an enemy's footprint size without building the whole Combatant —
+// board generation needs it up front (a 2×2 spawn must fit on the board) but the
+// enemy is loaded after the layout. Default 1.
+export function enemyFootprintSize(file: string): number {
+  const data = yaml.load(fs.readFileSync(file, 'utf-8')) as EnemyData;
+  return data.Size ?? 1;
+}
+
 export function loadEnemy(file: string, options: {
   id: string;
   teamId: string;

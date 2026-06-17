@@ -4,7 +4,7 @@
 // CLI (tools/spatial_sim.ts) and the dev API (/api/dev/replay → the dev replay
 // view). The AI (choosePlan) drives BOTH sides.
 import Weapon from '../weapon/weapon.js';
-import { loadEnemy, buildWeaponInfo } from './enemy_loader.js';
+import { loadEnemy, buildWeaponInfo, enemyFootprintSize } from './enemy_loader.js';
 import { CombatSession, Combatant, CombatantMeta, Team } from './combat_session.js';
 import { CombatantState } from './combatant_state.js';
 import { resolveIntents } from './resolution.js';
@@ -32,17 +32,22 @@ const cheb = (a: Pos, b: Pos) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.
 
 // A representative hunt board: player top-left, enemy 6-8 away, scattered
 // obstacles avoiding a 3x3 around each spawn.
-export function genBoard(): { board: BoardConfig; playerSpawn: Pos; enemySpawn: Pos } {
+export function genBoard(enemySize = 1): { board: BoardConfig; playerSpawn: Pos; enemySpawn: Pos } {
   const playerSpawn = { x: ri(0, 4), y: ri(0, BOARD_H - 1) };
-  let enemySpawn = { x: BOARD_W - 1, y: playerSpawn.y };
+  // Anchor (top-left) must leave room for the enemy's size×size footprint.
+  let enemySpawn = { x: BOARD_W - enemySize, y: Math.min(playerSpawn.y, BOARD_H - enemySize) };
   for (let tries = 0; tries < 200; tries++) {
-    const c = { x: ri(0, BOARD_W - 1), y: ri(0, BOARD_H - 1) };
+    const c = { x: ri(0, BOARD_W - enemySize), y: ri(0, BOARD_H - enemySize) };
     const d = cheb(c, playerSpawn);
     if (d >= DIST_MIN && d <= DIST_MAX) { enemySpawn = c; break; }
   }
+  // Keep obstacles off each spawn's footprint + a 1-ring around it.
   const avoid = new Set<string>();
-  for (const s of [playerSpawn, enemySpawn])
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) avoid.add(`${s.x + dx},${s.y + dy}`);
+  const reserve = (s: Pos, size: number) => {
+    for (let dx = -1; dx < size + 1; dx++) for (let dy = -1; dy < size + 1; dy++) avoid.add(`${s.x + dx},${s.y + dy}`);
+  };
+  reserve(playerSpawn, 1);
+  reserve(enemySpawn, enemySize);
   const obstacles: { pos: Pos; state: 'intact' }[] = [];
   let guard = 0;
   while (obstacles.length < 8 && guard++ < 200) {
@@ -79,7 +84,7 @@ export interface ReplayData {
 export function generateReplay(weaponName: string, enemyName: string): ReplayData {
   const weapon = Weapon.from_file(join(WEAPONS, `${weaponName}.yaml`));
   const enemyPath = join(ENEMIES, `${enemyName}.yaml`);
-  const { board, playerSpawn, enemySpawn } = genBoard();
+  const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
   const player = buildPlayerUnit(weapon, playerSpawn);
   const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
 
@@ -164,7 +169,7 @@ export interface BattleResult { outcome: Outcome; rounds: number; playerHpFrac: 
 // The player side (team-a) plays SMART (cornering anti-kite) — it stands in for a
 // competent human; the enemy uses the base, shippable AI.
 export function runSpatialBattle(weapon: Weapon, enemyPath: string): BattleResult {
-  const { board, playerSpawn, enemySpawn } = genBoard();
+  const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
   const player = buildPlayerUnit(weapon, playerSpawn);
   const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
   const session = new CombatSession('sim', board, [

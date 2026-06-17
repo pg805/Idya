@@ -23,7 +23,7 @@ import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
-import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
+import { buildWeaponInfo, loadEnemy, enemyFootprintSize } from '../combat/enemy_loader.js';
 import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { computeTelegraph } from '../combat/telegraph.js';
@@ -321,13 +321,14 @@ function randomPlayerSpawn(): Pos {
 
 // Pick an enemy spawn at a random distance/direction from the player, kept
 // on-board and away from the player and any previously-placed enemy tiles.
-function randomEnemySpawn(player: Pos, taken: Pos[]): Pos | null {
+function randomEnemySpawn(player: Pos, taken: Pos[], size = 1): Pos | null {
   for (let attempt = 0; attempt < 50; attempt++) {
     const dist = ENEMY_DIST_MIN + Math.floor(Math.random() * (ENEMY_DIST_MAX - ENEMY_DIST_MIN + 1));
     const angle = Math.random() * Math.PI * 2;
     const x = Math.round(player.x + Math.cos(angle) * dist);
     const y = Math.round(player.y + Math.sin(angle) * dist);
-    if (x < 0 || x >= HUNT_BOARD_W || y < 0 || y >= HUNT_BOARD_H) continue;
+    // The anchor (top-left) must leave room for the whole size×size footprint.
+    if (x < 0 || x + size > HUNT_BOARD_W || y < 0 || y + size > HUNT_BOARD_H) continue;
     const pos = { x, y };
     if (chebyshev(pos, player) < ENEMY_DIST_MIN) continue;
     if (taken.some(t => chebyshev(t, pos) < ENEMY_PAIR_MIN_SEP)) continue;
@@ -339,7 +340,7 @@ function randomEnemySpawn(player: Pos, taken: Pos[]): Pos | null {
 // Build the full board layout for a hunt: player spawn, enemy spawn(s),
 // and obstacles. Obstacles avoid a 3x3 area around each spawn tile and
 // the layout is BFS-verified so every enemy is reachable from the player.
-function randomHuntBoard(enemyCount: number): {
+function randomHuntBoard(enemyCount: number, enemySize = 1): {
   playerSpawn: Pos;
   enemySpawns: Pos[];
   obstacles: { pos: Pos; state: 'intact' }[];
@@ -350,23 +351,22 @@ function randomHuntBoard(enemyCount: number): {
     const enemySpawns: Pos[] = [];
     let spawnFailed = false;
     for (let i = 0; i < enemyCount; i++) {
-      const e = randomEnemySpawn(playerSpawn, enemySpawns);
+      const e = randomEnemySpawn(playerSpawn, enemySpawns, enemySize);
       if (!e) { spawnFailed = true; break; }
       enemySpawns.push(e);
     }
     if (spawnFailed) continue;
 
-    // Tiles to keep free of obstacles: the spawn tiles themselves plus a
-    // 3x3 buffer around each.
+    // Tiles to keep free of obstacles: each spawn's footprint plus a buffer ring.
+    // The player is a single square; an enemy covers size×size from its anchor.
     const noObstacle = new Set<string>();
-    const allSpawns = [playerSpawn, ...enemySpawns];
-    for (const s of allSpawns) {
-      for (let dx = -OBSTACLE_BUFFER; dx <= OBSTACLE_BUFFER; dx++) {
-        for (let dy = -OBSTACLE_BUFFER; dy <= OBSTACLE_BUFFER; dy++) {
+    const reserve = (s: Pos, size: number) => {
+      for (let dx = -OBSTACLE_BUFFER; dx < size + OBSTACLE_BUFFER; dx++)
+        for (let dy = -OBSTACLE_BUFFER; dy < size + OBSTACLE_BUFFER; dy++)
           noObstacle.add(`${s.x + dx},${s.y + dy}`);
-        }
-      }
-    }
+    };
+    reserve(playerSpawn, 1);
+    for (const e of enemySpawns) reserve(e, enemySize);
 
     const candidates: Pos[] = [];
     for (let x = 0; x < HUNT_BOARD_W; x++) {
@@ -397,11 +397,14 @@ function randomHuntBoard(enemyCount: number): {
   }
 
   // Fallback: empty obstacles, deterministic spawns. Should be extremely rare.
+  // Anchor the enemy so its footprint stays on-board (size 1 → the far corner).
+  const fx = HUNT_BOARD_W - enemySize;
+  const fy = HUNT_BOARD_H - enemySize;
   return {
     playerSpawn: { x: 0, y: 0 },
     enemySpawns: enemyCount > 1
-      ? [{ x: HUNT_BOARD_W - 1, y: 1 }, { x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }]
-      : [{ x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }],
+      ? [{ x: fx, y: 1 }, { x: fx, y: fy }]
+      : [{ x: fx, y: fy }],
     obstacles: [],
   };
 }
@@ -459,13 +462,14 @@ function createSession(
 
   // Compute the full hunt layout (player spawn, enemy spawns, obstacles).
   // Tutorial keeps its fixed mini-board.
+  const enemyFpSize = isTutorial ? 1 : enemyFootprintSize(enemyPath);
   const layout = isTutorial
     ? {
         playerSpawn: { x: 0, y: 1 },
         enemySpawns: [{ x: 5, y: 0 }],
         obstacles: [] as { pos: { x: number; y: number }; state: 'intact' }[],
       }
-    : randomHuntBoard(effectiveCount);
+    : randomHuntBoard(effectiveCount, enemyFpSize);
 
   const enemies: Array<{ combatant: Combatant; meta: CombatantMeta; lootTable: LootTable }> = [];
   for (let i = 0; i < effectiveCount; i++) {
