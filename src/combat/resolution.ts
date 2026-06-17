@@ -70,17 +70,17 @@ const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.
 // engages foes within its range, or anything in its self-burst block. A non-
 // offensive or un-aimed-at-nothing action engages no one. This is what gates a
 // crit: attacking empty air or a different unit provokes no counter.
-function critEngages(action: Action | undefined, intent: CombatIntent | undefined, srcPos: { x: number; y: number }, tgtPos: { x: number; y: number }): boolean {
+function critEngages(action: Action | undefined, intent: CombatIntent | undefined, src: Combatant, tgt: Combatant): boolean {
   if (!isOffensive(action) || !intent) return false;
-  const hits = (p: { x: number; y: number }): boolean => p.x === tgtPos.x && p.y === tgtPos.y;
+  const hits = (p: { x: number; y: number }): boolean => occupies(tgt, p);  // any footprint cell of the target
   if (action!.aimed) {
     const tp = intent.action.targetPos;
     if (!tp) return false;                                   // aimed at nothing
-    return action!.area > 1 ? areaBlock(tp, action!.area, srcPos).some(hits) : hits(tp);
+    return action!.area > 1 ? areaBlock(tp, action!.area, src.pos).some(hits) : hits(tp);
   }
   return action!.area > 1
-    ? areaBlock(srcPos, action!.area, srcPos).some(hits)     // reactive self-burst
-    : rangeDist(srcPos, tgtPos) <= (action!.range ?? 1); // reactive single: nearest in range
+    ? areaBlock(src.pos, action!.area, src.pos).some(hits)   // reactive self-burst
+    : unitDist(src, tgt) <= (action!.range ?? 1);            // reactive single: nearest in range
 }
 
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
@@ -117,8 +117,8 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       // just because the categories line up. So a defend-crit counters an attacker
       // only if that attacker actually attacked the defender (aimed at its tile, or
       // a reactive/AOE that caught it); attacking empty air provokes no counter.
-      const engaged = critEngages(myAction, aIntent, actor.pos, foe.pos)
-                   || critEngages(foeAction, fIntent, foe.pos, actor.pos);
+      const engaged = critEngages(myAction, aIntent, actor, foe)
+                   || critEngages(foeAction, fIntent, foe, actor);
       if (!engaged) continue;
       const dist = unitDist(actor, foe);
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
