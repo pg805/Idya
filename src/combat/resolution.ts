@@ -64,12 +64,16 @@ const OFFENSIVE_TYPES = new Set<number>([
 ]);
 const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.has(a.type);
 
-// Did `action` (with its `intent`) actually act ON `tgtPos` this turn — not just
-// pick a winning category? An AIMED attack engages only the tile it was aimed at
-// (or, for an AOE, a tile inside the block centered there); a REACTIVE attack
-// engages foes within its range, or anything in its self-burst block. A non-
-// offensive or un-aimed-at-nothing action engages no one. This is what gates a
-// crit: attacking empty air or a different unit provokes no counter.
+// Did `src`'s `action` actually LAND ON `tgt` this turn (not just pick a winning
+// category)? This is one half of the crit gate: a crit fires when EITHER side
+// landed on the other (A→B or B→A), so we call this twice with the roles swapped.
+//   - Inward actions (self block/heal/shield/buff, restores) land on nobody but
+//     the actor → return false (not offensive).
+//   - Outward AIMED attacks land on the aimed tile (or a tile in its AOE block);
+//     OUTWARD reactive attacks land on foes in range, or anyone in the self-burst
+//     block. A miss (out of range / aimed elsewhere / empty block) → false.
+// So attacking empty air, or two units both acting only on themselves, fires no
+// crit — there was no real exchange.
 function critEngages(action: Action | undefined, intent: CombatIntent | undefined, src: Combatant, tgt: Combatant): boolean {
   if (!isOffensive(action) || !intent) return false;
   const hits = (p: { x: number; y: number }): boolean => occupies(tgt, p);  // any footprint cell of the target
@@ -79,7 +83,11 @@ function critEngages(action: Action | undefined, intent: CombatIntent | undefine
     return action!.area > 1 ? areaBlock(tp, action!.area, src.pos).some(hits) : hits(tp);
   }
   return action!.area > 1
-    ? areaBlock(src.pos, action!.area, src.pos).some(hits)   // reactive self-burst
+    // Reactive self-burst — must match resolveReactiveStrike's geometry, which
+    // centers the block on the actor's footprint (a 2×2 ground-pound), NOT the
+    // corner-spray areaBlock would give for even N. Otherwise the engagement
+    // test checks the wrong cells and suppresses a deserved counter-crit.
+    ? selfBurstCells(src.pos, src.size ?? 1, action!.area, src.pos).some(hits)
     : unitDist(src, tgt) <= (action!.range ?? 1);            // reactive single: nearest in range
 }
 
