@@ -45,11 +45,11 @@ const enemyWeapon = (file: string) => {
   return Weapon.from_json({ ...data.Weapon, HP: data.Health });
 };
 
-function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean): { c: Combatant; m: CombatantMeta } {
+function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean, size = 1): { c: Combatant; m: CombatantMeta } {
   const state = new CombatantState(id, weapon.hp || 50, weapon.resource_name, weapon.resource_max);
   const c: Combatant = {
     id, name: id, hp: state.health, maxHp: state.max_health, resource: weapon.resource_max,
-    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos }, size: 1,
+    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos }, size,
     movementRange: 4, isAI, teamId, weaponInfo: buildWeaponInfo(weapon), weight: 0, initiative: 0, initiativeRank: 0,
   };
   return { c, m: { weapon, state, pattern: [], patternIndex: 0 } };
@@ -384,20 +384,22 @@ console.log('\nAI prefers a non-hazard tile over an equal-distance hazard one:')
   check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `routes to clear (1,1), not hazard (1,0) (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
 }
 
-// ---- Test 16: reactive self-burst smash (Melbear Ursa Minor) ----
-console.log('\nReactive self-burst smash (Melbear Ursa Minor): hits the 3×3 + flattens cover:');
+// ---- Test 16: reactive self-burst smash (Melbear Ursa Minor) — a 2×2 ground-pound ----
+console.log('\nReactive self-burst smash (Melbear Ursa Minor): a 2×2 ground-pound (4×4) + flattens cover:');
 {
   const bear = enemyWeapon('melbear.yaml');
   const umIdx = bear.attack.findIndex(a => a.name === 'Ursa Minor');
-  check(umIdx >= 0 && bear.attack[umIdx].area === 3 && bear.attack[umIdx].smash, 'Ursa Minor is a smashing 3×3 burst');
-  // Bear at (3,1); enemy adjacent at (4,1) is inside the 3×3; obstacle at (2,1) is too.
-  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 2, y: 1 }, state: 'intact' }] };
-  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true);
-  const V = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
+  check(umIdx >= 0 && bear.attack[umIdx].area === 4 && bear.attack[umIdx].smash, 'Ursa Minor is a smashing 4×4 burst');
+  // Bear is 2×2 anchored at (3,1) → body {(3,1),(4,1),(3,2),(4,2)}. The 4×4 pound
+  // centers on the body, covering x2..5, y0..3. Victim at (5,1) and obstacle at
+  // (2,1) are both inside the ring.
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [{ pos: { x: 2, y: 1 }, state: 'intact' }] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const V = mk('P', 'A', { x: 5, y: 1 }, STRIKER, false);
   const s = session(board, [B, V]);
   const before = hp(s, 'P');
   resolveIntents(s, new Map([['E', act('E', 'attack', umIdx)], ['P', act('P', 'pass', 0)]]));
-  check(hp(s, 'P') < before, `adjacent victim caught the burst (${before}→${hp(s, 'P')})`);
+  check(hp(s, 'P') < before, `victim in the ring caught the pound (${before}→${hp(s, 'P')})`);
   check(s.board.getObstacle({ x: 2, y: 1 })!.state === 'destroyed', 'obstacle in the burst was flattened');
 }
 

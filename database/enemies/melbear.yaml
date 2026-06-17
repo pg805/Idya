@@ -1,6 +1,7 @@
 Name: Melbear
 Health: 300
 Level: 4
+Size: 2
 Telegraph:
   hostile:
     closing: "Charging, frothing at the mouth"
@@ -89,7 +90,7 @@ Weapon:
       Cost: 2
       Aimed: false
       Range: 1
-      Area: 3
+      Area: 4
       Smash: true
       Action_String: "<User> rears up and smashes the ground, tearing into everything around it and flattening the cover."
 

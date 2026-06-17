@@ -174,6 +174,20 @@ export function areaBlock(center: { x: number; y: number }, area: number, caster
   return out;
 }
 
+// The cells a REACTIVE self-burst (area N) covers for an actor of `size` at
+// `anchor`. When N and size share parity ((N - size) even) the N×N is centered on
+// the actor's footprint — a 1×1 actor with odd N is the classic actor-centered
+// burst; a 2×2 actor with N=4 is a ground-pound covering the body + its ring.
+// When parity mismatches (e.g. a 1×1 actor with even N) there's no exact center,
+// so it sprays toward `sprayFrom` via areaBlock, as before.
+export function selfBurstCells(anchor: { x: number; y: number }, size: number, area: number, sprayFrom: { x: number; y: number }): { x: number; y: number }[] {
+  if ((area - size) % 2 === 0) {
+    const off = (area - size) / 2;
+    return footprint({ x: anchor.x - off, y: anchor.y - off }, area);
+  }
+  return areaBlock(anchor, area, sprayFrom);
+}
+
 // Pick a random on-board, unblocked square within `range` of `from` (excluding
 // `from` itself). Used as the fallback for aimed tile drops whose intended target
 // ended up out of range — better to mire a random nearby square than to drop the
@@ -710,14 +724,13 @@ export function resolveIntents(
   const resolveReactiveStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
     const { weapon } = actorMeta;
     if (action.area > 1) {
-      let sprayFrom = actor.pos;
-      if (action.area % 2 === 0) {
-        const foe = nearestEnemyTo(actor);
-        const dx = foe ? (Math.sign(foe.pos.x - actor.pos.x) || -1) : -1;
-        const dy = foe ? (Math.sign(foe.pos.y - actor.pos.y) || -1) : -1;
-        sprayFrom = { x: actor.pos.x - dx, y: actor.pos.y - dy };
-      }
-      const cells = new Set(areaBlock(actor.pos, action.area, sprayFrom).map(p => `${p.x},${p.y}`));
+      // Spray origin only matters when parity mismatches (size 1 + even N); for a
+      // footprint-centered burst it's ignored.
+      const foe = nearestEnemyTo(actor);
+      const dx = foe ? (Math.sign(foe.pos.x - actor.pos.x) || -1) : -1;
+      const dy = foe ? (Math.sign(foe.pos.y - actor.pos.y) || -1) : -1;
+      const sprayFrom = { x: actor.pos.x - dx, y: actor.pos.y - dy };
+      const cells = new Set(selfBurstCells(actor.pos, actor.size ?? 1, action.area, sprayFrom).map(p => `${p.x},${p.y}`));
       resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} burst`);
       return;
     }
