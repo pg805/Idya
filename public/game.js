@@ -3,6 +3,25 @@ let state = null;
 let playerTeamId = null;
 let isTutorial = false;
 
+// One-time UI walkthrough, shown the first time a tutorial battle renders. Points
+// at the real combat UI (board / cards / actions / log) so a new player knows what
+// they're looking at before the combat lessons start. Reuses the shared tour
+// component (tour.js). Functional, no lore.
+const BATTLE_TOUR_STEPS = [
+  { selector: '#board',          title: 'The battlefield', body: 'Combat plays out on this grid. Each turn you move, then take one action. Click your token to start a move, then click a highlighted tile (or your own tile to stay put).' },
+  { selector: '#combatant-list', title: 'Fighters',        body: 'You and your foe, with current HP. The enemy card shows a hint of what it\'s about to do — read it and pick the action that counters it.' },
+  { selector: '#action-panel',   title: 'Your actions',    body: 'After you move, your actions appear here. Every one is a Defend, Attack, or Special — and they counter each other: Defend ▶ Attack ▶ Special ▶ Defend. Aimed actions ask you to click a target tile first.' },
+  { selector: '#right-col',      title: 'Combat log',       body: 'Everything that happens each turn shows up here. Switch Minimal / Standard / Story to see less or more detail.' },
+];
+let battleTourShown = false;
+function maybeStartBattleTour() {
+  if (battleTourShown || !isTutorial) return;
+  if (typeof window.startTour !== 'function') return;
+  if (!document.querySelector('#board .cell')) return;   // wait until the board is actually rendered
+  battleTourShown = true;
+  window.startTour(BATTLE_TOUR_STEPS);
+}
+
 const PASS_ACTION = { label: 'Pass', choice: 'pass', index: 0, needsTarget: false, range: 0, cost: 0 };
 
 const ui = {
@@ -125,6 +144,7 @@ socket.on('session_state', (newState) => {
   state = newState;
   if (wasWaiting && state.phase === 'intent') resetUI();
   render();
+  maybeStartBattleTour();   // first tutorial render → walk the UI
 });
 
 socket.on('turn_result', ({ log }) => {

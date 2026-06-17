@@ -60,7 +60,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; weaponUpgrades: number; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; weaponUpgrades: number; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[]; tutorialShown?: Set<string> }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -3210,8 +3210,8 @@ io.on('connection', (socket: Socket) => {
       socket.emit('turn_result', { log: session.initiativeLog });
     }
     if (isTut) {
-      socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
-      socket.emit('tutorial_aside', { text: 'Click your character first, then select a highlighted tile to move, or select the tile you are on to stay put.', isOOC: true });
+      socket.emit('tutorial_aside', { text: "There's the bird. Let's see what you've got." });
+      socket.emit('tutorial_aside', { text: 'Each turn: move onto the grid, then pick one action. Defend ▶ Attack ▶ Special ▶ Defend — counter what the bird is about to do; its card shows a hint.', isOOC: true });
     }
   });
 
@@ -3281,32 +3281,36 @@ io.on('connection', (socket: Socket) => {
       tutMeta.lastActivityAt = new Date();
     }
     if (tutMeta?.isTutorial && !result.winner) {
-      const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
-        1: {
-          text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
-          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.  The enemy\'s card will show a hint as to which action they are planning next.',
-        },
-        2: {
-          text: "It's winding up to peck you, put your guard up.",
-          ooc: 'Defend actions beat Attack actions — blocking reduces damage when the enemy strikes.',
-        },
-        3: {
-          text: "Looks like it's going to try to slow you down with it's water.  Hit it first!",
-          ooc: 'Attack actions beat Special actions.  Attack actions also have a special property if used against Special actions: if you hit an enemy while they are winding up, you will land a critical hit giving either more damage or additional effects.  Reactive Attack actions will automatically target the nearest enemy without needing to aim.',
-        },
-        4: {
-          text: "Alright, seems like you got the hang of it.  I'll be downstairs if you need me.",
-        },
+      // Situational coaching tied to the bird's NEXT action. The tutorial bird
+      // walks a fixed pattern from index 0, so pattern[session.turn] is what it
+      // does next turn. Each triangle lesson fires once, the first time that
+      // situation comes up; the UI tour already covered the interface, so these
+      // are pure combat tips.
+      const enemy = session.aiCombatants()[0];
+      const eMeta = enemy ? session.meta.get(enemy.id) : undefined;
+      const shown = (tutMeta.tutorialShown ??= new Set<string>());
+      const tip = (key: string, text: string) => {
+        if (shown.has(key)) return;
+        shown.add(key);
+        io.to(sessionId).emit('tutorial_aside', { text, isOOC: true });
       };
-      const aside = TUTORIAL_ASIDES[session.turn];
-      if (aside) {
-        io.to(sessionId).emit('tutorial_aside', { text: aside.text });
-        if (aside.ooc) io.to(sessionId).emit('tutorial_aside', { text: aside.ooc, isOOC: true });
+      switch (eMeta?.pattern[session.turn]?.type) {
+        case PatternActionType.Attack:
+          tip('vs-attack',  "It's about to strike — put up a Defend to soften the hit. (Defend beats Attack.)");
+          break;
+        case PatternActionType.Special:
+          tip('vs-special', "It's winding up a Special — hit it with an Attack now to land a critical hit. (Attack beats Special.)");
+          break;
+        case PatternActionType.Defend:
+          tip('vs-defend',  "The bird's guarding. Wind up a Special for the most damage. (Special beats Defend.)");
+          break;
       }
 
+      // Safety net: if the fight drags on, Fendalok steps in so a stuck player
+      // isn't stranded.
       if (session.turn >= 10) {
-        io.to(sessionId).emit('tutorial_aside', { text: "Still working?  Let me help." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Fendalok draws a gleaming metalic sword and swings it at the bird, cutting off it's head.", isOOC: true });
+        io.to(sessionId).emit('tutorial_aside', { text: 'Tell you what — let me give you a hand.' });
+        io.to(sessionId).emit('tutorial_aside', { text: 'Fendalok steps in and knocks the bird out of the air for you.', isOOC: true });
         for (const team of session.teams) {
           if (team.id === 'team-b') {
             for (const c of team.combatants) {
@@ -3324,10 +3328,7 @@ io.on('connection', (socket: Socket) => {
           data: { tutorial_complete: true },
         }).catch(() => {});
         io.to(sessionId).emit('reward_result', { summary: 'Tutorial complete.' });
-        io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
+        emitTutorialTips(sessionId);
       }
     }
 
@@ -3360,12 +3361,7 @@ io.on('connection', (socket: Socket) => {
           }).catch(() => {});
         }
         io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
-        if (meta.isTutorial) {
-          io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
-        }
+        if (meta.isTutorial) emitTutorialTips(sessionId);
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
@@ -3836,25 +3832,35 @@ function buildWelcomeEmbed(
   mention: string,
   opts: { link?: string } = {},
 ): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
-  const mayor = worldConfig.npcs.mayor;
   const button = opts.link
-    ? new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Link).setURL(opts.link)
-    : new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
+    ? new ButtonBuilder().setLabel('Create your character').setStyle(ButtonStyle.Link).setURL(opts.link)
+    : new ButtonBuilder().setLabel('Create your character').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
   return {
     embeds: [
       new EmbedBuilder()
         .setColor(0x1a1a2e)
-        .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
+        .setTitle('Welcome to Idya')
         .setDescription(
           `${mention}\n\n` +
-          `The journey has been long and rough.  Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life.  Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife.  With much of the rest of the empire, including you, recovering from an economic depression, many have decided to journey to the frontier to make a new life.  A local merchant caravan agreed to let you join for the remains of your savings and with little choice, you joined.\n\n` +
-          `The caravan stops in a clearing on the outskirts of your final destination, Sulku'it.  A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan.  After dealing with the caravan leader, he turns to you.\n\n` +
-          `**${mayor.name}** — *${mayor.title}*\n` +
-          `*"Ah, another traveler, welcome to Sulku'it. My name is Fendalok and I'm the Padev around here. I take it you are here to help out in the forest. The empire* asks *that we record everyone in the town census log for tax purposes."*\n\n*Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.*\n\n*"You've got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."*`
-        ),
+          'A turn-based creature-battling RPG you play right in your browser — hunt, loot, craft, and take on tougher prey.'
+        )
+        .addFields(
+          { name: 'Each turn', value: 'You **move** on a grid, then pick one **action**.' },
+          { name: 'Actions counter each other', value: '**Defend ▶ Attack ▶ Special ▶ Defend.** Read the hint on the enemy\'s card and pick the action that beats what it\'s about to do.' },
+          { name: 'The loop', value: 'Win fights → collect loot → sell it for **korel** → craft & upgrade weapons → hunt bigger game.' },
+        )
+        .setFooter({ text: 'Create your character below — it starts with a quick tutorial fight.' }),
     ],
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
   };
+}
+
+// Closing wrap-up shown once the tutorial fight ends (a real win or the
+// safety-net intervention). Functional, short — one warm line then the takeaways.
+function emitTutorialTips(sessionId: string): void {
+  io.to(sessionId).emit('tutorial_aside', { text: "Nice work — that's the core of it." });
+  io.to(sessionId).emit('tutorial_aside', { text: 'Two things for the road: creatures repeat patterns, so watch one and you\'ll learn to read it; and your damage varies each hit, but blocking and healing yourself is reliable.', isOOC: true });
+  io.to(sessionId).emit('tutorial_aside', { text: 'Head to town to sell your loot and gear up. Good luck out there.', isOOC: true });
 }
 
 // Spin up a fresh tutorial session for an existing character. Returns the

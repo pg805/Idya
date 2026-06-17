@@ -1,12 +1,13 @@
-// Sidebar walkthrough. Highlights each nav group with a tooltip card and
-// Next/Skip controls. Only fires when ?tour=1 is in the URL — the tutorial's
-// "Go to Town" link sets that param so the tour shows up after the tutorial
-// battle, not during character creation.
+// Reusable guided walkthrough. Highlights a target element per step with a
+// tooltip card + Next/Skip. Two callers:
+//   - the town tour (this file's TOWN_TOUR_STEPS), fired via maybeStartTour()
+//     when ?tour=1 is in the URL (the tutorial's "Go to Town" link sets it);
+//   - the battle UI tour, which calls window.startTour(steps) with its own steps.
 
 // Order is the gameplay loop: where you spend money → how you make money →
 // where you see your balance → what professions do → the activities sidebar
 // → the workshop → reference info.
-const TOUR_STEPS = [
+const TOWN_TOUR_STEPS = [
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(3)',
     title:    'Town Shops',
@@ -64,6 +65,7 @@ function ensureTourDom() {
 }
 
 let stepIdx = 0;
+let activeSteps = [];   // the step list the current tour is running
 
 function positionCard(targetRect) {
   const card = document.getElementById('tour-card');
@@ -83,11 +85,13 @@ function positionCard(targetRect) {
 
 function showStep(idx) {
   stepIdx = idx;
-  const step = TOUR_STEPS[idx];
+  const step = activeSteps[idx];
   if (!step) { endTour(); return; }
 
+  // Skip a step whose target isn't on the page (e.g. a panel that hasn't
+  // rendered yet) rather than ending the whole tour on the first missing one.
   const target = document.querySelector(step.selector);
-  if (!target) { endTour(); return; }
+  if (!target) { showStep(idx + 1); return; }
 
   const r = target.getBoundingClientRect();
   const hi = document.getElementById('tour-highlight');
@@ -99,15 +103,18 @@ function showStep(idx) {
 
   document.getElementById('tour-title').textContent    = step.title;
   document.getElementById('tour-body').textContent     = step.body;
-  document.getElementById('tour-progress').textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
+  document.getElementById('tour-progress').textContent = `${idx + 1} / ${activeSteps.length}`;
   const nextBtn = document.getElementById('tour-next');
-  nextBtn.textContent = idx === TOUR_STEPS.length - 1 ? 'Got it' : 'Next';
+  nextBtn.textContent = idx === activeSteps.length - 1 ? 'Got it' : 'Next';
 
   // Position the card on next frame so its dimensions are accurate.
   requestAnimationFrame(() => positionCard(r));
 }
 
-function startTour() {
+// Run a tour over the given step list ([{ selector, title, body }, …]).
+function startTour(steps) {
+  if (!steps || steps.length === 0) return;
+  activeSteps = steps;
   ensureTourDom();
   document.body.classList.add('tour-active');
   document.getElementById('tour-skip').onclick = () => endTour();
@@ -115,9 +122,10 @@ function startTour() {
   window.addEventListener('resize', onResize);
   showStep(0);
 }
+window.startTour = startTour;
 
 function onResize() {
-  const step = TOUR_STEPS[stepIdx];
+  const step = activeSteps[stepIdx];
   if (!step) return;
   const target = document.querySelector(step.selector);
   if (!target) return;
@@ -144,5 +152,5 @@ window.maybeStartTour = function maybeStartTour() {
   params.delete('tour');
   const qs = params.toString();
   history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
-  startTour();
+  startTour(TOWN_TOUR_STEPS);
 };
