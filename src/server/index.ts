@@ -3842,14 +3842,11 @@ function buildWelcomeEmbed(
         .setTitle('Welcome to Idya')
         .setDescription(
           `${mention}\n\n` +
-          'A turn-based creature-battling RPG you play right in your browser — hunt, loot, craft, and take on tougher prey.'
-        )
-        .addFields(
-          { name: 'Each turn', value: 'You **move** on a grid, then pick one **action**.' },
-          { name: 'Actions counter each other', value: '**Defend ▶ Attack ▶ Special ▶ Defend.** Read the hint on the enemy\'s card and pick the action that beats what it\'s about to do.' },
-          { name: 'The loop', value: 'Win fights → collect loot → sell it for **korel** → craft & upgrade weapons → hunt bigger game.' },
-        )
-        .setFooter({ text: 'Create your character below — it starts with a quick tutorial fight.' }),
+          'A community built around a dynamic, living world.\n\n' +
+          'Idya is a tabletop RPG that doesn\'t need a dungeon master.  The world runs itself.  Hunt creatures, craft and trade, and carve out your own place in a fantastical world.\n\n' +
+          'Create your character below.\n\n' +
+          '> *Idya is in early alpha, so expect rough edges. Reach out anytime with questions or issues.*'
+        ),
     ],
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
   };
