@@ -60,7 +60,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; weaponUpgrades: number; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -1097,6 +1097,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   const rows = await prisma.battleLog.findMany({
     select: {
       enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true,
+      weapon_upgrades: true,
       started_at: true, ended_at: true,
       player_hp_left: true, enemy_hp_left: true,
       damage_dealt: true, damage_received: true, rounds_count: true,
@@ -1105,18 +1106,39 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     },
   });
 
+  // A weapon's identity in the stats is its key + effective level: base level +
+  // floor(player upgrades / 3), since 3 upgrades = a weapon level. So an upgraded
+  // Deck of Cards shows separately as "Deck of Cards · L2", "· L3", etc.
+  const enemyNames  = loadEnemyNames();
+  const weaponNames = loadWeaponNames();
+  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+  const weaponBaseLevels = new Map<string, number>();
+  const baseLevelOf = (wk: string): number => {
+    if (!weaponBaseLevels.has(wk)) weaponBaseLevels.set(wk, loadWeaponYaml(wk, __dirname)?.Level ?? 1);
+    return weaponBaseLevels.get(wk)!;
+  };
+  const weaponLabels = new Map<string, string>();   // composite key → display name
+  const weaponIdentity = (weaponKey: string | null, upgrades: number | null): string => {
+    const wk = weaponKey ?? UNKNOWN_WEAPON_LABEL;
+    if (wk === UNKNOWN_WEAPON_LABEL) { weaponLabels.set(wk, weaponNames[wk]); return wk; }
+    const lvl = baseLevelOf(wk) + Math.floor((upgrades ?? 0) / 3);
+    const key = `${wk}@L${lvl}`;
+    if (!weaponLabels.has(key)) weaponLabels.set(key, `${weaponNames[wk] ?? wk} · L${lvl}`);
+    return key;
+  };
+
   const seenVersions = new Set<string>();
   const seenWeapons  = new Set<string>();
   const seenEnemies  = new Set<string>();
   for (const r of rows) {
     seenVersions.add(r.version ?? PRE_VERSION_LABEL);
-    seenWeapons.add(r.weapon_key ?? UNKNOWN_WEAPON_LABEL);
+    seenWeapons.add(weaponIdentity(r.weapon_key, r.weapon_upgrades));
     seenEnemies.add(r.enemy);
   }
 
   const filtered = rows.filter(r => {
     const v = r.version ?? PRE_VERSION_LABEL;
-    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    const w = weaponIdentity(r.weapon_key, r.weapon_upgrades);
     if (enemyFilter   && !enemyFilter.includes(r.enemy)) return false;
     if (weaponFilter  && !weaponFilter.includes(w))      return false;
     if (versionFilter && !versionFilter.includes(v))     return false;
@@ -1161,7 +1183,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   const matchup: Record<string, Record<string, Cell>> = {};
 
   for (const r of filtered) {
-    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    const w = weaponIdentity(r.weapon_key, r.weapon_upgrades);
     enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
     weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
     const byW = matchup[r.enemy] ??= {};
@@ -1208,9 +1230,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     }
   }
 
-  const enemyNames  = loadEnemyNames();
-  const weaponNames = loadWeaponNames();
-  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+  const weaponName = (wk: string): string => weaponLabels.get(wk) ?? wk;
 
   type Row = {
     key: string; name: string;
@@ -1266,7 +1286,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     const totals = groupTotals(cells);
     return {
       ...row(enemyKey, enemyNames[enemyKey] ?? enemyKey, totals),
-      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponNames[wk] ?? wk, c)).sort((a, b) => b.total - a.total),
+      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponName(wk), c)).sort((a, b) => b.total - a.total),
     };
   }).sort((a, b) => b.total - a.total);
 
@@ -1281,7 +1301,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     const cells = Object.values(byE);
     const totals = groupTotals(cells);
     return {
-      ...row(weaponKey, weaponNames[weaponKey] ?? weaponKey, totals),
+      ...row(weaponKey, weaponName(weaponKey), totals),
       breakdown: Object.entries(byE).map(([ek, c]) => row(ek, enemyNames[ek] ?? ek, c)).sort((a, b) => b.total - a.total),
     };
   }).sort((a, b) => b.total - a.total);
@@ -1289,12 +1309,12 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   res.json({
     available: {
       enemies:  [...seenEnemies].sort().map(k => ({ key: k, name: enemyNames[k]  ?? k })),
-      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponNames[k] ?? k })),
+      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponName(k) })),
       versions: [...seenVersions].sort((a, b) => a === PRE_VERSION_LABEL ? -1 : b === PRE_VERSION_LABEL ? 1 : a.localeCompare(b, undefined, { numeric: true })),
     },
     histograms: {
       enemies:  Object.entries(enemyHistogram).map(([key, count]) => ({ key, name: enemyNames[key]  ?? key, count })).sort((a, b) => b.count - a.count),
-      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponNames[key] ?? key, count })).sort((a, b) => b.count - a.count),
+      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponName(key), count })).sort((a, b) => b.count - a.count),
     },
     per_enemy:     perEnemy,
     per_weapon:    perWeapon,
@@ -1496,7 +1516,10 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
+  // Player upgrade count on the equipped weapon (each = +1; 3 = a weapon level) —
+  // recorded per battle so the stats page can split a weapon by effective level.
+  const weaponUpgrades = (equipped?.upgrades as { upgradesDone?: number } | undefined)?.upgradesDone ?? 0;
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, weaponUpgrades, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -3435,7 +3458,8 @@ io.on('connection', (socket: Socket) => {
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
       const nowReset = new Date();
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
+      const weaponUpgrades = (playerUpgrades as { upgradesDone?: number } | null)?.upgradesDone ?? 0;
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, weaponUpgrades, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -3765,6 +3789,7 @@ async function logBattlePerEnemy(
       started_at:        meta.startedAt,
       version:           APP_VERSION,
       weapon_key:        meta.weaponKey,
+      weapon_upgrades:   meta.weaponUpgrades,
       player_hp_left:    playerHpLeft,
       enemy_hp_left:     enemyHpLeft,
       damage_dealt:      damageDealt,
@@ -3845,7 +3870,7 @@ function startTutorialSession(discordId: string, spriteKey: string | null): stri
     ? [{ turn: 0, log: tutSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', weaponUpgrades: 0, startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
   return sessionId;
 }
 

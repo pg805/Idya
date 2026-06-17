@@ -88,6 +88,10 @@ model BattleLog {
   // Filterable on the dev stats page. NULL on pre-0.2.0 rows.
   version      String?
   weapon_key   String?
+  // Player upgrade count on the equipped weapon at battle time (each = +1; 3 = a
+  // weapon level). Lets the stats page split a weapon by effective level. NULL on
+  // rows logged before this was tracked.
+  weapon_upgrades Int?
   // Per-battle metrics for the dev stats page. NULL on pre-0.2.0 rows.
   // Multi-enemy battles emit one row per enemy; player-side metrics
   // (player_hp_left, damage_received, rounds_count, crit_count,
