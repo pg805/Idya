@@ -3474,7 +3474,7 @@ io.on('connection', (socket: Socket) => {
 
       // Once the triangle is taught, point out the enemy tell.
       if (session.turn >= 4) {
-        tip('telegraph', "See the hint on the swallow's card? Enemies telegraph their next move with a tell — read it to know which action will beat them.");
+        tip('telegraph', "See the hint on the swallow's card? Enemies telegraph their next move with a tell — read it to know which action will beat them. Each new enemy type will behave differently, so be sure to watch their card to learn what possible actions they will take.");
       }
 
       // Safety net: if the fight drags on, Fendalok steps in so a stuck player
