@@ -247,6 +247,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    preview so the space below the board reads as "not your turn yet". */
 #action-panel.dim .action-list { opacity: 0.4; filter: grayscale(0.35); pointer-events: none; }
 #action-panel.dim .action-title { color: var(--text-faint); }
+/* While the tutorial tour is spotlighting the actions, show them at full clarity
+   even though it isn't the player's turn yet. */
+body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
 /* On-turn: lit up + a gold edge to say "pick now". */
 #action-panel.active { border-color: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-dim); }
 #action-panel.active .action-title { color: var(--gold-bright); }

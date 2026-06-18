@@ -8,10 +8,13 @@ let isTutorial = false;
 // they're looking at before the combat lessons start. Reuses the shared tour
 // component (tour.js). Functional, no lore.
 const BATTLE_TOUR_STEPS = [
-  { selector: '#board',          title: 'The battlefield', body: 'Combat plays out on this grid. Each turn you move, then take one action. Click your token to start a move, then click a highlighted tile (or your own tile to stay put).' },
-  { selector: '#combatant-list', title: 'Fighters',        body: 'You and your foe, with current HP. The enemy card shows a hint of what it\'s about to do — read it and pick the action that counters it.' },
-  { selector: '#action-panel',   title: 'Your actions',    body: 'After you move, your actions appear here. Every one is a Defend, Attack, or Special — and they counter each other: Defend ▶ Attack ▶ Special ▶ Defend. Aimed actions ask you to click a target tile first.' },
-  { selector: '#right-col',      title: 'Combat log',       body: 'Everything that happens each turn shows up here. Switch Minimal / Standard / Story to see less or more detail.' },
+  { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
+  { selector: '.combatant.team-a',                       title: 'Your character',  body: 'This is your character. Each turn, you move your character by clicking on your token, then clicking on the square you want to go to. You can move up to two squares a turn.' },
+  { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
+  { selector: '.action-row[data-choice="attack"][data-aimed="false"]', title: 'Reactive actions', body: 'Some actions are reactive, meaning they automatically target any enemy within range.' },
+  { selector: '.action-row[data-aimed="true"]',          title: 'Aimed actions',   body: 'Some actions are aimed. After selecting it, you select a square to aim the attack at. Because all moves and actions resolve at the same time, the enemy may not be on the square you expect. Make sure to lead your attack!' },
+  { selector: '#combatant-list',                         title: 'Fighters',        body: 'Your health and resource are shown here. Most actions cost resource and can\'t be used if you don\'t have enough. The game ends when all characters on one side reach 0 health.' },
+  { selector: '#right-col',                              title: 'Combat log',      body: 'This is the combat log. It shows what happens when the turn resolves.' },
 ];
 let battleTourShown = false;
 function maybeStartBattleTour() {
@@ -619,6 +622,9 @@ function renderActionPanel() {
     const isPass = action.choice === 'pass';
     const row = document.createElement('button');
     row.className = `action-row${isPass ? ' pass-row' : ''}${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
+    // Tags so the tutorial tour can spotlight a reactive vs an aimed action.
+    row.dataset.choice = action.choice;
+    row.dataset.aimed  = String(!!action.needsTarget);
     if (!canAfford) row.disabled = true;
     const costHtml = isPass ? ''
       : action.cost === 0 ? '<span class="action-cost free">free</span>'
