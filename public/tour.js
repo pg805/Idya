@@ -101,8 +101,10 @@ function showStep(idx) {
   const hi      = document.getElementById('tour-highlight');
   const backBtn = document.getElementById('tour-back');
   const nextBtn = document.getElementById('tour-next');
-  // Back is available on every step but the first.
-  backBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+  // Back is available from the second spotlight on. Hidden on the intro AND the
+  // first spotlight, since "back" there would just re-open the intro gate.
+  const firstSpot = Math.max(0, activeSteps.findIndex(s => s.selector));
+  backBtn.style.visibility = idx <= firstSpot ? 'hidden' : 'visible';
   nextBtn.textContent = step.nextLabel || (idx === activeSteps.length - 1 ? 'Got it' : 'Next');
   document.getElementById('tour-title').textContent = step.title || '';
   document.getElementById('tour-body').textContent  = step.body || '';
