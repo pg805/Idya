@@ -6,12 +6,12 @@ Condensed, player-facing changelog posted to the #updates channel on each new re
 
 Bigger beasts, a brand-new tutorial, and a pile of fixes.
 
-- **Two foes just got bigger.** The Melbear and Sulgovenath now take up a 2×2 space on the board — harder to kite, and the Melbear's ground-pound now slams the whole ring around it. Give them room.
+- **Bigger enemies.** The Melbear and Sulgovenath now take up a 2×2 space on the board. They're harder to kite, and the Melbear's ground-pound hits the whole ring around it.
 - **New player tutorial.** A guided walkthrough of the battle screen, the story of how you arrived in Sulku'it, and step-by-step combat coaching — replay the guide or the lore anytime from the battle screen.
 - **Standardized number inputs.** Crafting, the shops, and Town Square all use the same −/type/＋/ALL controls now.
 - **Profession roles in Discord.** Earn a badge the first time you rank up each profession, **Journeyman** at total rank 5, and **Master** at rank 10. New members also get a role when they join.
 - **Town Square contributions** now post to the channel as they happen, so everyone can watch a quest fill up.
-- **Battle flow, your way.** Pick **Quick** actions (one click fires) or **Confirm** (review, then commit), with a Back button — set it in the settings menu.
+- **Quick or Confirm actions.** Choose **Quick** (one click fires your action) or **Confirm** (review, then commit), with a Back button — set it in the settings menu.
 - **Professions page** now shows the **max level** each weapon can reach (3 upgrades = a level).
 - **Market** page shows the correct countdown to the next price update.
 - Crit fixes: a crit only fires when your action actually connects with the enemy in the matchup, and a few cases that were wrongly skipped now land. Aimed targeting also matches movement on diagonals.
