@@ -4027,7 +4027,7 @@ function buildWelcomeEmbed(
 // safety-net intervention). Functional, short — one warm line then the takeaways.
 function emitTutorialTips(sessionId: string): void {
   io.to(sessionId).emit('tutorial_aside', { text: "Nice work — that's the core of it." });
-  io.to(sessionId).emit('tutorial_aside', { text: 'Two things for the road: creatures repeat patterns, so watch one and you\'ll learn to read it; and your damage varies each hit, but blocking and healing yourself is reliable.', isOOC: true });
+  io.to(sessionId).emit('tutorial_aside', { text: 'Two things for the road: every creature fights in its own style and reacts to the moment, so learn how each one tends to behave; and your damage varies each hit, but blocking and healing yourself is reliable.', isOOC: true });
   io.to(sessionId).emit('tutorial_aside', { text: 'Head to town to sell your loot and gear up. Good luck out there.', isOOC: true });
 }
 
