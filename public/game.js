@@ -7,8 +7,11 @@ let isTutorial = false;
 // at the real combat UI (board / cards / actions / log) so a new player knows what
 // they're looking at before the combat lessons start. Reuses the shared tour
 // component (tour.js). Functional, no lore.
+// Shared so the intro gate and the lore cards carry the same heading — ties the
+// whole tutorial together under one title.
+const TUTORIAL_TITLE = 'A bird in the attic';
 const BATTLE_TOUR_STEPS = [
-  { title: 'A bird in the attic', body: 'The following tutorial explains the battle mechanics. You can view the guide again at any point by clicking the Show Guide button.', nextLabel: 'Begin tutorial' },
+  { title: TUTORIAL_TITLE, body: 'The following tutorial explains the battle mechanics. You can view the guide again at any point by clicking the Show Guide button.', nextLabel: 'Begin tutorial' },
   { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
   { selector: '.combatant.team-a',                       title: 'Your character',  body: 'This is your character. Each turn, you move your character by clicking on your token, then clicking on the square you want to go to. You can move up to two squares a turn.' },
   { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
@@ -21,11 +24,11 @@ const BATTLE_TOUR_STEPS = [
 // spotlights — just narrative cards). Replayable via the "Run lore" button.
 // The exact original arrival lore, one paragraph per card.
 const LORE_TOUR_STEPS = [
-  { body: 'The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife. With much of the rest of the empire, including you, recovering from an economic depression, many have decided to journey to the frontier to make a new life. A local merchant caravan agreed to let you join for the remains of your savings and with little choice, you joined.' },
-  { body: 'The caravan stops in a clearing on the outskirts of your final destination, Sulku\'it. A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan. After dealing with the caravan leader, he turns to you.' },
-  { body: '"Ah, another traveler, welcome to Sulku\'it. My name is Fendalok and I\'m the Padev around here. I take it you are here to help out in the forest. The empire asks that we record everyone in the town census log for tax purposes."' },
-  { body: 'Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.' },
-  { body: '"You\'ve got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."' },
+  { title: TUTORIAL_TITLE, body: 'The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife. With much of the rest of the empire, including you, recovering from an economic depression, many have decided to journey to the frontier to make a new life. A local merchant caravan agreed to let you join for the remains of your savings and with little choice, you joined.' },
+  { title: TUTORIAL_TITLE, body: 'The caravan stops in a clearing on the outskirts of your final destination, Sulku\'it. A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan. After dealing with the caravan leader, he turns to you.' },
+  { title: TUTORIAL_TITLE, body: '"Ah, another traveler, welcome to Sulku\'it. My name is Fendalok and I\'m the Padev around here. I take it you are here to help out in the forest. The empire asks that we record everyone in the town census log for tax purposes."' },
+  { title: TUTORIAL_TITLE, body: 'Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.' },
+  { title: TUTORIAL_TITLE, body: '"You\'ve got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."' },
 ];
 
 let battleTourShown = false;
