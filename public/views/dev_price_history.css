@@ -40,6 +40,7 @@
 .ph-range { color: #6f88ad; }
 .ph-mini { width: 100%; height: 76px; display: block; }
 .ph-mini-empty { height: 76px; display: flex; align-items: center; justify-content: center; color: #4a5a70; font-size: 11px; }
+.ph-item-foot { display: flex; justify-content: space-between; font-size: 10px; color: #5a6b85; margin-top: 3px; font-variant-numeric: tabular-nums; }
 
 /* Overlay mode — one normalized axis, a line per item */
 .ph-overlay-note { color: #6f88ad; font-size: 12px; margin-bottom: 8px; }

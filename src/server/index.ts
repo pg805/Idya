@@ -1133,6 +1133,13 @@ app.get('/api/dev/price-history', async (req: Request, res: Response) => {
     return price;
   }
 
+  // The expected price band shown on the Market page (raw = base × [0.25, 4],
+  // crafted = input-range × crafted band). Charts use this as their fixed
+  // y-axis so the current price's position within its range is legible.
+  const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
+  const roundRange = (r: { min: number; max: number } | null) =>
+    r ? { min: Math.round(r.min), max: Math.round(r.max) } : null;
+
   const series = [];
   const shopsSeen = new Map<string, string>();
   for (const [itemId, pts] of byItem) {
@@ -1147,6 +1154,10 @@ app.get('/api/dev/price-history', async (req: Request, res: Response) => {
       const sell = priceAt(itemId, 'sell', p.t);
       return { t: p.t, buy: buy == null ? null : Math.round(buy), sell: sell == null ? null : Math.round(sell) };
     });
+    const [rangeBuy, rangeSell] = await Promise.all([
+      ctx.currentRange(itemId, 'buy'),
+      ctx.currentRange(itemId, 'sell'),
+    ]);
     series.push({
       shop_id:    entry.shopKey,
       shop_name:  entry.shopName,
@@ -1156,6 +1167,8 @@ app.get('/api/dev/price-history', async (req: Request, res: Response) => {
       source:     recipe ? 'recipe' : 'raw',
       base_buy:   recipe ? null : (entry.listing.base_buy ?? null),
       base_sell:  recipe ? null : (entry.listing.base_sell ?? null),
+      range_buy:  roundRange(rangeBuy),
+      range_sell: roundRange(rangeSell),
       points,
     });
   }

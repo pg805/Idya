@@ -42,12 +42,17 @@
   }
 
   // ---- chart helpers ----
-  // Build an SVG polyline points string from data points, given an accessor and
-  // the x/y domains. Skips null values (breaks the line into segments).
-  function polylines(points, accessor, t0, t1, lo, hi, W, H, pad) {
+  // Break a value series into polyline-point segments (splitting on nulls),
+  // mapping time→x and value→y over the given domains. y is clamped into the
+  // plot area so transaction-shock spikes beyond the expected band sit on the
+  // edge rather than drawing off-chart.
+  function segments(points, accessor, t0, t1, lo, hi, W, H, pad) {
     const xspan = (t1 - t0) || 1, yspan = (hi - lo) || 1;
     const xAt = (t) => pad + ((t - t0) / xspan) * (W - 2 * pad);
-    const yAt = (v) => pad + (1 - (v - lo) / yspan) * (H - 2 * pad);
+    const yAt = (v) => {
+      const y = pad + (1 - (v - lo) / yspan) * (H - 2 * pad);
+      return Math.max(pad, Math.min(H - pad, y));
+    };
     const segs = [];
     let cur = [];
     for (const p of points) {
@@ -56,44 +61,61 @@
       cur.push(`${xAt(p.t).toFixed(1)},${yAt(v).toFixed(1)}`);
     }
     if (cur.length) segs.push(cur);
-    return segs.map(s => s.join(' '));
+    return { segs, xAt, yAt };
   }
 
+  // Mini chart: fixed y-axis = the item's sell range (same band the Market page
+  // shows), so the wave's height reads directly as "where in its range". Floor
+  // and ceiling are drawn as reference lines; a dot marks the current price.
   function miniChart(s) {
-    const W = 280, H = 76, pad = 6;
-    const vals = [];
-    for (const p of s.points) { if (p.buy != null) vals.push(p.buy); if (p.sell != null) vals.push(p.sell); }
-    if (vals.length < 2) return `<div class="ph-mini-empty">not enough data</div>`;
-    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const W = 280, H = 76, pad = 8;
+    const sells = s.points.map(p => p.sell).filter(v => v != null);
+    if (sells.length < 2) return `<div class="ph-mini-empty">not enough data</div>`;
+    const range = s.range_sell;
+    // Domain is the expected band; widen only if observed prices overshoot it
+    // (shocks can briefly exceed) so nothing is silently clipped flat.
+    let lo = range ? range.min : Math.min(...sells);
+    let hi = range ? range.max : Math.max(...sells);
+    lo = Math.min(lo, ...sells); hi = Math.max(hi, ...sells);
     const t0 = s.points[0].t, t1 = s.points[s.points.length - 1].t;
-    const sellSegs = polylines(s.points, (p) => p.sell, t0, t1, lo, hi, W, H, pad);
-    const buySegs  = polylines(s.points, (p) => p.buy,  t0, t1, lo, hi, W, H, pad);
-    const lines = [
-      ...buySegs.map(pts  => `<polyline points="${pts}" fill="none" stroke="#5b6b85" stroke-width="1" opacity="0.6"/>`),
-      ...sellSegs.map(pts => `<polyline points="${pts}" fill="none" stroke="#4fa3ff" stroke-width="1.5"/>`),
-    ].join('');
-    return `<svg class="ph-mini" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>`;
+    const { segs, xAt, yAt } = segments(s.points, (p) => p.sell, t0, t1, lo, hi, W, H, pad);
+    const refs = [];
+    if (range) {
+      refs.push(`<line x1="0" y1="${yAt(range.max).toFixed(1)}" x2="${W}" y2="${yAt(range.max).toFixed(1)}" stroke="#2a3a55" stroke-dasharray="3 3"/>`);
+      refs.push(`<line x1="0" y1="${yAt(range.min).toFixed(1)}" x2="${W}" y2="${yAt(range.min).toFixed(1)}" stroke="#2a3a55" stroke-dasharray="3 3"/>`);
+    }
+    const line = segs.map(pts => `<polyline points="${pts}" fill="none" stroke="#4fa3ff" stroke-width="1.5"/>`).join('');
+    const last = s.points[s.points.length - 1];
+    const dot = last.sell != null
+      ? `<circle cx="${xAt(last.t).toFixed(1)}" cy="${yAt(last.sell).toFixed(1)}" r="3" fill="#ffb14f"/>` : '';
+    return `<svg class="ph-mini" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${refs.join('')}${line}${dot}</svg>`;
   }
 
   function cur(s, key) {
     for (let i = s.points.length - 1; i >= 0; i--) if (s.points[i][key] != null) return s.points[i][key];
     return null;
   }
-  function rangeOf(s, key) {
-    const vs = s.points.map(p => p[key]).filter(v => v != null);
-    return vs.length ? [Math.min(...vs), Math.max(...vs)] : [null, null];
+
+  // Position of the current price within its expected band, 0 (floor) → 1 (ceiling).
+  function rangePos(s) {
+    const now = cur(s, 'sell'), r = s.range_sell;
+    if (now == null || !r || r.max <= r.min) return null;
+    return Math.max(0, Math.min(1, (now - r.min) / (r.max - r.min)));
   }
 
   function itemBlock(s) {
-    const [sl, sh] = rangeOf(s, 'sell');
+    const r = s.range_sell;
     const nowSell = cur(s, 'sell');
+    const pos = rangePos(s);
+    const posTxt = pos == null ? '' : ` · ${Math.round(pos * 100)}% of range`;
     return `
       <div class="ph-item">
         <div class="ph-item-head">
           <span class="ph-item-name">${esc(s.item_name)}${s.source === 'recipe' ? '<span class="ph-tag">crafted</span>' : ''}</span>
-          <span class="ph-item-now">sell ${nowSell ?? '—'}<span class="ph-range">${sl == null ? '' : ` · ${sl}–${sh}`}</span></span>
+          <span class="ph-item-now">sell ${nowSell ?? '—'}<span class="ph-range">${posTxt}</span></span>
         </div>
         ${miniChart(s)}
+        <div class="ph-item-foot">${r ? `<span>floor ${r.min}</span><span>ceiling ${r.max}</span>` : '<span>no band</span>'}</div>
       </div>`;
   }
 
@@ -116,8 +138,9 @@
     }).join('');
   }
 
-  // Overlay: every selected item on one axis, each normalized to its first
-  // sell price (start = 1.0×) so wave shape is comparable across price tiers.
+  // Overlay: every selected item on one shared 0→1 axis = its position within
+  // its own expected sell band (0 = floor, 1 = ceiling). This makes "where is
+  // each item in its range right now" directly comparable across price tiers.
   function overlayHtml() {
     const filtered = filteredSeries();
     if (!filtered.length) return `<p class="ph-empty">Nothing matches the current filters.</p>`;
@@ -125,29 +148,28 @@
     const pw = W - L - RM;
     let t0 = Infinity, t1 = -Infinity;
     const lines = filtered.map(s => {
-      const base = (s.points.find(p => p.sell != null) || {}).sell;
-      if (!base) return null;
-      const norm = s.points.map(p => ({ t: p.t, v: p.sell == null ? null : p.sell / base }));
+      const r = s.range_sell;
+      if (!r || r.max <= r.min) return null;
+      const norm = s.points.map(p => ({
+        t: p.t,
+        v: p.sell == null ? null : Math.max(0, Math.min(1, (p.sell - r.min) / (r.max - r.min))),
+      }));
       for (const p of norm) { if (p.t < t0) t0 = p.t; if (p.t > t1) t1 = p.t; }
       return { name: s.item_name, norm };
     }).filter(Boolean);
-    if (!lines.length) return `<p class="ph-empty">No sell-price data to plot.</p>`;
-    let lo = Infinity, hi = -Infinity;
-    for (const ln of lines) for (const p of ln.norm) if (p.v != null) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; }
-    lo = Math.min(lo, 1); hi = Math.max(hi, 1);
-    // pad the band a touch
-    const padBand = (hi - lo) * 0.08 || 0.1; lo -= padBand; hi += padBand;
-    const xspan = (t1 - t0) || 1, yspan = (hi - lo) || 1;
+    if (!lines.length) return `<p class="ph-empty">No banded items to plot (selection has no expected ranges).</p>`;
+    const xspan = (t1 - t0) || 1;
     const xAt = (t) => L + ((t - t0) / xspan) * pw;
-    const yAt = (v) => T + (1 - (v - lo) / yspan) * ph;
+    const yAt = (v) => T + (1 - v) * ph; // 0 = floor (bottom), 1 = ceiling (top)
     const parts = [`<svg class="ph-overlay" viewBox="0 0 ${W} ${T + ph + B}">`,
       `<rect width="${W}" height="${T + ph + B}" fill="#0e1726"/>`];
-    // gridlines at nice ratios
-    const ticksY = [];
-    for (let v = Math.ceil(lo * 4) / 4; v <= hi; v += 0.25) ticksY.push(v);
-    for (const v of ticksY) {
-      parts.push(`<line x1="${L}" y1="${yAt(v).toFixed(1)}" x2="${L + pw}" y2="${yAt(v).toFixed(1)}" stroke="${Math.abs(v - 1) < 1e-6 ? '#3a5070' : '#1d2a40'}" ${Math.abs(v - 1) < 1e-6 ? 'stroke-dasharray="4 3"' : ''}/>`);
-      parts.push(`<text x="${L - 6}" y="${(yAt(v) + 4).toFixed(1)}" fill="#6f88ad" font-size="11" text-anchor="end">${v.toFixed(2)}×</text>`);
+    // floor / mid / ceiling reference lines
+    const refRows = [[0, 'floor'], [0.25, ''], [0.5, 'mid'], [0.75, ''], [1, 'ceiling']];
+    for (const [v, label] of refRows) {
+      const edge = v === 0 || v === 1;
+      parts.push(`<line x1="${L}" y1="${yAt(v).toFixed(1)}" x2="${L + pw}" y2="${yAt(v).toFixed(1)}" stroke="${edge ? '#3a5070' : '#1d2a40'}" ${edge ? 'stroke-dasharray="4 3"' : ''}/>`);
+      parts.push(`<text x="${L - 6}" y="${(yAt(v) + 4).toFixed(1)}" fill="#6f88ad" font-size="11" text-anchor="end">${Math.round(v * 100)}%</text>`);
+      if (label) parts.push(`<text x="${L + pw + 4}" y="${(yAt(v) + 4).toFixed(1)}" fill="#3a5070" font-size="10">${label}</text>`);
     }
     lines.forEach((ln, i) => {
       const color = COLORS[i % COLORS.length];
@@ -162,12 +184,11 @@
       parts.push(`<line x1="${L + pw + 12}" y1="${T + 6 + i * 18}" x2="${L + pw + 30}" y2="${T + 6 + i * 18}" stroke="${color}" stroke-width="3"/>`);
       parts.push(`<text x="${L + pw + 34}" y="${T + 10 + i * 18}" fill="#cfe0f5" font-size="12">${esc(ln.name)}</text>`);
     });
-    // x-axis date labels (start / end)
     const fmt = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric' });
     parts.push(`<text x="${L}" y="${T + ph + 22}" fill="#6f88ad" font-size="11">${esc(fmt(t0))}</text>`);
     parts.push(`<text x="${L + pw}" y="${T + ph + 22}" fill="#6f88ad" font-size="11" text-anchor="end">${esc(fmt(t1))}</text>`);
     parts.push('</svg>');
-    return `<div class="ph-overlay-note">Each line normalized to its first sell price in-window (start = 1.00×), so demand waves are comparable across price tiers.</div>${parts.join('\n')}`;
+    return `<div class="ph-overlay-note">Each line is the price's position within its own expected sell band (0% = floor, 100% = ceiling) — same bounds as the Market page, so items at different price tiers are directly comparable.</div>${parts.join('\n')}`;
   }
 
   function chipsHtml(key, items) {
