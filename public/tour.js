@@ -68,7 +68,8 @@ function ensureTourDom() {
 }
 
 let stepIdx = 0;
-let activeSteps = [];   // the step list the current tour is running
+let activeSteps = [];     // the step list the current tour is running
+let tourOnComplete = null; // called when a tour finishes naturally (not on Skip)
 
 function positionCard(targetRect) {
   const card = document.getElementById('tour-card');
@@ -96,7 +97,7 @@ function centerCard() {
 function showStep(idx) {
   stepIdx = idx;
   const step = activeSteps[idx];
-  if (!step) { endTour(); return; }
+  if (!step) { endTour(true); return; }   // ran past the last step → completed
 
   const hi      = document.getElementById('tour-highlight');
   const backBtn = document.getElementById('tour-back');
@@ -106,7 +107,9 @@ function showStep(idx) {
   const firstSpot = Math.max(0, activeSteps.findIndex(s => s.selector));
   backBtn.style.visibility = idx <= firstSpot ? 'hidden' : 'visible';
   nextBtn.textContent = step.nextLabel || (idx === activeSteps.length - 1 ? 'Got it' : 'Next');
-  document.getElementById('tour-title').textContent = step.title || '';
+  const titleEl = document.getElementById('tour-title');
+  titleEl.textContent = step.title || '';
+  titleEl.style.display = step.title ? '' : 'none';   // titleless lore cards: drop the heading
   document.getElementById('tour-body').textContent  = step.body || '';
 
   // Progress counts only the spotlight (targeted) steps, so a centered intro
@@ -140,12 +143,15 @@ function showStep(idx) {
 }
 
 // Run a tour over the given step list ([{ selector, title, body }, …]).
-function startTour(steps) {
+// onComplete (optional) fires only when the tour finishes naturally — used to
+// chain the lore sequence after the UI guide, but not on Skip or a replay.
+function startTour(steps, onComplete) {
   if (!steps || steps.length === 0) return;
   activeSteps = steps;
+  tourOnComplete = onComplete || null;
   ensureTourDom();
   document.body.classList.add('tour-active');
-  document.getElementById('tour-skip').onclick = () => endTour();
+  document.getElementById('tour-skip').onclick = () => endTour(false);
   document.getElementById('tour-back').onclick = () => showStep(Math.max(0, stepIdx - 1));
   document.getElementById('tour-next').onclick = () => showStep(stepIdx + 1);
   window.addEventListener('resize', onResize);
@@ -169,11 +175,14 @@ function onResize() {
   positionCard(r);
 }
 
-function endTour() {
+function endTour(completed) {
   document.body.classList.remove('tour-active');
   const root = document.getElementById('tour-root');
   if (root) root.remove();
   window.removeEventListener('resize', onResize);
+  const cb = tourOnComplete;
+  tourOnComplete = null;
+  if (completed && cb) cb();
 }
 
 window.maybeStartTour = function maybeStartTour() {

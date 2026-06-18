@@ -17,13 +17,25 @@ const BATTLE_TOUR_STEPS = [
   { selector: '#combatant-list',                         title: 'Fighters',        body: 'Your health and resource are shown here. Most actions cost resource and can\'t be used if you don\'t have enough. The game ends when all characters on one side reach 0 health.' },
   { selector: '#right-col',                              title: 'Combat log',      body: 'This is the combat log. It shows what happens when the turn resolves.' },
 ];
+// Story sequence, shown once right after the UI tour completes (centered, no
+// spotlights — just narrative cards). Replayable via the "Run lore" button.
+// The exact original arrival lore, one paragraph per card.
+const LORE_TOUR_STEPS = [
+  { body: 'The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife. With much of the rest of the empire, including you, recovering from an economic depression, many have decided to journey to the frontier to make a new life. A local merchant caravan agreed to let you join for the remains of your savings and with little choice, you joined.' },
+  { body: 'The caravan stops in a clearing on the outskirts of your final destination, Sulku\'it. A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan. After dealing with the caravan leader, he turns to you.' },
+  { body: '"Ah, another traveler, welcome to Sulku\'it. My name is Fendalok and I\'m the Padev around here. I take it you are here to help out in the forest. The empire asks that we record everyone in the town census log for tax purposes."' },
+  { body: 'Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.' },
+  { body: '"You\'ve got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."' },
+];
+
 let battleTourShown = false;
 function maybeStartBattleTour() {
   if (battleTourShown || !isTutorial) return;
   if (typeof window.startTour !== 'function') return;
   if (!document.querySelector('#board .cell')) return;   // wait until the board is actually rendered
   battleTourShown = true;
-  window.startTour(BATTLE_TOUR_STEPS);
+  // First time through: UI guide, then the lore on completion (not on Skip).
+  window.startTour(BATTLE_TOUR_STEPS, () => window.startTour(LORE_TOUR_STEPS));
 }
 
 const PASS_ACTION = { label: 'Pass', choice: 'pass', index: 0, needsTarget: false, range: 0, cost: 0 };
@@ -141,11 +153,16 @@ socket.on('error', ({ message }) => {
 socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
   playerTeamId = tid;
   isTutorial = tutorial;
-  // Tutorial only: a status-bar button to replay the UI walkthrough on demand.
+  // Tutorial only: status-bar buttons to replay the UI walkthrough or the lore.
   const replayBtn = document.getElementById('tour-replay-btn');
   if (replayBtn) {
     replayBtn.hidden = !isTutorial;
     if (isTutorial) replayBtn.onclick = () => { if (window.startTour) window.startTour(BATTLE_TOUR_STEPS); };
+  }
+  const loreBtn = document.getElementById('lore-replay-btn');
+  if (loreBtn) {
+    loreBtn.hidden = !isTutorial;
+    if (isTutorial) loreBtn.onclick = () => { if (window.startTour) window.startTour(LORE_TOUR_STEPS); };
   }
 });
 

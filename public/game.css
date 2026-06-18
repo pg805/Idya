@@ -50,10 +50,10 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #forfeit-btn:disabled,
 #forfeit-btn[hidden] { display: none; }
 
-/* Tutorial-only "Show guide" button — anchors the right-side group (forfeit
-   follows it), styled like forfeit but with a neutral gold hover. */
-#tour-replay-btn {
-  margin-left: auto;
+/* Tutorial-only "Show guide" / "Run lore" buttons — Show guide anchors the
+   right-side group (Run lore + forfeit follow), styled like forfeit but with a
+   neutral gold hover. */
+#tour-replay-btn, #lore-replay-btn {
   font-size: 0.72rem;
   padding: 4px 12px;
   background: transparent;
@@ -63,8 +63,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-#tour-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
-#tour-replay-btn[hidden] { display: none; }
+#tour-replay-btn { margin-left: auto; }
+#tour-replay-btn:hover, #lore-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+#tour-replay-btn[hidden], #lore-replay-btn[hidden] { display: none; }
 
 /* Everything is a STATIC size so content changes (log lines, action sets,
    telegraphs) never reflow the page. Top row: cards | board | log, all fixed
