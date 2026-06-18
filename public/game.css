@@ -50,6 +50,22 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #forfeit-btn:disabled,
 #forfeit-btn[hidden] { display: none; }
 
+/* Tutorial-only "Show guide" button — anchors the right-side group (forfeit
+   follows it), styled like forfeit but with a neutral gold hover. */
+#tour-replay-btn {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+#tour-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+#tour-replay-btn[hidden] { display: none; }
+
 /* Everything is a STATIC size so content changes (log lines, action sets,
    telegraphs) never reflow the page. Top row: cards | board | log, all fixed
    width/height; the action panel sits below at a fixed height. */

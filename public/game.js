@@ -8,6 +8,7 @@ let isTutorial = false;
 // they're looking at before the combat lessons start. Reuses the shared tour
 // component (tour.js). Functional, no lore.
 const BATTLE_TOUR_STEPS = [
+  { title: 'Tutorial', body: 'A quick walkthrough of the battle screen. You can replay it anytime with the Show guide button.', nextLabel: 'Begin tutorial' },
   { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
   { selector: '.combatant.team-a',                       title: 'Your character',  body: 'This is your character. Each turn, you move your character by clicking on your token, then clicking on the square you want to go to. You can move up to two squares a turn.' },
   { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
@@ -140,6 +141,12 @@ socket.on('error', ({ message }) => {
 socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
   playerTeamId = tid;
   isTutorial = tutorial;
+  // Tutorial only: a status-bar button to replay the UI walkthrough on demand.
+  const replayBtn = document.getElementById('tour-replay-btn');
+  if (replayBtn) {
+    replayBtn.hidden = !isTutorial;
+    if (isTutorial) replayBtn.onclick = () => { if (window.startTour) window.startTour(BATTLE_TOUR_STEPS); };
+  }
 });
 
 socket.on('session_state', (newState) => {

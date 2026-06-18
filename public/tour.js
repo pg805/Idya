@@ -57,7 +57,10 @@ function ensureTourDom() {
       <p id="tour-body"></p>
       <div id="tour-actions">
         <button id="tour-skip" type="button">Skip</button>
-        <button id="tour-next" type="button">Next</button>
+        <div id="tour-nav">
+          <button id="tour-back" type="button">Back</button>
+          <button id="tour-next" type="button">Next</button>
+        </div>
       </div>
     </div>
   `;
@@ -83,29 +86,52 @@ function positionCard(targetRect) {
   card.style.top  = `${y}px`;
 }
 
+// A target-less step (no selector) is a centered card — used for the intro gate.
+function centerCard() {
+  const card = document.getElementById('tour-card');
+  card.style.left = `${Math.max(12, (window.innerWidth  - card.offsetWidth)  / 2)}px`;
+  card.style.top  = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`;
+}
+
 function showStep(idx) {
   stepIdx = idx;
   const step = activeSteps[idx];
   if (!step) { endTour(); return; }
+
+  const hi      = document.getElementById('tour-highlight');
+  const backBtn = document.getElementById('tour-back');
+  const nextBtn = document.getElementById('tour-next');
+  // Back is available on every step but the first.
+  backBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+  nextBtn.textContent = step.nextLabel || (idx === activeSteps.length - 1 ? 'Got it' : 'Next');
+  document.getElementById('tour-title').textContent = step.title || '';
+  document.getElementById('tour-body').textContent  = step.body || '';
+
+  // Progress counts only the spotlight (targeted) steps, so a centered intro
+  // doesn't throw off the "n / total" numbering.
+  const spotlights = activeSteps.filter(s => s.selector);
+  const progress = document.getElementById('tour-progress');
+
+  if (!step.selector) {                       // centered intro / outro card
+    hi.style.display = 'none';
+    progress.textContent = '';
+    requestAnimationFrame(centerCard);
+    return;
+  }
 
   // Skip a step whose target isn't on the page (e.g. a panel that hasn't
   // rendered yet) rather than ending the whole tour on the first missing one.
   const target = document.querySelector(step.selector);
   if (!target) { showStep(idx + 1); return; }
 
+  hi.style.display = 'block';
   const r = target.getBoundingClientRect();
-  const hi = document.getElementById('tour-highlight');
   const pad = 6;
   hi.style.left   = `${r.left - pad}px`;
   hi.style.top    = `${r.top - pad}px`;
   hi.style.width  = `${r.width + pad * 2}px`;
   hi.style.height = `${r.height + pad * 2}px`;
-
-  document.getElementById('tour-title').textContent    = step.title;
-  document.getElementById('tour-body').textContent     = step.body;
-  document.getElementById('tour-progress').textContent = `${idx + 1} / ${activeSteps.length}`;
-  const nextBtn = document.getElementById('tour-next');
-  nextBtn.textContent = idx === activeSteps.length - 1 ? 'Got it' : 'Next';
+  progress.textContent = `${spotlights.indexOf(step) + 1} / ${spotlights.length}`;
 
   // Position the card on next frame so its dimensions are accurate.
   requestAnimationFrame(() => positionCard(r));
@@ -118,6 +144,7 @@ function startTour(steps) {
   ensureTourDom();
   document.body.classList.add('tour-active');
   document.getElementById('tour-skip').onclick = () => endTour();
+  document.getElementById('tour-back').onclick = () => showStep(Math.max(0, stepIdx - 1));
   document.getElementById('tour-next').onclick = () => showStep(stepIdx + 1);
   window.addEventListener('resize', onResize);
   showStep(0);
@@ -127,6 +154,7 @@ window.startTour = startTour;
 function onResize() {
   const step = activeSteps[stepIdx];
   if (!step) return;
+  if (!step.selector) { centerCard(); return; }
   const target = document.querySelector(step.selector);
   if (!target) return;
   const r = target.getBoundingClientRect();

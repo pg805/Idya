@@ -63,11 +63,14 @@ body.tour-active { overflow: hidden; }
 
 #tour-actions {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-#tour-skip, #tour-next {
+#tour-nav { display: flex; gap: 8px; }
+
+#tour-skip, #tour-next, #tour-back {
   font-family: inherit;
   font-size: 0.78rem;
   padding: 7px 16px;
@@ -76,12 +79,12 @@ body.tour-active { overflow: hidden; }
   letter-spacing: 0.04em;
 }
 
-#tour-skip {
+#tour-skip, #tour-back {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-faint);
 }
-#tour-skip:hover { color: var(--text-2); border-color: var(--border-strong); }
+#tour-skip:hover, #tour-back:hover { color: var(--text-2); border-color: var(--border-strong); }
 
 #tour-next {
   background: var(--gold-bg);
