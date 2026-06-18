@@ -3370,7 +3370,7 @@ io.on('connection', (socket: Socket) => {
     }
     if (isTut) {
       socket.emit('tutorial_aside', { text: "There's the bird. Let's see what you've got." });
-      socket.emit('tutorial_aside', { text: 'Each turn: move onto the grid, then pick one action. Defend ▶ Attack ▶ Special ▶ Defend — counter what the bird is about to do; its card shows a hint.', isOOC: true });
+      socket.emit('tutorial_aside', { text: "The flow of battle moves between 3 phases: move > intent > resolve.  First, select your movement by clicking on your token, then clicking on the square to move to.  Then, select your action.  The turn will then auto resolve actions in order of 'move > defend > attack > special'.", isOOC: true });
     }
   });
 
@@ -3447,27 +3447,39 @@ io.on('connection', (socket: Socket) => {
       // are pure combat tips.
       const enemy = session.aiCombatants()[0];
       const eMeta = enemy ? session.meta.get(enemy.id) : undefined;
+      const playerC = session.combatants.find(c => !c.isAI);
+      const pMeta = playerC ? session.meta.get(playerC.id) : undefined;
       const shown = (tutMeta.tutorialShown ??= new Set<string>());
       const tip = (key: string, text: string) => {
         if (shown.has(key)) return;
         shown.add(key);
         io.to(sessionId).emit('tutorial_aside', { text, isOOC: true });
       };
+      // Walk the crit triangle one leg at a time, tied to the bird's NEXT action.
       switch (eMeta?.pattern[session.turn]?.type) {
+        case PatternActionType.Defend: {
+          // First lesson — introduce crits. If the player already landed one on
+          // turn 1 (a Special into the guarding swallow), acknowledge it.
+          const opener = (pMeta?.state.attack_crits ?? 0) > 0 ? 'That was a critical hit! ' : '';
+          tip('vs-defend', opener + 'Crits trigger on a triangle: Defend ▶ Attack ▶ Special ▶ Defend — each beats the next. When your action beats what the enemy does, it lands a crit: a second effect on top of the action. The swallow will guard next turn, so aim a Special at its tile. (Special beats Defend.)');
+          break;
+        }
         case PatternActionType.Attack:
-          tip('vs-attack',  "It's about to strike — put up a Defend to soften the hit. (Defend beats Attack.)");
+          tip('vs-attack', 'The swallow will strike next turn. Defend beats Attack — put up a guard to soften the hit and crit it as it swings.');
           break;
         case PatternActionType.Special:
-          tip('vs-special', "It's winding up a Special — hit it with an Attack now to land a critical hit. (Attack beats Special.)");
+          tip('vs-special', 'The swallow is winding up a Special next turn. Attack beats Special — hit it while it winds up to land a crit.');
           break;
-        case PatternActionType.Defend:
-          tip('vs-defend',  "The bird's guarding. Wind up a Special for the most damage. (Special beats Defend.)");
-          break;
+      }
+
+      // Once the triangle is taught, point out the enemy tell.
+      if (session.turn >= 4) {
+        tip('telegraph', "See the hint on the swallow's card? Enemies telegraph their next move with a tell — read it to know which action will beat them.");
       }
 
       // Safety net: if the fight drags on, Fendalok steps in so a stuck player
       // isn't stranded.
-      if (session.turn >= 10) {
+      if (session.turn >= 15) {
         io.to(sessionId).emit('tutorial_aside', { text: 'Tell you what — let me give you a hand.' });
         io.to(sessionId).emit('tutorial_aside', { text: 'Fendalok steps in and knocks the bird out of the air for you.', isOOC: true });
         for (const team of session.teams) {
