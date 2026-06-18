@@ -8,7 +8,7 @@ let isTutorial = false;
 // they're looking at before the combat lessons start. Reuses the shared tour
 // component (tour.js). Functional, no lore.
 const BATTLE_TOUR_STEPS = [
-  { title: 'Tutorial', body: 'A quick walkthrough of the battle screen. You can replay it anytime with the Show guide button.', nextLabel: 'Begin tutorial' },
+  { title: 'A bird in the attic', body: 'The following tutorial explains the battle mechanics. You can view the guide again at any point by clicking the Show Guide button.', nextLabel: 'Begin tutorial' },
   { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
   { selector: '.combatant.team-a',                       title: 'Your character',  body: 'This is your character. Each turn, you move your character by clicking on your token, then clicking on the square you want to go to. You can move up to two squares a turn.' },
   { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
