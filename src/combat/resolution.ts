@@ -1,6 +1,6 @@
 import { CombatSession, Combatant, CombatantMeta, ReplayIntent } from './combat_session.js';
 import { CombatIntent } from './intent.js';
-import { chebyshevDist } from './board.js';
+import { chebyshevDist, rangeDist, footprint, occupies, cellsOf, unitDist } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { resolve_action, strikeBreakdown, FLAVOR_MARK } from './action_resolver.js';
 import Action, { SELF_TARGET_TYPES, TILE_TYPES, ActionType } from '../weapon/action.js';
@@ -24,6 +24,23 @@ function pushLog(log: string[], text: string) {
   }
 }
 
+// --- Multi-square targeting (footprint-aware; all reduce to single-cell at size 1) ---
+
+// Reach from a (possibly 2×2) unit to a single tile: nearest footprint cell.
+function unitDistToPos(u: Combatant, p: { x: number; y: number }): number {
+  let best = Infinity;
+  for (const c of cellsOf(u)) best = Math.min(best, rangeDist(c, p));
+  return best;
+}
+
+// LOS between two units: clear if ANY cell of one sees ANY cell of the other.
+function unitLineOfSight(a: Combatant, b: Combatant, board: CombatSession['board']): boolean {
+  for (const ca of cellsOf(a))
+    for (const cb of cellsOf(b))
+      if (hasLineOfSight(ca, cb, board)) return true;
+  return false;
+}
+
 // Category triangle: Defend ▶ Attack ▶ Special ▶ Defend. Called once per action
 // sub-phase (`phaseFilter`): every unit whose action category == this phase and
 // BEATS an opposing unit's category gets its matching crit, resolved AS PART of
@@ -44,8 +61,44 @@ function pushLog(log: string[], text: string) {
 // nothing, so they fire no crit. These are the types that engage an opponent:
 const OFFENSIVE_TYPES = new Set<number>([
   ActionType.Strike, ActionType.DamageOverTime, ActionType.Debuff, ActionType.MoveDebuff, ActionType.HazardTile,
+  // Destroy-obstacle lands a blast on foes by the wreck — outward, so it engages
+  // a crit (unlike the inward block/buff/slow zone tiles).
+  ActionType.DestroyObstacle,
 ]);
 const isOffensive = (a?: Action): boolean => a !== undefined && OFFENSIVE_TYPES.has(a.type);
+
+// Did `src`'s `action` actually LAND ON `tgt` this turn (not just pick a winning
+// category)? This is one half of the crit gate: a crit fires when EITHER side
+// landed on the other (A→B or B→A), so we call this twice with the roles swapped.
+//   - Inward actions (self block/heal/shield/buff, restores) land on nobody but
+//     the actor → return false (not offensive).
+//   - Outward AIMED attacks land on the aimed tile (or a tile in its AOE block);
+//     OUTWARD reactive attacks land on foes in range, or anyone in the self-burst
+//     block. A miss (out of range / aimed elsewhere / empty block) → false.
+// So attacking empty air, or two units both acting only on themselves, fires no
+// crit — there was no real exchange.
+function critEngages(action: Action | undefined, intent: CombatIntent | undefined, src: Combatant, tgt: Combatant): boolean {
+  if (!isOffensive(action) || !intent) return false;
+  const hits = (p: { x: number; y: number }): boolean => occupies(tgt, p);  // any footprint cell of the target
+  // Destroy-obstacle: its blast lands on foes within 1 of the wrecked obstacle
+  // (matches resolveDestroyObstacle), so it affects `tgt` iff tgt is by the wreck.
+  if (action!.type === ActionType.DestroyObstacle) {
+    const tp = intent.action.targetPos;
+    return tp != null && unitDistToPos(tgt, tp) <= 1;
+  }
+  if (action!.aimed) {
+    const tp = intent.action.targetPos;
+    if (!tp) return false;                                   // aimed at nothing
+    return action!.area > 1 ? areaBlock(tp, action!.area, src.pos).some(hits) : hits(tp);
+  }
+  return action!.area > 1
+    // Reactive self-burst — must match resolveReactiveStrike's geometry, which
+    // centers the block on the actor's footprint (a 2×2 ground-pound), NOT the
+    // corner-spray areaBlock would give for even N. Otherwise the engagement
+    // test checks the wrong cells and suppresses a deserved counter-crit.
+    ? selfBurstCells(src.pos, src.size ?? 1, action!.area, src.pos).some(hits)
+    : unitDist(src, tgt) <= (action!.range ?? 1);            // reactive single: nearest in range
+}
 
 function resolveTriangleCrits(session: CombatSession, intents: Map<string, CombatIntent>, log: string[], phaseFilter: 'defend' | 'attack' | 'special'): void {
   const BEATS: Record<string, string> = { attack: 'special', special: 'defend', defend: 'attack' };
@@ -77,13 +130,15 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       const fMeta = session.meta.get(foe.id);
       if (!fMeta || fMeta.state.health <= 0) continue;
       const foeAction = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex];
-      const foeRange = foeAction?.range ?? 1;
-      // Neither side acted on the other (both pure self/utility actions) → no real
-      // counter happened, so no crit. One of them must be targeting the opponent.
-      if (!isOffensive(myAction) && !isOffensive(foeAction)) continue;
-      const dist = chebyshevDist(actor.pos, foe.pos);
-      if (dist > Math.max(myRange, foeRange)) continue;   // not engaged this turn
-      if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must reach
+      // A crit only fires when one side actually TARGETED the other this turn — not
+      // just because the categories line up. So a defend-crit counters an attacker
+      // only if that attacker actually attacked the defender (aimed at its tile, or
+      // a reactive/AOE that caught it); attacking empty air provokes no counter.
+      const engaged = critEngages(myAction, aIntent, actor, foe)
+                   || critEngages(foeAction, fIntent, foe, actor);
+      if (!engaged) continue;
+      const dist = unitDist(actor, foe);
+      if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
       aMeta.state.attack_crits += 1;
       log.push(`★ ${actor.name} ${VERB[aCat]} ${foe.name}!`);
       if (isTile) {
@@ -136,6 +191,20 @@ export function areaBlock(center: { x: number; y: number }, area: number, caster
   return out;
 }
 
+// The cells a REACTIVE self-burst (area N) covers for an actor of `size` at
+// `anchor`. When N and size share parity ((N - size) even) the N×N is centered on
+// the actor's footprint — a 1×1 actor with odd N is the classic actor-centered
+// burst; a 2×2 actor with N=4 is a ground-pound covering the body + its ring.
+// When parity mismatches (e.g. a 1×1 actor with even N) there's no exact center,
+// so it sprays toward `sprayFrom` via areaBlock, as before.
+export function selfBurstCells(anchor: { x: number; y: number }, size: number, area: number, sprayFrom: { x: number; y: number }): { x: number; y: number }[] {
+  if ((area - size) % 2 === 0) {
+    const off = (area - size) / 2;
+    return footprint({ x: anchor.x - off, y: anchor.y - off }, area);
+  }
+  return areaBlock(anchor, area, sprayFrom);
+}
+
 // Pick a random on-board, unblocked square within `range` of `from` (excluding
 // `from` itself). Used as the fallback for aimed tile drops whose intended target
 // ended up out of range — better to mire a random nearby square than to drop the
@@ -161,7 +230,7 @@ function randomTileInRange(
 // another unit — no shoving through walls or stacking. Used by the Push rider.
 function knockback(
   from: { x: number; y: number },
-  target: { id: string; name: string; pos: { x: number; y: number } },
+  target: Combatant,
   squares: number,
   session: CombatSession,
   log: string[],
@@ -169,12 +238,23 @@ function knockback(
   const dx = Math.sign(target.pos.x - from.x);
   const dy = Math.sign(target.pos.y - from.y);
   if (dx === 0 && dy === 0) return;
+  const size = target.size ?? 1;
   let moved = 0;
   for (let i = 0; i < squares; i++) {
-    const next = { x: target.pos.x + dx, y: target.pos.y + dy };
-    if (!session.board.inBounds(next) || session.board.isBlocked(next)) break;
-    if (session.combatants.some(c => c.id !== target.id && c.pos.x === next.x && c.pos.y === next.y)) break;
-    target.pos = next;
+    const nextAnchor = { x: target.pos.x + dx, y: target.pos.y + dy };
+    // Every cell the body would shift INTO (its footprint at the new anchor,
+    // minus where it already stands) must be clear of edges, obstacles, and
+    // other units. At size 1 this is just the single `nextAnchor` cell.
+    const entering = size > 1
+      ? footprint(nextAnchor, size).filter(c => !occupies({ pos: target.pos, size }, c))
+      : [nextAnchor];
+    let blockedStep = false;
+    for (const cell of entering) {
+      if (!session.board.inBounds(cell) || session.board.isBlocked(cell)) { blockedStep = true; break; }
+      if (session.combatants.some(c => c.id !== target.id && occupies(c, cell))) { blockedStep = true; break; }
+    }
+    if (blockedStep) break;
+    target.pos = nextAnchor;
     moved++;
   }
   if (moved > 0) log.push(`  ${target.name} is knocked back ${moved} square${moved > 1 ? 's' : ''} to (${target.pos.x},${target.pos.y}).`);
@@ -246,7 +326,7 @@ export function resolveIntents(
     const dest = intent.moveTo;
     const stationaryOccupant = snapshot.find(c =>
       c.id !== id &&
-      c.pos.x === dest.x && c.pos.y === dest.y &&
+      occupies(c, dest) &&
       !intents.get(c.id)?.moveTo
     );
     if (stationaryOccupant) { blocked.add(id); blockedDest.set(id, { ...dest }); }
@@ -275,13 +355,13 @@ export function resolveIntents(
     if (!originalDest) continue;
 
     const allOccupied = new Set<string>([
-      ...snapshot.filter(o => o.id !== id).map(o => `${o.pos.x},${o.pos.y}`),
+      ...snapshot.filter(o => o.id !== id).flatMap(o => cellsOf(o).map(cell => `${cell.x},${cell.y}`)),
       ...nonBlockedDests,
     ]);
 
     const cReachMeta = session.meta.get(id);
     const cMove = cReachMeta ? effectiveMove(c.movementRange, cReachMeta.state) : c.movementRange;
-    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied);
+    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied, c.size);
 
     // Pick the reachable tile that: (1) gets us closest to the original
     // destination, (2) uses the fewest steps among equally-close options.
@@ -308,6 +388,34 @@ export function resolveIntents(
     }
   }
 
+  // Footprint-overlap contest (multi-square units). The checks above only catch
+  // movers wanting the same ANCHOR; two units moving to DIFFERENT anchors whose
+  // size×size footprints overlap (a 2×2 sliding onto where a 1×1 also moved)
+  // would both commit and end up stacked. Claim footprints in move-priority order
+  // (players before AI, then initiative); a MOVER whose destination footprint
+  // collides with an already-claimed cell is denied and holds its square. For an
+  // all-1×1 board this is a no-op (same-cell collisions are already resolved), so
+  // it only bites multi-square units.
+  {
+    const claimed = new Map<string, string>();   // cell 'x,y' → unit id holding it
+    const claimAnchor = (c: Combatant) => {
+      const mv = intents.get(c.id)?.moveTo;
+      return (mv && !blocked.has(c.id)) ? mv : (preMovePos.get(c.id) ?? c.pos);
+    };
+    for (const c of [...snapshot].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
+      const m = session.meta.get(c.id);
+      if (m && m.state.health <= 0) continue;
+      let cells = footprint(claimAnchor(c), c.size);
+      const collides = cells.some(p => { const o = claimed.get(`${p.x},${p.y}`); return o !== undefined && o !== c.id; });
+      if (collides && intents.get(c.id)?.moveTo && !blocked.has(c.id)) {
+        blocked.add(c.id);
+        blockedDest.set(c.id, { ...intents.get(c.id)!.moveTo! });
+        cells = footprint(preMovePos.get(c.id) ?? c.pos, c.size);   // fall back to its starting square
+      }
+      for (const p of cells) claimed.set(`${p.x},${p.y}`, c.id);
+    }
+  }
+
   const moveStart = log.length;
   // Track each mover's traversed path so hazard tiles damage on every square
   // entered, not just the destination (movement isn't a teleport).
@@ -324,7 +432,11 @@ export function resolveIntents(
     // choice — deliberately picking a different equal-cost route — is future work.)
     const moverMeta = session.meta.get(id);
     const moverRange = moverMeta ? effectiveMove(c.movementRange, moverMeta.state) : c.movementRange;
-    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true) ?? [intent.moveTo];
+    // Empty occupied set on purpose: movement resolves simultaneously, so the
+    // route ignores where others currently stand (collisions are handled by the
+    // destination contest above). Passing size keeps a 2×2 body's route on tiles
+    // its whole footprint can clear.
+    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true, c.size) ?? [intent.moveTo];
     moverPaths.set(id, path);
     c.pos = intent.moveTo;
   }
@@ -337,15 +449,25 @@ export function resolveIntents(
     if (!c) continue;
     const meta = session.meta.get(c.id);
     if (!meta) continue;
+    const size = c.size ?? 1;
+    let prev = preMovePos.get(c.id) ?? path[0] ?? c.pos;
     for (const step of path) {
-      const tile = session.board.getTile(step);
-      if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
-      if (meta.state.health <= 0) break;
-      const before = meta.state.health;
-      meta.state.health = Math.max(meta.state.health - tile.value, 0);
-      meta.state.damage_taken += before - meta.state.health;
-      c.hp = meta.state.health;
-      log.push(`${c.name} steps on a hazard at (${step.x},${step.y}): −${tile.value} HP`);
+      // Damage once per opposing-hazard tile the body's leading edge sweeps over
+      // this step (not once per tile it merely sits on). At size 1 that's `step`.
+      const swept = size > 1
+        ? footprint(step, size).filter(cell => !occupies({ pos: prev, size }, cell))
+        : [step];
+      for (const cell of swept) {
+        const tile = session.board.getTile(cell);
+        if (!tile || tile.kind !== 'hazard' || tile.teamId === c.teamId) continue;
+        if (meta.state.health <= 0) break;
+        const before = meta.state.health;
+        meta.state.health = Math.max(meta.state.health - tile.value, 0);
+        meta.state.damage_taken += before - meta.state.health;
+        c.hp = meta.state.health;
+        log.push(`${c.name} steps on a hazard at (${cell.x},${cell.y}): −${tile.value} HP`);
+      }
+      prev = step;
     }
   }
   // Move section: only units that actually MOVED (or were denied a square) — a
@@ -404,7 +526,7 @@ export function resolveIntents(
   const nearestEnemyTo = (actor: Combatant): Combatant | null => {
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
     if (enemies.length === 0) return null;
-    return enemies.reduce((a, b) => chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b);
+    return enemies.reduce((a, b) => unitDist(actor, a) <= unitDist(actor, b) ? a : b);
   };
 
   // Resolve an N×N strike over a precomputed block of `cells`. If the action
@@ -436,7 +558,7 @@ export function resolveIntents(
           log.push(`  ${action.name} flattens the obstacle at (${x},${y}).`);
       }
     }
-    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cells.has(`${c.pos.x},${c.pos.y}`));
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && cellsOf(c).some(cell => cells.has(`${cell.x},${cell.y}`)));
     if (victims.length === 0) {
       const cost = bareCost(actorMeta.state.apply_cost(action));
       log.push(`${actor.name} — ${action.name}: ${label} catches no one`);
@@ -458,7 +580,7 @@ export function resolveIntents(
       let firstHit: Combatant | undefined;
       for (const v of live) {
         const m = session.meta.get(v.id)!;
-        if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+        if (!unitLineOfSight(actor, v, session.board)) {
           resolveLines.push(`    ${v.name} shielded by an obstacle`);
           continue;
         }
@@ -495,7 +617,7 @@ export function resolveIntents(
       const m = session.meta.get(v.id);
       if (!m || m.state.health <= 0) continue;
       // An obstacle between the caster and a victim shields them from the blast.
-      if (!hasLineOfSight(actor.pos, v.pos, session.board)) {
+      if (!unitLineOfSight(actor, v, session.board)) {
         log.push(`  ${v.name} is shielded from ${action.name} by an obstacle.`);
         continue;
       }
@@ -520,7 +642,7 @@ export function resolveIntents(
     let placePos = { ...actor.pos };
     const tp = intent.action.targetPos;
     if (action.aimed) {
-      placePos = tp && chebyshevDist(actor.pos, tp) <= action.range
+      placePos = tp && unitDistToPos(actor, tp) <= action.range
         ? { ...tp }
         : randomTileInRange(actor.pos, action.range, session.board);
     }
@@ -532,7 +654,7 @@ export function resolveIntents(
     // A hazard dropped under an opposing combatant counts as entering it.
     if (kind === 'hazard') {
       for (const p of cells) {
-        const victim = session.combatants.find(c => c.teamId !== actor.teamId && c.pos.x === p.x && c.pos.y === p.y);
+        const victim = session.combatants.find(c => c.teamId !== actor.teamId && occupies(c, p));
         const vMeta = victim ? session.meta.get(victim.id) : undefined;
         if (victim && vMeta && vMeta.state.health > 0) {
           const before = vMeta.state.health;
@@ -556,13 +678,13 @@ export function resolveIntents(
     };
     const targetPos = intent.action.targetPos;
     if (!targetPos) { fizzle('no target'); return; }
-    const dist = chebyshevDist(actor.pos, targetPos);
+    const dist = unitDistToPos(actor, targetPos);
     if (dist > action.range) { fizzle(`out of range (dist ${dist})`); return; }
     if (!session.board.destroyObstacle(targetPos)) { fizzle(`no obstacle at (${targetPos.x},${targetPos.y}), misses`); return; }
     const field = (action as DestroyObstacle).field;
     log.push(`${actor.name} — ${action.name}: shatters the obstacle at (${targetPos.x},${targetPos.y})!`);
     if (cost) log.push(`    ${cost}`);
-    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && chebyshevDist(c.pos, targetPos) <= 1);
+    const victims = session.combatants.filter(c => c.teamId !== actor.teamId && unitDistToPos(c, targetPos) <= 1);
     for (const v of victims) {
       const vMeta = session.meta.get(v.id);
       if (!vMeta || vMeta.state.health <= 0) continue;
@@ -593,7 +715,7 @@ export function resolveIntents(
       return;
     }
 
-    const dist = chebyshevDist(actor.pos, targetPos);
+    const dist = unitDistToPos(actor, targetPos);
     const tileStr = `(${targetPos.x},${targetPos.y})`;
 
     if (dist > action.range) {
@@ -611,7 +733,7 @@ export function resolveIntents(
       // if somehow blocked, skip the move and burst from where we stand.
       const extra: string[] = [];
       if (action.moveTo) {
-        const occupied = session.combatants.some(c => c.id !== actor.id && c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+        const occupied = session.combatants.some(c => c.id !== actor.id && occupies(c, targetPos));
         if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos) && !occupied) {
           actor.pos = { x: targetPos.x, y: targetPos.y };
           extra.push(`blink to ${tileStr}`);   // shown as a resolution line under the header
@@ -622,7 +744,7 @@ export function resolveIntents(
       return;
     }
 
-    const occupant = session.combatants.find(c => c.pos.x === targetPos.x && c.pos.y === targetPos.y);
+    const occupant = session.combatants.find(c => occupies(c, targetPos));
     if (!occupant) {
       logMiss(actor, actorMeta, action, `aimed at ${tileStr}, empty space`);
       return;
@@ -647,19 +769,18 @@ export function resolveIntents(
   const resolveReactiveStrike = (actor: Combatant, actorMeta: CombatantMeta, action: Action, intent: CombatIntent): void => {
     const { weapon } = actorMeta;
     if (action.area > 1) {
-      let sprayFrom = actor.pos;
-      if (action.area % 2 === 0) {
-        const foe = nearestEnemyTo(actor);
-        const dx = foe ? (Math.sign(foe.pos.x - actor.pos.x) || -1) : -1;
-        const dy = foe ? (Math.sign(foe.pos.y - actor.pos.y) || -1) : -1;
-        sprayFrom = { x: actor.pos.x - dx, y: actor.pos.y - dy };
-      }
-      const cells = new Set(areaBlock(actor.pos, action.area, sprayFrom).map(p => `${p.x},${p.y}`));
+      // Spray origin only matters when parity mismatches (size 1 + even N); for a
+      // footprint-centered burst it's ignored.
+      const foe = nearestEnemyTo(actor);
+      const dx = foe ? (Math.sign(foe.pos.x - actor.pos.x) || -1) : -1;
+      const dy = foe ? (Math.sign(foe.pos.y - actor.pos.y) || -1) : -1;
+      const sprayFrom = { x: actor.pos.x - dx, y: actor.pos.y - dy };
+      const cells = new Set(selfBurstCells(actor.pos, actor.size ?? 1, action.area, sprayFrom).map(p => `${p.x},${p.y}`));
       resolveAoeStrike(actor, actorMeta, action, intent, cells, `${action.area}×${action.area} burst`);
       return;
     }
     const enemies = session.combatants.filter(c => c.teamId !== actor.teamId);
-    const inRange = enemies.filter(e => chebyshevDist(actor.pos, e.pos) <= action.range);
+    const inRange = enemies.filter(e => unitDist(actor, e) <= action.range);
 
     if (inRange.length === 0) {
       logMiss(actor, actorMeta, action, 'no target in range');
@@ -667,7 +788,7 @@ export function resolveIntents(
     }
 
     const target = inRange.reduce((a, b) =>
-      chebyshevDist(actor.pos, a.pos) <= chebyshevDist(actor.pos, b.pos) ? a : b
+      unitDist(actor, a) <= unitDist(actor, b) ? a : b
     );
     const targetMeta = session.meta.get(target.id);
     if (!targetMeta) return;
@@ -753,12 +874,17 @@ export function resolveIntents(
   // attack lands: block tiles add to block (stacks with a defend), buff tiles
   // feed strike damage via tileBuff. Recomputed each round; cleared at end_round.
   for (const c of session.combatants) {
-    const tile = session.board.getTile(c.pos);
-    if (!tile || tile.teamId !== c.teamId) continue;
     const meta = session.meta.get(c.id);
     if (!meta) continue;
-    if (tile.kind === 'block')     meta.state.block += tile.value;
-    else if (tile.kind === 'buff') meta.state.tileBuff = tile.value;
+    // A multi-square unit overlaps up to size² tiles: block stacks across every
+    // friendly block tile it covers; buff takes the strongest. At size 1 this is
+    // the single square under it.
+    for (const cell of cellsOf(c)) {
+      const tile = session.board.getTile(cell);
+      if (!tile || tile.teamId !== c.teamId) continue;
+      if (tile.kind === 'block')     meta.state.block += tile.value;
+      else if (tile.kind === 'buff') meta.state.tileBuff = Math.max(meta.state.tileBuff, tile.value);
+    }
   }
 
   const subPhases: Array<'defend' | 'attack' | 'special'> = ['defend', 'attack', 'special'];

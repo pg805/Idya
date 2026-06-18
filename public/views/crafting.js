@@ -112,16 +112,7 @@
               </div>
             </div>
             <div class="craft-row">
-              <div class="craft-qty-ctrl${r.available ? '' : ' disabled'}">
-                <button class="craft-step" onclick="Views.crafting.adjCraftQty('${r.id}', -1)" ${r.available ? '' : 'disabled'}>−</button>
-                <input class="craft-qty" id="qty-${r.id}" type="text" inputmode="numeric" pattern="[0-9]*"
-                  autocomplete="off" maxlength="3"
-                  value="1" data-max="${maxCraftable(r)}"
-                  oninput="Views.crafting.onQtyInput('${r.id}')"
-                  ${r.available ? '' : 'disabled'}>
-                <button class="craft-step" onclick="Views.crafting.adjCraftQty('${r.id}', 1)" ${r.available ? '' : 'disabled'}>+</button>
-                <button class="craft-all" onclick="Views.crafting.setCraftQty('${r.id}', ${maxCraftable(r)})" ${r.available ? '' : 'disabled'}>ALL</button>
-              </div>
+              ${QtyStepper.html({ id: `qty-${r.id}`, value: 1, min: 1, max: maxCraftable(r), disabled: !r.available })}
               <button class="craft-btn" onclick="Views.crafting.doCraft('${r.id}')" ${r.available ? '' : 'disabled'}>Craft</button>
             </div>
           </div>` : ''}
@@ -147,33 +138,8 @@
     return Math.max(0, Math.min(99, ...maxByIng));
   }
 
-  function setCraftQty(recipeId, qty) {
-    const input = document.getElementById(`qty-${recipeId}`);
-    if (!input) return;
-    const max = parseInt(input.dataset.max, 10) || 1;
-    const clamped = Math.max(1, Math.min(max, Math.floor(qty)));
-    input.value = String(clamped);
-  }
-
-  function adjCraftQty(recipeId, delta) {
-    const input = document.getElementById(`qty-${recipeId}`);
-    if (!input) return;
-    const cur = parseInt(input.value, 10) || 1;
-    setCraftQty(recipeId, cur + delta);
-  }
-
-  // Input handler: strip non-digits, clamp to max in-place (preserves cursor).
-  function onQtyInput(recipeId) {
-    const input = document.getElementById(`qty-${recipeId}`);
-    if (!input) return;
-    const cleaned = input.value.replace(/\D/g, '');
-    const max = parseInt(input.dataset.max, 10) || 1;
-    const clamped = Math.max(0, Math.min(max, parseInt(cleaned, 10) || 0));
-    if (String(clamped) !== input.value) input.value = String(clamped);
-  }
-
   async function doCraft(recipeId) {
-    const quantity = parseInt(document.getElementById(`qty-${recipeId}`)?.value ?? '1', 10) || 1;
+    const quantity = QtyStepper.val(`qty-${recipeId}`) || 1;
     const res = await fetch(`/api/craft/${recipeId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ quantity }),
@@ -201,6 +167,6 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.crafting = { mount, unmount, toggleProf, toggleRecipe, doCraft, adjCraftQty, setCraftQty, onQtyInput };
+  window.Views.crafting = { mount, unmount, toggleProf, toggleRecipe, doCraft };
   window.showToast = (msg) => toast(msg, true);
 })();

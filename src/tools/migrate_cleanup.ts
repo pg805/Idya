@@ -15,6 +15,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import prisma from '../database/prisma.js';
 import { loadAllRecipes } from '../economy/recipe_loader.js';
+import { ITEMS } from '../economy/items.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '../..');
@@ -102,12 +103,17 @@ async function main() {
     for (const u of weaponUpdates) await tx.characterWeapon.update({ where: { id: u.id }, data: { upgrades: u.upgrades as object } });
     for (const d of weaponDeletes) await tx.characterWeapon.delete({ where: { id: d.id } });
     for (const [charId, r] of refunds)
-      for (const [item, qty] of Object.entries(r))
+      for (const [item, qty] of Object.entries(r)) {
+        // The refund material may have no Item row yet on this DB (nobody ever held
+        // it), which would fail the InventoryItem FK — seed it from the catalog first.
+        const def = ITEMS[item];
+        if (def) await tx.item.upsert({ where: { id: item }, update: {}, create: { id: item, name: def.name, description: def.description } });
         await tx.inventoryItem.upsert({
           where:  { character_id_item_id: { character_id: charId, item_id: item } },
           update: { quantity: { increment: qty } },
           create: { character_id: charId, item_id: item, quantity: qty },
         });
+      }
   });
   console.log('\n✅ Applied.');
   await prisma.$disconnect();

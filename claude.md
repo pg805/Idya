@@ -41,7 +41,7 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG.md         # Detailed dev changelog
 ├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
 ├── PRD.md               # Vision / product requirements
-├── alpha_checklist.md   # TODOs before alpha
+├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
 ├── npc-dialogue-system.md
 ├── rules.md

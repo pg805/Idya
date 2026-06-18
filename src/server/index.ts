@@ -23,20 +23,21 @@ import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
 import { CombatantState, effectiveMove } from '../combat/combatant_state.js';
 import { CombatIntent } from '../combat/intent.js';
-import { buildWeaponInfo, loadEnemy } from '../combat/enemy_loader.js';
+import { buildWeaponInfo, loadEnemy, enemyFootprintSize } from '../combat/enemy_loader.js';
 import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
-import { chebyshevDist } from '../combat/board.js';
+import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
-import { loadShop } from '../economy/shop_loader.js';
+import { loadShop, type ShopItemListing } from '../economy/shop_loader.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
-import { getPrices, buyItem, sellItem, tickAllDue } from '../economy/shop_service.js';
+import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from '../economy/shop_math.js';
+import { getPrices, buyItem, sellItem, tickAllDue, TICK_INTERVAL_MS } from '../economy/shop_service.js';
 import { ITEMS, isUnlock, trophyIdFor, enemyKeyFromTrophy } from '../economy/items.js';
 import { startQuestScheduler } from '../economy/quest_service.js';
-import { loadAllRecipes, type RecipeOutput } from '../economy/recipe_loader.js';
+import { loadAllRecipes, type RecipeOutput, type Recipe } from '../economy/recipe_loader.js';
 import {
   budgetForLevel, upgradeCost, totalUpgradesUsed, maxUpgrades, upgradeSplit,
   upgradeKind, actionsWithCategories, buildFieldLenMap,
@@ -60,7 +61,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const sessions = new Map<string, CombatSession>();
-const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[] }>();
+const sessionMeta = new Map<string, { discordUserId: string; isTutorial: boolean; lootTables: LootTable[]; enemyKey: string; enemyName: string; weaponKey: string; weaponUpgrades: number; startedAt: Date; lastActivityAt: Date; endedAt: Date | null; rounds: { turn: number; log: string[] }[]; tutorialShown?: Set<string> }>();
 const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
@@ -321,13 +322,14 @@ function randomPlayerSpawn(): Pos {
 
 // Pick an enemy spawn at a random distance/direction from the player, kept
 // on-board and away from the player and any previously-placed enemy tiles.
-function randomEnemySpawn(player: Pos, taken: Pos[]): Pos | null {
+function randomEnemySpawn(player: Pos, taken: Pos[], size = 1): Pos | null {
   for (let attempt = 0; attempt < 50; attempt++) {
     const dist = ENEMY_DIST_MIN + Math.floor(Math.random() * (ENEMY_DIST_MAX - ENEMY_DIST_MIN + 1));
     const angle = Math.random() * Math.PI * 2;
     const x = Math.round(player.x + Math.cos(angle) * dist);
     const y = Math.round(player.y + Math.sin(angle) * dist);
-    if (x < 0 || x >= HUNT_BOARD_W || y < 0 || y >= HUNT_BOARD_H) continue;
+    // The anchor (top-left) must leave room for the whole size×size footprint.
+    if (x < 0 || x + size > HUNT_BOARD_W || y < 0 || y + size > HUNT_BOARD_H) continue;
     const pos = { x, y };
     if (chebyshev(pos, player) < ENEMY_DIST_MIN) continue;
     if (taken.some(t => chebyshev(t, pos) < ENEMY_PAIR_MIN_SEP)) continue;
@@ -339,7 +341,7 @@ function randomEnemySpawn(player: Pos, taken: Pos[]): Pos | null {
 // Build the full board layout for a hunt: player spawn, enemy spawn(s),
 // and obstacles. Obstacles avoid a 3x3 area around each spawn tile and
 // the layout is BFS-verified so every enemy is reachable from the player.
-function randomHuntBoard(enemyCount: number): {
+function randomHuntBoard(enemyCount: number, enemySize = 1): {
   playerSpawn: Pos;
   enemySpawns: Pos[];
   obstacles: { pos: Pos; state: 'intact' }[];
@@ -350,23 +352,22 @@ function randomHuntBoard(enemyCount: number): {
     const enemySpawns: Pos[] = [];
     let spawnFailed = false;
     for (let i = 0; i < enemyCount; i++) {
-      const e = randomEnemySpawn(playerSpawn, enemySpawns);
+      const e = randomEnemySpawn(playerSpawn, enemySpawns, enemySize);
       if (!e) { spawnFailed = true; break; }
       enemySpawns.push(e);
     }
     if (spawnFailed) continue;
 
-    // Tiles to keep free of obstacles: the spawn tiles themselves plus a
-    // 3x3 buffer around each.
+    // Tiles to keep free of obstacles: each spawn's footprint plus a buffer ring.
+    // The player is a single square; an enemy covers size×size from its anchor.
     const noObstacle = new Set<string>();
-    const allSpawns = [playerSpawn, ...enemySpawns];
-    for (const s of allSpawns) {
-      for (let dx = -OBSTACLE_BUFFER; dx <= OBSTACLE_BUFFER; dx++) {
-        for (let dy = -OBSTACLE_BUFFER; dy <= OBSTACLE_BUFFER; dy++) {
+    const reserve = (s: Pos, size: number) => {
+      for (let dx = -OBSTACLE_BUFFER; dx < size + OBSTACLE_BUFFER; dx++)
+        for (let dy = -OBSTACLE_BUFFER; dy < size + OBSTACLE_BUFFER; dy++)
           noObstacle.add(`${s.x + dx},${s.y + dy}`);
-        }
-      }
-    }
+    };
+    reserve(playerSpawn, 1);
+    for (const e of enemySpawns) reserve(e, enemySize);
 
     const candidates: Pos[] = [];
     for (let x = 0; x < HUNT_BOARD_W; x++) {
@@ -397,11 +398,14 @@ function randomHuntBoard(enemyCount: number): {
   }
 
   // Fallback: empty obstacles, deterministic spawns. Should be extremely rare.
+  // Anchor the enemy so its footprint stays on-board (size 1 → the far corner).
+  const fx = HUNT_BOARD_W - enemySize;
+  const fy = HUNT_BOARD_H - enemySize;
   return {
     playerSpawn: { x: 0, y: 0 },
     enemySpawns: enemyCount > 1
-      ? [{ x: HUNT_BOARD_W - 1, y: 1 }, { x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }]
-      : [{ x: HUNT_BOARD_W - 1, y: HUNT_BOARD_H - 1 }],
+      ? [{ x: fx, y: 1 }, { x: fx, y: fy }]
+      : [{ x: fx, y: fy }],
     obstacles: [],
   };
 }
@@ -459,13 +463,14 @@ function createSession(
 
   // Compute the full hunt layout (player spawn, enemy spawns, obstacles).
   // Tutorial keeps its fixed mini-board.
+  const enemyFpSize = isTutorial ? 1 : enemyFootprintSize(enemyPath);
   const layout = isTutorial
     ? {
         playerSpawn: { x: 0, y: 1 },
         enemySpawns: [{ x: 5, y: 0 }],
         obstacles: [] as { pos: { x: number; y: number }; state: 'intact' }[],
       }
-    : randomHuntBoard(effectiveCount);
+    : randomHuntBoard(effectiveCount, enemyFpSize);
 
   const enemies: Array<{ combatant: Combatant; meta: CombatantMeta; lootTable: LootTable }> = [];
   for (let i = 0; i < effectiveCount; i++) {
@@ -516,6 +521,7 @@ function createSession(
           maxResource: weapon.resource_max,
           resourceName: weapon.resource_name,
           pos: playerStartPos,
+          size: 1,
           movementRange: 2,
           isAI: false,
           teamId: 'team-a',
@@ -912,7 +918,7 @@ app.post('/api/settings', async (req: Request, res: Response) => {
 // request — no caching, since prices only meaningfully change on tick.
 app.get('/api/info/market', async (_req: Request, res: Response) => {
   const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
-  const TICK_MS = 24 * 60 * 60 * 1000;
+  const TICK_MS = TICK_INTERVAL_MS;   // 4h — single source of truth (was a stale 24h hardcode)
   const now = Date.now();
 
   // Item market category. Raw items use ITEMS[].type ('material' / 'consumable'
@@ -1018,6 +1024,164 @@ app.get('/api/info/market', async (_req: Request, res: Response) => {
   res.json({ items: rows });
 });
 
+// ---- Dev: historical price waves ----
+// Replays the ShopPriceTick (x, stock) history through the SAME pricing math
+// the live market uses (mirror of price_resolver.ts): raw items price at
+// base × effectiveMultiplier; crafted items at (Σ ingredient price × qty /
+// outputQty) × effectiveCraftedMultiplier, with ingredients resolved at the
+// same point in time via carry-forward state (most recent tick at-or-before T).
+// Returns one buy/sell series per item, plus the shop/category metadata the
+// market page filters on, so the dev page can reuse the same chip selections.
+// Keep the price formulas in sync with price_resolver.ts.
+app.get('/api/dev/price-history', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const days = Math.min(60, Math.max(1, Number(req.query.days) || 7));
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // item_id → (shopKey, listing, shopName); first-wins like buildPricingContext.
+  const itemIndex = new Map<string, { shopKey: string; listing: ShopItemListing; shopName: string }>();
+  for (const file of fs.readdirSync(SHOP_DIR).filter(f => f.endsWith('.yaml'))) {
+    const shopKey = file.replace(/\.yaml$/, '');
+    let config;
+    try { config = loadShop(shopKey, SHOP_DIR); }
+    catch { continue; }
+    for (const listing of config.items) {
+      if (!itemIndex.has(listing.id)) itemIndex.set(listing.id, { shopKey, listing, shopName: config.name });
+    }
+  }
+  const craftedIndex = new Map<string, Recipe>();
+  for (const recipe of loadAllRecipes(RECIPES_DIR)) {
+    if (recipe.output.id && !craftedIndex.has(recipe.output.id)) craftedIndex.set(recipe.output.id, recipe);
+  }
+
+  // Same commodity/valuable classification as /api/info/market.
+  const categoryMemo = new Map<string, 'commodity' | 'valuable'>();
+  function categoryOf(itemId: string, visited = new Set<string>()): 'commodity' | 'valuable' {
+    if (categoryMemo.has(itemId)) return categoryMemo.get(itemId)!;
+    if (visited.has(itemId)) return 'commodity';
+    visited.add(itemId);
+    const recipe = craftedIndex.get(itemId);
+    let cat: 'commodity' | 'valuable';
+    if (recipe) {
+      cat = 'commodity';
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (ingrId && categoryOf(ingrId, visited) === 'valuable') { cat = 'valuable'; break; }
+      }
+    } else {
+      cat = ITEMS[itemId]?.type === 'valuable' ? 'valuable' : 'commodity';
+    }
+    categoryMemo.set(itemId, cat);
+    visited.delete(itemId);
+    return cat;
+  }
+
+  // Ticks in window, grouped per item ascending by time.
+  const ticks = await prisma.shopPriceTick.findMany({ where: { at: { gte: since } }, orderBy: { at: 'asc' } });
+  const byItem = new Map<string, { t: number; x: number; stock: number }[]>();
+  for (const tk of ticks) {
+    if (!byItem.has(tk.item_id)) byItem.set(tk.item_id, []);
+    byItem.get(tk.item_id)!.push({ t: tk.at.getTime(), x: tk.x, stock: tk.stock });
+  }
+
+  // Carry-forward demand state: the most recent tick of itemId at-or-before t
+  // (falls back to the earliest tick if t predates all of them).
+  function stateAt(itemId: string, t: number): { x: number; stock: number } | null {
+    const arr = byItem.get(itemId);
+    if (!arr || arr.length === 0) return null;
+    let chosen = arr[0];
+    for (const p of arr) { if (p.t <= t) chosen = p; else break; }
+    return chosen;
+  }
+
+  const priceMemo = new Map<string, number | null>();
+  function priceAt(itemId: string, side: 'buy' | 'sell', t: number, visited = new Set<string>()): number | null {
+    const key = `${itemId}:${side}:${t}`;
+    if (priceMemo.has(key)) return priceMemo.get(key)!;
+    if (visited.has(itemId)) return null;
+    visited.add(itemId);
+
+    const entry = itemIndex.get(itemId);
+    if (!entry) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+    const st = stateAt(itemId, t);
+    const recipe = craftedIndex.get(itemId);
+
+    let price: number | null;
+    if (recipe) {
+      const mult = st
+        ? effectiveCraftedMultiplier(entry.listing, st.x, st.stock)
+        : (CRAFTED_MULT_MIN + CRAFTED_MULT_MAX) / 2;
+      let inputCost = 0;
+      for (const ingr of recipe.ingredients) {
+        const ingrId = ingr.item_id ?? ingr.weapon_id;
+        if (!ingrId) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+        const ip = priceAt(ingrId, side, t, visited);
+        if (ip == null) { priceMemo.set(key, null); visited.delete(itemId); return null; }
+        inputCost += ip * ingr.quantity;
+      }
+      price = (inputCost / (recipe.output.quantity ?? 1)) * mult;
+    } else {
+      const mult = st ? effectiveMultiplier(entry.listing, st.x, st.stock) : 1.0;
+      const base = side === 'buy' ? entry.listing.base_buy : entry.listing.base_sell;
+      price = base == null ? null : base * mult;
+    }
+    priceMemo.set(key, price);
+    visited.delete(itemId);
+    return price;
+  }
+
+  // The expected price band shown on the Market page (raw = base × [0.25, 4],
+  // crafted = input-range × crafted band). Charts use this as their fixed
+  // y-axis so the current price's position within its range is legible.
+  const ctx = buildPricingContext(SHOP_DIR, RECIPES_DIR);
+  const roundRange = (r: { min: number; max: number } | null) =>
+    r ? { min: Math.round(r.min), max: Math.round(r.max) } : null;
+
+  const series = [];
+  const shopsSeen = new Map<string, string>();
+  for (const [itemId, pts] of byItem) {
+    const entry = itemIndex.get(itemId);
+    if (!entry || isUnlock(itemId)) continue;
+    shopsSeen.set(entry.shopKey, entry.shopName);
+    const recipe = craftedIndex.get(itemId);
+    const weaponYaml = ITEMS[itemId] ? null : loadWeaponYaml(itemId, __dirname);
+    const itemName = ITEMS[itemId]?.name ?? (weaponYaml?.Name as string | undefined) ?? itemId;
+    const points = pts.map(p => {
+      const buy  = priceAt(itemId, 'buy',  p.t);
+      const sell = priceAt(itemId, 'sell', p.t);
+      return { t: p.t, buy: buy == null ? null : Math.round(buy), sell: sell == null ? null : Math.round(sell) };
+    });
+    const [rangeBuy, rangeSell] = await Promise.all([
+      ctx.currentRange(itemId, 'buy'),
+      ctx.currentRange(itemId, 'sell'),
+    ]);
+    series.push({
+      shop_id:    entry.shopKey,
+      shop_name:  entry.shopName,
+      item_id:    itemId,
+      item_name:  itemName,
+      category:   categoryOf(itemId),
+      source:     recipe ? 'recipe' : 'raw',
+      base_buy:   recipe ? null : (entry.listing.base_buy ?? null),
+      base_sell:  recipe ? null : (entry.listing.base_sell ?? null),
+      range_buy:  roundRange(rangeBuy),
+      range_sell: roundRange(rangeSell),
+      points,
+    });
+  }
+  series.sort((a, b) => a.item_name.localeCompare(b.item_name));
+
+  res.json({
+    days,
+    generated_at: new Date().toISOString(),
+    shops: [...shopsSeen.entries()].map(([id, name]) => ({ id, name })),
+    series,
+  });
+});
+
 // ---- Dev Stats ----
 // Pre-0.2.0 rows have NULL version/weapon_key; they bucket under these labels
 // in the filter UI so legacy data stays selectable instead of disappearing.
@@ -1092,6 +1256,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   const rows = await prisma.battleLog.findMany({
     select: {
       enemy: true, outcome: true, korel_delta: true, version: true, weapon_key: true,
+      weapon_upgrades: true,
       started_at: true, ended_at: true,
       player_hp_left: true, enemy_hp_left: true,
       damage_dealt: true, damage_received: true, rounds_count: true,
@@ -1100,18 +1265,39 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     },
   });
 
+  // A weapon's identity in the stats is its key + effective level: base level +
+  // floor(player upgrades / 3), since 3 upgrades = a weapon level. So an upgraded
+  // Deck of Cards shows separately as "Deck of Cards · L2", "· L3", etc.
+  const enemyNames  = loadEnemyNames();
+  const weaponNames = loadWeaponNames();
+  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+  const weaponBaseLevels = new Map<string, number>();
+  const baseLevelOf = (wk: string): number => {
+    if (!weaponBaseLevels.has(wk)) weaponBaseLevels.set(wk, loadWeaponYaml(wk, __dirname)?.Level ?? 1);
+    return weaponBaseLevels.get(wk)!;
+  };
+  const weaponLabels = new Map<string, string>();   // composite key → display name
+  const weaponIdentity = (weaponKey: string | null, upgrades: number | null): string => {
+    const wk = weaponKey ?? UNKNOWN_WEAPON_LABEL;
+    if (wk === UNKNOWN_WEAPON_LABEL) { weaponLabels.set(wk, weaponNames[wk]); return wk; }
+    const lvl = baseLevelOf(wk) + Math.floor((upgrades ?? 0) / 3);
+    const key = `${wk}@L${lvl}`;
+    if (!weaponLabels.has(key)) weaponLabels.set(key, `${weaponNames[wk] ?? wk} · L${lvl}`);
+    return key;
+  };
+
   const seenVersions = new Set<string>();
   const seenWeapons  = new Set<string>();
   const seenEnemies  = new Set<string>();
   for (const r of rows) {
     seenVersions.add(r.version ?? PRE_VERSION_LABEL);
-    seenWeapons.add(r.weapon_key ?? UNKNOWN_WEAPON_LABEL);
+    seenWeapons.add(weaponIdentity(r.weapon_key, r.weapon_upgrades));
     seenEnemies.add(r.enemy);
   }
 
   const filtered = rows.filter(r => {
     const v = r.version ?? PRE_VERSION_LABEL;
-    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    const w = weaponIdentity(r.weapon_key, r.weapon_upgrades);
     if (enemyFilter   && !enemyFilter.includes(r.enemy)) return false;
     if (weaponFilter  && !weaponFilter.includes(w))      return false;
     if (versionFilter && !versionFilter.includes(v))     return false;
@@ -1156,7 +1342,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   const matchup: Record<string, Record<string, Cell>> = {};
 
   for (const r of filtered) {
-    const w = r.weapon_key ?? UNKNOWN_WEAPON_LABEL;
+    const w = weaponIdentity(r.weapon_key, r.weapon_upgrades);
     enemyHistogram[r.enemy] = (enemyHistogram[r.enemy] ?? 0) + 1;
     weaponHistogram[w]      = (weaponHistogram[w] ?? 0) + 1;
     const byW = matchup[r.enemy] ??= {};
@@ -1203,9 +1389,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     }
   }
 
-  const enemyNames  = loadEnemyNames();
-  const weaponNames = loadWeaponNames();
-  weaponNames[UNKNOWN_WEAPON_LABEL] = 'Unknown';
+  const weaponName = (wk: string): string => weaponLabels.get(wk) ?? wk;
 
   type Row = {
     key: string; name: string;
@@ -1261,7 +1445,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     const totals = groupTotals(cells);
     return {
       ...row(enemyKey, enemyNames[enemyKey] ?? enemyKey, totals),
-      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponNames[wk] ?? wk, c)).sort((a, b) => b.total - a.total),
+      breakdown: Object.entries(byW).map(([wk, c]) => row(wk, weaponName(wk), c)).sort((a, b) => b.total - a.total),
     };
   }).sort((a, b) => b.total - a.total);
 
@@ -1276,7 +1460,7 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
     const cells = Object.values(byE);
     const totals = groupTotals(cells);
     return {
-      ...row(weaponKey, weaponNames[weaponKey] ?? weaponKey, totals),
+      ...row(weaponKey, weaponName(weaponKey), totals),
       breakdown: Object.entries(byE).map(([ek, c]) => row(ek, enemyNames[ek] ?? ek, c)).sort((a, b) => b.total - a.total),
     };
   }).sort((a, b) => b.total - a.total);
@@ -1284,12 +1468,12 @@ app.get('/api/dev/stats', async (req: Request, res: Response) => {
   res.json({
     available: {
       enemies:  [...seenEnemies].sort().map(k => ({ key: k, name: enemyNames[k]  ?? k })),
-      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponNames[k] ?? k })),
+      weapons:  [...seenWeapons].sort().map(k => ({ key: k, name: weaponName(k) })),
       versions: [...seenVersions].sort((a, b) => a === PRE_VERSION_LABEL ? -1 : b === PRE_VERSION_LABEL ? 1 : a.localeCompare(b, undefined, { numeric: true })),
     },
     histograms: {
       enemies:  Object.entries(enemyHistogram).map(([key, count]) => ({ key, name: enemyNames[key]  ?? key, count })).sort((a, b) => b.count - a.count),
-      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponNames[key] ?? key, count })).sort((a, b) => b.count - a.count),
+      weapons:  Object.entries(weaponHistogram).map(([key, count]) => ({ key, name: weaponName(key), count })).sort((a, b) => b.count - a.count),
     },
     per_enemy:     perEnemy,
     per_weapon:    perWeapon,
@@ -1491,7 +1675,10 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
     ? [{ turn: 0, log: huntSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
+  // Player upgrade count on the equipped weapon (each = +1; 3 = a weapon level) —
+  // recorded per battle so the stats page can split a weapon by effective level.
+  const weaponUpgrades = (equipped?.upgrades as { upgradesDone?: number } | undefined)?.upgradesDone ?? 0;
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: false, lootTables, enemyKey, enemyName, weaponKey, weaponUpgrades, startedAt: now, lastActivityAt: now, endedAt: null, rounds });
 
   res.json({ session_url: `/battle/${sessionId}` });
 });
@@ -1996,6 +2183,8 @@ app.post('/api/shop/:shopKey/train', async (req: Request, res: Response) => {
       payload: { profession: profKey, from_level: currentLevel, to_level: currentLevel + 1, cost },
     }}).catch(() => {});
   });
+
+  void syncProgressionRoles(discordId);   // grant any newly-earned progression role
 
   res.json({
     success:  true,
@@ -3122,10 +3311,33 @@ app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
       update: { quantity: { increment: quantity } },
       create: { quest_id: questId, character_id: char.id, quantity },
     });
-    return { success: true, message: `Deposited ${quantity} ${ITEMS[quest.item_id]?.name ?? quest.item_id} for ${payout} korel.` };
+    const itemName = ITEMS[quest.item_id]?.name ?? quest.item_id;
+    return {
+      success: true,
+      message: `Deposited ${quantity} ${itemName} for ${payout} korel.`,
+      quest_name: quest.name,
+      item_name:  itemName,
+      quantity,
+      deposited:  quest.deposited + quantity,
+      target:     quest.target,
+    };
   });
 
   res.json(result);
+
+  // Mirror the contribution to the Town Square channel so progress shows in
+  // Discord in real time (like shop buys/sells).
+  if (result.success) {
+    const r = result as unknown as {
+      quest_name: string; item_name: string; quantity: number; deposited: number; target: number;
+    };
+    const mention = await playerMention(discordId, char.name);
+    const pct = Math.min(100, Math.round((100 * r.deposited) / Math.max(1, r.target)));
+    void pingChannel(
+      worldConfig.channels.town_square,
+      `${mention} contributed **${r.quantity} ${r.item_name}** to *${r.quest_name}* — now ${r.deposited.toLocaleString()}/${r.target.toLocaleString()} (${pct}%).`,
+    );
+  }
 });
 
 // ---- Socket.io ----
@@ -3157,8 +3369,8 @@ io.on('connection', (socket: Socket) => {
       socket.emit('turn_result', { log: session.initiativeLog });
     }
     if (isTut) {
-      socket.emit('tutorial_aside', { text: 'The lithkem swallow nests near lakes and rivers.  It uses water as a tool and weapon and is able to spit a blast hard enough to cut wood.  Be careful on your approach.' });
-      socket.emit('tutorial_aside', { text: 'Click your character first, then select a highlighted tile to move, or select the tile you are on to stay put.', isOOC: true });
+      socket.emit('tutorial_aside', { text: "There's the bird. Let's see what you've got." });
+      socket.emit('tutorial_aside', { text: "The flow of battle moves between 3 phases: move > intent > resolve.  First, select your movement by clicking on your token, then clicking on the square to move to.  Then, select your action.  The turn will then auto resolve actions in order of 'move > defend > attack > special'.", isOOC: true });
     }
   });
 
@@ -3172,11 +3384,11 @@ io.on('connection', (socket: Socket) => {
     // Validate moveTo is actually reachable (prevents client spoofing)
     if (intent.moveTo) {
       const occupied = new Set(
-        session.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
+        session.combatants.filter(c => c.id !== combatant.id).flatMap(c => cellsOf(c).map(cell => `${cell.x},${cell.y}`))
       );
       const vMeta = session.meta.get(combatant.id);
       const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
-      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied);
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }
@@ -3228,32 +3440,48 @@ io.on('connection', (socket: Socket) => {
       tutMeta.lastActivityAt = new Date();
     }
     if (tutMeta?.isTutorial && !result.winner) {
-      const TUTORIAL_ASIDES: Record<number, { text: string; ooc?: string }> = {
-        1: {
-          text: 'Swallows are also fast and hard to hit.  Be patient and watch its movements to hit where it will be.',
-          ooc: 'You will have a selection of actions and each action will either be a Defend, Attack, or Special action.  While an enemy has its guard up, wind up a harder hitting Special action to do the most damage!  Some actions require you to aim — click a highlighted tile to choose your target before submitting.  The enemy\'s card will show a hint as to which action they are planning next.',
-        },
-        2: {
-          text: "It's winding up to peck you, put your guard up.",
-          ooc: 'Defend actions beat Attack actions — blocking reduces damage when the enemy strikes.',
-        },
-        3: {
-          text: "Looks like it's going to try to slow you down with it's water.  Hit it first!",
-          ooc: 'Attack actions beat Special actions.  Attack actions also have a special property if used against Special actions: if you hit an enemy while they are winding up, you will land a critical hit giving either more damage or additional effects.  Reactive Attack actions will automatically target the nearest enemy without needing to aim.',
-        },
-        4: {
-          text: "Alright, seems like you got the hang of it.  I'll be downstairs if you need me.",
-        },
+      // Situational coaching tied to the bird's NEXT action. The tutorial bird
+      // walks a fixed pattern from index 0, so pattern[session.turn] is what it
+      // does next turn. Each triangle lesson fires once, the first time that
+      // situation comes up; the UI tour already covered the interface, so these
+      // are pure combat tips.
+      const enemy = session.aiCombatants()[0];
+      const eMeta = enemy ? session.meta.get(enemy.id) : undefined;
+      const playerC = session.combatants.find(c => !c.isAI);
+      const pMeta = playerC ? session.meta.get(playerC.id) : undefined;
+      const shown = (tutMeta.tutorialShown ??= new Set<string>());
+      const tip = (key: string, text: string) => {
+        if (shown.has(key)) return;
+        shown.add(key);
+        io.to(sessionId).emit('tutorial_aside', { text, isOOC: true });
       };
-      const aside = TUTORIAL_ASIDES[session.turn];
-      if (aside) {
-        io.to(sessionId).emit('tutorial_aside', { text: aside.text });
-        if (aside.ooc) io.to(sessionId).emit('tutorial_aside', { text: aside.ooc, isOOC: true });
+      // Walk the crit triangle one leg at a time, tied to the bird's NEXT action.
+      switch (eMeta?.pattern[session.turn]?.type) {
+        case PatternActionType.Defend: {
+          // First lesson — introduce crits. If the player already landed one on
+          // turn 1 (a Special into the guarding swallow), acknowledge it.
+          const opener = (pMeta?.state.attack_crits ?? 0) > 0 ? 'That was a critical hit! ' : '';
+          tip('vs-defend', opener + 'Crits trigger on a triangle: Defend ▶ Attack ▶ Special ▶ Defend — each beats the next. When your action beats what the enemy does, it lands a crit: a second effect on top of the action. The swallow will guard next turn, so aim a Special at its tile. (Special beats Defend.)');
+          break;
+        }
+        case PatternActionType.Attack:
+          tip('vs-attack', 'The swallow will strike next turn. Defend beats Attack — put up a guard to soften the hit and crit it as it swings.');
+          break;
+        case PatternActionType.Special:
+          tip('vs-special', 'The swallow is winding up a Special next turn. Attack beats Special — hit it while it winds up to land a crit.');
+          break;
       }
 
-      if (session.turn >= 10) {
-        io.to(sessionId).emit('tutorial_aside', { text: "Still working?  Let me help." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Fendalok draws a gleaming metalic sword and swings it at the bird, cutting off it's head.", isOOC: true });
+      // Once the triangle is taught, point out the enemy tell.
+      if (session.turn >= 4) {
+        tip('telegraph', "See the hint on the swallow's card? Enemies telegraph their next move with a tell — read it to know which action will beat them. Each new enemy type will behave differently, so be sure to watch their card to learn what possible actions they will take.");
+      }
+
+      // Safety net: if the fight drags on, Fendalok steps in so a stuck player
+      // isn't stranded.
+      if (session.turn >= 15) {
+        io.to(sessionId).emit('tutorial_aside', { text: 'Tell you what — let me give you a hand.' });
+        io.to(sessionId).emit('tutorial_aside', { text: 'Fendalok steps in and knocks the bird out of the air for you.', isOOC: true });
         for (const team of session.teams) {
           if (team.id === 'team-b') {
             for (const c of team.combatants) {
@@ -3271,10 +3499,7 @@ io.on('connection', (socket: Socket) => {
           data: { tutorial_complete: true },
         }).catch(() => {});
         io.to(sessionId).emit('reward_result', { summary: 'Tutorial complete.' });
-        io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
+        emitTutorialTips(sessionId);
       }
     }
 
@@ -3307,12 +3532,7 @@ io.on('connection', (socket: Socket) => {
           }).catch(() => {});
         }
         io.to(sessionId).emit('reward_result', { summary: `Loot: ${rewardSummary}` });
-        if (meta.isTutorial) {
-          io.to(sessionId).emit('tutorial_aside', { text: "Good job, seems you will be a good fit around here." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Let me give you a few tips before you go out in the forest.  First, watch for patterns, the same kinds of creatures tend to do the same things and that's useful for knowing which action to do." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Reactive actions are usually lower power, but not needing to aim makes them more consistent." });
-        io.to(sessionId).emit('tutorial_aside', { text: "Finally, when you hit, you aren't always hitting the best spot so the amount of damage you will do will vary each time you do an action, but usually if you are affecting yourself you will be able to be consistent.  Thanks again for the help and let me know if you need anything else." });
-        }
+        if (meta.isTutorial) emitTutorialTips(sessionId);
         if (discord) {
           try {
             const ch = await discord.channels.fetch(worldConfig.channels.forest);
@@ -3405,7 +3625,8 @@ io.on('connection', (socket: Socket) => {
         ? [{ turn: 0, log: fresh.initiativeLog }]
         : [];
       const nowReset = new Date();
-      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
+      const weaponUpgrades = (playerUpgrades as { upgradesDone?: number } | null)?.upgradesDone ?? 0;
+      sessionMeta.set(sessionId, { ...oldMeta, lootTables, enemyKey, enemyName, weaponKey: playerWeaponKey, weaponUpgrades, startedAt: nowReset, lastActivityAt: nowReset, endedAt: null, rounds: freshRounds });
     }
     io.to(sessionId).emit('session_joined', { playerTeamId: 'team-a', isTutorial: oldMeta?.isTutorial ?? false });
     io.to(sessionId).emit('session_state', fresh.toState());
@@ -3642,7 +3863,7 @@ httpServer.listen(PORT, () => {
 // closure — so we have to defer the first invocation until after SHOP_DIR
 // is bound. Calling `void runShopTick()` synchronously here would hit a
 // TDZ error ("Cannot access 'SHOP_DIR' before initialization").
-const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — granularity for the 24h gate
+const SHOP_TICK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour — sweep granularity for the 4h price gate
 async function runShopTick(): Promise<void> {
   try {
     const n = await tickAllDue(SHOP_DIR);
@@ -3735,6 +3956,7 @@ async function logBattlePerEnemy(
       started_at:        meta.startedAt,
       version:           APP_VERSION,
       weapon_key:        meta.weaponKey,
+      weapon_upgrades:   meta.weaponUpgrades,
       player_hp_left:    playerHpLeft,
       enemy_hp_left:     enemyHpLeft,
       damage_dealt:      damageDealt,
@@ -3781,25 +4003,32 @@ function buildWelcomeEmbed(
   mention: string,
   opts: { link?: string } = {},
 ): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
-  const mayor = worldConfig.npcs.mayor;
   const button = opts.link
-    ? new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Link).setURL(opts.link)
-    : new ButtonBuilder().setLabel('Register in the Census Log').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
+    ? new ButtonBuilder().setLabel('Create your character').setStyle(ButtonStyle.Link).setURL(opts.link)
+    : new ButtonBuilder().setLabel('Create your character').setStyle(ButtonStyle.Primary).setCustomId('CreateChar_Begin');
   return {
     embeds: [
       new EmbedBuilder()
         .setColor(0x1a1a2e)
-        .setAuthor({ name: `${mayor.name} — ${mayor.title}` })
+        .setTitle('Welcome to Idya')
         .setDescription(
           `${mention}\n\n` +
-          `The journey has been long and rough.  Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life.  Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife.  With much of the rest of the empire, including you, recovering from an economic depression, many have decided to journey to the frontier to make a new life.  A local merchant caravan agreed to let you join for the remains of your savings and with little choice, you joined.\n\n` +
-          `The caravan stops in a clearing on the outskirts of your final destination, Sulku'it.  A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan.  After dealing with the caravan leader, he turns to you.\n\n` +
-          `**${mayor.name}** — *${mayor.title}*\n` +
-          `*"Ah, another traveler, welcome to Sulku'it. My name is Fendalok and I'm the Padev around here. I take it you are here to help out in the forest. The empire* asks *that we record everyone in the town census log for tax purposes."*\n\n*Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.*\n\n*"You've got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."*`
+          'Become part of a community built around a dynamic, living world.\n\n' +
+          'Idya is a tabletop RPG that doesn\'t need a dungeon master.  The world runs itself.  Hunt creatures, craft and trade, and carve out your own place in a fantastical world.\n\n' +
+          'Create your character below.\n\n' +
+          '> *Idya is in early alpha, so expect rough edges. Reach out anytime with questions or issues.*'
         ),
     ],
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
   };
+}
+
+// Closing wrap-up shown once the tutorial fight ends (a real win or the
+// safety-net intervention). Functional, short — one warm line then the takeaways.
+function emitTutorialTips(sessionId: string): void {
+  io.to(sessionId).emit('tutorial_aside', { text: "Nice work — that's the core of it." });
+  io.to(sessionId).emit('tutorial_aside', { text: 'Two things for the road: every creature fights in its own style and reacts to the moment, so learn how each one tends to behave; and your damage varies each hit, but blocking and healing yourself is reliable.', isOOC: true });
+  io.to(sessionId).emit('tutorial_aside', { text: 'Head to town to sell your loot and gear up. Good luck out there.', isOOC: true });
 }
 
 // Spin up a fresh tutorial session for an existing character. Returns the
@@ -3815,7 +4044,7 @@ function startTutorialSession(discordId: string, spriteKey: string | null): stri
     ? [{ turn: 0, log: tutSession.initiativeLog }]
     : [];
   const now = new Date();
-  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
+  sessionMeta.set(sessionId, { discordUserId: discordId, isTutorial: true, lootTables, enemyKey: 'lithkem_swallow', enemyName, weaponKey: 'branch', weaponUpgrades: 0, startedAt: now, lastActivityAt: now, endedAt: null, rounds: tutorialRounds });
   return sessionId;
 }
 
@@ -3969,6 +4198,91 @@ async function maybeAnnounceVersion(): Promise<void> {
   } catch (err) {
     console.error('Version announce failed:', err);
   }
+}
+
+// ---- Progression roles ----
+// Discord roles players earn: a badge for each profession (first rank in it), a
+// Journeyman role at total profession level ≥ 5, and Master at total ≥ 10.
+// Add-only — milestones are permanent. Roles are auto-created in the guild on
+// startup; needs the bot to have "Manage Roles" + a role positioned above these.
+const ROLE_DEFS: Record<string, { name: string; color: number }> = {
+  lumberjack: { name: 'Lumberjack', color: 0x4a9d3a },
+  blacksmith: { name: 'Blacksmith', color: 0xc0682f },
+  enchanter:  { name: 'Enchanter',  color: 0x9b59b6 },
+  journeyman: { name: 'Journeyman', color: 0x3498db },
+  master:     { name: 'Master',     color: 0xe0b020 },
+};
+const progressionRoleIds: Record<string, string> = {};
+
+// Ensure the five roles exist in the guild, creating any that are missing. Returns
+// how many are now usable vs failed (a failure usually = missing Manage Roles perm).
+async function ensureProgressionRoles(): Promise<{ ok: number; failed: number; err?: string }> {
+  let ok = 0, failed = 0, err: string | undefined;
+  if (!discord) return { ok, failed, err: 'no discord client' };
+  const guild = await discord.guilds.fetch(worldConfig.guild_id).catch(() => null);
+  if (!guild) return { ok, failed, err: 'guild not found' };
+  const existing = await guild.roles.fetch().catch(() => null);
+  if (!existing) return { ok, failed, err: 'could not fetch roles' };
+  for (const [key, def] of Object.entries(ROLE_DEFS)) {
+    let role = existing.find(r => r.name === def.name) ?? null;
+    if (!role) {
+      role = await guild.roles.create({ name: def.name, color: def.color, reason: 'Idya progression role' })
+        .catch(e => { err = e?.message ?? String(e); console.error(`ensureProgressionRoles: create ${def.name} failed`, err); return null; });
+    }
+    if (role) { progressionRoleIds[key] = role.id; ok++; } else failed++;
+  }
+  return { ok, failed, err };
+}
+
+// Which role keys a set of profession levels earns.
+function earnedRoleKeys(levels: Record<string, number>): string[] {
+  const keys: string[] = [];
+  for (const prof of ['lumberjack', 'blacksmith', 'enchanter']) if ((levels[prof] ?? 0) >= 1) keys.push(prof);
+  const total = (levels.lumberjack ?? 0) + (levels.blacksmith ?? 0) + (levels.enchanter ?? 0);
+  if (total >= 5)  keys.push('journeyman');
+  if (total >= 10) keys.push('master');
+  return keys;
+}
+
+// Grant any roles a player has earned (never removes — milestones are permanent).
+// Returns how many roles were newly added.
+async function syncProgressionRoles(discordId: string): Promise<number> {
+  if (!discord || Object.keys(progressionRoleIds).length === 0) return 0;
+  const guild = discord.guilds.cache.get(worldConfig.guild_id);
+  if (!guild) return 0;
+  const member = await guild.members.fetch(discordId).catch(() => null);
+  if (!member) return 0;
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) return 0;
+  const profRows = await prisma.characterProfession.findMany({ where: { character_id: chars[0].id } });
+  const levels: Record<string, number> = {};
+  for (const p of profRows) levels[p.profession] = p.level;
+  let added = 0;
+  for (const key of earnedRoleKeys(levels)) {
+    const id = progressionRoleIds[key];
+    if (id && !member.roles.cache.has(id)) {
+      const done = await member.roles.add(id, 'Idya progression').then(() => true)
+        .catch(err => { console.error(`role add ${key} for ${discordId} failed`, err?.message ?? err); return false; });
+      if (done) added++;
+    }
+  }
+  return added;
+}
+
+// Reconcile every player on startup: grant any earned-but-missing role. Runs on
+// each restart (called from ClientReady), so it catches up anyone who leveled
+// while the bot was down, or after a threshold/role change. Add-only, throttled.
+async function backfillProgressionRoles(): Promise<{ players: number; granted: number }> {
+  let players = 0, granted = 0;
+  try {
+    const rows = await prisma.character.findMany({ select: { discord_id: true } });
+    for (const id of [...new Set(rows.map(r => r.discord_id))]) {
+      players++;
+      granted += await syncProgressionRoles(id);
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } catch (err) { console.error('backfillProgressionRoles failed', err); }
+  return { players, granted };
 }
 
 // Split a markdown body into chunks <= maxLen, breaking on '### ' subheadings
@@ -4522,6 +4836,10 @@ if (discordToken) {
 
   discord.on(Events.GuildMemberAdd, async (member) => {
     if (member.guild.id !== worldConfig.guild_id) return;
+    if (worldConfig.join_role) {
+      await member.roles.add(worldConfig.join_role, 'Join role')
+        .catch(err => console.error(`join role add for ${member.id} failed`, err?.message ?? err));
+    }
     const channel = member.guild.channels.cache.get(worldConfig.channels.welcome);
     if (!channel?.isTextBased()) return;
     await channel.send(buildWelcomeEmbed(`<@${member.id}>`));
@@ -4541,6 +4859,10 @@ if (discordToken) {
       [{ name: 'Commit', value: commitLine }],
     );
     await maybeAnnounceVersion();
+    // Progression roles: ensure they exist and grant any earned-but-missing ones.
+    // (Runs silently now that we've confirmed it fires; failures still hit console.)
+    await ensureProgressionRoles();
+    await backfillProgressionRoles();
   });
 
   discord.on('error', (err) => {

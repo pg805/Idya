@@ -9,12 +9,12 @@
 // disk around where the unit ends up (dodge = leave range). See predictPlayerTiles.
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { Pos, chebyshevDist } from './board.js';
+import { Pos, chebyshevDist, cellsOf } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
 import { isHostile } from './disposition.js';
-import { areaBlock } from './resolution.js';
+import { areaBlock, selfBurstCells } from './resolution.js';
 import Action, { ActionType, SELF_TARGET_TYPES } from '../weapon/action.js';
 
 const key = (p: Pos) => `${p.x},${p.y}`;
@@ -82,8 +82,8 @@ function maxDamagingRange(c: Combatant): number {
 export function predictPlayerTiles(me: Combatant, foe: Combatant, session: CombatSession): Map<string, number> {
   const fState = session.meta.get(foe.id)?.state;
   const moveRange = fState ? effectiveMove(foe.movementRange, fState) : foe.movementRange;
-  const occupied = new Set(session.combatants.filter(c => c.id !== foe.id).map(c => key(c.pos)));
-  const reach = reachableDanger(foe.pos, moveRange, session.board, occupied, foe.teamId);
+  const occupied = new Set(session.combatants.filter(c => c.id !== foe.id).flatMap(c => cellsOf(c).map(key)));
+  const reach = reachableDanger(foe.pos, moveRange, session.board, occupied, foe.teamId, foe.size);
   const foeRange = maxDamagingRange(foe);
 
   const raw = new Map<string, number>();
@@ -112,14 +112,14 @@ export function predictPlayerTiles(me: Combatant, foe: Combatant, session: Comba
 }
 
 // The tiles an action touches when launched from `dest` at `target`.
-function affectedKeys(action: Action, dest: Pos, target: Pos | null, session: CombatSession): Set<string> {
+function affectedKeys(action: Action, dest: Pos, target: Pos | null, session: CombatSession, size = 1): Set<string> {
   if (action.aimed && !target) return new Set();            // aimed but nothing in range → hits nothing
   if (action.aimed && action.area > 1 && target)            // aimed AOE: the block at the target
     return new Set(areaBlock(target, action.area, dest).filter(p => session.board.inBounds(p)).map(key));
   if (action.aimed && target)                               // aimed single: just the target tile
     return new Set([key(target)]);
   if (!action.aimed && action.area > 1)                     // reactive self-burst: block around me
-    return new Set(areaBlock(dest, action.area, dest).filter(p => session.board.inBounds(p)).map(key));
+    return new Set(selfBurstCells(dest, size, action.area, dest).filter(p => session.board.inBounds(p)).map(key));
   const disk = new Set<string>();                           // reactive single: the in-range disk
   for (let dx = -action.range; dx <= action.range; dx++)
     for (let dy = -action.range; dy <= action.range; dy++) {
@@ -130,9 +130,9 @@ function affectedKeys(action: Action, dest: Pos, target: Pos | null, session: Co
 }
 
 // How much predicted player-mass an attack covers = its chance to connect.
-function hitProb(action: Action, dest: Pos, target: Pos | null, predicted: Map<string, number>, session: CombatSession): number {
+function hitProb(action: Action, dest: Pos, target: Pos | null, predicted: Map<string, number>, session: CombatSession, size = 1): number {
   let p = 0;
-  for (const k of affectedKeys(action, dest, target, session)) p += predicted.get(k) ?? 0;
+  for (const k of affectedKeys(action, dest, target, session, size)) p += predicted.get(k) ?? 0;
   return Math.min(1, p);
 }
 
@@ -186,14 +186,14 @@ function scorePlan(
   if (isDamaging(action)) {
     const mode = foeMeta?.state.get_roll_mode(action) ?? '1d';
     const evDmg = ev(fieldOf(action)) * roundsOf(action) * (ROLL_MULT[mode] ?? 1);
-    const ph = hitProb(action, dest, target, predicted, session);
+    const ph = hitProb(action, dest, target, predicted, session, me.size);
     if (ph > 0.15) threatening = true;
     const maint = action.type === ActionType.DamageOverTime ? stale(foeMeta?.state.dot ?? { rounds: 0 }) : 1;
     av += evDmg * ph * maint;
     if (onMyTile('buff')) av += destTile!.value * ph;   // attacking from my buff tile hits harder
     if (evDmg >= foe.hp) av += W.kill * ph;   // expected value of finishing — take the shot even at modest odds, don't turtle past a kill
     if (action.area > 1) {                                            // other foes caught now
-      const cells = affectedKeys(action, dest, target, session);
+      const cells = affectedKeys(action, dest, target, session, me.size);
       for (const e of session.combatants)
         if (e.teamId !== me.teamId && e.id !== foe.id && cells.has(key(e.pos))) av += evDmg;
     }
@@ -445,8 +445,8 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   }
 
   const moveRange = effectiveMove(me.movementRange, meta.state);
-  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).map(c => key(c.pos)));
-  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId);
+  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).flatMap(c => cellsOf(c).map(key)));
+  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size);
   const dests: { pos: Pos; info?: ReachDanger }[] = [{ pos: me.pos }];
   for (const r of reach.values()) dests.push({ pos: r.pos, info: r });
 

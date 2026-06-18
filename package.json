@@ -4,7 +4,7 @@
   "//3": "updating this file will download and update your packages",
   "name": "idya",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "RPG Bot",
   "author": "pg805",
   "main": "./src/server/index.ts",

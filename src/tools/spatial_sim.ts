@@ -18,6 +18,7 @@ import { CombatSession, CombatantMeta, Team } from '../combat/combat_session.js'
 import { resolveIntents } from '../combat/resolution.js';
 import { choosePlan } from '../combat/ai_planner.js';
 import { MAX_ROUNDS, MOVE_RANGE, BOARD_W, BOARD_H, genBoard, buildPlayerUnit, generateReplay, runSpatialBattle, aggregate, runMatrix } from '../combat/replay_sim.js';
+import { enemyFootprintSize } from '../combat/enemy_loader.js';
 import { weaponBudget } from './budget.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -46,7 +47,7 @@ if (process.argv[2] === 'matrix-save') {
 if (process.argv[2] === 'debug') {
   const enemyPath = join(ENEMIES, `${process.argv[3] ?? 'melbear'}.yaml`);
   const weapon = Weapon.from_file(join(WEAPONS, `${process.argv[4] ?? 'mace'}.yaml`));
-  const { board, playerSpawn, enemySpawn } = genBoard();
+  const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
   const player = buildPlayerUnit(weapon, playerSpawn);
   const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
   const teams: Team[] = [
@@ -116,7 +117,7 @@ if (process.argv[2] === 'usage') {
     for (const ef of enemyFiles) {
       const enemyPath = join(ENEMIES, ef);
       for (let i = 0; i < N; i++) {
-        const { board, playerSpawn, enemySpawn } = genBoard();
+        const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
         const player = buildPlayerUnit(weapon, playerSpawn);
         const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
         register(enemy.meta.weapon);
@@ -177,7 +178,7 @@ if (process.argv[2] === 'diag') {
     for (const ef of enemyFiles) {
       const enemyPath = join(ENEMIES, ef);
       for (let i = 0; i < N; i++) {
-        const { board, playerSpawn, enemySpawn } = genBoard();
+        const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
         const player = buildPlayerUnit(weapon, playerSpawn);
         const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
         const teams: Team[] = [
@@ -267,7 +268,7 @@ if (process.argv[2] === 'timeout') {
     for (const e of ef) {
       const enemyPath = join(ENEMIES, e);
       for (let i = 0; i < N; i++) {
-        const { board, playerSpawn, enemySpawn } = genBoard();
+        const { board, playerSpawn, enemySpawn } = genBoard(enemyFootprintSize(enemyPath));
         const player = buildPlayerUnit(weapon, playerSpawn);
         const enemy = loadEnemy(enemyPath, { id: 'enemy-1', teamId: 'team-b', pos: enemySpawn, movementRange: MOVE_RANGE });
         const session = new CombatSession('t', board, [

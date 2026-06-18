@@ -1,6 +1,7 @@
 Name: Sulgovenath
 Health: 500
 Level: 6
+Size: 2
 Telegraph:
   hostile:
     closing: "Striding in, greatblade dragging a furrow through the earth"

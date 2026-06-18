@@ -34,8 +34,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
 /* Forfeit lives at the right edge of the status bar so the rest of the row
-   keeps its centered, conversational feel and the bail-out is one obvious
-   click away. */
+   keeps its centered, conversational feel and the bail-out is one obvious click. */
 #forfeit-btn {
   margin-left: auto;
   font-size: 0.72rem;
@@ -50,6 +49,23 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #forfeit-btn:hover { color: var(--warn-bright); border-color: var(--warn-dim); }
 #forfeit-btn:disabled,
 #forfeit-btn[hidden] { display: none; }
+
+/* Tutorial-only "Show guide" / "Run lore" buttons — Show guide anchors the
+   right-side group (Run lore + forfeit follow), styled like forfeit but with a
+   neutral gold hover. */
+#tour-replay-btn, #lore-replay-btn {
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+#tour-replay-btn { margin-left: auto; }
+#tour-replay-btn:hover, #lore-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+#tour-replay-btn[hidden], #lore-replay-btn[hidden] { display: none; }
 
 /* Everything is a STATIC size so content changes (log lines, action sets,
    telegraphs) never reflow the page. Top row: cards | board | log, all fixed
@@ -216,6 +232,20 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 .combatant-name { font-size: 0.55rem; font-weight: normal; opacity: 0.8; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
 
+/* Multi-square unit: one token spanning a `--span`×`--span` block of cells
+   (cells + the 3px grid gaps between them). Pinned to the anchor cell's top-left
+   and lifted so it overlays the squares it covers. */
+.cell.big-anchor { z-index: 6; }
+.combatant.big {
+  position: absolute;
+  top: 0; left: 0;
+  width:  calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
+  height: calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
+  border-radius: 50%;
+  font-size: 1rem;
+  z-index: 6;
+}
+
 /* ---- Action panel ---- */
 #action-panel {
   background: var(--bg-surface);
@@ -234,6 +264,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    preview so the space below the board reads as "not your turn yet". */
 #action-panel.dim .action-list { opacity: 0.4; filter: grayscale(0.35); pointer-events: none; }
 #action-panel.dim .action-title { color: var(--text-faint); }
+/* While the tutorial tour is spotlighting the actions, show them at full clarity
+   even though it isn't the player's turn yet. */
+body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
 /* On-turn: lit up + a gold edge to say "pick now". */
 #action-panel.active { border-color: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-dim); }
 #action-panel.active .action-title { color: var(--gold-bright); }
@@ -374,9 +407,11 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .action-row.unaffordable { opacity: 0.4; cursor: not-allowed; }
 .action-row .action-key { margin-right: 0; flex: 0 0 auto; }
 .action-label { flex: 0 0 auto; font-weight: 500; }
-.action-stat { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
+/* min-width:0 lets the stat shrink below its content so a long value wraps inside
+   the board-width panel instead of pushing it wider. */
+.action-stat { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 0; }
 /* The effect + value as plain text; only the modifiers (below) are boxed. */
-.stat-value { color: var(--text-2); margin-right: 7px; }
+.stat-value { color: var(--text-2); margin-right: 7px; overflow-wrap: anywhere; }
 
 /* Each stat token in a thin outlined rectangle (border only, no fill). Used by
    both the action rows and the crit headers so they read identically. */
@@ -418,6 +453,21 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   transition: background 0.1s, color 0.1s, opacity 0.15s;
 }
 .submit-btn:hover { background: var(--gold-dim); color: var(--text); }
+
+/* Back / Confirm controls under the action list. Always present (fixed height)
+   so the panel doesn't jump as the buttons appear and disappear. */
+.action-controls { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-top: 8px; }
+.ctrl-back {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 4px; padding: 5px 14px; font-size: 0.8rem; cursor: pointer;
+}
+.ctrl-back:hover { color: var(--text); border-color: var(--border-strong); }
+.ctrl-confirm {
+  background: var(--gold-bg); border: 1px solid var(--gold-dim); color: var(--gold);
+  border-radius: 4px; padding: 5px 18px; font-size: 0.85rem; font-weight: bold; cursor: pointer;
+}
+.ctrl-confirm:hover { background: var(--gold-dim); color: var(--text); }
+.ctrl-hint { margin-left: auto; color: var(--text-faint); font-size: 0.7rem; }
 
 /* ---- Combatant cards ---- */
 .combatant-card {

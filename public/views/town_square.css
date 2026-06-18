@@ -21,7 +21,6 @@
 .ts-progress-label { font-size: 0.8rem; color: var(--text-2); margin: 7px 0 14px; }
 
 .ts-deposit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.ts-deposit input { width: 90px; padding: 6px 8px; }
 .ts-deposit-info { font-size: 0.75rem; color: var(--text-muted); }
 
 .ts-leaderboard { border-top: 1px solid var(--border-soft); padding-top: 10px; }

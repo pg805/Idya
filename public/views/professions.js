@@ -35,29 +35,35 @@
     const prof = data.professions[activeProf];
     const content = document.getElementById('prof-content');
 
+    // Upgrades climb a weapon toward Lv 5 at 3 per level, so N upgrades on a Lv 1
+    // weapon = level 1 + N/3, shown as 1.0 → 1.3 → 1.6 → 2.0 → … (each upgrade ≈ +.3).
+    const reachLevel = (n) => {
+      const lv = 1 + Math.floor(n / 3);
+      const dec = (n % 3) * 3;            // 0, 3, 6
+      return dec ? `${lv}.${dec}` : `${lv}`;
+    };
     const rows = prof.levels.map(lvl => {
       const recipeText = lvl.recipes.length
         ? lvl.recipes.map(r => esc(r.name)).join(', ')
         : '<span class="prof-none">—</span>';
-      const budgetText = lvl.budget_added > 0
-        ? `<span class="prof-budget">+${lvl.budget_added} budget</span> <span class="prof-budget-total">(${lvl.budget} total)</span>`
-        : (lvl.budget > 0 ? `<span class="prof-budget-total">${lvl.budget} budget</span>` : '<span class="prof-none">—</span>');
+      const maxLevel = lvl.budget > 0 ? `<span class="prof-budget">Lv ${reachLevel(lvl.budget)}</span>` : '<span class="prof-none">—</span>';
       return `<tr>
         <td class="prof-lvl">${lvl.level}</td>
         <td class="prof-unlocks">${recipeText}</td>
-        <td class="prof-budget-cell">${budgetText}</td>
+        <td class="prof-budget-cell">${maxLevel}</td>
       </tr>`;
     }).join('');
 
     content.innerHTML = `
       <table class="prof-table">
         <thead><tr>
-          <th>Level</th>
+          <th>Rank</th>
           <th>Recipes Unlocked</th>
-          <th>Upgrade Budget</th>
+          <th>Max Level</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <p class="prof-note"><b>Max Level</b> is how far you can upgrade a weapon at this rank — <b>3 upgrades = 1 level</b>, climbing toward Lv 5 (one upgrade ≈ +0.3 of a level: 1.0 → 1.3 → 1.6 → 2.0). The level shown is for a <b>Lv 1</b> weapon; a higher-level weapon reaches Lv 5 with fewer upgrades.</p>
     `;
   }
 

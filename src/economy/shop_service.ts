@@ -23,7 +23,7 @@ const RECIPES_DIR_DEFAULT = join(__dirname, '../../database/recipes');
 const INGREDIENT_PROPAGATION_BUY  = 1.0;
 const INGREDIENT_PROPAGATION_SELL = 0.5;
 
-const TICK_INTERVAL_MS      = 4 * 60 * 60 * 1000;  // price (x) tick every 4h — was daily
+export const TICK_INTERVAL_MS = 4 * 60 * 60 * 1000;  // price (x) tick every 4h — was daily
 const INVENTORY_INTERVAL_MS = 60 * 60 * 1000;      // NPC inventory drifts every hour, always moving
 const RECENT_VOLUME_DECAY   = 0.94; // per 4h tick — preserves the old ~2-day half-life at the faster cadence
 

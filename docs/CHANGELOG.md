@@ -3,6 +3,98 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.2.1 — 2026-06-18
+
+Multi-square enemies, a fully rebuilt onboarding flow, and a batch of combat,
+economy, and Discord fixes.
+
+### Multi-square units (2×2)
+
+- **Melbear and Sulgovenath now occupy a 2×2 footprint.** New `size` field +
+  footprint helpers (`cellsOf` / `occupies` / `unitDist` / `footprint` in
+  board.ts). Movement BFS, resolution (occupancy, victim lookups, range, LOS,
+  knockback, hazard sweep, tiles-underfoot), the AI planner, the server move
+  validation, and spawn placement are all footprint-aware. No behaviour change at
+  size 1 (locked by the tile smoke tests).
+- **Ursa Minor → a 4×4 ground-pound** centered on the bear's body — a reactive
+  self-burst now centers its N×N on the actor's footprint (`selfBurstCells`,
+  shared by resolution and the planner) instead of the old corner spray.
+- **Footprint-overlap move contest**: a mover whose destination footprint would
+  overlap another unit is denied (fixes the "turned into a sulgovenath" overlap,
+  where a 2×2 slid on top of a 1×1 that also moved).
+- Hazard tiles charge **once per tile the leading edge sweeps over**; tiles-
+  underfoot (block stacks, buff takes the max) iterate the whole footprint.
+- **Front end**: a 2×2 token renders as one circle spanning its cells; the
+  movement/blink occupancy sets footprint-expand so the player can't path or
+  blink onto a big body. Spawn placement clamps the anchor so the footprint stays
+  on-board.
+
+### Crits
+
+- A crit fires only on a **real targeting interaction** — your action (or the
+  foe's) actually landing on the other — not just a winning category matchup.
+- Fixed defend-crit suppression vs the 2×2 ground-pound (`critEngages` used the
+  old corner-spray geometry, not `selfBurstCells`). **Destroy-obstacle** now
+  engages a crit (it lands damage outward on foes by the wreck).
+- Full crit-triangle + engagement regression coverage (`test_tiles` 26–32):
+  every leg, the "no-engagement → no crit" case, the self-target payload, the
+  2×2 pound hit/miss, and the move-overlap guard.
+
+### Combat targeting
+
+- Aimed targeting now obeys the alternating **1-2-1-2 diagonal** cost (`rangeDist`),
+  matching movement — the targetable area rounds off like the reachable area.
+
+### Onboarding — full rework
+
+- **Welcome card** rewritten functional/community-first: a dynamic-living-world
+  pitch + an alpha note, no lore wall, "Create your character" CTA.
+- **Battle UI tour** — a reusable spotlight walkthrough (`tour.js` parameterized
+  with steps): battlefield → your token → actions → a reactive vs an aimed action
+  → fighter cards → log, behind a "Begin tutorial" gate, with Back and an
+  on-demand **Show guide** replay.
+- **Lore sequence** chained after the tour completes (the original arrival
+  exposition, one paragraph per card, under the shared "A bird in the attic"
+  title) with its own **Run lore** replay button.
+- **In-fight coaching** rebuilt: a move/intent/resolve flow intro, the crit
+  triangle taught one leg at a time tied to the bird's next move (with a
+  conditional turn-1 crit acknowledgment), then a telegraph "tells" tip. The
+  stuck-player intervention moved from turn 10 to **15**; closing tips reworded
+  for the dynamic AI (style, not fixed patterns).
+
+### Economy & UI
+
+- **Standardized number inputs** — one shared `−/editable/+/ALL` stepper
+  (`QtyStepper`) across Crafting, Shop, and Town Square.
+- **Professions page** shows reachable **Max Level** per weapon (3 upgrades = a
+  level); dropped the confusing Upgrades column.
+- **Market** countdown sourced from the real 4h `TICK_INTERVAL_MS` (was a stale
+  24h hardcode).
+- Long stat fields **run-length encode** (`value×count`) instead of overflowing —
+  fixes the Wand's "Empty Self" panel.
+
+### Discord & roles
+
+- **Progression roles**: a badge for each profession (first rank in it),
+  **Journeyman** at total profession level ≥ 5, **Master** at ≥ 10. Auto-created
+  and backfilled on startup (needs Manage Roles).
+- **Join role** auto-granted to new members (per-guild via `worldConfig.join_role`).
+- **Quest contributions** post to the Town Square channel in real time (who, how
+  much, and live progress).
+
+### Battle flow
+
+- **Confirm / Quick** action toggle (Quick fires on one click; Confirm stages then
+  commits) plus a visible **Back** button, set from the settings dropdown.
+
+### Dev tools
+
+- Dev stats split each weapon by **effective level** (records `weapon_upgrades`
+  per battle; new migration). New dev **Price History** page — demand-wave charts
+  from `ShopPriceTick`, bounded by the Market expected band.
+
+---
+
 ## 0.2.0 — 2026-06-13
 
 The combat-stats overhaul 0.1.6 promised. Upgrades and enchants reworked from

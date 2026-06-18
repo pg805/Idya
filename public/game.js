@@ -3,6 +3,44 @@ let state = null;
 let playerTeamId = null;
 let isTutorial = false;
 
+// One-time UI walkthrough, shown the first time a tutorial battle renders. Points
+// at the real combat UI (board / cards / actions / log) so a new player knows what
+// they're looking at before the combat lessons start. Reuses the shared tour
+// component (tour.js). Functional, no lore.
+// Shared so the intro gate and the lore cards carry the same heading — ties the
+// whole tutorial together under one title.
+const TUTORIAL_TITLE = 'A bird in the attic';
+const BATTLE_TOUR_STEPS = [
+  { title: TUTORIAL_TITLE, body: 'The following tutorial explains the battle mechanics. You can view the guide again at any point by clicking the Show Guide button.', nextLabel: 'Begin tutorial' },
+  { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
+  { selector: '.combatant.team-a',                       title: 'Your character',  body: 'This is your character. Each turn, you move your character by clicking on your token, then clicking on the square you want to go to. You can move up to two squares a turn.' },
+  { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
+  { selector: '.action-row[data-choice="attack"][data-aimed="false"]', title: 'Reactive actions', body: 'Some actions are reactive, meaning they automatically target any enemy within range.' },
+  { selector: '.action-row[data-aimed="true"]',          title: 'Aimed actions',   body: 'Some actions are aimed. After selecting it, you select a square to aim the attack at. Because all moves and actions resolve at the same time, the enemy may not be on the square you expect. Make sure to lead your attack!' },
+  { selector: '#combatant-list',                         title: 'Fighters',        body: 'Your health and resource are shown here. Most actions cost resource and can\'t be used if you don\'t have enough. The game ends when all characters on one side reach 0 health.' },
+  { selector: '#right-col',                              title: 'Combat log',      body: 'This is the combat log. It shows what happens when the turn resolves.' },
+];
+// Story sequence, shown once right after the UI tour completes (centered, no
+// spotlights — just narrative cards). Replayable via the "Run lore" button.
+// The exact original arrival lore, one paragraph per card.
+const LORE_TOUR_STEPS = [
+  { title: TUTORIAL_TITLE, body: 'The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife. Although stories of searching for a better life are now common throughout the empire, this one is your own. A local merchant caravan agreed to let you join for what savings you had.' },
+  { title: TUTORIAL_TITLE, body: 'The caravan stops in a clearing on the outskirts of your final destination, Sulku\'it. A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan. After dealing with the caravan leader, he turns to you.' },
+  { title: TUTORIAL_TITLE, body: '"Ah, another traveler, welcome to Sulku\'it. My name is Fendalok and I\'m the Padev around here. I take it you are here to help out in the forest. The empire asks that we record everyone in the town census log for tax purposes."' },
+  { title: TUTORIAL_TITLE, body: 'Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.' },
+  { title: TUTORIAL_TITLE, body: '"You\'ve got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."' },
+];
+
+let battleTourShown = false;
+function maybeStartBattleTour() {
+  if (battleTourShown || !isTutorial) return;
+  if (typeof window.startTour !== 'function') return;
+  if (!document.querySelector('#board .cell')) return;   // wait until the board is actually rendered
+  battleTourShown = true;
+  // First time through: UI guide, then the lore on completion (not on Skip).
+  window.startTour(BATTLE_TOUR_STEPS, () => window.startTour(LORE_TOUR_STEPS));
+}
+
 const PASS_ACTION = { label: 'Pass', choice: 'pass', index: 0, needsTarget: false, range: 0, cost: 0 };
 
 const ui = {
@@ -15,6 +53,13 @@ const ui = {
   action: null,      // ActionInfo | null
   targetTile: null,  // {x, y} | null
 };
+
+// ---- Commit mode: ✓ Confirm (stage, then commit) vs ⚡ Quick (one click fires).
+// Defaults to Confirm; toggled from the global settings dropdown (layout.js) — we
+// just read the key and re-render the panel when it flips mid-battle. ----
+const COMMIT_KEY = 'idya.battle_quick';
+const quickMode = () => localStorage.getItem(COMMIT_KEY) === '1';
+window.addEventListener('commitmode-change', () => renderActionPanel());
 
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
@@ -111,6 +156,17 @@ socket.on('error', ({ message }) => {
 socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
   playerTeamId = tid;
   isTutorial = tutorial;
+  // Tutorial only: status-bar buttons to replay the UI walkthrough or the lore.
+  const replayBtn = document.getElementById('tour-replay-btn');
+  if (replayBtn) {
+    replayBtn.hidden = !isTutorial;
+    if (isTutorial) replayBtn.onclick = () => { if (window.startTour) window.startTour(BATTLE_TOUR_STEPS); };
+  }
+  const loreBtn = document.getElementById('lore-replay-btn');
+  if (loreBtn) {
+    loreBtn.hidden = !isTutorial;
+    if (isTutorial) loreBtn.onclick = () => { if (window.startTour) window.startTour(LORE_TOUR_STEPS); };
+  }
 });
 
 socket.on('session_state', (newState) => {
@@ -118,6 +174,7 @@ socket.on('session_state', (newState) => {
   state = newState;
   if (wasWaiting && state.phase === 'intent') resetUI();
   render();
+  maybeStartBattleTour();   // first tutorial render → walk the UI
 });
 
 socket.on('turn_result', ({ log }) => {
@@ -220,7 +277,7 @@ function computeReachable(combatant) {
     if (t.kind === 'hazard' && t.teamId !== combatant.teamId) hazardVal.set(`${t.pos.x},${t.pos.y}`, t.value);
   }
   const occupiedSet = new Set(
-    state.combatants.filter(c => c.id !== combatant.id).map(c => `${c.pos.x},${c.pos.y}`)
+    state.combatants.filter(c => c.id !== combatant.id).flatMap(combatantCells)
   );
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
@@ -301,6 +358,24 @@ function chebyshev(a, b) {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
+// Action range/reach — matches movement's alternating 1-2-1-2 diagonal cost (so
+// targetable tiles round off like the reachable area). Mirror of board.ts rangeDist.
+function rangeDist(a, b) {
+  const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+  return Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2);
+}
+
+// The 'x,y' keys a combatant covers (anchor + size, mirrors board.ts footprint).
+// Index 0 is the anchor. Size 1 → just its own square.
+function combatantCells(c) {
+  const size = c.size || 1;
+  const out = [];
+  for (let dx = 0; dx < size; dx++)
+    for (let dy = 0; dy < size; dy++)
+      out.push(`${c.pos.x + dx},${c.pos.y + dy}`);
+  return out;
+}
+
 function hasLineOfSight(from, to, board) {
   const obstacleSet = new Set(
     board.obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
@@ -340,13 +415,13 @@ function computeTargetableTiles(actionInfo, fromPos) {
   // A blink-strike (moveTo) relocates you onto the aimed tile, so it can only
   // target an empty passable square — never one a combatant is standing on.
   const occupiedSet = actionInfo.moveTo
-    ? new Set(state.combatants.filter(c => c.hp > 0).map(c => `${c.pos.x},${c.pos.y}`))
+    ? new Set(state.combatants.filter(c => c.hp > 0).flatMap(combatantCells))
     : null;
   const tiles = new Set();
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       const k = `${x},${y}`;
-      const d = chebyshev(fromPos, { x, y });
+      const d = rangeDist(fromPos, { x, y });
       // Destroy Obstacle targets the obstacles themselves (any intact one in range).
       if (actionInfo.targetsObstacle) {
         if (obstacleSet.has(k) && d >= 1 && d <= actionInfo.range) tiles.add(k);
@@ -388,7 +463,7 @@ function areaCells(center, area, caster) {
 function selfBurstCaster(center, area) {
   if (area % 2 === 1) return center;
   const foes = state.combatants.filter(c => c.teamId !== playerTeamId);
-  const foe = foes.length ? foes.reduce((a, b) => chebyshev(center, a.pos) <= chebyshev(center, b.pos) ? a : b).pos : null;
+  const foe = foes.length ? foes.reduce((a, b) => rangeDist(center, a.pos) <= rangeDist(center, b.pos) ? a : b).pos : null;
   const dx = foe ? (Math.sign(foe.x - center.x) || -1) : -1;
   const dy = foe ? (Math.sign(foe.y - center.y) || -1) : -1;
   return { x: center.x - dx, y: center.y - dy };
@@ -418,7 +493,16 @@ function renderBoard() {
   boardEl.innerHTML = '';
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
-  const combatantMap = new Map(state.combatants.map(c => [`${c.pos.x},${c.pos.y}`, c]));
+  // Every cell a unit covers maps to that unit (so a 2×2 body suppresses path /
+  // reachable highlights on all four squares); anchorCells marks where the single
+  // token actually renders.
+  const combatantMap = new Map();
+  const anchorCells = new Set();
+  for (const c of state.combatants) {
+    const cells = combatantCells(c);
+    anchorCells.add(cells[0]);
+    for (const ck of cells) combatantMap.set(ck, c);
+  }
   const tileMap = new Map((state.board.tiles || []).map(t => [`${t.pos.x},${t.pos.y}`, t]));
   const moveTargetKey = ui.moveTo ? `${ui.moveTo.x},${ui.moveTo.y}` : null;
   const selectedKey = ui.selected ? `${ui.selected.pos.x},${ui.selected.pos.y}` : null;
@@ -467,10 +551,12 @@ function renderBoard() {
           mark.textContent = `${sym}${tile.value}`;
           cell.appendChild(mark);
         }
-        if (combatant) {  // top layer: token
+        if (combatant && anchorCells.has(k)) {  // top layer: token (drawn once, at the anchor)
           const isOwn = combatant.teamId === playerTeamId;
+          const size = combatant.size || 1;
           const el = document.createElement('div');
-          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}`;
+          el.className = `combatant ${isOwn ? 'team-a' : 'team-b'}${k === selectedKey ? ' selected' : ''}${size > 1 ? ' big' : ''}`;
+          if (size > 1) { el.style.setProperty('--span', size); cell.classList.add('big-anchor'); }
           if (combatant.sprite) {
             el.style.backgroundImage = `url('${combatant.sprite}')`;
             el.style.backgroundSize = 'contain';
@@ -563,6 +649,9 @@ function renderActionPanel() {
     const isPass = action.choice === 'pass';
     const row = document.createElement('button');
     row.className = `action-row${isPass ? ' pass-row' : ''}${actionIsSelected(action) ? ' selected' : ''}${canAfford ? '' : ' unaffordable'}`;
+    // Tags so the tutorial tour can spotlight a reactive vs an aimed action.
+    row.dataset.choice = action.choice;
+    row.dataset.aimed  = String(!!action.needsTarget);
     if (!canAfford) row.disabled = true;
     const costHtml = isPass ? ''
       : action.cost === 0 ? '<span class="action-cost free">free</span>'
@@ -611,6 +700,34 @@ function renderActionPanel() {
   if (!acts.some(a => a.cost <= 0 || a.cost <= player.resource))
     list.appendChild(renderRow(PASS_ACTION, acts.length + 1, true));
   actionPanelEl.appendChild(list);
+
+  // Controls row: a Back button (surfaces Escape — back one stage) during any
+  // selection stage, plus a Confirm button in Confirm mode once the intent is
+  // ready. Always rendered (fixed min-height) so the panel doesn't jump as the
+  // buttons come and go.
+  const controls = document.createElement('div');
+  controls.className = 'action-controls';
+  if (active) {
+    const back = document.createElement('button');
+    back.className = 'ctrl-back';
+    back.innerHTML = '← Back';
+    back.addEventListener('click', goBack);
+    controls.appendChild(back);
+
+    const intentReady = ui.action && (!ui.action.needsTarget || ui.targetTile);
+    if (!quickMode() && intentReady) {
+      const confirm = document.createElement('button');
+      confirm.className = 'ctrl-confirm';
+      confirm.innerHTML = 'Confirm <span class="action-key">↵</span>';
+      confirm.addEventListener('click', submitIntent);
+      controls.appendChild(confirm);
+    }
+    const hint = document.createElement('span');
+    hint.className = 'ctrl-hint';
+    hint.textContent = quickMode() ? 'Esc to go back' : 'Esc back · Enter confirm';
+    controls.appendChild(hint);
+  }
+  actionPanelEl.appendChild(controls);
 
   // Lock the panel to its current list height so it never resizes — including the
   // end-of-battle return button. Reset first, then re-measure each turn, so a
@@ -683,10 +800,18 @@ function pickAction(action) {
   if (action.needsTarget) {
     ui.phase = 'selecting_target';
     render();
+  } else if (quickMode()) {
+    submitIntent();   // Quick: the action click IS the confirm.
   } else {
-    // Clicking the action IS the confirm — no separate submit step.
-    submitIntent();
+    render();         // Confirm: stage it; the Confirm button / Enter commits.
   }
+}
+
+// Step back one stage in the selection flow — shared by the Back button and Escape.
+function goBack() {
+  if (ui.phase === 'selecting_target') { ui.phase = 'selecting_action'; ui.action = null; ui.targetTile = null; render(); }
+  else if (ui.phase === 'selecting_action') { ui.phase = 'selecting_move'; ui.action = null; render(); }
+  else if (ui.phase === 'selecting_move') { resetUI(); render(); }
 }
 
 // ---- Keyboard ----
@@ -793,14 +918,7 @@ function onKey(e) {
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (ui.phase === 'selecting_action') {
-        ui.phase = 'selecting_move';
-        ui.action = null;
-        render();
-      } else if (ui.phase === 'selecting_move') {
-        resetUI();
-        render();
-      }
+      goBack();
       return;
     }
   }
@@ -813,10 +931,7 @@ function onKey(e) {
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      ui.phase = 'selecting_action';
-      ui.action = null;
-      ui.targetTile = null;
-      render();
+      goBack();
       return;
     }
     if (dx !== 0 || dy !== 0) {
@@ -894,8 +1009,9 @@ function onCellClick(x, y) {
     const fromPos = ui.moveTo ?? ui.selected?.pos;
     if (fromPos && ui.action && computeTargetableTiles(ui.action, fromPos).has(k)) {
       ui.targetTile = { x, y };
-      // Picking the target tile IS the confirm — submit straight away.
-      submitIntent();
+      // Quick: the tile click IS the confirm. Confirm: stage it for the Confirm button.
+      if (quickMode()) submitIntent();
+      else render();
     }
     return;
   }

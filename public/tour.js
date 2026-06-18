@@ -1,12 +1,13 @@
-// Sidebar walkthrough. Highlights each nav group with a tooltip card and
-// Next/Skip controls. Only fires when ?tour=1 is in the URL — the tutorial's
-// "Go to Town" link sets that param so the tour shows up after the tutorial
-// battle, not during character creation.
+// Reusable guided walkthrough. Highlights a target element per step with a
+// tooltip card + Next/Skip. Two callers:
+//   - the town tour (this file's TOWN_TOUR_STEPS), fired via maybeStartTour()
+//     when ?tour=1 is in the URL (the tutorial's "Go to Town" link sets it);
+//   - the battle UI tour, which calls window.startTour(steps) with its own steps.
 
 // Order is the gameplay loop: where you spend money → how you make money →
 // where you see your balance → what professions do → the activities sidebar
 // → the workshop → reference info.
-const TOUR_STEPS = [
+const TOWN_TOUR_STEPS = [
   {
     selector: '#app-sidebar > .nav-group:nth-of-type(3)',
     title:    'Town Shops',
@@ -56,7 +57,10 @@ function ensureTourDom() {
       <p id="tour-body"></p>
       <div id="tour-actions">
         <button id="tour-skip" type="button">Skip</button>
-        <button id="tour-next" type="button">Next</button>
+        <div id="tour-nav">
+          <button id="tour-back" type="button">Back</button>
+          <button id="tour-next" type="button">Next</button>
+        </div>
       </div>
     </div>
   `;
@@ -64,6 +68,8 @@ function ensureTourDom() {
 }
 
 let stepIdx = 0;
+let activeSteps = [];     // the step list the current tour is running
+let tourOnComplete = null; // called when a tour finishes naturally (not on Skip)
 
 function positionCard(targetRect) {
   const card = document.getElementById('tour-card');
@@ -81,44 +87,82 @@ function positionCard(targetRect) {
   card.style.top  = `${y}px`;
 }
 
+// A target-less step (no selector) is a centered card — used for the intro gate.
+function centerCard() {
+  const card = document.getElementById('tour-card');
+  card.style.left = `${Math.max(12, (window.innerWidth  - card.offsetWidth)  / 2)}px`;
+  card.style.top  = `${Math.max(12, (window.innerHeight - card.offsetHeight) / 2)}px`;
+}
+
 function showStep(idx) {
   stepIdx = idx;
-  const step = TOUR_STEPS[idx];
-  if (!step) { endTour(); return; }
+  const step = activeSteps[idx];
+  if (!step) { endTour(true); return; }   // ran past the last step → completed
 
+  const hi      = document.getElementById('tour-highlight');
+  const backBtn = document.getElementById('tour-back');
+  const nextBtn = document.getElementById('tour-next');
+  // Back is available from the second spotlight on. Hidden on the intro AND the
+  // first spotlight, since "back" there would just re-open the intro gate.
+  const firstSpot = Math.max(0, activeSteps.findIndex(s => s.selector));
+  backBtn.style.visibility = idx <= firstSpot ? 'hidden' : 'visible';
+  nextBtn.textContent = step.nextLabel || (idx === activeSteps.length - 1 ? 'Got it' : 'Next');
+  const titleEl = document.getElementById('tour-title');
+  titleEl.textContent = step.title || '';
+  titleEl.style.display = step.title ? '' : 'none';   // titleless lore cards: drop the heading
+  document.getElementById('tour-body').textContent  = step.body || '';
+
+  // Progress counts only the spotlight (targeted) steps, so a centered intro
+  // doesn't throw off the "n / total" numbering.
+  const spotlights = activeSteps.filter(s => s.selector);
+  const progress = document.getElementById('tour-progress');
+
+  if (!step.selector) {                       // centered intro / outro card
+    hi.style.display = 'none';
+    progress.textContent = '';
+    requestAnimationFrame(centerCard);
+    return;
+  }
+
+  // Skip a step whose target isn't on the page (e.g. a panel that hasn't
+  // rendered yet) rather than ending the whole tour on the first missing one.
   const target = document.querySelector(step.selector);
-  if (!target) { endTour(); return; }
+  if (!target) { showStep(idx + 1); return; }
 
+  hi.style.display = 'block';
   const r = target.getBoundingClientRect();
-  const hi = document.getElementById('tour-highlight');
   const pad = 6;
   hi.style.left   = `${r.left - pad}px`;
   hi.style.top    = `${r.top - pad}px`;
   hi.style.width  = `${r.width + pad * 2}px`;
   hi.style.height = `${r.height + pad * 2}px`;
-
-  document.getElementById('tour-title').textContent    = step.title;
-  document.getElementById('tour-body').textContent     = step.body;
-  document.getElementById('tour-progress').textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
-  const nextBtn = document.getElementById('tour-next');
-  nextBtn.textContent = idx === TOUR_STEPS.length - 1 ? 'Got it' : 'Next';
+  progress.textContent = `${spotlights.indexOf(step) + 1} / ${spotlights.length}`;
 
   // Position the card on next frame so its dimensions are accurate.
   requestAnimationFrame(() => positionCard(r));
 }
 
-function startTour() {
+// Run a tour over the given step list ([{ selector, title, body }, …]).
+// onComplete (optional) fires only when the tour finishes naturally — used to
+// chain the lore sequence after the UI guide, but not on Skip or a replay.
+function startTour(steps, onComplete) {
+  if (!steps || steps.length === 0) return;
+  activeSteps = steps;
+  tourOnComplete = onComplete || null;
   ensureTourDom();
   document.body.classList.add('tour-active');
-  document.getElementById('tour-skip').onclick = () => endTour();
+  document.getElementById('tour-skip').onclick = () => endTour(false);
+  document.getElementById('tour-back').onclick = () => showStep(Math.max(0, stepIdx - 1));
   document.getElementById('tour-next').onclick = () => showStep(stepIdx + 1);
   window.addEventListener('resize', onResize);
   showStep(0);
 }
+window.startTour = startTour;
 
 function onResize() {
-  const step = TOUR_STEPS[stepIdx];
+  const step = activeSteps[stepIdx];
   if (!step) return;
+  if (!step.selector) { centerCard(); return; }
   const target = document.querySelector(step.selector);
   if (!target) return;
   const r = target.getBoundingClientRect();
@@ -131,11 +175,14 @@ function onResize() {
   positionCard(r);
 }
 
-function endTour() {
+function endTour(completed) {
   document.body.classList.remove('tour-active');
   const root = document.getElementById('tour-root');
   if (root) root.remove();
   window.removeEventListener('resize', onResize);
+  const cb = tourOnComplete;
+  tourOnComplete = null;
+  if (completed && cb) cb();
 }
 
 window.maybeStartTour = function maybeStartTour() {
@@ -144,5 +191,5 @@ window.maybeStartTour = function maybeStartTour() {
   params.delete('tour');
   const qs = params.toString();
   history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
-  startTour();
+  startTour(TOWN_TOUR_STEPS);
 };

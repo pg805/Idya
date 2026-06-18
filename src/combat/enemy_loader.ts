@@ -15,6 +15,7 @@ type EnemyLootData = {
 type EnemyData = {
   Name: string;
   Health: number;
+  Size?: number;   // footprint edge (1 = single square, 2 = a 2×2 unit). Default 1.
   Pattern: [number, number][];
   Weapon: Record<string, unknown>;
   Resistances?: Record<string, number>;
@@ -31,7 +32,19 @@ type EnemyData = {
 // collapses to a single number.
 const fieldList = (arr: number[]): string => {
   if (!arr.length) return '0';
-  return arr.every(v => v === arr[0]) ? `${arr[0]}` : `[${arr.join(', ')}]`;
+  if (arr.every(v => v === arr[0])) return `${arr[0]}`;
+  // Run-length encode runs of equal values as "value×count" — lossless, but it
+  // shows the full distribution (every possible roll AND how heavily it's weighted)
+  // without a wall of duplicates. e.g. [25,33,33,33,40] → "[25, 33×3, 40]", and the
+  // Wand's 66-entry "Empty Self" → "[7, 14×2, … 77×11]" instead of 66 numbers.
+  const parts: string[] = [];
+  for (let i = 0; i < arr.length;) {
+    let j = i;
+    while (j < arr.length && arr[j] === arr[i]) j++;
+    parts.push(j - i > 1 ? `${arr[i]}×${j - i}` : `${arr[i]}`);
+    i = j;
+  }
+  return `[${parts.join(', ')}]`;
 };
 
 // A player-facing stat split into:
@@ -122,6 +135,14 @@ export function buildWeaponInfo(weapon: Weapon): WeaponInfo {
   return { name: weapon.name, resourceName: weapon.resource_name, maxResource: weapon.resource_max, actions, crits };
 }
 
+// Cheap peek at an enemy's footprint size without building the whole Combatant —
+// board generation needs it up front (a 2×2 spawn must fit on the board) but the
+// enemy is loaded after the layout. Default 1.
+export function enemyFootprintSize(file: string): number {
+  const data = yaml.load(fs.readFileSync(file, 'utf-8')) as EnemyData;
+  return data.Size ?? 1;
+}
+
 export function loadEnemy(file: string, options: {
   id: string;
   teamId: string;
@@ -159,6 +180,7 @@ export function loadEnemy(file: string, options: {
     maxResource: weapon.resource_max,
     resourceName: weapon.resource_name,
     pos: options.pos,
+    size: data.Size ?? 1,
     movementRange: options.movementRange ?? 2,
     isAI: true,
     teamId: options.teamId,

@@ -77,6 +77,11 @@ function renderLayout() {
               <input id="settings-ping" type="checkbox" class="layout-settings-toggle">
             </div>
             <p class="layout-settings-help">When on, Discord posts that mention you (battles, shops, crafts) ping you. Off uses your character name instead.</p>
+            <div class="layout-settings-row">
+              <label for="settings-quick" class="layout-settings-label">Quick actions</label>
+              <input id="settings-quick" type="checkbox" class="layout-settings-toggle">
+            </div>
+            <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
           </div>
         </div>
       </div>
@@ -124,5 +129,60 @@ async function wireSettingsPopover() {
       body: JSON.stringify({ ping_on_action }),
     }).catch(() => {});
   });
+
+  // Quick actions — a client-side (per-device) combat preference read by game.js.
+  const quickToggle = document.getElementById('settings-quick');
+  if (quickToggle) {
+    quickToggle.checked = localStorage.getItem('idya.battle_quick') === '1';
+    quickToggle.addEventListener('change', () => {
+      localStorage.setItem('idya.battle_quick', quickToggle.checked ? '1' : '0');
+      window.dispatchEvent(new CustomEvent('commitmode-change'));
+    });
+  }
 }
 
+
+// ---- Shared quantity stepper ----
+// Renders "− [editable] + ALL" and handles clamping, used by Crafting / Shop /
+// Town Square. Reads data-min/data-max from the input; an optional onchange
+// (a global handler path, e.g. "Views.shop.onQty") fires after every change so a
+// view can react (the shop binds it to its cart). Extra data:{...} → data-* attrs.
+window.QtyStepper = {
+  html(o) {
+    const id = o.id, value = o.value ?? 1, min = o.min ?? 1, max = o.max ?? 0;
+    const all = o.all !== false, dis = o.disabled ? 'disabled' : '';
+    const oc  = o.onchange ? ` data-onchange="${o.onchange}"` : '';
+    const ex  = o.data ? Object.entries(o.data).map(([k, v]) => ` data-${k}="${String(v).replace(/"/g, '&quot;')}"`).join('') : '';
+    return `<div class="qty-ctrl${o.disabled ? ' disabled' : ''}">`
+      + `<button type="button" class="qty-step" onclick="QtyStepper.adj('${id}',-1)" ${dis}>−</button>`
+      + `<input class="qty-input" id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6"`
+      + ` value="${value}" data-min="${min}" data-max="${max}"${oc}${ex} oninput="QtyStepper.clean('${id}')" ${dis}>`
+      + `<button type="button" class="qty-step" onclick="QtyStepper.adj('${id}',1)" ${dis}>+</button>`
+      + (all ? `<button type="button" class="qty-all" onclick="QtyStepper.set('${id}',${max})" ${dis}>ALL</button>` : '')
+      + `</div>`;
+  },
+  _el(id) { return document.getElementById(id); },
+  _fire(el) {
+    const h = el.dataset.onchange; if (!h) return;
+    const fn = h.split('.').reduce((o, k) => (o ? o[k] : undefined), window);
+    if (typeof fn === 'function') fn(el.id);
+  },
+  set(id, v) {
+    const el = this._el(id); if (!el) return;
+    const min = parseInt(el.dataset.min, 10), max = parseInt(el.dataset.max, 10);
+    let n = Math.floor(Number(v) || 0);
+    if (!isNaN(min)) n = Math.max(min, n);
+    if (!isNaN(max)) n = Math.min(max, n);
+    el.value = String(n); this._fire(el);
+  },
+  adj(id, d) { const el = this._el(id); if (el) this.set(id, (parseInt(el.value, 10) || 0) + d); },
+  clean(id) {
+    const el = this._el(id); if (!el) return;
+    const max = parseInt(el.dataset.max, 10);
+    let n = parseInt(el.value.replace(/\D/g, ''), 10) || 0;   // allow empty/0 while typing
+    if (!isNaN(max)) n = Math.min(max, n);
+    if (String(n) !== el.value) el.value = String(n);
+    this._fire(el);
+  },
+  val(id) { return parseInt(this._el(id)?.value, 10) || 0; },
+};

@@ -1,6 +1,6 @@
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { chebyshevDist } from './board.js';
+import { chebyshevDist, cellsOf } from './board.js';
 import { reachableDanger } from './movement.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import Action, { SELF_TARGET_TYPES } from '../weapon/action.js';
@@ -67,10 +67,10 @@ export function generateAIIntent(ai: Combatant, session: CombatSession): CombatI
   );
 
   const occupied = new Set(
-    session.combatants.filter(c => c.id !== ai.id).map(c => `${c.pos.x},${c.pos.y}`)
+    session.combatants.filter(c => c.id !== ai.id).flatMap(c => cellsOf(c).map(cell => `${cell.x},${cell.y}`))
   );
   const aiMove = effectiveMove(ai.movementRange, meta.state);
-  const reachable = reachableDanger(ai.pos, aiMove, session.board, occupied, ai.teamId);
+  const reachable = reachableDanger(ai.pos, aiMove, session.board, occupied, ai.teamId, ai.size);
 
   // Pick the tile that gets closest to the target. Tiebreak, in order: take the
   // least opposing-hazard damage to get there, then prefer a non-slow destination,

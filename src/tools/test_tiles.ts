@@ -45,11 +45,11 @@ const enemyWeapon = (file: string) => {
   return Weapon.from_json({ ...data.Weapon, HP: data.Health });
 };
 
-function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean): { c: Combatant; m: CombatantMeta } {
+function mk(id: string, teamId: string, pos: Pos, weapon: Weapon, isAI: boolean, size = 1): { c: Combatant; m: CombatantMeta } {
   const state = new CombatantState(id, weapon.hp || 50, weapon.resource_name, weapon.resource_max);
   const c: Combatant = {
     id, name: id, hp: state.health, maxHp: state.max_health, resource: weapon.resource_max,
-    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos },
+    maxResource: weapon.resource_max, resourceName: weapon.resource_name, pos: { ...pos }, size,
     movementRange: 4, isAI, teamId, weaponInfo: buildWeaponInfo(weapon), weight: 0, initiative: 0, initiativeRank: 0,
   };
   return { c, m: { weapon, state, pattern: [], patternIndex: 0 } };
@@ -384,20 +384,22 @@ console.log('\nAI prefers a non-hazard tile over an equal-distance hazard one:')
   check(!!intent.moveTo && intent.moveTo.x === 1 && intent.moveTo.y === 1, `routes to clear (1,1), not hazard (1,0) (got ${intent.moveTo ? `(${intent.moveTo.x},${intent.moveTo.y})` : 'null'})`);
 }
 
-// ---- Test 16: reactive self-burst smash (Melbear Ursa Minor) ----
-console.log('\nReactive self-burst smash (Melbear Ursa Minor): hits the 3×3 + flattens cover:');
+// ---- Test 16: reactive self-burst smash (Melbear Ursa Minor) — a 2×2 ground-pound ----
+console.log('\nReactive self-burst smash (Melbear Ursa Minor): a 2×2 ground-pound (4×4) + flattens cover:');
 {
   const bear = enemyWeapon('melbear.yaml');
   const umIdx = bear.attack.findIndex(a => a.name === 'Ursa Minor');
-  check(umIdx >= 0 && bear.attack[umIdx].area === 3 && bear.attack[umIdx].smash, 'Ursa Minor is a smashing 3×3 burst');
-  // Bear at (3,1); enemy adjacent at (4,1) is inside the 3×3; obstacle at (2,1) is too.
-  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 2, y: 1 }, state: 'intact' }] };
-  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true);
-  const V = mk('P', 'A', { x: 4, y: 1 }, STRIKER, false);
+  check(umIdx >= 0 && bear.attack[umIdx].area === 4 && bear.attack[umIdx].smash, 'Ursa Minor is a smashing 4×4 burst');
+  // Bear is 2×2 anchored at (3,1) → body {(3,1),(4,1),(3,2),(4,2)}. The 4×4 pound
+  // centers on the body, covering x2..5, y0..3. Victim at (5,1) and obstacle at
+  // (2,1) are both inside the ring.
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [{ pos: { x: 2, y: 1 }, state: 'intact' }] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const V = mk('P', 'A', { x: 5, y: 1 }, STRIKER, false);
   const s = session(board, [B, V]);
   const before = hp(s, 'P');
   resolveIntents(s, new Map([['E', act('E', 'attack', umIdx)], ['P', act('P', 'pass', 0)]]));
-  check(hp(s, 'P') < before, `adjacent victim caught the burst (${before}→${hp(s, 'P')})`);
+  check(hp(s, 'P') < before, `victim in the ring caught the pound (${before}→${hp(s, 'P')})`);
   check(s.board.getObstacle({ x: 2, y: 1 })!.state === 'destroyed', 'obstacle in the burst was flattened');
 }
 
@@ -565,6 +567,155 @@ console.log('\nSmart AI is deterministic (same board → same plan):');
   const a = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
   const b = choosePlan(s.combatants.find(c => c.id === 'E')!, s);
   check(JSON.stringify(a) === JSON.stringify(b), 'two calls produce identical intents');
+}
+
+// A guard with a riposte: Block defend + a Strike defend-crit that hits the
+// attacker. Used to verify defend ▶ attack crit engagement.
+const DEFENDER = Weapon.from_json({
+  Name: 'Defender', Description: '', HP: 200, Weight: 0, Resource: { Name: 'En', Max: 9 },
+  Defend: [{ Name: 'Guard', Type: 2, Type_Name: 'Block', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Value: 5, Cost: 0, Range: 1, Action_String: '<User> guards.' }],
+  'Defend Crit': [{ Name: 'Riposte', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [12, 12, 12], Cost: 0, Range: 1, Action_String: '<User> ripostes <Target>.' }],
+  Attack: [], 'Attack Crit': [], Special: [], 'Special Crit': [],
+} as any);
+
+// ---- Test 26: defend ▶ attack crit fires when a 2×2 reactive pound CATCHES the defender ----
+// Regression: critEngages must use the footprint-centered burst (selfBurstCells),
+// not the old corner-spray areaBlock, or a defender west of the bear reads as
+// "not affected" and the deserved counter is suppressed.
+console.log('\nDefend-crit vs a 2×2 ground-pound: a defender caught in the ring counters:');
+{
+  const bear = enemyWeapon('melbear.yaml');   // Size 2, Ursa Minor = reactive 4×4
+  const um = bear.attack.findIndex(a => a.name === 'Ursa Minor');
+  // Bear 2×2 at (3,1) → body x3..4,y1..2; the 4×4 pound covers x2..5,y0..3.
+  // Defender at (2,1) is WEST of the body but inside the ring (the failing case).
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const D = mk('P', 'A', { x: 2, y: 1 }, DEFENDER, false);
+  const s = session(board, [B, D]);
+  const bearBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['E', act('E', 'attack', um)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'defender countered the pound (defend-crit fired)');
+  check(bearBefore - hp(s, 'E') > 0, `riposte damaged the bear (${bearBefore}→${hp(s, 'E')})`);
+}
+
+// ---- Test 27: ...but NOT when the pound misses the defender ----
+console.log('\nDefend-crit does NOT fire when the pound misses (defender outside the ring):');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const um = bear.attack.findIndex(a => a.name === 'Ursa Minor');
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const B = mk('E', 'B', { x: 3, y: 1 }, bear, true, 2);
+  const D = mk('P', 'A', { x: 7, y: 4 }, DEFENDER, false);   // well outside the 4×4
+  const s = session(board, [B, D]);
+  const bearBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['E', act('E', 'attack', um)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no counter when the pound did not reach the defender');
+  check(hp(s, 'E') === bearBefore, 'bear took no riposte');
+}
+
+// ---- Test 28: destroy-obstacle is outward — its blast engages an attack-crit ----
+console.log('\nDestroy-obstacle crit: blasting a foe by the wreck (mid-Special) triggers the attack-crit:');
+{
+  const SHATTERER = Weapon.from_json({
+    Name: 'Shatterer', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Shatter', Type: 12, Type_Name: 'Destroy Obstacle', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: true, Range: 3, Action_String: '<User> shatters the obstacle.' }],
+    'Attack Crit': [{ Name: 'Splinters', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [8, 8, 8], Cost: 0, Range: 3, Action_String: '<User> follows up on <Target>.' }],
+    Special: [], 'Special Crit': [],
+  } as any);
+  const toadW = enemyWeapon('maetoad.yaml');   // a foe with a Special to set its category
+  // Attacker at (2,1) shatters the obstacle at (4,1); the foe at (5,1) is within 1
+  // of the wreck → caught by the blast. Foe uses Special, attack beats special.
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 4, y: 1 }, state: 'intact' }] };
+  const P = mk('P', 'A', { x: 2, y: 1 }, SHATTERER, false);
+  const F = mk('E', 'B', { x: 5, y: 1 }, toadW, true);
+  const s = session(board, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 4, y: 1 })], ['E', act('E', 'special', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'destroy-obstacle blast engaged the attack-crit');
+  check(foeBefore - hp(s, 'E') > 0, `foe took blast + crit damage (${foeBefore}→${hp(s, 'E')})`);
+}
+
+// ---- Test 29: special ▶ defend crit (the third triangle leg) ----
+console.log('\nSpecial-crit: a Special that lands on a guarding foe crits it (special ▶ defend):');
+{
+  const SMITER = Weapon.from_json({
+    Name: 'Smiter', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Smite', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [10, 10, 10], Cost: 0, Aimed: false, Range: 1, Action_String: '<User> smites <Target>.' }],
+    'Special Crit': [{ Name: 'Echo', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [7, 7, 7], Cost: 0, Range: 1, Action_String: '<User> echoes onto <Target>.' }],
+  } as any);
+  const P = mk('P', 'A', { x: 2, y: 1 }, SMITER, false);
+  const F = mk('E', 'B', { x: 3, y: 1 }, DEFENDER, true);   // guards (defend index 0)
+  const s = session(EMPTY, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'special', 0)], ['E', act('E', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'special into a defend fired the special-crit');
+  check(foeBefore - hp(s, 'E') > 0, `guarding foe took Smite + Echo (${foeBefore}→${hp(s, 'E')})`);
+  // The reverse leg must NOT fire: defend beats attack, not special, so the
+  // guard does not counter the Special.
+  check(s.meta.get('E')!.state.attack_crits === 0 && hp(s, 'P') === 99, 'the guard did NOT counter a Special');
+}
+
+// ---- Test 30: no engagement → no crit (two inward actions) ----
+console.log('\nNo crit without a real exchange: a self-heal Special vs a self-Block fires nothing:');
+{
+  const SELFCASTER = Weapon.from_json({
+    Name: 'Selfcaster', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Meditate', Type: 6, Type_Name: 'Heal', Damage_Type: 'Arcane', Damage_Subtype: 'Mental', Value: 10, Cost: 0, Action_String: '<User> meditates.' }],
+    'Special Crit': [{ Name: 'Backlash', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [9, 9, 9], Cost: 0, Range: 1, Action_String: '<User> lashes <Target>.' }],
+  } as any);
+  const P = mk('P', 'A', { x: 2, y: 1 }, SELFCASTER, false);  // special, but self-only
+  const F = mk('E', 'B', { x: 3, y: 1 }, DEFENDER, true);     // defend, self-only
+  const s = session(EMPTY, [P, F]);
+  const foeBefore = hp(s, 'E');
+  resolveIntents(s, new Map([['P', act('P', 'special', 0)], ['E', act('E', 'defend', 0)]]));
+  // Categories line up (special ▶ defend) but neither action lands on the other.
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no special-crit when nobody was affected');
+  check(hp(s, 'E') === foeBefore, 'foe took no Backlash (the crit did not fire)');
+}
+
+// ---- Test 31: self-target crit payload lands on the actor, not the foe ----
+console.log('\nSelf-target crit payload: a defend-crit heal mends the defender, doesn\'t hit the attacker:');
+{
+  const MEDIC = Weapon.from_json({
+    Name: 'Medic', Description: '', HP: 200, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [{ Name: 'Guard', Type: 2, Type_Name: 'Block', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Value: 5, Cost: 0, Range: 1, Action_String: '<User> guards.' }],
+    'Defend Crit': [{ Name: 'Second Wind', Type: 6, Type_Name: 'Heal', Damage_Type: 'Arcane', Damage_Subtype: 'Plant', Value: 20, Cost: 0, Action_String: '<User> catches a second wind.' }],
+    Attack: [], 'Attack Crit': [], Special: [], 'Special Crit': [],
+  } as any);
+  const A = mk('E', 'B', { x: 3, y: 1 }, STRIKER, true);   // attacks (reactive Jab)
+  const D = mk('P', 'A', { x: 2, y: 1 }, MEDIC, false);    // guards
+  D.m.state.health = 50;                                   // hurt, so the self-heal is visible
+  const s = session(EMPTY, [A, D]);
+  resolveIntents(s, new Map([['E', act('E', 'attack', 0)], ['P', act('P', 'defend', 0)]]));
+  check(s.meta.get('P')!.state.attack_crits === 1, 'defend-crit fired against the attacker');
+  check(hp(s, 'P') > 50, `the heal landed on the defender (50→${hp(s, 'P')})`);
+  check(hp(s, 'E') === 99, 'the attacker took no damage — the crit was self-targeted, not a riposte');
+}
+
+// ---- Test 32: a 2×2 mover can't slide its footprint onto a 1×1 mover ----
+// Regression: both move to DIFFERENT anchors, but the bear's 2×2 footprint would
+// cover the square the player also moved to. The player (priority) keeps it; the
+// bear is denied rather than stacking on top of the player.
+console.log('\nFootprint-overlap contest: a 2×2 may not move onto a 1×1 that also moved:');
+{
+  const bear = enemyWeapon('melbear.yaml');
+  const board: BoardConfig = { width: 8, height: 6, obstacles: [] };
+  const P = mk('P', 'A', { x: 2, y: 1 }, STRIKER, false);       // → (2,3)
+  const B = mk('E', 'B', { x: 3, y: 2 }, bear, true, 2);        // → anchor (2,2): footprint covers (2,3)
+  const s = session(board, [P, B]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 3 })],
+    ['E', act('E', 'pass', 0, { x: 2, y: 2 })],
+  ]));
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  const bp = s.combatants.find(c => c.id === 'E')!.pos;
+  check(pp.x === 2 && pp.y === 3, `player kept its square (${pp.x},${pp.y})`);
+  // The bear must not cover the player's square — denied to its start, or anywhere clear.
+  const bearCells = [0, 1].flatMap(dx => [0, 1].map(dy => `${bp.x + dx},${bp.y + dy}`));
+  check(!bearCells.includes(`${pp.x},${pp.y}`), `bear's footprint does not overlap the player (bear @${bp.x},${bp.y})`);
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);

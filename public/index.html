@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/game.css">
+  <link rel="stylesheet" href="/tour.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
 <body>
@@ -18,6 +19,8 @@
       <span class="sep">·</span>
       <span id="phase-label">waiting</span>
       <span id="conn-wrap"><span class="sep">·</span><span id="connection-status" class="disconnected">Connecting...</span></span>
+      <button id="tour-replay-btn" type="button" title="Replay the battle-screen walkthrough" hidden>Show guide</button>
+      <button id="lore-replay-btn" type="button" title="Replay the intro story" hidden>Run lore</button>
       <button id="forfeit-btn" type="button" title="Leave this battle. Bait is gone, no other penalty.">Forfeit</button>
     </div>
 
@@ -48,6 +51,7 @@
   <script src="/auth.js"></script>
   <script src="/layout.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/tour.js"></script>
   <script src="/game.js"></script>
   <script>
     (async function initBattleLayout() {

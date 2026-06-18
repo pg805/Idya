@@ -14,6 +14,7 @@ export interface WorldConfig {
   guild_id:   string;
   sprite_cdn: string;
   admin_role: string;
+  join_role?: string;   // role auto-granted to members on join (per guild; optional)
   dev: string[];
   channels: {
     welcome:        string;
