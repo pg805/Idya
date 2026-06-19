@@ -718,5 +718,36 @@ console.log('\nFootprint-overlap contest: a 2×2 may not move onto a 1×1 that a
   check(!bearCells.includes(`${pp.x},${pp.y}`), `bear's footprint does not overlap the player (bear @${bp.x},${bp.y})`);
 }
 
+// ---- Test 33: a MISSED attack doesn't crit just because the foe hit you ----
+// Regression: the crit gate is directional. My attack whiffs (aimed at empty
+// space); the foe's Special lands on me. attack ▶ special, but I didn't connect,
+// so no attack-crit — even though the foe connected with me.
+console.log('\nMissed attack into a Special does NOT crit (foe hit me, I missed it):');
+{
+  const MISSER = Weapon.from_json({
+    Name: 'Misser', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Lob', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Aimed: true, Range: 3, Action_String: '<User> lobs at <Target>.' }],
+    'Attack Crit': [{ Name: 'Echo', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [7, 7, 7], Cost: 0, Range: 3, Action_String: '<User> echoes onto <Target>.' }],
+    Special: [], 'Special Crit': [],
+  } as any);
+  const ZAPPER = Weapon.from_json({
+    Name: 'Zapper', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Zap', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Aimed: false, Range: 5, Action_String: '<User> zaps <Target>.' }],
+    'Special Crit': [],
+  } as any);
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const P = mk('P', 'A', { x: 1, y: 1 }, MISSER, false);
+  const E = mk('E', 'B', { x: 3, y: 1 }, ZAPPER, true);
+  const s = session(board, [P, E]);
+  const foeBefore = hp(s, 'E');
+  // P lobs at empty (1,3) — the foe is at (3,1), so it misses. E zaps P (reactive).
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 1, y: 3 })], ['E', act('E', 'special', 0)]]));
+  check(hp(s, 'P') < 99, `the foe's Special hit me (${hp(s, 'P')})`);
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no attack-crit when my attack missed the foe');
+  check(hp(s, 'E') === foeBefore, 'foe took no crit damage (my attack whiffed)');
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

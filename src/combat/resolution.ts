@@ -130,12 +130,15 @@ function resolveTriangleCrits(session: CombatSession, intents: Map<string, Comba
       const fMeta = session.meta.get(foe.id);
       if (!fMeta || fMeta.state.health <= 0) continue;
       const foeAction = (fMeta.weapon as unknown as Record<string, Action[]>)[BEATS[aCat]]?.[fIntent.action.actionIndex];
-      // A crit only fires when one side actually TARGETED the other this turn — not
-      // just because the categories line up. So a defend-crit counters an attacker
-      // only if that attacker actually attacked the defender (aimed at its tile, or
-      // a reactive/AOE that caught it); attacking empty air provokes no counter.
-      const engaged = critEngages(myAction, aIntent, actor, foe)
-                   || critEngages(foeAction, fIntent, foe, actor);
+      // The crit is gated by MY action's direction — not a symmetric "did either
+      // side touch the other". An OUTWARD action (strike/DOT/debuff) must have
+      // LANDED on the foe: missing my attack provokes no crit even if the foe hit
+      // me. An INWARD action (block/heal/buff on myself) fires only if the FOE
+      // landed on me (the defend-crit counter). Two units that never reach each
+      // other counter nothing.
+      const engaged = isOffensive(myAction)
+        ? critEngages(myAction, aIntent, actor, foe)
+        : critEngages(foeAction, fIntent, foe, actor);
       if (!engaged) continue;
       const dist = unitDist(actor, foe);
       if (!isSelf && dist > critReach) continue;          // a foe-aimed crit must still reach
