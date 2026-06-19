@@ -23,6 +23,27 @@ export interface ShopConfig {
   items: ShopItemListing[];
 }
 
+// Canonical base SELL price per item, scanned across every shop. An item's worth
+// is what it sells for; items nothing buys (Base_Sell null/undefined — e.g. the
+// swallow-bait permit) are absent from the map. If two shops list the same item,
+// the highest sell price wins. Cached after the first build. Used by the orchard
+// to set multiply odds (and unplantability) from an item's value.
+let baseSellCache: Map<string, number> | null = null;
+export function baseSellPrices(shopsDir: string): Map<string, number> {
+  if (baseSellCache) return baseSellCache;
+  const map = new Map<string, number>();
+  for (const file of fs.readdirSync(shopsDir).filter(f => f.endsWith('.yaml'))) {
+    const cfg = loadShop(file.replace(/\.yaml$/, ''), shopsDir);
+    for (const it of cfg.items) {
+      if (typeof it.base_sell !== 'number') continue;
+      const prev = map.get(it.id);
+      if (prev === undefined || it.base_sell > prev) map.set(it.id, it.base_sell);
+    }
+  }
+  baseSellCache = map;
+  return map;
+}
+
 export function loadShop(shopKey: string, shopsDir: string): ShopConfig {
   const raw = yaml.load(fs.readFileSync(`${shopsDir}/${shopKey}.yaml`, 'utf-8')) as Record<string, unknown>;
   return {
