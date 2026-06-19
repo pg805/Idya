@@ -31,7 +31,11 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
-import { loadShop, type ShopItemListing } from '../economy/shop_loader.js';
+import { loadShop, baseSellPrices, type ShopItemListing } from '../economy/shop_loader.js';
+import {
+  orchardCapacity, expectedMultiplier, advancePlot,
+  ticksUntilCap, ORCHARD_K, ORCHARD_CAP_TICKS, type PlotState,
+} from '../economy/orchard_service.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from '../economy/shop_math.js';
 import { getPrices, buyItem, sellItem, tickAllDue, TICK_INTERVAL_MS } from '../economy/shop_service.js';
@@ -3257,6 +3261,171 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
 });
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);
+
+// ---- Orchard (Lumberjack profession layer) ----
+// Plots multiply a planted item on a 4h tick (capped 24h). Rolls are advanced +
+// persisted lazily on read/harvest (a plot only ticks when its owner looks at it,
+// which they must do to harvest — same outcome as a background clock, no global
+// writer). See docs/orchard.md + orchard_service.ts.
+
+const orchardBasePrice = (itemId: string): number | undefined => baseSellPrices(SHOP_DIR).get(itemId);
+
+type OrchardRow = { character_id: string; slot: number; item_id: string | null; seed_count: number; accrued: number; ticks_banked: number; last_tick_at: Date };
+
+const orchardSlotView = (slot: number, row: OrchardRow | undefined, capacity: number) => {
+  if (!row || !row.item_id) return { slot, empty: true, capacity };
+  return {
+    slot, empty: false, capacity,
+    item_id: row.item_id, name: ITEMS[row.item_id]?.name ?? row.item_id,
+    seed_count: row.seed_count, accrued: row.accrued,
+    ticks_banked: row.ticks_banked, ticks_until_cap: ticksUntilCap(row),
+    multiplier: expectedMultiplier(orchardBasePrice(row.item_id)),
+  };
+};
+
+async function lumberjackLevel(characterId: string): Promise<number> {
+  const row = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: characterId, profession: 'lumberjack' } },
+  }).catch(() => null);
+  return row?.level ?? 0;
+}
+
+app.get('/api/orchard', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const ljLevel = await lumberjackLevel(char.id);
+  const { plots, capacity } = orchardCapacity(ljLevel);
+  const rows = await prisma.orchardPlot.findMany({ where: { character_id: char.id } });
+  const bySlot = new Map<number, OrchardRow>(rows.map(r => [r.slot, r as OrchardRow]));
+  const now = new Date();
+
+  const slots = [];
+  for (let slot = 0; slot < plots; slot++) {
+    let row = bySlot.get(slot);
+    if (row && row.item_id) {
+      const adv = advancePlot(row as PlotState, orchardBasePrice(row.item_id), now);
+      if (adv.changed) {
+        await prisma.orchardPlot.update({
+          where: { character_id_slot: { character_id: char.id, slot } },
+          data: { accrued: adv.accrued, ticks_banked: adv.ticks_banked, last_tick_at: adv.last_tick_at },
+        }).catch(() => {});
+        row = { ...row, accrued: adv.accrued, ticks_banked: adv.ticks_banked, last_tick_at: adv.last_tick_at };
+      }
+    }
+    slots.push(orchardSlotView(slot, row, capacity));
+  }
+
+  // Plantable inventory: owned, has a base sell price, not an unlock permit.
+  const prices = baseSellPrices(SHOP_DIR);
+  const inv = await prisma.inventoryItem.findMany({ where: { character_id: char.id } });
+  const plantable = inv
+    .filter(i => i.quantity > 0 && ITEMS[i.item_id]?.type !== 'unlock' && prices.has(i.item_id))
+    .map(i => ({
+      item_id: i.item_id, name: ITEMS[i.item_id]?.name ?? i.item_id, owned: i.quantity,
+      base_sell: prices.get(i.item_id), multiplier: expectedMultiplier(prices.get(i.item_id)),
+    }))
+    .sort((a, b) => b.multiplier - a.multiplier);
+
+  res.json({ lj_level: ljLevel, plots, capacity, k: ORCHARD_K, breakeven: ORCHARD_CAP_TICKS * ORCHARD_K, slots, plantable });
+});
+
+app.post('/api/orchard/plant', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const body = req.body as { slot?: number; item_id?: string; quantity?: number };
+  const slot = Math.trunc(Number(body.slot));
+  const itemId = String(body.item_id ?? '');
+  const quantity = Math.trunc(Number(body.quantity));
+
+  const { plots, capacity } = orchardCapacity(await lumberjackLevel(char.id));
+  if (!(slot >= 0 && slot < plots)) { res.json({ success: false, message: 'That plot is locked.' }); return; }
+  if (!(quantity >= 1)) { res.json({ success: false, message: 'Plant at least one.' }); return; }
+  if (quantity > capacity) { res.json({ success: false, message: `That plot holds up to ${capacity}.` }); return; }
+  if (ITEMS[itemId]?.type === 'unlock' || !orchardBasePrice(itemId)) { res.json({ success: false, message: "You can't plant that." }); return; }
+
+  const result = await prisma.$transaction(async tx => {
+    const existing = await tx.orchardPlot.findUnique({ where: { character_id_slot: { character_id: char.id, slot } } });
+    if (existing?.item_id) return { success: false, message: 'Harvest or clear that plot first.' };
+    const inv = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } } });
+    if (!inv || inv.quantity < quantity) return { success: false, message: `You only have ${inv?.quantity ?? 0}.` };
+    if (inv.quantity === quantity) await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } } });
+    else await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
+    await tx.orchardPlot.upsert({
+      where: { character_id_slot: { character_id: char.id, slot } },
+      update: { item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+      create: { character_id: char.id, slot, item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+    });
+    return { success: true, message: `Planted ${quantity} ${ITEMS[itemId]?.name ?? itemId}.` };
+  });
+  res.json(result);
+});
+
+// Harvest a plot. `replant: true` re-seeds the same item from inventory afterward.
+async function orchardHarvest(characterId: string, slot: number, replant: boolean) {
+  return prisma.$transaction(async tx => {
+    const row = await tx.orchardPlot.findUnique({ where: { character_id_slot: { character_id: characterId, slot } } });
+    if (!row || !row.item_id) return { success: false, message: 'Nothing growing there.' };
+    const itemId = row.item_id;
+    const adv = advancePlot(row as PlotState, orchardBasePrice(itemId), new Date());
+    const harvested = adv.accrued;
+
+    if (harvested > 0) {
+      await tx.inventoryItem.upsert({
+        where: { character_id_item_id: { character_id: characterId, item_id: itemId } },
+        update: { quantity: { increment: harvested } },
+        create: { character_id: characterId, item_id: itemId, quantity: harvested },
+      });
+    }
+
+    let replanted = false;
+    if (replant) {
+      const seed = row.seed_count;
+      const inv = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } } });
+      if (inv && inv.quantity >= seed) {
+        if (inv.quantity === seed) await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } } });
+        else await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } }, data: { quantity: { decrement: seed } } });
+        await tx.orchardPlot.update({ where: { character_id_slot: { character_id: characterId, slot } }, data: { item_id: itemId, seed_count: seed, accrued: 0, ticks_banked: 0, last_tick_at: new Date() } });
+        replanted = true;
+      }
+    }
+    if (!replanted) {
+      await tx.orchardPlot.update({ where: { character_id_slot: { character_id: characterId, slot } }, data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() } });
+    }
+    const name = ITEMS[itemId]?.name ?? itemId;
+    const msg = harvested > 0 ? `Harvested ${harvested} ${name}.` : `No ${name} this time.`;
+    return { success: true, message: replant && !replanted ? `${msg} (not enough to replant)` : msg, harvested, item_id: itemId, replanted };
+  });
+}
+
+app.post('/api/orchard/harvest', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const body = req.body as { slot?: number; replant?: boolean };
+  res.json(await orchardHarvest(chars[0].id, Math.trunc(Number(body.slot)), !!body.replant));
+});
+
+app.post('/api/orchard/clear', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const slot = Math.trunc(Number((req.body as { slot?: number }).slot));
+  await prisma.orchardPlot.updateMany({
+    where: { character_id: chars[0].id, slot },
+    data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+  }).catch(() => {});
+  res.json({ success: true, message: 'Plot cleared.' });
+});
 
 // ---- Global quests (Town Square) ----
 startQuestScheduler(prisma, join(__dirname, '../../database/quests'));

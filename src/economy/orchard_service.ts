@@ -10,7 +10,7 @@
 // same way /api/enchant drives enchant_service.
 
 // --- Balance knobs (tune K in pacing_sim) ---
-export const ORCHARD_K        = 0.4;                  // korel-value each seeded unit yields per tick
+export const ORCHARD_K        = 3;                    // breakeven at 6K=18: base mats (~10) grind, tier-2+ (~40) gamble. Tune in pacing_sim.
 export const ORCHARD_P_MAX    = 0.5;                  // cap on the per-unit multiply chance
 export const ORCHARD_TICK_MS  = 4 * 60 * 60 * 1000;   // 4h tick
 export const ORCHARD_CAP_TICKS = 6;                   // accrual caps at 24h (6 ticks)
