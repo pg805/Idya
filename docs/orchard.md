@@ -35,55 +35,73 @@ tiers for the player's current rank.)
 
 ## Yield
 
-Each plot accrues yield of the planted item on a **4-hour** tick. The multiply
-chance is **inversely proportional to the item's base price**, so value per tick
-is roughly flat across items while *unit count* favours cheap mats:
+**The seed is the input; harvest is the output.** You plant `n` units (they leave
+your inventory) and the plot produces a *rolled* output of that item over the
+cycle. Harvest hands you the output — the seed does **not** come back on top. So
+net = output − seed, and that can be positive or negative.
+
+The multiply chance per seeded unit is **inversely proportional to base price**,
+which makes the output's *value* roughly flat across items while *unit count*
+favours cheap mats:
 
 ```
-p          = clamp(K / base_sell, 0, P_MAX)      # per-seed-unit multiply chance
-yield/tick = random count with mean (n · p)       # Poisson(n·p) — integer, gambly
-value/tick ≈ n · p · base_sell ≈ n · K            # ~flat across items (unclamped)
+p          = clamp(K / base_sell, 0, P_MAX)      # per-seed-unit multiply chance, per tick
+yield/tick = random count, mean (n · p)          # Poisson(n·p) — integer, gambly
+E[output]  = n · p · 6   (full 24h / 6 ticks)    # = n · (6K / base_sell)
 ```
 
-- **`K`** is the single balance knob (korel-value each seeded unit makes per tick).
-  Start ~**0.4**; tune in `pacing_sim`.
-- **`P_MAX`** (~0.5) caps the chance so the very cheapest items don't multiply
-  every unit every tick.
-- `base_sell` = the item's canonical base sell price, looked up from the shop
-  that sells it (see Infra). No `base_sell` → unplantable.
+### Grind vs gamble (the breakeven)
 
-## Harvest & the 24h cap
+`E[output] ⋛ n` flips at **base price = 6K**:
 
-- Yield **accumulates** tick over tick while planted, but accrual **caps at 24h**
-  (6 ticks). Past that, unharvested ticks are wasted.
-- **Harvest** moves the accumulated yield into inventory, resets the accrual
-  clock, and the plot **keeps its seed and resumes**. So the intended cadence is a
-  **once-a-day** check: harvest daily for full value; sleep longer and you just
-  cap out (you lose the overflow, not the plot).
-- Implementation: each plot stores `last_collected_at`; available ticks =
-  `min(6, floor((now − last_collected_at) / 4h))`.
+- **price < 6K** → expected output > seed → a reliable **grind** (the point of the
+  feature: a bunch of cheap mats a little faster).
+- **price > 6K** → expected output < seed → a **gamble you usually lose** (plant a
+  bear paw / antler trophy, maybe hit big, usually not).
+
+So one knob (`K`) sets where "farm" turns into "casino." `P_MAX` (~0.5) caps the
+chance so the very cheapest items don't auto-multiply every unit every tick.
+Start `K ≈ 0.4`; tune in `pacing_sim`. `base_sell` = the item's canonical sell
+price (see Infra); no `base_sell` → unplantable.
+
+**Show the odds.** The plant screen must surface the per-item **expected
+multiplier** (`6K / base_sell`) and flag the losing ones, e.g. "Sulwood ≈ 3× —
+net gain" vs "Bear Paw ≈ 0.4× — likely loss," so players gamble with eyes open.
+
+## Cycle, the 24h cap, and harvest
+
+- A plot **accrues every 4h** while planted, but accrual **caps at 24h** (6
+  ticks). Past the cap it sits full; unharvested ticks beyond 24h are just not
+  produced (no overflow, no loss of what's banked).
+- Because harvest takes the output and the seed's spent, the plot is **empty**
+  after harvesting. Two buttons:
+  - **Harvest** — output → inventory, plot goes idle.
+  - **Harvest & Replant** — output → inventory, then auto-spend `n` more of the
+    same item from inventory to start the next cycle (no-op if you don't have `n`).
+- Intended cadence: a **once-a-day** check — harvest (or harvest & replant) daily.
 
 ## UI
 
 An **Orchard** page under **Enchant** in the Bench (crafting-adjacent; reorganize
-later if we want). Per plot: what's growing, seeded count, accrued yield, ticks
-until cap; plant (item + qty) / harvest / clear controls. Styled like the Enchant
-page.
+later if we want), styled like the Enchant page. Per plot: what's growing, seeded
+count, banked output, ticks until the 24h cap, and **Harvest / Harvest & Replant**.
+Planting shows the **expected multiplier + loss warning** per item.
 
 ## Infrastructure / build order
 
 1. **Base-price accessor** — `base_sell` lookup per item, scanning the shop
    configs (cached). One helper the service reads; `null` → unplantable.
 2. **DB** — `OrchardPlot` model (`character_id`, `slot`, `item_id`, `seed_count`,
-   `last_collected_at`, `accrued`?) + migration. (Accrued yield can be recomputed
-   from `last_collected_at` + seed, so it needn't be stored.)
-3. **`orchard_service.ts`** — rank→plots/capacity, plant / harvest / clear, the
-   per-tick yield math. Unit-tested on the math.
-4. **Tick** — piggyback the hourly `tickAllDue` scheduler (`shop_service`); plots
-   are pull-based (computed on read/harvest from `last_collected_at`), so no
-   separate writer is strictly required — the cap is enforced at harvest.
-5. **API + page** — `/api/orchard` (list / plant / harvest / clear) + the Orchard
-   SPA page.
+   `accrued`, `last_tick_at`) + migration. `accrued` is the banked output (the
+   rolls are persisted, so the page shows the true number and harvest matches).
+3. **`orchard_service.ts`** — rank→plots/capacity, plant / harvest / harvest+replant
+   / clear, expected-multiplier helper, and the per-tick roll. Unit-tested.
+4. **Tick (clock, not pull)** — piggyback the hourly `tickAllDue` scheduler: each
+   plot rolls a tick when it's >4h due (timestamp-checked, so a restart or downtime
+   just catches up on the next hourly pass), adding to `accrued` and stopping at
+   the 6-tick cap. Persisting the roll is why display == harvest.
+5. **API + page** — `/api/orchard` (list / plant / harvest / replant / clear) +
+   the Orchard SPA page.
 6. **Sim** — extend `pacing_sim` to count orchard throughput, then tune `K`.
 
 ## Open / deferred
