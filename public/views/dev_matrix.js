@@ -1,8 +1,8 @@
 // View: Dev Sim Matrix — the canonical weapon×enemy win%/timeout grid for this
-// version, read STATICALLY from /dev-matrix.json (generated at version bump via
-// `npm run matrix:save`, so the page costs nothing to load). A "re-run live"
-// button hits /api/dev/matrix for a fresh sweep when iterating. Player side plays
-// the smart (human-stand-in) AI; the enemy uses the shippable AI.
+// version, read from /api/dev/matrix/canonical (the committed docs/sim/<version>.json,
+// generated at version bump via `npm run matrix:save`). A "re-run live" button hits
+// /api/dev/matrix for a fresh sweep when iterating. Player side plays the smart
+// (human-stand-in) AI; the enemy uses the shippable AI.
 (function() {
   let data = null, root = null, stat = 'win';
   const q = (s) => root.querySelector(s);
@@ -32,9 +32,10 @@
 
     // Load the committed canonical matrix — no server compute.
     try {
-      const res = await fetch('/dev-matrix.json', { cache: 'no-cache' });
+      const res = await fetch('/api/dev/matrix/canonical', { cache: 'no-cache' });
       if (res.ok) { data = await res.json(); setStatus(`canonical v${data.version} · ${data.n} battles/matchup · ${data.generated}`); renderTable(); }
-      else setStatus('no canonical matrix yet — run `npm run matrix:save`, or re-run live.');
+      else if (res.status === 404) setStatus('no canonical matrix yet — run `npm run matrix:save`, or re-run live.');
+      else setStatus(`error ${res.status} loading canonical matrix.`);
     } catch (_) { setStatus('no canonical matrix — re-run live.'); }
   }
 

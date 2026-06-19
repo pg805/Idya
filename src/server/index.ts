@@ -618,6 +618,19 @@ app.get('/api/dev/matrix', (req: Request, res: Response) => {
   }
 });
 
+// The committed canonical matrix for the running version (npm run matrix:save →
+// docs/sim/<version>.json). Served here since docs/ isn't a static dir; both dev
+// views read it. Dev-gated, but available in any env (unlike loadSimForVersion).
+app.get('/api/dev/matrix/canonical', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const path = join(__dirname, `../../docs/sim/${APP_VERSION}.json`);
+  if (!fs.existsSync(path)) { res.status(404).json({ error: `no canonical matrix for ${APP_VERSION}` }); return; }
+  try { res.type('application/json').send(fs.readFileSync(path, 'utf-8')); }
+  catch (e) { res.status(500).json({ error: e instanceof Error ? e.message : String(e) }); }
+});
+
 // Client-side error capture — SPA posts unhandled errors here; we log to
 // stdout (PM2 captures) so we can debug white screens / runtime crashes
 // without needing the user's devtools open. No auth required intentionally:
@@ -1220,8 +1233,9 @@ function loadEnemyNames(): Record<string, string> {
 }
 
 function loadSimForVersion(version: string): unknown | null {
-  // Sim JSON is regenerated on version bump (npm run sim:save) and committed
-  // under docs/sim/. We only render it on the dev environment because numbers
+  // Canonical spatial matrix, regenerated on version bump (npm run matrix:save)
+  // and committed under docs/sim/. We only render it on the dev environment
+  // because numbers
   // change with balance tuning and showing them on prod would confuse players
   // who can see anything routed through the auth-gated APIs in the browser.
   if (process.env.NODE_ENV === 'production') return null;

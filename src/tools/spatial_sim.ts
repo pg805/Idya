@@ -30,12 +30,14 @@ const WEAPONS = join(__dirname, '../../database/weapons');
 const ENEMIES = join(__dirname, '../../database/enemies');
 
 // --- CLI ---
-// Save the canonical matrix for the dev page: `spatial_sim.js matrix-save [N]`.
-// Writes public/dev-matrix.json (the static, per-version numbers the page reads).
+// Save the canonical matrix for the dev pages: `spatial_sim.js matrix-save [N]`.
+// Writes a per-version file at docs/sim/<version>.json so every release leaves a
+// committed, diffable snapshot. Both dev views (Sim Matrix + the Stats sim panel)
+// read it for the current version.
 if (process.argv[2] === 'matrix-save') {
   const N = Number(process.argv[3] ?? 100);
-  const out = process.argv[4] ?? join(__dirname, '../../public/dev-matrix.json');
   const pkg = JSON.parse(fs.readFileSync(join(__dirname, '../../package.json'), 'utf8')) as { version: string };
+  const out = process.argv[4] ?? join(__dirname, `../../docs/sim/${pkg.version}.json`);
   process.stdout.write(`running canonical matrix (N=${N})…\n`);
   const m = runMatrix(N);
   fs.writeFileSync(out, JSON.stringify({ version: pkg.version, n: N, generated: new Date().toISOString().slice(0, 10), ...m }));

@@ -95,41 +95,31 @@
   }
 
   function simHtml(sim, version) {
-    if (!sim || !Array.isArray(sim.matchups) || sim.matchups.length === 0) return '';
-    // Pivot the flat matchup list into a weapon × enemy grid. Each cell shows
-    // win% (the most discriminating metric per CLAUDE.md), with enemies sorted
-    // by HP so harder fights end up on the right.
-    const byWeapon = new Map();
-    const enemyKeys = [];
-    const enemyMeta = new Map();
-    for (const m of sim.matchups) {
-      if (!byWeapon.has(m.weapon_key)) byWeapon.set(m.weapon_key, { name: m.weapon_name, level: m.weapon_level, cells: new Map() });
-      byWeapon.get(m.weapon_key).cells.set(m.enemy_key, m);
-      if (!enemyMeta.has(m.enemy_key)) { enemyMeta.set(m.enemy_key, { name: m.enemy_name, hp: m.enemy_hp }); enemyKeys.push(m.enemy_key); }
-    }
-    enemyKeys.sort((a, b) => enemyMeta.get(a).hp - enemyMeta.get(b).hp);
+    // Canonical SPATIAL matrix: { weapons:[{name,level}], enemies:[{name,level}],
+    // cells:{ wName:{ eName:{ winRate, avgRounds, avgHpOnWin, timeoutRate } } } }.
+    if (!sim || !sim.cells || !Array.isArray(sim.weapons) || !Array.isArray(sim.enemies)) return '';
+    const enemies = sim.enemies;   // already sorted by level in the matrix
 
-    const head = `<tr><th>Weapon</th>${enemyKeys.map(k => `<th>${esc(enemyMeta.get(k).name)}<br><span class="ds-sim-hp">${enemyMeta.get(k).hp} HP</span></th>`).join('')}</tr>`;
-    const rows = [...byWeapon.entries()]
-      .sort((a, b) => (a[1].level - b[1].level) || a[1].name.localeCompare(b[1].name))
-      .map(([_wk, info]) => {
-        const cells = enemyKeys.map(ek => {
-          const cell = info.cells.get(ek);
-          if (!cell) return `<td class="ds-sim-cell ds-sim-empty">—</td>`;
-          const winPct = (cell.winRate * 100).toFixed(0);
-          const cls = cell.winRate >= 0.7 ? 'ds-sim-good' : cell.winRate >= 0.4 ? 'ds-sim-mid' : 'ds-sim-bad';
-          return `<td class="ds-sim-cell ${cls}" title="HP left ${cell.avgHpLeft.toFixed(1)} · ${cell.avgRoundsWin.toFixed(1)} rd to win · DPR ${cell.avgDmgToEnemy.toFixed(2)}">${winPct}%</td>`;
-        }).join('');
-        return `<tr><td class="ds-sim-weapon">${esc(info.name)}<br><span class="ds-sim-lvl">L${info.level}</span></td>${cells}</tr>`;
+    const head = `<tr><th>Weapon</th>${enemies.map(e => `<th>${esc(e.name)}<br><span class="ds-sim-hp">L${e.level}</span></th>`).join('')}</tr>`;
+    const rows = sim.weapons.map(w => {
+      const cells = enemies.map(e => {
+        const cell = sim.cells[w.name] && sim.cells[w.name][e.name];
+        if (!cell) return `<td class="ds-sim-cell ds-sim-empty">—</td>`;
+        const winPct = (cell.winRate * 100).toFixed(0);
+        const cls = cell.winRate >= 0.7 ? 'ds-sim-good' : cell.winRate >= 0.4 ? 'ds-sim-mid' : 'ds-sim-bad';
+        const tip = `HP ${(cell.avgHpOnWin * 100).toFixed(0)}% on win · ${cell.avgRounds.toFixed(0)} rds · timeout ${(cell.timeoutRate * 100).toFixed(0)}%`;
+        return `<td class="ds-sim-cell ${cls}" title="${tip}">${winPct}%</td>`;
       }).join('');
+      return `<tr><td class="ds-sim-weapon">${esc(w.name)}<br><span class="ds-sim-lvl">L${w.level}</span></td>${cells}</tr>`;
+    }).join('');
 
     return `
       <section class="ds-sim">
         <header>
-          <h3>Sim — ${esc(version)}</h3>
-          <span class="ds-sim-meta">${sim.n_per_matchup} battles/matchup · generated ${new Date(sim.generated_at).toLocaleDateString()}</span>
+          <h3>Sim — ${esc(sim.version || version)}</h3>
+          <span class="ds-sim-meta">${sim.n} battles/matchup · generated ${esc(sim.generated || '')}</span>
         </header>
-        <p class="ds-sim-note">Win% by weapon (rows) vs enemy (columns, sorted by HP). Hover cells for HP-left / rounds / DPR.</p>
+        <p class="ds-sim-note">Spatial win% by weapon (rows) vs enemy (columns, by level). Hover cells for HP-left / rounds / timeout.</p>
         <div class="ds-sim-wrap"><table class="ds-sim-table">${head}${rows}</table></div>
       </section>`;
   }
