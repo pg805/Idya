@@ -11,9 +11,9 @@
 
 // --- Balance knobs (tune K in pacing_sim) ---
 // Prices are BUY prices (what the shop charges): wider spread than sell, so items
-// fan out across the curve. Breakeven is 6K — at K=12 that's 72, so base mats
-// (~50 buy) grind (~1.4×) and tier-2+ (~200) are gambles.
-export const ORCHARD_K        = 12;
+// fan out across the curve. Breakeven is 6K — at K=20 that's 120, so base mats
+// (~50 buy) grind at ~2.4× and tier-2+ (~200) stay gambles (~0.6×).
+export const ORCHARD_K        = 20;
 export const ORCHARD_P_MAX    = 0.5;                  // cap on the BASE (1-fertilizer) per-roll chance
 // 4h roll in prod; 5 min on dev/test so the grow→harvest cycle is testable in
 // minutes instead of a day (the 6-roll cap then spans 30 min instead of 24h).

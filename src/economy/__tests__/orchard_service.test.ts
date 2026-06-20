@@ -30,7 +30,7 @@ describe('fertilizerFactor', () => {
 });
 
 describe('multiplyChance (base, 1-fert)', () => {
-  test('inverse to price below the cap', () => expect(multiplyChance(40)).toBeCloseTo(ORCHARD_K / 40));
+  test('inverse to price below the cap', () => expect(multiplyChance(80)).toBeCloseTo(ORCHARD_K / 80));
   test('capped at P_MAX for cheap items', () => expect(multiplyChance(2)).toBe(ORCHARD_P_MAX));
   test('no/invalid price → 0 (unplantable)', () => {
     expect(multiplyChance(undefined)).toBe(0);
@@ -69,9 +69,9 @@ describe('rollTickYield', () => {
   test('rng above chance → nothing', () => expect(rollTickYield(10, 2, 1, () => 0.99)).toBe(0));
   test('zero-chance item never yields', () => expect(rollTickYield(10, undefined, 1, () => 0)).toBe(0));
   test('0 fertilizer roughly halves the hits', () => {
-    // base(40)=0.3; 0-fert=0.15. rng 0.2 is < 0.3 but > 0.15 → no hits at 0 fert.
-    expect(rollTickYield(10, 40, 0, () => 0.2)).toBe(0);
-    expect(rollTickYield(10, 40, 1, () => 0.2)).toBe(10);
+    // base(80)=0.25; 0-fert=0.125, 1-fert=0.25. rng 0.2 is < 0.25 but > 0.125.
+    expect(rollTickYield(10, 80, 0, () => 0.2)).toBe(0);
+    expect(rollTickYield(10, 80, 1, () => 0.2)).toBe(10);
   });
 });
 
