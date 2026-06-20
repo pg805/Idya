@@ -49,7 +49,8 @@
 
 .orch-pick-note { font-size: 0.76rem; min-height: 1em; line-height: 1.3; }
 
-.orch-select, .orch-qty {
+.orch-select {
+  width: 100%;
   background: var(--bg-darkest);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -58,8 +59,6 @@
   font-size: 0.82rem;
   padding: 5px 6px;
 }
-.orch-select { width: 100%; }
-.orch-qty { width: 64px; text-align: center; }
 
 .orch-plant-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
