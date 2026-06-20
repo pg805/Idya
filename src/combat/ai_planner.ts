@@ -37,8 +37,9 @@ const W = {
   repeat: 5.0,     // slight nudge AWAY from repeating last turn's category (variety)
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
-  betBlock: 10,    // penalty × P(foe stays) for ending on a square the foe holds — the
-                   // move contest blocks me if it doesn't vacate (stationary ▶ player ▶ NPC)
+  betBlock: 10,    // penalty × P(foe stays) on ending where a foe stands — if it holds,
+                   // I'm blocked and stop short (move-priority is stationary ▶ player ▶
+                   // NPC), so the positioning I'm betting on won't happen
 };
 // Worth of wiping a foe's tile by dropping mine on top (overwrite). Hazards/buffs
 // by their value; slow by a flat delay estimate.
@@ -296,10 +297,11 @@ function scorePlan(
   // (This is what stops a fragile unit kiting forever with no payoff.)
   if (threatening) score += Math.min(d, foeThreat) * vuln * W.safety;
 
-  // Betting on a square a foe currently holds (I can chase onto it since it moves
-  // when I do) only pays off if it vacates — the move contest blocks me if it
-  // stays put. Discount by the predicted chance it stays, so I follow a fleeing
-  // foe but don't faceplant into a camper and waste the turn getting re-routed.
+  // Betting on a square a foe currently holds only pays off if it vacates: if it
+  // stays, I'm blocked and stop short of it (my action still locks and resolves
+  // from wherever I end up — there's no misfire, just worse positioning than I
+  // planned). Discount by the predicted chance it stays, so I chase a fleeing foe
+  // onto its tile but don't bank on positioning I probably won't reach.
   const foeHolds = session.combatants.find(c => c.teamId !== me.teamId && occupies(c, dest));
   if (foeHolds) score -= (predicted.get(key(dest)) ?? 0) * W.betBlock;
 
