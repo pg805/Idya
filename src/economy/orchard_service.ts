@@ -23,10 +23,10 @@ export const ORCHARD_CAP_TICKS = 6;                   // accrual caps at 24h (6 
 // Plots unlock at the Enchanter's enchant-level ranks (2/4/6/8/10); count AND
 // per-plot capacity both grow, so a higher-rank orchard is more and bigger.
 export function orchardCapacity(ljLevel: number): { plots: number; capacity: number } {
-  if (ljLevel >= 10) return { plots: 5, capacity: 30 };
-  if (ljLevel >= 8)  return { plots: 4, capacity: 25 };
-  if (ljLevel >= 6)  return { plots: 3, capacity: 20 };
-  if (ljLevel >= 4)  return { plots: 2, capacity: 15 };
+  if (ljLevel >= 10) return { plots: 5, capacity: 50 };
+  if (ljLevel >= 8)  return { plots: 4, capacity: 40 };
+  if (ljLevel >= 6)  return { plots: 3, capacity: 30 };
+  if (ljLevel >= 4)  return { plots: 2, capacity: 20 };
   if (ljLevel >= 2)  return { plots: 1, capacity: 10 };
   return { plots: 0, capacity: 0 };
 }

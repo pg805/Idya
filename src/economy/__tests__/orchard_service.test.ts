@@ -10,7 +10,8 @@ describe('orchardCapacity / fertilizerPool', () => {
   test('locked below rank 2', () => expect(orchardCapacity(1)).toEqual({ plots: 0, capacity: 0 }));
   test('unlocks at the enchant tiers, growing count and size', () => {
     expect(orchardCapacity(2)).toEqual({ plots: 1, capacity: 10 });
-    expect(orchardCapacity(10)).toEqual({ plots: 5, capacity: 30 });
+    expect(orchardCapacity(6)).toEqual({ plots: 3, capacity: 30 });
+    expect(orchardCapacity(10)).toEqual({ plots: 5, capacity: 50 });
   });
   test('fertilizer pool = plot count', () => {
     expect(fertilizerPool(1)).toBe(0);

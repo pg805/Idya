@@ -18,7 +18,7 @@ orchard is more *and* bigger:
 | LJ rank | 2 | 4 | 6 | 8 | 10 |
 |---|---|---|---|---|---|
 | plots | 1 | 2 | 3 | 4 | 5 |
-| capacity (seed units/plot) | 10 | 15 | 20 | 25 | 30 |
+| capacity (seed units/plot) | 10 | 20 | 30 | 40 | 50 |
 
 (Below rank 2: no orchard. A plot count/capacity is `max` across the unlocked
 tiers for the player's current rank.)
