@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 import { upgradeCost, maxUpgrades } from '../economy/upgrade_service.js';
 import { enchantCost, ENCHANT_SLOTS } from '../economy/enchant_service.js';
+import { orchardCapacity, effectiveChance, ORCHARD_CAP_TICKS, ORCHARD_K } from '../economy/orchard_service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '../..');
@@ -140,3 +141,31 @@ for (let L = 1; L <= 5; L++) {
   const perStr = Object.entries(per).map(([m, q]) => `${q} ${m}`).join(' ');
   console.log(`  L${L} weapon: ${perStr}/slot → ${ENCHANT_SLOTS} slots = ${raw} raw ≈ ${Math.round(wins)} wins`);
 }
+
+// ── ORCHARD THROUGHPUT (Lumberjack profession layer) ─────────────────────────
+// The orchard passively multiplies a planted item each roll (6 rolls / 24h). It
+// only yields what you plant, and only cheap base mats clear breakeven, so its
+// material output is what we sanity-check — against a day of LJ farming. The
+// natural play is planting the base material (sulwood) in every plot.
+const orchardNetRaw = (item: string, cap: number, plots: number, fert: number): number => {
+  const buy = base[item]?.buy;
+  if (!buy) return 0;
+  const mult = ORCHARD_CAP_TICKS * effectiveChance(buy, fert);   // output ÷ seed over a cycle
+  return plots * cap * (mult - 1) * rawEquiv(item);              // net units × raw-equiv, all plots
+};
+
+console.log(`\n\nORCHARD THROUGHPUT (K=${ORCHARD_K}) — planting base material (sulwood) at 1 fertilizer/plot:`);
+const ljRaw = bestFarm['lumberjack'].raw;
+const sulMult = ORCHARD_CAP_TICKS * effectiveChance(base['sulwood']?.buy, 1);
+console.log(`  sulwood (buy ${base['sulwood']?.buy}) multiplies ${sulMult.toFixed(2)}× per cycle`);
+for (const ljL of [2, 6, 10]) {
+  const { plots, capacity } = orchardCapacity(ljL);
+  const net = orchardNetRaw('sulwood', capacity, plots, 1);
+  console.log(`  LJ rank ${ljL.toString().padStart(2)}: ${plots}×${capacity} plots → +${Math.round(net).toString().padStart(4)} raw/day  =  ${(net / ljRaw).toFixed(1)} farm-wins/day`);
+}
+const m10 = orchardCapacity(10);
+const netMax = orchardNetRaw('sulwood', m10.capacity, m10.plots, 1);
+const rawToMax = winsToMax['lumberjack'] * ljRaw;
+const matShare = (winsToMax['lumberjack'] / 0.8) / fight;
+console.log(`  → maxed, the orchard alone funds a weapon's materials (${Math.round(rawToMax)} raw) in ${(rawToMax / netMax).toFixed(0)} days, passively.`);
+console.log(`  → materials are only ~${(matShare * 100).toFixed(0)}% of the rank-10 journey (${fight} fights), so this supplements, not replaces, the grind.`);
