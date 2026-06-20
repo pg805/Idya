@@ -791,5 +791,42 @@ console.log('\nMove onto a vacated NPC square lands; onto a stationary one is bl
   check(pp2.x === 1 && pp2.y === 1, `player blocked by the stationary NPC, holds its square (${pp2.x},${pp2.y})`);
 }
 
+// ---- Test 36: walk-and-stop — a blocked mover halts on its path, never re-routes ----
+// Movement is a walk: you follow your path toward the square you chose and stop at
+// the last one you can enter. No fresh BFS to a different tile around the blocker.
+console.log('\nWalk-and-stop: a blocked mover halts on its path (no re-route around the blocker):');
+{
+  const board: BoardConfig = { width: 5, height: 1, obstacles: [] };   // single corridor
+  const E = mk('E', 'B', { x: 0, y: 0 }, STRIKER, true);
+  E.c.movementRange = 3;
+  const Wall = mk('P', 'A', { x: 2, y: 0 }, STRIKER, false);           // stationary, mid-corridor
+  const s = session(board, [E, Wall]);
+  resolveIntents(s, new Map([
+    ['E', act('E', 'pass', 0, { x: 3, y: 0 })],   // wants the square past the wall
+    ['P', act('P', 'pass', 0)],                   // wall holds its square
+  ]));
+  const ep = s.combatants.find(c => c.id === 'E')!.pos;
+  check(ep.x === 1 && ep.y === 0, `walked to (1,0) and stopped at the wall, didn't re-route (got ${ep.x},${ep.y})`);
+}
+
+// ---- Test 37: a train of movers in one direction all advance (the step fixpoint) ----
+// The follower steps into the square the unit ahead vacates THIS turn — they move
+// as a train, not blocked by where the leader currently stands.
+console.log('\nTrain follow: a mover steps into the square the unit ahead vacates this turn:');
+{
+  const board: BoardConfig = { width: 6, height: 1, obstacles: [] };
+  const A = mk('P', 'A', { x: 0, y: 0 }, STRIKER, false);   // follows
+  const B = mk('E', 'B', { x: 1, y: 0 }, STRIKER, true);    // leads, vacates the path
+  A.c.movementRange = 2; B.c.movementRange = 2;
+  const s = session(board, [A, B]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 0 })],
+    ['E', act('E', 'pass', 0, { x: 3, y: 0 })],
+  ]));
+  const ap = s.combatants.find(c => c.id === 'P')!.pos;
+  const bp = s.combatants.find(c => c.id === 'E')!.pos;
+  check(bp.x === 3 && ap.x === 2, `both advanced — leader vacated (${bp.x},${bp.y}) for the follower (${ap.x},${ap.y})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

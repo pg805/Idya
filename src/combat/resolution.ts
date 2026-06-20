@@ -282,166 +282,97 @@ export function resolveIntents(
   }
 
   // --- Move phase ---
-  // Tile contests resolve in two layers:
-  //   1. Players always beat AI. A player and an enemy both wanting the
-  //      same square hands it to the player every time, regardless of
-  //      initiative — keeps aimed-attack windows under player control.
-  //   2. Within the player pool (PVP / co-op later) or within the AI pool,
-  //      initiative rank breaks the tie. Lower rank = sooner = wins.
+  // Movement is a WALK — not a teleport and not a re-route. Each mover follows the
+  // path to the square it chose, one step at a time, and STOPS at the last square
+  // it can actually enter. Nobody picks a different destination mid-resolution; if
+  // you can't make it, you halt where you are (your locked action still resolves
+  // from there). When a step is contested, priority decides who takes the square:
+  // a unit that ISN'T moving holds it (can't be pushed off), then players, then
+  // NPCs; initiative breaks ties within a tier. A unit vacating a square this tick
+  // frees it for a follower, so trains move as a unit.
   const movePriority = (id: string) => {
     const c = snapshot.find(c => c.id === id);
     if (!c) return Infinity;
     const teamRank = c.isAI ? 10_000 : 0; // any AI is greater than any player
     return teamRank + c.initiativeRank;
   };
+  const alive = (id: string) => (session.meta.get(id)?.state.health ?? 1) > 0;
+  const sizeOf = (id: string) => snapshot.find(c => c.id === id)?.size ?? 1;
 
-  const byDest = new Map<string, string[]>();
+  // Each mover's intended route: the geometric path to its chosen square. Empty
+  // `occupied` on purpose — movement is simultaneous, so the route ignores where
+  // others currently stand (the stepping below resolves collisions). Size keeps a
+  // 2×2 body's route on tiles its whole footprint clears. Non-movers have no path
+  // and just hold their square (they're stationary occupiers).
+  const intendedDest = new Map<string, { x: number; y: number }>();
+  const intendedPath = new Map<string, { x: number; y: number }[]>();
   for (const [id, intent] of intents) {
     if (!intent.moveTo) continue;
-    const k = `${intent.moveTo.x},${intent.moveTo.y}`;
-    const group = byDest.get(k) ?? [];
-    group.push(id);
-    byDest.set(k, group);
-  }
-
-  const blocked = new Set<string>();
-  // Destination a unit was DENIED (lost a tile contest, or it was occupied). Kept
-  // even after an AI re-routes, so the move line can show "… ✗ (denied)" — one
-  // line carries both where it got to and the square it couldn't reach.
-  const blockedDest = new Map<string, { x: number; y: number }>();
-
-  for (const [, claimants] of byDest) {
-    if (claimants.length === 1) continue;
-    const sortedByPriority = [...claimants].sort((a, b) => movePriority(a) - movePriority(b));
-    const winner = sortedByPriority[0];
-    for (const id of claimants) {
-      if (id !== winner) {
-        blocked.add(id);
-        const d = intents.get(id)?.moveTo;
-        if (d) blockedDest.set(id, { ...d });
-      }
-    }
-  }
-
-  // Also block movers whose destination is occupied by a non-moving combatant
-  for (const [id, intent] of intents) {
-    if (!intent.moveTo || blocked.has(id)) continue;
-    const dest = intent.moveTo;
-    const stationaryOccupant = snapshot.find(c =>
-      c.id !== id &&
-      occupies(c, dest) &&
-      !intents.get(c.id)?.moveTo
-    );
-    if (stationaryOccupant) { blocked.add(id); blockedDest.set(id, { ...dest }); }
-  }
-
-  // Re-route blocked AI combatants to their next-best available tile
-  const nonBlockedDests = new Set<string>();
-  for (const [id, intent] of intents) {
-    if (intent.moveTo && !blocked.has(id)) {
-      nonBlockedDests.add(`${intent.moveTo.x},${intent.moveTo.y}`);
-    }
-  }
-
-  // Re-route blocked AI combatants. We don't store the BFS path of their
-  // intended move, so we approximate "stop on the path" by picking the
-  // reachable tile that gets the combatant closest to the ORIGINAL
-  // destination (the tile they wanted but lost). Strict-less would force
-  // them to stay put any time they couldn't get strictly closer; <= lets
-  // them step toward the destination even when the chebyshev distance is
-  // tied (which is the case for the last tile before a blocked dest).
-  for (const [id] of intents) {
-    if (!blocked.has(id)) continue;
     const c = snapshot.find(c => c.id === id);
-    if (!c?.isAI) continue;
-    const originalDest = intents.get(id)?.moveTo;
-    if (!originalDest) continue;
+    if (!c || !alive(id)) continue;
+    const from = preMovePos.get(id) ?? c.pos;
+    if (from.x === intent.moveTo.x && from.y === intent.moveTo.y) continue;
+    const m = session.meta.get(id);
+    const range = m ? effectiveMove(c.movementRange, m.state) : c.movementRange;
+    const path = findPath(from, intent.moveTo, range, session.board, new Set(), c.teamId, true, c.size);
+    if (path && path.length) { intendedPath.set(id, path); intendedDest.set(id, { ...intent.moveTo }); }
+  }
 
-    const allOccupied = new Set<string>([
-      ...snapshot.filter(o => o.id !== id).flatMap(o => cellsOf(o).map(cell => `${cell.x},${cell.y}`)),
-      ...nonBlockedDests,
-    ]);
+  // Lockstep walk. Every tick each still-moving unit tries to step onto the next
+  // square of its path; the step is allowed only if its footprint won't overlap
+  // any other unit's footprint AFTER the tick (a unit vacating its square this
+  // tick frees it). A same-square contest goes to the higher priority — the loser
+  // can't pass through an occupied square, so it stops there for the turn. The
+  // fixpoint within each tick lets a train of movers in one direction all advance
+  // regardless of which order we visit them.
+  const posNow = new Map(snapshot.map(c => [c.id, { x: c.pos.x, y: c.pos.y }]));
+  const stepIdx = new Map<string, number>();
+  const walked = new Map<string, { x: number; y: number }[]>();
+  for (const id of intendedPath.keys()) { stepIdx.set(id, 0); walked.set(id, []); }
+  const stopped = new Set<string>();
+  const order = snapshot.map(c => c.id).sort((a, b) => movePriority(a) - movePriority(b));
+  const cellsAt = (id: string, anchor: { x: number; y: number }) => footprint(anchor, sizeOf(id));
 
-    const cReachMeta = session.meta.get(id);
-    const cMove = cReachMeta ? effectiveMove(c.movementRange, cReachMeta.state) : c.movementRange;
-    const reachable = reachableTiles(c.pos, cMove, session.board, allOccupied, c.size);
-
-    // Pick the reachable tile that: (1) gets us closest to the original
-    // destination, (2) uses the fewest steps among equally-close options.
-    // Without the second tiebreak, the AI would "teleport" past blockers
-    // — e.g., enemy at (6,4) blocked from (5,3) would land at (6,2) when
-    // (6,3) is equally close to the goal and one step shorter.
-    let bestDist = chebyshevDist(c.pos, originalDest);
-    let bestStepCost = Infinity;
-    let bestPos: { x: number; y: number } | null = null;
-    for (const pos of reachable.values()) {
-      const d = chebyshevDist(pos, originalDest);
-      const stepCost = chebyshevDist(c.pos, pos);
-      if (d < bestDist || (d === bestDist && stepCost < bestStepCost)) {
-        bestDist = d;
-        bestStepCost = stepCost;
-        bestPos = pos;
+  for (let tick = 0; tick < 64; tick++) {
+    const active = order.filter(id => intendedPath.has(id) && !stopped.has(id) && stepIdx.get(id)! < intendedPath.get(id)!.length);
+    if (active.length === 0) break;
+    const advancing = new Map<string, { x: number; y: number }>();   // id → its next anchor this tick
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const id of active) {
+        if (advancing.has(id)) continue;
+        const next = intendedPath.get(id)![stepIdx.get(id)!];
+        const myCells = cellsAt(id, next);
+        // Project every OTHER unit's post-step footprint: a unit that's advancing
+        // sits at its new anchor; everyone else (stationary, stopped, or a mover
+        // not yet cleared to advance this pass) sits where it is now.
+        const collides = myCells.some(cell =>
+          order.some(oid => oid !== id && alive(oid) &&
+            cellsAt(oid, advancing.get(oid) ?? posNow.get(oid)!).some(oc => oc.x === cell.x && oc.y === cell.y)));
+        if (!collides) { advancing.set(id, next); changed = true; }
       }
     }
-
-    if (bestPos) {
-      blocked.delete(id);
-      intents.get(id)!.moveTo = bestPos;
-      nonBlockedDests.add(`${bestPos.x},${bestPos.y}`);
+    for (const id of active) {
+      const next = advancing.get(id);
+      if (next) { posNow.set(id, next); stepIdx.set(id, stepIdx.get(id)! + 1); walked.get(id)!.push({ ...next }); }
+      else stopped.add(id);   // couldn't take the next step → halts here for the turn
     }
   }
 
-  // Footprint-overlap contest (multi-square units). The checks above only catch
-  // movers wanting the same ANCHOR; two units moving to DIFFERENT anchors whose
-  // size×size footprints overlap (a 2×2 sliding onto where a 1×1 also moved)
-  // would both commit and end up stacked. Claim footprints in move-priority order
-  // (players before AI, then initiative); a MOVER whose destination footprint
-  // collides with an already-claimed cell is denied and holds its square. For an
-  // all-1×1 board this is a no-op (same-cell collisions are already resolved), so
-  // it only bites multi-square units.
-  {
-    const claimed = new Map<string, string>();   // cell 'x,y' → unit id holding it
-    const claimAnchor = (c: Combatant) => {
-      const mv = intents.get(c.id)?.moveTo;
-      return (mv && !blocked.has(c.id)) ? mv : (preMovePos.get(c.id) ?? c.pos);
-    };
-    for (const c of [...snapshot].sort((a, b) => movePriority(a.id) - movePriority(b.id))) {
-      const m = session.meta.get(c.id);
-      if (m && m.state.health <= 0) continue;
-      let cells = footprint(claimAnchor(c), c.size);
-      const collides = cells.some(p => { const o = claimed.get(`${p.x},${p.y}`); return o !== undefined && o !== c.id; });
-      if (collides && intents.get(c.id)?.moveTo && !blocked.has(c.id)) {
-        blocked.add(c.id);
-        blockedDest.set(c.id, { ...intents.get(c.id)!.moveTo! });
-        cells = footprint(preMovePos.get(c.id) ?? c.pos, c.size);   // fall back to its starting square
-      }
-      for (const p of cells) claimed.set(`${p.x},${p.y}`, c.id);
-    }
-  }
-
-  const moveStart = log.length;
-  // Track each mover's traversed path so hazard tiles damage on every square
-  // entered, not just the destination (movement isn't a teleport).
+  // Commit final positions. `blockedDest` = the square a mover was stopped short of
+  // (drives the move log's ✗); `moverPaths` = the squares each actually entered
+  // (hazards + replay). A mover that reached its goal has neither.
+  const blockedDest = new Map<string, { x: number; y: number }>();
   const moverPaths = new Map<string, { x: number; y: number }[]>();
-  for (const [id, intent] of intents) {
-    if (!intent.moveTo || blocked.has(id)) continue;
+  const moveStart = log.length;
+  for (const id of intendedPath.keys()) {
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
-    const from = { ...c.pos };
-    // Movement is a walk, not a teleport — hazards hit every square entered. Both
-    // players and AI route around pits (and slow) when a within-range detour
-    // exists, and wade through only when forced. The client preview runs the same
-    // avoidance, so the green outline matches the damage taken. (Manual route
-    // choice — deliberately picking a different equal-cost route — is future work.)
-    const moverMeta = session.meta.get(id);
-    const moverRange = moverMeta ? effectiveMove(c.movementRange, moverMeta.state) : c.movementRange;
-    // Empty occupied set on purpose: movement resolves simultaneously, so the
-    // route ignores where others currently stand (collisions are handled by the
-    // destination contest above). Passing size keeps a 2×2 body's route on tiles
-    // its whole footprint can clear.
-    const path = findPath(from, intent.moveTo, moverRange, session.board, new Set(), c.teamId, true, c.size) ?? [intent.moveTo];
-    moverPaths.set(id, path);
-    c.pos = intent.moveTo;
+    c.pos = { ...posNow.get(id)! };
+    moverPaths.set(id, walked.get(id) ?? []);
+    const dest = intendedDest.get(id)!;
+    if (c.pos.x !== dest.x || c.pos.y !== dest.y) blockedDest.set(id, dest);
   }
 
   // Hazard tiles: a combatant takes damage for each opposing-team hazard square
