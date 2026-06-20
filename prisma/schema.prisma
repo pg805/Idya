@@ -63,8 +63,9 @@ model OrchardPlot {
   slot          Int
   item_id       String?
   seed_count    Int       @default(0)
+  fertilizer    Int       @default(0)   // allocated from a pool = plot count; modifies odds
   accrued       Int       @default(0)
-  ticks_banked  Int       @default(0)   // ticks rolled since plant; capped at 6
+  ticks_banked  Int       @default(0)   // rolls since plant; capped at 6
   last_tick_at  DateTime  @default(now())
 
   character     Character @relation(fields: [character_id], references: [id])

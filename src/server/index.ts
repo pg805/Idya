@@ -31,10 +31,10 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
-import { loadShop, baseSellPrices, type ShopItemListing } from '../economy/shop_loader.js';
+import { loadShop, baseBuyPrices, type ShopItemListing } from '../economy/shop_loader.js';
 import {
-  orchardCapacity, expectedMultiplier, advancePlot,
-  ticksUntilCap, ORCHARD_K, ORCHARD_CAP_TICKS, type PlotState,
+  orchardCapacity, fertilizerPool, expectedMultiplier, effectiveChance, advancePlot,
+  ticksUntilCap, nextRollAt, ORCHARD_TICK_MS, type PlotState,
 } from '../economy/orchard_service.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from '../economy/shop_math.js';
@@ -3268,18 +3268,23 @@ sessions.set('test', createSession('test', 'lithkem_swallow').session);
 // which they must do to harvest — same outcome as a background clock, no global
 // writer). See docs/orchard.md + orchard_service.ts.
 
-const orchardBasePrice = (itemId: string): number | undefined => baseSellPrices(SHOP_DIR).get(itemId);
+// The orchard uses BUY price (wider spread; see docs/orchard.md).
+const orchardBasePrice = (itemId: string): number | undefined => baseBuyPrices(SHOP_DIR).get(itemId);
 
-type OrchardRow = { character_id: string; slot: number; item_id: string | null; seed_count: number; accrued: number; ticks_banked: number; last_tick_at: Date };
+type OrchardRow = { character_id: string; slot: number; item_id: string | null; seed_count: number; fertilizer: number; accrued: number; ticks_banked: number; last_tick_at: Date };
 
-const orchardSlotView = (slot: number, row: OrchardRow | undefined, capacity: number) => {
-  if (!row || !row.item_id) return { slot, empty: true, capacity };
+const orchardSlotView = (slot: number, row: OrchardRow | undefined) => {
+  const fertilizer = row?.fertilizer ?? 0;
+  if (!row || !row.item_id) return { slot, empty: true, fertilizer };
+  const price = orchardBasePrice(row.item_id);
   return {
-    slot, empty: false, capacity,
+    slot, empty: false, fertilizer,
     item_id: row.item_id, name: ITEMS[row.item_id]?.name ?? row.item_id,
     seed_count: row.seed_count, accrued: row.accrued,
     ticks_banked: row.ticks_banked, ticks_until_cap: ticksUntilCap(row),
-    multiplier: expectedMultiplier(orchardBasePrice(row.item_id)),
+    odds: effectiveChance(price, fertilizer),
+    multiplier: expectedMultiplier(price, fertilizer),
+    next_roll_at: nextRollAt(row)?.toISOString() ?? null,
   };
 };
 
@@ -3304,6 +3309,7 @@ app.get('/api/orchard', async (req: Request, res: Response) => {
   const now = new Date();
 
   const slots = [];
+  let fertUsed = 0;
   for (let slot = 0; slot < plots; slot++) {
     let row = bySlot.get(slot);
     if (row && row.item_id) {
@@ -3316,21 +3322,28 @@ app.get('/api/orchard', async (req: Request, res: Response) => {
         row = { ...row, accrued: adv.accrued, ticks_banked: adv.ticks_banked, last_tick_at: adv.last_tick_at };
       }
     }
-    slots.push(orchardSlotView(slot, row, capacity));
+    fertUsed += row?.fertilizer ?? 0;
+    slots.push(orchardSlotView(slot, row));
   }
 
-  // Plantable inventory: owned, has a base sell price, not an unlock permit.
-  const prices = baseSellPrices(SHOP_DIR);
+  // Plantable inventory: owned, has a buy price, not an unlock permit. Odds shown
+  // at the 1-fertilizer baseline (the page re-derives per plot once fertilized).
+  const prices = baseBuyPrices(SHOP_DIR);
   const inv = await prisma.inventoryItem.findMany({ where: { character_id: char.id } });
   const plantable = inv
     .filter(i => i.quantity > 0 && ITEMS[i.item_id]?.type !== 'unlock' && prices.has(i.item_id))
     .map(i => ({
       item_id: i.item_id, name: ITEMS[i.item_id]?.name ?? i.item_id, owned: i.quantity,
-      base_sell: prices.get(i.item_id), multiplier: expectedMultiplier(prices.get(i.item_id)),
+      odds: effectiveChance(prices.get(i.item_id), 1), multiplier: expectedMultiplier(prices.get(i.item_id), 1),
     }))
     .sort((a, b) => b.multiplier - a.multiplier);
 
-  res.json({ lj_level: ljLevel, plots, capacity, k: ORCHARD_K, breakeven: ORCHARD_CAP_TICKS * ORCHARD_K, slots, plantable });
+  res.json({
+    lj_level: ljLevel, plots, capacity,
+    fertilizer_pool: fertilizerPool(ljLevel), fertilizer_free: Math.max(0, fertilizerPool(ljLevel) - fertUsed),
+    roll_ms: ORCHARD_TICK_MS, cap_rolls: 6,
+    slots, plantable,
+  });
 });
 
 app.post('/api/orchard/plant', async (req: Request, res: Response) => {
@@ -3425,6 +3438,35 @@ app.post('/api/orchard/clear', async (req: Request, res: Response) => {
     data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
   }).catch(() => {});
   res.json({ success: true, message: 'Plot cleared.' });
+});
+
+// Set a plot's fertilizer (absolute), clamped to what's free in the pool (= plots).
+app.post('/api/orchard/fertilize', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const body = req.body as { slot?: number; fertilizer?: number };
+  const slot = Math.trunc(Number(body.slot));
+  const want = Math.max(0, Math.trunc(Number(body.fertilizer)));
+  const ljLevel = await lumberjackLevel(char.id);
+  const { plots } = orchardCapacity(ljLevel);
+  if (!(slot >= 0 && slot < plots)) { res.json({ success: false, message: 'That plot is locked.' }); return; }
+  const pool = fertilizerPool(ljLevel);
+
+  const result = await prisma.$transaction(async tx => {
+    const rows = await tx.orchardPlot.findMany({ where: { character_id: char.id } });
+    const usedOther = rows.filter(r => r.slot !== slot).reduce((s, r) => s + r.fertilizer, 0);
+    const set = Math.max(0, Math.min(want, pool - usedOther));
+    await tx.orchardPlot.upsert({
+      where: { character_id_slot: { character_id: char.id, slot } },
+      update: { fertilizer: set },
+      create: { character_id: char.id, slot, fertilizer: set },
+    });
+    return { success: true, fertilizer: set };
+  });
+  res.json(result);
 });
 
 // ---- Global quests (Town Square) ----

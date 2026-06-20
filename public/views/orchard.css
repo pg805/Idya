@@ -1,10 +1,32 @@
 /* Orchard — Lumberjack profession layer */
 
-#orchard-tab { max-width: 880px; }
-.orch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+#orchard-tab { max-width: 880px; margin: 0 auto; }
+.orch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; justify-content: center; flex-wrap: wrap; }
 .orch-title { font-size: 1.3rem; color: var(--gold); }
 .orch-meta { font-size: 0.78rem; color: var(--text-muted); }
-.orch-blurb { font-size: 0.85rem; color: var(--text-2); line-height: 1.5; margin-bottom: 16px; max-width: 70ch; }
+.orch-fert-pool { color: var(--teal-bright); }
+.orch-blurb { font-size: 0.85rem; color: var(--text-2); line-height: 1.5; margin: 0 auto 16px; max-width: 70ch; text-align: center; }
+
+.orch-plot-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.orch-odds { font-size: 0.74rem; font-weight: 600; }
+.orch-odds.gain, .orch-pick-note.gain { color: var(--teal-bright); }
+.orch-odds.gamble, .orch-pick-note.gamble { color: var(--warn-bright); }
+
+/* Fertilizer allocation per plot */
+.orch-fert { display: inline-flex; align-items: center; gap: 4px; }
+.orch-fert-label { font-size: 0.78rem; color: var(--teal-bright); }
+.orch-step {
+  width: 20px; height: 20px; line-height: 1; padding: 0;
+  background: var(--bg-darkest); border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text-2); cursor: pointer; font-size: 0.85rem;
+}
+.orch-step:hover:not(:disabled) { color: var(--teal-bright); border-color: var(--teal-dim); }
+.orch-step:disabled { opacity: 0.3; cursor: default; }
+
+/* Progress bar to the next roll */
+.orch-bar-wrap { height: 5px; background: var(--bg-darkest); border-radius: 3px; overflow: hidden; }
+.orch-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--teal-dim), var(--teal-bright)); transition: width 0.9s linear; }
+.orch-full .orch-bar { background: var(--gold-dim); }
 
 .orch-plots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 
@@ -21,13 +43,9 @@
 .orch-full { border-color: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-dim); }
 
 .orch-plot-label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
-.orch-mult { font-size: 0.78rem; font-weight: 600; margin-left: 4px; }
-.orch-mult.gain, .gain { color: var(--teal-bright); }
-.orch-mult.gamble, .gamble { color: var(--warn-bright); }
-
 .orch-stat { font-size: 0.82rem; color: var(--text-2); }
-.orch-ticks { color: var(--text-muted); }
-.orch-full .orch-ticks { color: var(--gold-bright); }
+.orch-rolls { color: var(--text-muted); }
+.orch-full .orch-rolls { color: var(--gold-bright); }
 
 .orch-pick-note { font-size: 0.76rem; min-height: 1em; line-height: 1.3; }
 
