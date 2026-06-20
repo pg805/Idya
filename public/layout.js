@@ -176,6 +176,14 @@ window.QtyStepper = {
     el.value = String(n); this._fire(el);
   },
   adj(id, d) { const el = this._el(id); if (el) this.set(id, (parseInt(el.value, 10) || 0) + d); },
+  // Retarget the cap (e.g. when a dropdown changes how many you own) and re-clamp.
+  setMax(id, max) {
+    const el = this._el(id); if (!el) return;
+    el.dataset.max = String(max);
+    const all = el.parentElement?.querySelector('.qty-all');
+    if (all) all.setAttribute('onclick', `QtyStepper.set('${id}',${max})`);
+    this.set(id, parseInt(el.value, 10) || 0);
+  },
   clean(id) {
     const el = this._el(id); if (!el) return;
     const max = parseInt(el.dataset.max, 10);

@@ -104,14 +104,14 @@
     if (s.empty) {
       const opts = data.plantable.length === 0
         ? '<option disabled>No plantable materials</option>'
-        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}">${esc(p.name)} (own ${p.owned})</option>`).join('');
+        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}" data-owned="${p.owned}">${esc(p.name)} (own ${p.owned})</option>`).join('');
       return `
         <div class="orch-plot orch-empty">
           <div class="orch-plot-head"><p class="orch-plot-label">Empty plot</p>${fertRow(s)}</div>
           <select class="orch-select" id="orch-sel-${s.slot}" onchange="Views.orchard.onPick(${s.slot})">${opts}</select>
           <p class="orch-pick-note" id="orch-note-${s.slot}"></p>
           <div class="orch-plant-row">
-            ${window.QtyStepper ? QtyStepper.html({ id: `orch-qty-${s.slot}`, value: 1, min: 1, max: data.capacity, all: false }) : `<input id="orch-qty-${s.slot}" type="number" min="1" value="1">`}
+            ${window.QtyStepper ? QtyStepper.html({ id: `orch-qty-${s.slot}`, value: 1, min: 1, max: data.capacity, all: true }) : `<input id="orch-qty-${s.slot}" type="number" min="1" value="1">`}
             <button class="orch-btn orch-plant" onclick="Views.orchard.plant(${s.slot})" ${data.plantable.length === 0 ? 'disabled' : ''}>Plant</button>
           </div>
         </div>`;
@@ -155,7 +155,10 @@
     const o = effOdds(Number(opt.dataset.odds), plot?.fertilizer ?? 0);
     const gain = o * cap() >= 1;
     note.className = `orch-pick-note ${gain ? 'gain' : 'gamble'}`;
-    note.textContent = `${pct(o)} per seed — ${gain ? 'net gain' : 'a gamble'}`;
+    note.textContent = `${pct(o)} per seed`;
+    // Cap the quantity field at what you actually own (and the plot capacity).
+    const owned = Number(opt.dataset.owned) || 0;
+    if (window.QtyStepper) QtyStepper.setMax(`orch-qty-${slot}`, Math.max(1, Math.min(data.capacity, owned)));
   }
 
   async function plant(slot) {
