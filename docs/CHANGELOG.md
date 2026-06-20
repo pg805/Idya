@@ -3,6 +3,69 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## 0.2.2 — 2026-06-20
+
+The Orchard (the Lumberjack profession layer) and a rebuilt movement model, plus
+a batch of combat AI and crit fixes.
+
+### Orchard — the Lumberjack profession layer
+
+- **Plots that multiply a planted item over time.** Rank-gated like the Enchanter's
+  enchant levels (LJ rank 2/4/6/8/10 → 1/2/3/4/5 plots, per-plot capacity 10→50).
+  Each roll (4h in prod, 5 min on dev), every seeded unit independently rolls a
+  price-based chance to spawn one more, banked into `accrued` up to a 6-roll /
+  24h cap. The seed is spent on plant, so cheap mats are a reliable grind and
+  pricey ones a gamble. **Harvest / Harvest & Replant / Clear** per plot.
+- **Fertilizer** — a reallocatable pool (= your plot count) that raises a plot's
+  multiply chance (`0.5 + 0.5·f`: 0 = penalty, 1 = baseline, 2+ = boost, can push
+  past the base cap). Spend it where you want the odds.
+- **Odds off the BUY price** (`K=20`, `P_MAX 0.5`): base mats (~50 buy) grind at
+  ~2.4×, tier-2+ stay gambles. One knob (`K`) sets where farm turns into casino.
+- **Clock-based, not a scheduler tick** — rolls are persisted into `accrued` and
+  advanced lazily on read (`advancePlot`), so a restart/downtime just catches up.
+- New `orchard_service.ts` (pure math + 27 tests), `OrchardPlot` model + migrations,
+  `/api/orchard` (plant/harvest/replant/clear/fertilize, GET advances lazily), the
+  **Orchard** SPA page under Enchant in the Bench, and a `pacing_sim` throughput
+  section (validated as a *supplement* — ~7 farm-wins/day of base material at max,
+  ~8% of the rank journey, no korel/rank).
+- **Plant/harvest logged to `EventLog`** (`orchard_planted` / `orchard_harvested`)
+  for post-ship tuning — realized multiplier vs seed, what people plant, fertilizer.
+- UI: the plant quantity field caps at `min(capacity, owned)` for the selected
+  item, with an **ALL** button (shared `QtyStepper` gained `setMax`).
+
+### Combat — movement rebuilt as a sequential walk
+
+- **No more re-routing.** The old move phase ran a destination contest then a fresh
+  BFS that teleported a blocked mover to a different tile "closest to its goal."
+  Replaced with an **in-order walk**: each unit, in priority order (a non-mover
+  holds its square ▶ players ▶ NPCs, initiative breaking ties), walks its WHOLE
+  path one square at a time and STOPS at the first square it can't enter. The
+  locked action still resolves from wherever it stopped.
+- **Resolved sequentially**, not simultaneously — a player completes its full move
+  before the NPC moves. So an NPC (moving after) can walk into a square the player
+  just vacated, while a player can't step onto a square an NPC hasn't left yet.
+- **Soft-landing**: a square an opposing unit holds is now a legal *destination*
+  (you can bet on it / move in to close the distance) but not pathable-through.
+  `softBlocked` plumbed through `reachableTiles`/`reachableDanger`; the client shows
+  a dashed "contested" highlight; the AI planner can bet on a foe's square,
+  discounted by the predicted chance it stays put (`betBlock`).
+
+### Combat — AI & crit fixes
+
+- **AI no longer aims out of range.** The planner gated aimed-target range with
+  `chebyshevDist` while resolution gates with `rangeDist` (the 1-2-1-2 diagonal
+  metric) — so on a diagonal it would aim at a tile it then fizzled as "out of
+  range" (the Daefen Deer wasting Rain). `candidateTargets` now uses `rangeDist`;
+  out-of-range aimed fizzles → 0. (Makes aimed-attack enemies a touch stronger.)
+- **The aimed square shows in the log** — single-target aimed hits log
+  `aimed at (x,y)`, mirroring the AOE `blast at (x,y)` line.
+- **Crit gate is directional.** A missed aimed attack no longer triggers your crit
+  just because the foe's action landed on you (the gate was a symmetric OR; now
+  it's "did MY action connect").
+- Tile smoke tests cover the new movement + crit cases (`test_tiles` 33–37): the
+  directional miss, soft-block reachability, walk-and-stop (no re-route), the
+  sequential order, and a train follow. 86 pass.
+
 ## 0.2.1 — 2026-06-18
 
 Multi-square enemies, a fully rebuilt onboarding flow, and a batch of combat,
