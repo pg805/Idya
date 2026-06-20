@@ -87,7 +87,7 @@
         <h1 class="orch-title">Orchard</h1>
         <span class="orch-meta">${data.plots} plot${data.plots > 1 ? 's' : ''} · up to ${data.capacity} each · <span class="orch-fert-pool">🌿 ${data.fertilizer_free}/${data.fertilizer_pool} fertilizer free</span></span>
       </header>
-      <p class="orch-blurb">A plot rolls to multiply its planted item every ${dur(data.roll_ms)}. It stops growing after ${dur(data.roll_ms * data.cap_rolls)}. Harvest to collect what grew. More fertilizer means a higher chance to multiply.</p>
+      <p class="orch-blurb">Plant items to try to multiply them. A plot rolls to multiply its planted item every ${dur(data.roll_ms)}, stopping after ${dur(data.roll_ms * data.cap_rolls)}. Harvest to collect what grew. More fertilizer means a higher chance to multiply.</p>
       <div class="orch-plots">${data.slots.map(plotCard).join('')}</div>`;
     // Restore any in-progress plant picks so a re-render (e.g. after fertilizing)
     // doesn't reset the dropdown/quantity.
