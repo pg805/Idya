@@ -10,6 +10,11 @@
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   const pct = (o) => `${Math.round(o * 100)}%`;
+  const cap = () => data.cap_rolls || 6;
+  const fertFactor = (f) => 0.5 + 0.5 * f;                       // mirrors orchard_service
+  const effOdds = (baseOdds, f) => Math.min(1, baseOdds * fertFactor(f));
+  const perRoll = (seed, odds) => Math.round(seed * odds * 10) / 10;   // ~7.2
+  const perCycle = (seed, odds) => Math.round(seed * odds * cap());    // ~43
 
   async function mount(root) {
     setLayoutTitle('Orchard');
@@ -50,6 +55,7 @@
       <p class="orch-blurb">Plant a material; each roll, every seed has a chance to multiply, banking up to ${data.cap_rolls} rolls. Harvest takes the output — the seed's spent, so cheap mats pay off and pricey ones are a gamble. Fertilize a plot to raise its odds (1 = normal, 0 = lower, 2+ = boost).</p>
       <div class="orch-plots">${data.slots.map(plotCard).join('')}</div>`;
     updateBars();
+    for (const s of data.slots) if (s.empty) onPick(s.slot);   // fill the plant projections
   }
 
   function fertRow(s) {
@@ -61,32 +67,29 @@
     </div>`;
   }
 
-  function oddsTag(odds, multiplier) {
-    const cls = multiplier >= 1 ? 'gain' : 'gamble';
-    return `<span class="orch-odds ${cls}">${pct(odds)} / roll</span>`;
-  }
-
   function plotCard(s) {
     if (s.empty) {
       const opts = data.plantable.length === 0
         ? '<option disabled>No plantable materials</option>'
-        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}" data-mult="${p.multiplier}" data-owned="${p.owned}">${esc(p.name)} — ${pct(p.odds)} · own ${p.owned}</option>`).join('');
+        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}" data-mult="${p.multiplier}" data-owned="${p.owned}">${esc(p.name)} (own ${p.owned})</option>`).join('');
       return `
         <div class="orch-plot orch-empty">
           <div class="orch-plot-head"><p class="orch-plot-label">Empty plot</p>${fertRow(s)}</div>
           <select class="orch-select" id="orch-sel-${s.slot}" onchange="Views.orchard.onPick(${s.slot})">${opts}</select>
-          <p class="orch-pick-note" id="orch-note-${s.slot}"></p>
           <div class="orch-plant-row">
-            <input class="orch-qty" id="orch-qty-${s.slot}" type="number" min="1" max="${data.capacity}" value="1">
+            <input class="orch-qty" id="orch-qty-${s.slot}" type="number" min="1" max="${data.capacity}" value="1" oninput="Views.orchard.onPick(${s.slot})">
             <button class="orch-btn orch-plant" onclick="Views.orchard.plant(${s.slot})" ${data.plantable.length === 0 ? 'disabled' : ''}>Plant</button>
           </div>
+          <p class="orch-pick-note" id="orch-note-${s.slot}"></p>
         </div>`;
     }
     const full = s.ticks_until_cap === 0;
+    const cyc = perCycle(s.seed_count, s.odds);
+    const cls = s.multiplier >= 1 ? 'gain' : 'gamble';
     return `
       <div class="orch-plot orch-growing${full ? ' orch-full' : ''}">
-        <div class="orch-plot-head"><p class="orch-plot-label">${esc(s.name)} ${oddsTag(s.odds, s.multiplier)}</p>${fertRow(s)}</div>
-        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong>${s.accrued}</strong> ${esc(s.name)}</p>
+        <div class="orch-plot-head"><p class="orch-plot-label">${esc(s.name)} <span class="orch-yield ${cls}">≈${cyc} a cycle</span></p>${fertRow(s)}</div>
+        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong>${s.accrued}</strong> · ≈${perRoll(s.seed_count, s.odds)}/roll</p>
         <div class="orch-bar-wrap" data-slot="${s.slot}"><div class="orch-bar"></div></div>
         <p class="orch-stat orch-rolls">${full ? 'Full — harvest now' : `${s.ticks_banked}/${data.cap_rolls} rolls`}</p>
         <div class="orch-plant-row">
@@ -110,14 +113,20 @@
     }
   }
 
+  // Live projection for the chosen item + quantity at this plot's fertilizer.
   function onPick(slot) {
     const sel = document.getElementById(`orch-sel-${slot}`);
+    const qtyEl = document.getElementById(`orch-qty-${slot}`);
     const note = document.getElementById(`orch-note-${slot}`);
     const opt = sel?.selectedOptions[0];
     if (!opt || !note) return;
-    const m = Number(opt.dataset.mult);
-    note.className = `orch-pick-note ${m >= 1 ? 'gain' : 'gamble'}`;
-    note.textContent = m >= 1 ? 'Reliable — usually a net gain.' : 'A gamble — usually a loss, but it can hit big.';
+    const plot = data.slots.find(x => x.slot === slot);
+    const o = effOdds(Number(opt.dataset.odds), plot?.fertilizer ?? 0);
+    const qty = Math.max(1, parseInt(qtyEl?.value, 10) || 1);
+    const cyc = perCycle(qty, o);
+    const gain = cyc > qty;
+    note.className = `orch-pick-note ${gain ? 'gain' : 'gamble'}`;
+    note.textContent = `Plant ${qty} → ≈${cyc} a cycle (≈${perRoll(qty, o)}/roll) — ${gain ? 'net gain' : 'a gamble, usually a loss'}`;
   }
 
   async function plant(slot) {

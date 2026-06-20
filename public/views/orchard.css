@@ -8,9 +8,9 @@
 .orch-blurb { font-size: 0.85rem; color: var(--text-2); line-height: 1.5; margin: 0 auto 16px; max-width: 70ch; text-align: center; }
 
 .orch-plot-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.orch-odds { font-size: 0.74rem; font-weight: 600; }
-.orch-odds.gain, .orch-pick-note.gain { color: var(--teal-bright); }
-.orch-odds.gamble, .orch-pick-note.gamble { color: var(--warn-bright); }
+.orch-yield { font-size: 0.74rem; font-weight: 600; }
+.orch-yield.gain, .orch-pick-note.gain { color: var(--teal-bright); }
+.orch-yield.gamble, .orch-pick-note.gamble { color: var(--warn-bright); }
 
 /* Fertilizer allocation per plot */
 .orch-fert { display: inline-flex; align-items: center; gap: 4px; }
