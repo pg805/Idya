@@ -12,7 +12,9 @@
 // --- Balance knobs (tune K in pacing_sim) ---
 export const ORCHARD_K        = 3;                    // breakeven at 6K=18: base mats (~10) grind, tier-2+ (~40) gamble. Tune in pacing_sim.
 export const ORCHARD_P_MAX    = 0.5;                  // cap on the per-unit multiply chance
-export const ORCHARD_TICK_MS  = 4 * 60 * 60 * 1000;   // 4h tick
+// 4h tick in prod; 5 min on dev/test so the grow→harvest cycle is testable in
+// minutes instead of a day (the 6-tick cap then spans 30 min instead of 24h).
+export const ORCHARD_TICK_MS  = (process.env.NODE_ENV === 'production' ? 4 * 60 : 5) * 60 * 1000;
 export const ORCHARD_CAP_TICKS = 6;                   // accrual caps at 24h (6 ticks)
 
 // Plots unlock at the Enchanter's enchant-level ranks (2/4/6/8/10); count AND
