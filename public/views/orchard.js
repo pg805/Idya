@@ -13,8 +13,6 @@
   const cap = () => data.cap_rolls || 6;
   const fertFactor = (f) => 0.5 + 0.5 * f;                       // mirrors orchard_service
   const effOdds = (baseOdds, f) => Math.min(1, baseOdds * fertFactor(f));
-  const perRoll = (seed, odds) => Math.round(seed * odds * 10) / 10;   // ~7.2
-  const perCycle = (seed, odds) => Math.round(seed * odds * cap());    // ~43
 
   async function mount(root) {
     setLayoutTitle('Orchard');
@@ -28,7 +26,7 @@
   function tick() {
     secs++;
     updateBars();
-    if (secs % 12 === 0) load();   // refresh banked counts (also rolls due rolls server-side)
+    if (secs % 12 === 0) poll();   // refresh live numbers without rebuilding the forms
   }
 
   async function load() {
@@ -39,9 +37,40 @@
     render();
   }
 
+  // Periodic refresh that updates ONLY the changing numbers (banked / rolls / bar /
+  // pool) in place — so it never resets a dropdown or quantity you're editing.
+  // Full re-render only if the plot structure actually changed (e.g. another tab).
+  async function poll() {
+    const res = await fetch('/api/orchard');
+    if (!res.ok) return;
+    const fresh = await res.json();
+    const structural = !data || fresh.plots !== data.plots || fresh.slots.length !== data.slots.length ||
+      fresh.slots.some((s, i) => s.empty !== data.slots[i]?.empty || s.item_id !== data.slots[i]?.item_id);
+    data = fresh;
+    if (structural) { render(); return; }
+    const fp = document.querySelector('.orch-fert-pool');
+    if (fp) fp.textContent = `🌿 ${data.fertilizer_free}/${data.fertilizer_pool} fertilizer free`;
+    for (const s of data.slots) {
+      if (s.empty) continue;
+      const b = document.getElementById(`orch-banked-${s.slot}`);
+      if (b) b.textContent = s.accrued;
+      const r = document.getElementById(`orch-rolls-${s.slot}`);
+      if (r) {
+        const full = s.ticks_until_cap === 0;
+        r.textContent = full ? 'Full — harvest now' : `${s.ticks_banked}/${data.cap_rolls} rolls`;
+        r.closest('.orch-plot')?.classList.toggle('orch-full', full);
+      }
+    }
+    updateBars();
+  }
+
   function render() {
     const body = document.getElementById('orchard-body');
     if (!body) return;
+    // Capture in-progress plant picks (from the existing DOM) to restore after.
+    const prevSel = {}, prevQty = {};
+    body.querySelectorAll('[id^="orch-sel-"]').forEach(el => { prevSel[el.id] = el.value; });
+    body.querySelectorAll('[id^="orch-qty-"]').forEach(el => { prevQty[el.id] = el.value; });
     if (data.plots === 0) {
       body.innerHTML = `<header class="orch-head"><h1 class="orch-title">Orchard</h1></header>
         <p class="orch-blurb">Reach <strong>Lumberjack rank 2</strong> to break ground on your first plot.</p>`;
@@ -54,8 +83,12 @@
       </header>
       <p class="orch-blurb">Plant a material; each roll, every seed independently rolls its chance to multiply — so you bank a random amount, banking up to ${data.cap_rolls} rolls. Harvest takes the output — the seed's spent, so cheap mats pay off and pricey ones are a gamble. Fertilize a plot to raise its odds (1 = normal, 0 = lower, 2+ = boost).</p>
       <div class="orch-plots">${data.slots.map(plotCard).join('')}</div>`;
+    // Restore any in-progress plant picks so a re-render (e.g. after fertilizing)
+    // doesn't reset the dropdown/quantity.
+    for (const id in prevSel) { const el = document.getElementById(id); if (el && [...el.options].some(o => o.value === prevSel[id])) el.value = prevSel[id]; }
+    for (const id in prevQty) { const el = document.getElementById(id); if (el) el.value = prevQty[id]; }
     updateBars();
-    for (const s of data.slots) if (s.empty) onPick(s.slot);   // fill the plant projections
+    for (const s of data.slots) if (s.empty) onPick(s.slot);   // fill the % notes
   }
 
   function fertRow(s) {
@@ -71,16 +104,16 @@
     if (s.empty) {
       const opts = data.plantable.length === 0
         ? '<option disabled>No plantable materials</option>'
-        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}" data-mult="${p.multiplier}" data-owned="${p.owned}">${esc(p.name)} (own ${p.owned})</option>`).join('');
+        : data.plantable.map(p => `<option value="${esc(p.item_id)}" data-odds="${p.odds}">${esc(p.name)} (own ${p.owned})</option>`).join('');
       return `
         <div class="orch-plot orch-empty">
           <div class="orch-plot-head"><p class="orch-plot-label">Empty plot</p>${fertRow(s)}</div>
           <select class="orch-select" id="orch-sel-${s.slot}" onchange="Views.orchard.onPick(${s.slot})">${opts}</select>
+          <p class="orch-pick-note" id="orch-note-${s.slot}"></p>
           <div class="orch-plant-row">
-            <input class="orch-qty" id="orch-qty-${s.slot}" type="number" min="1" max="${data.capacity}" value="1" oninput="Views.orchard.onPick(${s.slot})">
+            ${window.QtyStepper ? QtyStepper.html({ id: `orch-qty-${s.slot}`, value: 1, min: 1, max: data.capacity, all: false }) : `<input id="orch-qty-${s.slot}" type="number" min="1" value="1">`}
             <button class="orch-btn orch-plant" onclick="Views.orchard.plant(${s.slot})" ${data.plantable.length === 0 ? 'disabled' : ''}>Plant</button>
           </div>
-          <p class="orch-pick-note" id="orch-note-${s.slot}"></p>
         </div>`;
     }
     const full = s.ticks_until_cap === 0;
@@ -88,9 +121,9 @@
     return `
       <div class="orch-plot orch-growing${full ? ' orch-full' : ''}">
         <div class="orch-plot-head"><p class="orch-plot-label">${esc(s.name)} <span class="orch-yield ${cls}">${pct(s.odds)} / seed</span></p>${fertRow(s)}</div>
-        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong>${s.accrued}</strong> · ≈${perRoll(s.seed_count, s.odds)}/roll avg</p>
+        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong id="orch-banked-${s.slot}">${s.accrued}</strong></p>
         <div class="orch-bar-wrap" data-slot="${s.slot}"><div class="orch-bar"></div></div>
-        <p class="orch-stat orch-rolls">${full ? 'Full — harvest now' : `${s.ticks_banked}/${data.cap_rolls} rolls`}</p>
+        <p class="orch-stat orch-rolls" id="orch-rolls-${s.slot}">${full ? 'Full — harvest now' : `${s.ticks_banked}/${data.cap_rolls} rolls`}</p>
         <div class="orch-plant-row">
           <button class="orch-btn orch-harvest" onclick="Views.orchard.harvest(${s.slot}, false)">Harvest</button>
           <button class="orch-btn orch-harvest" onclick="Views.orchard.harvest(${s.slot}, true)">Harvest &amp; Replant</button>
@@ -112,27 +145,24 @@
     }
   }
 
-  // Live projection for the chosen item + quantity at this plot's fertilizer.
+  // The chosen item's per-seed odds at this plot's fertilizer (gain vs gamble).
   function onPick(slot) {
     const sel = document.getElementById(`orch-sel-${slot}`);
-    const qtyEl = document.getElementById(`orch-qty-${slot}`);
     const note = document.getElementById(`orch-note-${slot}`);
     const opt = sel?.selectedOptions[0];
     if (!opt || !note) return;
     const plot = data.slots.find(x => x.slot === slot);
     const o = effOdds(Number(opt.dataset.odds), plot?.fertilizer ?? 0);
-    const qty = Math.max(1, parseInt(qtyEl?.value, 10) || 1);
-    const cyc = perCycle(qty, o);
-    const gain = cyc > qty;
+    const gain = o * cap() >= 1;
     note.className = `orch-pick-note ${gain ? 'gain' : 'gamble'}`;
-    note.textContent = `${pct(o)} per seed → ≈${perRoll(qty, o)}/roll, ≈${cyc} a harvest — ${gain ? 'net gain' : 'a gamble, usually a loss'}`;
+    note.textContent = `${pct(o)} per seed — ${gain ? 'net gain' : 'a gamble'}`;
   }
 
   async function plant(slot) {
     const sel = document.getElementById(`orch-sel-${slot}`);
-    const qtyEl = document.getElementById(`orch-qty-${slot}`);
     if (!sel?.value) return;
-    await act('/api/orchard/plant', { slot, item_id: sel.value, quantity: Math.max(1, parseInt(qtyEl?.value, 10) || 1) });
+    const quantity = (window.QtyStepper ? QtyStepper.val(`orch-qty-${slot}`) : parseInt(document.getElementById(`orch-qty-${slot}`)?.value, 10)) || 1;
+    await act('/api/orchard/plant', { slot, item_id: sel.value, quantity });
   }
   async function harvest(slot, replant) { await act('/api/orchard/harvest', { slot, replant }); }
   async function fertilize(slot, fertilizer) { await act('/api/orchard/fertilize', { slot, fertilizer }, true); }
