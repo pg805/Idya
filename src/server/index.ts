@@ -3376,13 +3376,15 @@ app.post('/api/orchard/plant', async (req: Request, res: Response) => {
       update: { item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
       create: { character_id: char.id, slot, item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
     });
+    // Analytics for post-ship tuning: what's planted, how much, at what fertilizer.
+    await tx.eventLog.create({ data: { discord_id: discordId, event_type: 'orchard_planted', payload: { item: itemId, seed: quantity, fertilizer: existing?.fertilizer ?? 0 } } }).catch(() => {});
     return { success: true, message: `Planted ${quantity} ${ITEMS[itemId]?.name ?? itemId}.` };
   });
   res.json(result);
 });
 
 // Harvest a plot. `replant: true` re-seeds the same item from inventory afterward.
-async function orchardHarvest(characterId: string, slot: number, replant: boolean) {
+async function orchardHarvest(discordId: string, characterId: string, slot: number, replant: boolean) {
   return prisma.$transaction(async tx => {
     const row = await tx.orchardPlot.findUnique({ where: { character_id_slot: { character_id: characterId, slot } } });
     if (!row || !row.item_id) return { success: false, message: 'Nothing growing there.' };
@@ -3412,6 +3414,8 @@ async function orchardHarvest(characterId: string, slot: number, replant: boolea
     if (!replanted) {
       await tx.orchardPlot.update({ where: { character_id_slot: { character_id: characterId, slot } }, data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() } });
     }
+    // Analytics: realized output vs seed (the true multiplier) + rolls banked.
+    await tx.eventLog.create({ data: { discord_id: discordId, event_type: 'orchard_harvested', payload: { item: itemId, seed: row.seed_count, harvested, fertilizer: row.fertilizer, rolls: adv.ticks_banked, replanted } } }).catch(() => {});
     const name = ITEMS[itemId]?.name ?? itemId;
     const msg = harvested > 0 ? `Harvested ${harvested} ${name}.` : `No ${name} this time.`;
     return { success: true, message: replant && !replanted ? `${msg} (not enough to replant)` : msg, harvested, item_id: itemId, replanted };
@@ -3424,7 +3428,7 @@ app.post('/api/orchard/harvest', async (req: Request, res: Response) => {
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const body = req.body as { slot?: number; replant?: boolean };
-  res.json(await orchardHarvest(chars[0].id, Math.trunc(Number(body.slot)), !!body.replant));
+  res.json(await orchardHarvest(discordId, chars[0].id, Math.trunc(Number(body.slot)), !!body.replant));
 });
 
 app.post('/api/orchard/clear', async (req: Request, res: Response) => {
