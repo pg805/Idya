@@ -9,7 +9,7 @@
 // disk around where the unit ends up (dodge = leave range). See predictPlayerTiles.
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { Pos, chebyshevDist, cellsOf } from './board.js';
+import { Pos, chebyshevDist, rangeDist, cellsOf, occupies } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
@@ -37,6 +37,9 @@ const W = {
   repeat: 5.0,     // slight nudge AWAY from repeating last turn's category (variety)
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
+  betBlock: 10,    // penalty × P(foe stays) on ending where a foe stands — if it holds,
+                   // I'm blocked and stop short (move-priority is stationary ▶ player ▶
+                   // NPC), so the positioning I'm betting on won't happen
 };
 // Worth of wiping a foe's tile by dropping mine on top (overwrite). Hazards/buffs
 // by their value; slow by a flat delay estimate.
@@ -147,7 +150,10 @@ function candidateTargets(action: Action, dest: Pos, predicted: Map<string, numb
   for (const k of predicted.keys()) {
     const [x, y] = k.split(',').map(Number);
     const p = { x, y };
-    const d = chebyshevDist(dest, p);
+    // Use rangeDist (the alternating-diagonal metric resolution gates on), NOT
+    // chebyshev — otherwise the planner aims at a diagonal tile it reads as in
+    // range that resolution then fizzles as "out of range" (the deer bug).
+    const d = rangeDist(dest, p);
     if (d < 1 || d > action.range) continue;
     if (action.range > 1 && !hasLineOfSight(dest, p, session.board)) continue;
     out.push(p);
@@ -290,6 +296,14 @@ function scorePlan(
   // nothing to the foe, backing off is a pointless stall, so don't reward distance.
   // (This is what stops a fragile unit kiting forever with no payoff.)
   if (threatening) score += Math.min(d, foeThreat) * vuln * W.safety;
+
+  // Betting on a square a foe currently holds only pays off if it vacates: if it
+  // stays, I'm blocked and stop short of it (my action still locks and resolves
+  // from wherever I end up — there's no misfire, just worse positioning than I
+  // planned). Discount by the predicted chance it stays, so I chase a fleeing foe
+  // onto its tile but don't bank on positioning I probably won't reach.
+  const foeHolds = session.combatants.find(c => c.teamId !== me.teamId && occupies(c, dest));
+  if (foeHolds) score -= (predicted.get(key(dest)) ?? 0) * W.betBlock;
 
   // Cornering (smart chaser only): when I still can't reach the foe, prefer the
   // approach ANGLE that leaves it less room to flee — i.e. back it toward a wall.
@@ -445,8 +459,17 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   }
 
   const moveRange = effectiveMove(me.movementRange, meta.state);
-  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).flatMap(c => cellsOf(c).map(key)));
-  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size);
+  // Same-team units hard-block; a foe's square is "soft" — a square I can bet on
+  // (it vacates if it moves, and I move second-ish in the contest), scored down by
+  // the chance it stays. Size-1 movers only (the BFS guards multi-square anyway).
+  const occupied = new Set<string>();
+  const soft = new Set<string>();
+  for (const c of session.combatants) {
+    if (c.id === me.id) continue;
+    const tgt = c.teamId === me.teamId ? occupied : soft;
+    for (const cell of cellsOf(c)) tgt.add(key(cell));
+  }
+  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size, soft);
   const dests: { pos: Pos; info?: ReachDanger }[] = [{ pos: me.pos }];
   for (const r of reach.values()) dests.push({ pos: r.pos, info: r });
 

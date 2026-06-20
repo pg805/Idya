@@ -34,6 +34,7 @@ model Character {
   inventory           InventoryItem[]
   weapons             CharacterWeapon[]     @relation("OwnedWeapons")
   professions         CharacterProfession[]
+  orchard_plots       OrchardPlot[]
 }
 
 model CharacterProfession {
@@ -51,6 +52,25 @@ model Item {
   name        String
   description String
   inventory   InventoryItem[]
+}
+
+// Lumberjack orchard: a plot multiplies a planted item over 4h ticks (capped at
+// 24h / 6 ticks). The seed is spent on plant; harvest banks the rolled output.
+// `accrued` is the banked output so far; rolls are persisted so the page matches
+// harvest. An idle plot has item_id = null. One row per (character, slot).
+model OrchardPlot {
+  character_id  String
+  slot          Int
+  item_id       String?
+  seed_count    Int       @default(0)
+  fertilizer    Int       @default(0)   // allocated from a pool = plot count; modifies odds
+  accrued       Int       @default(0)
+  ticks_banked  Int       @default(0)   // rolls since plant; capped at 6
+  last_tick_at  DateTime  @default(now())
+
+  character     Character @relation(fields: [character_id], references: [id])
+
+  @@id([character_id, slot])
 }
 
 model CharacterWeapon {

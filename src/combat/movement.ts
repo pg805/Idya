@@ -38,9 +38,10 @@ export function reachableTiles(
   board: Board,
   occupied: Set<string>,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, Pos> {
   const out = new Map<string, Pos>();
-  for (const [k, v] of reachableCosts(from, range, board, occupied, size)) out.set(k, v.pos);
+  for (const [k, v] of reachableCosts(from, range, board, occupied, size, softBlocked)) out.set(k, v.pos);
   return out;
 }
 
@@ -48,12 +49,17 @@ export function reachableTiles(
 // charge +1 to leave, so a path that detours around them costs less — callers
 // (e.g. the AI) can use cost as a tiebreaker to route around difficult terrain
 // while still reaching tiles only available by crossing it.
+// `softBlocked` cells (e.g. squares an opposing unit holds, which it may vacate)
+// are valid DESTINATIONS but can't be transited through — you can move ONTO one
+// betting the holder moves (the resolution contest then decides who gets it), but
+// you can't path past it as if it were empty. Size-1 movers only.
 export function reachableCosts(
   from: Pos,
   range: number,
   board: Board,
   occupied: Set<string>,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, { pos: Pos; cost: number }> {
   const reachable = new Map<string, { pos: Pos; cost: number }>();
   const costs = new Map<string, number>(); // 'x,y:parity' → cost
@@ -86,10 +92,11 @@ export function reachableCosts(
       if (occupied.has(k)) continue;
       // Multi-square movers: the whole footprint anchored at n must fit.
       if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
+      const soft = size === 1 && softBlocked.has(k);   // landable, but a dead end
       costs.set(sk, newCost);
       const existing = reachable.get(k);
       if (!existing || newCost < existing.cost) reachable.set(k, { pos: n, cost: newCost });
-      queue.push([n, newCost, newParity]);
+      if (!soft) queue.push([n, newCost, newParity]);   // don't path THROUGH a held square
     }
   }
 
@@ -111,6 +118,7 @@ interface SearchLabel {
   cost: number;
   hazard: number;
   parent: number;
+  soft?: boolean;   // landed on a soft-blocked (held) square → a dead-end, don't expand
 }
 
 // Shared search. Explores every state reachable within `range` and keeps the
@@ -126,6 +134,7 @@ function searchLabels(
   occupied: Set<string>,
   teamId: string,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): SearchLabel[] {
   let nextId = 0;
   const settled: SearchLabel[] = [];
@@ -147,6 +156,7 @@ function searchLabels(
     if (dominated(ck, cur.cost, cur.hazard)) continue;
     record(ck, cur.cost, cur.hazard);
     settled.push(cur);
+    if (cur.soft) continue;   // a held square is a landable dead-end — don't path through it
 
     const slowPenalty = onSlow(cur.pos, size, board) ? 1 : 0;
     for (const n of neighbors(cur.pos)) {
@@ -165,6 +175,7 @@ function searchLabels(
       }
       if (occupied.has(k)) continue;
       if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
+      const soft = size === 1 && softBlocked.has(k);   // landable, but a dead-end
       // Charge opposing hazard once per tile the body's leading edge sweeps over.
       let haz = 0;
       for (const c of sweptCells(cur.pos, n, size)) {
@@ -174,7 +185,7 @@ function searchLabels(
       const newHazard = cur.hazard + haz;
       const sk = `${k}:${newParity}`;
       if (dominated(sk, newCost, newHazard)) continue;
-      frontier.push({ id: nextId++, pos: { ...n }, parity: newParity, cost: newCost, hazard: newHazard, parent: cur.id });
+      frontier.push({ id: nextId++, pos: { ...n }, parity: newParity, cost: newCost, hazard: newHazard, parent: cur.id, soft });
     }
   }
 
@@ -192,9 +203,10 @@ export function reachableDanger(
   occupied: Set<string>,
   teamId: string,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, ReachDanger> {
   const out = new Map<string, ReachDanger>();
-  for (const l of searchLabels(from, range, board, occupied, teamId, size)) {
+  for (const l of searchLabels(from, range, board, occupied, teamId, size, softBlocked)) {
     if (l.pos.x === from.x && l.pos.y === from.y) continue;
     const tk = key(l.pos);
     const prev = out.get(tk);

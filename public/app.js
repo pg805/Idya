@@ -14,6 +14,7 @@ function routeFromPath(path) {
   if (path === '/crafting' || path === '/craft') return { viewName: 'crafting', params: {} };
   if (path === '/upgrade')              return { viewName: 'upgrade', params: {} };
   if (path === '/enchant')              return { viewName: 'enchant', params: {} };
+  if (path === '/orchard')              return { viewName: 'orchard', params: {} };
   if (path === '/professions')          return { viewName: 'professions', params: {} };
   if (path === '/enemies')              return { viewName: 'enemies', params: {} };
   if (path === '/lore')                 return { viewName: 'lore',    params: {} };

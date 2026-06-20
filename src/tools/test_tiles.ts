@@ -718,5 +718,128 @@ console.log('\nFootprint-overlap contest: a 2×2 may not move onto a 1×1 that a
   check(!bearCells.includes(`${pp.x},${pp.y}`), `bear's footprint does not overlap the player (bear @${bp.x},${bp.y})`);
 }
 
+// ---- Test 33: a MISSED attack doesn't crit just because the foe hit you ----
+// Regression: the crit gate is directional. My attack whiffs (aimed at empty
+// space); the foe's Special lands on me. attack ▶ special, but I didn't connect,
+// so no attack-crit — even though the foe connected with me.
+console.log('\nMissed attack into a Special does NOT crit (foe hit me, I missed it):');
+{
+  const MISSER = Weapon.from_json({
+    Name: 'Misser', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [],
+    Attack: [{ Name: 'Lob', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Aimed: true, Range: 3, Action_String: '<User> lobs at <Target>.' }],
+    'Attack Crit': [{ Name: 'Echo', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [7, 7, 7], Cost: 0, Range: 3, Action_String: '<User> echoes onto <Target>.' }],
+    Special: [], 'Special Crit': [],
+  } as any);
+  const ZAPPER = Weapon.from_json({
+    Name: 'Zapper', Description: '', HP: 99, Weight: 0, Resource: { Name: 'En', Max: 9 },
+    Defend: [], 'Defend Crit': [], Attack: [], 'Attack Crit': [],
+    Special: [{ Name: 'Zap', Type: 1, Type_Name: 'Strike', Damage_Type: 'Physical', Damage_Subtype: 'Blunt', Field: [5, 5, 5], Cost: 0, Aimed: false, Range: 5, Action_String: '<User> zaps <Target>.' }],
+    'Special Crit': [],
+  } as any);
+  const board: BoardConfig = { width: 8, height: 5, obstacles: [] };
+  const P = mk('P', 'A', { x: 1, y: 1 }, MISSER, false);
+  const E = mk('E', 'B', { x: 3, y: 1 }, ZAPPER, true);
+  const s = session(board, [P, E]);
+  const foeBefore = hp(s, 'E');
+  // P lobs at empty (1,3) — the foe is at (3,1), so it misses. E zaps P (reactive).
+  resolveIntents(s, new Map([['P', act('P', 'attack', 0, null, { x: 1, y: 3 })], ['E', act('E', 'special', 0)]]));
+  check(hp(s, 'P') < 99, `the foe's Special hit me (${hp(s, 'P')})`);
+  check(s.meta.get('P')!.state.attack_crits === 0, 'no attack-crit when my attack missed the foe');
+  check(hp(s, 'E') === foeBefore, 'foe took no crit damage (my attack whiffed)');
+}
+
+// ---- Test 34: soft-block — a held square is a reachable destination, not a thoroughfare ----
+// Movement priority is stationary ▶ player ▶ NPC, so you can MOVE ONTO a square an
+// opposing unit holds (betting it vacates) — but you can't path THROUGH it.
+console.log('\nSoft-block: an enemy-held square is landable but not pathable-through:');
+{
+  // Corridor: obstacles at (3,0)/(3,2) seal column x=3 except the middle (3,1).
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 3, y: 0 }, state: 'intact' }, { pos: { x: 3, y: 2 }, state: 'intact' }] };
+  const s = session(board, []);
+  const soft = new Set(['3,1']);   // an opposing unit holds the chokepoint
+  const reach = reachableTiles({ x: 1, y: 1 }, 4, s.board, new Set(), 1, soft);
+  check(reach.has('3,1'), 'the held square IS a reachable destination (you can bet on it)');
+  check(!reach.has('4,1'), 'cannot path THROUGH the held square to (4,1) beyond it');
+  const open = reachableTiles({ x: 1, y: 1 }, 4, s.board, new Set(), 1);
+  check(open.has('4,1'), 'control: with the chokepoint clear, (4,1) IS reachable');
+}
+
+// ---- Test 35: movement resolves IN ORDER — the player's whole walk, then the NPC's ----
+console.log('\nSequential order: a player can\'t enter a not-yet-vacated NPC square, but the NPC follows the player in:');
+{
+  // Player moves FIRST: the NPC is still on its square (it moves after), so the
+  // player stops short even though the NPC is about to leave.
+  const P = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
+  const E = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, E]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // toward the NPC's current square
+    ['E', act('E', 'pass', 0, { x: 4, y: 1 })],   // NPC will leave — but only AFTER the player walks
+  ]));
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  check(pp.x === 1 && pp.y === 1, `player stopped short — the NPC hadn't vacated yet (${pp.x},${pp.y})`);
+
+  // NPC moves SECOND: it walks into the square the player just vacated.
+  const P2 = mk('P', 'A', { x: 2, y: 1 }, STRIKER, false);
+  const E2 = mk('E', 'B', { x: 1, y: 1 }, STRIKER, true);
+  const s2 = session(EMPTY, [P2, E2]);
+  resolveIntents(s2, new Map([
+    ['P', act('P', 'pass', 0, { x: 3, y: 1 })],   // player vacates (2,1) first
+    ['E', act('E', 'pass', 0, { x: 2, y: 1 })],   // NPC follows into it
+  ]));
+  const pp2 = s2.combatants.find(c => c.id === 'P')!.pos;
+  const ep2 = s2.combatants.find(c => c.id === 'E')!.pos;
+  check(pp2.x === 3 && ep2.x === 2 && ep2.y === 1, `NPC followed into the player's vacated square (player ${pp2.x},${pp2.y}; NPC ${ep2.x},${ep2.y})`);
+
+  // A stationary NPC blocks regardless — it never moves, so the player stops short.
+  const P3 = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
+  const E3 = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  const s3 = session(EMPTY, [P3, E3]);
+  resolveIntents(s3, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],
+    ['E', act('E', 'pass', 0)],                   // holds
+  ]));
+  const pp3 = s3.combatants.find(c => c.id === 'P')!.pos;
+  check(pp3.x === 1 && pp3.y === 1, `player blocked by the stationary NPC (${pp3.x},${pp3.y})`);
+}
+
+// ---- Test 36: walk-and-stop — a blocked mover halts on its path, never re-routes ----
+// Movement is a walk: you follow your path toward the square you chose and stop at
+// the last one you can enter. No fresh BFS to a different tile around the blocker.
+console.log('\nWalk-and-stop: a blocked mover halts on its path (no re-route around the blocker):');
+{
+  const board: BoardConfig = { width: 5, height: 1, obstacles: [] };   // single corridor
+  const E = mk('E', 'B', { x: 0, y: 0 }, STRIKER, true);
+  E.c.movementRange = 3;
+  const Wall = mk('P', 'A', { x: 2, y: 0 }, STRIKER, false);           // stationary, mid-corridor
+  const s = session(board, [E, Wall]);
+  resolveIntents(s, new Map([
+    ['E', act('E', 'pass', 0, { x: 3, y: 0 })],   // wants the square past the wall
+    ['P', act('P', 'pass', 0)],                   // wall holds its square
+  ]));
+  const ep = s.combatants.find(c => c.id === 'E')!.pos;
+  check(ep.x === 1 && ep.y === 0, `walked to (1,0) and stopped at the wall, didn't re-route (got ${ep.x},${ep.y})`);
+}
+
+// ---- Test 37: a train follows in move order — the NPC (second) takes the player's vacated squares ----
+// The player leads (moves first, multiple squares); the NPC behind walks into the
+// squares the player just emptied. Both reach their destinations the same turn.
+console.log('\nTrain follow (in order): the NPC walks the squares the player vacated this turn:');
+{
+  const board: BoardConfig = { width: 6, height: 1, obstacles: [] };
+  const P = mk('P', 'A', { x: 1, y: 0 }, STRIKER, false);   // leads (moves first)
+  const E = mk('E', 'B', { x: 0, y: 0 }, STRIKER, true);    // follows behind
+  P.c.movementRange = 2; E.c.movementRange = 2;
+  const s = session(board, [P, E]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 3, y: 0 })],
+    ['E', act('E', 'pass', 0, { x: 2, y: 0 })],
+  ]));
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  const ep = s.combatants.find(c => c.id === 'E')!.pos;
+  check(pp.x === 3 && ep.x === 2, `both advanced — player led (${pp.x},${pp.y}), NPC followed into the vacated squares (${ep.x},${ep.y})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

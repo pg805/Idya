@@ -2,6 +2,18 @@
 
 Condensed, player-facing changelog posted to the #updates channel on each new release. For full detail see `docs/CHANGELOG.md`.
 
+## 0.2.2 — 2026-06-20
+
+The Orchard for Lumberjacks, plus a reworked movement model and combat fixes.
+
+- **The Orchard (Lumberjacks).** A new page in the Bench: plant a material in a plot and it has a chance to multiply over time. Plots — and how much each holds — unlock as you rank up Lumberjack (rank 2 through 10). Cheap materials grow reliably; expensive ones are a gamble. Spend **fertilizer** on a plot to raise its odds. Check in once a day to harvest, or harvest and replant.
+- **Movement reads more naturally.** Units now walk their path one square at a time and stop where they're blocked — no more sliding around a blocker to a different tile. You can also pick a square an enemy is standing on as your move target to close in; you'll stop next to it if it doesn't move.
+- **Smarter enemy aim.** Enemies no longer waste a turn aiming an attack at a spot they can't actually reach.
+- **The combat log shows where an aimed attack landed.**
+- **Crit fix.** A missed attack no longer triggers your counter-crit just because the enemy connected with you.
+
+---
+
 ## 0.2.1 — 2026-06-18
 
 Bigger beasts, a brand-new tutorial, and a pile of fixes.

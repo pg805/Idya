@@ -31,7 +31,11 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { reachableTiles } from '../combat/movement.js';
-import { loadShop, type ShopItemListing } from '../economy/shop_loader.js';
+import { loadShop, baseBuyPrices, type ShopItemListing } from '../economy/shop_loader.js';
+import {
+  orchardCapacity, fertilizerPool, expectedMultiplier, effectiveChance, advancePlot,
+  ticksUntilCap, nextRollAt, ORCHARD_TICK_MS, type PlotState,
+} from '../economy/orchard_service.js';
 import { buildPricingContext } from '../economy/price_resolver.js';
 import { effectiveMultiplier, effectiveCraftedMultiplier, CRAFTED_MULT_MIN, CRAFTED_MULT_MAX } from '../economy/shop_math.js';
 import { getPrices, buyItem, sellItem, tickAllDue, TICK_INTERVAL_MS } from '../economy/shop_service.js';
@@ -616,6 +620,19 @@ app.get('/api/dev/matrix', (req: Request, res: Response) => {
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
+});
+
+// The committed canonical matrix for the running version (npm run matrix:save →
+// docs/sim/<version>.json). Served here since docs/ isn't a static dir; both dev
+// views read it. Dev-gated, but available in any env (unlike loadSimForVersion).
+app.get('/api/dev/matrix/canonical', (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const path = join(__dirname, `../../docs/sim/${APP_VERSION}.json`);
+  if (!fs.existsSync(path)) { res.status(404).json({ error: `no canonical matrix for ${APP_VERSION}` }); return; }
+  try { res.type('application/json').send(fs.readFileSync(path, 'utf-8')); }
+  catch (e) { res.status(500).json({ error: e instanceof Error ? e.message : String(e) }); }
 });
 
 // Client-side error capture — SPA posts unhandled errors here; we log to
@@ -1220,8 +1237,9 @@ function loadEnemyNames(): Record<string, string> {
 }
 
 function loadSimForVersion(version: string): unknown | null {
-  // Sim JSON is regenerated on version bump (npm run sim:save) and committed
-  // under docs/sim/. We only render it on the dev environment because numbers
+  // Canonical spatial matrix, regenerated on version bump (npm run matrix:save)
+  // and committed under docs/sim/. We only render it on the dev environment
+  // because numbers
   // change with balance tuning and showing them on prod would confuse players
   // who can see anything routed through the auth-gated APIs in the browser.
   if (process.env.NODE_ENV === 'production') return null;
@@ -3244,6 +3262,217 @@ app.post('/api/enchant/:weaponId', async (req: Request, res: Response) => {
 
 sessions.set('test', createSession('test', 'lithkem_swallow').session);
 
+// ---- Orchard (Lumberjack profession layer) ----
+// Plots multiply a planted item on a 4h tick (capped 24h). Rolls are advanced +
+// persisted lazily on read/harvest (a plot only ticks when its owner looks at it,
+// which they must do to harvest — same outcome as a background clock, no global
+// writer). See docs/orchard.md + orchard_service.ts.
+
+// The orchard uses BUY price (wider spread; see docs/orchard.md).
+const orchardBasePrice = (itemId: string): number | undefined => baseBuyPrices(SHOP_DIR).get(itemId);
+
+type OrchardRow = { character_id: string; slot: number; item_id: string | null; seed_count: number; fertilizer: number; accrued: number; ticks_banked: number; last_tick_at: Date };
+
+const orchardSlotView = (slot: number, row: OrchardRow | undefined) => {
+  const fertilizer = row?.fertilizer ?? 0;
+  if (!row || !row.item_id) return { slot, empty: true, fertilizer };
+  const price = orchardBasePrice(row.item_id);
+  return {
+    slot, empty: false, fertilizer,
+    item_id: row.item_id, name: ITEMS[row.item_id]?.name ?? row.item_id,
+    seed_count: row.seed_count, accrued: row.accrued,
+    ticks_banked: row.ticks_banked, ticks_until_cap: ticksUntilCap(row),
+    odds: effectiveChance(price, fertilizer),
+    multiplier: expectedMultiplier(price, fertilizer),
+    next_roll_at: nextRollAt(row)?.toISOString() ?? null,
+  };
+};
+
+async function lumberjackLevel(characterId: string): Promise<number> {
+  const row = await prisma.characterProfession.findUnique({
+    where: { character_id_profession: { character_id: characterId, profession: 'lumberjack' } },
+  }).catch(() => null);
+  return row?.level ?? 0;
+}
+
+app.get('/api/orchard', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const ljLevel = await lumberjackLevel(char.id);
+  const { plots, capacity } = orchardCapacity(ljLevel);
+  const rows = await prisma.orchardPlot.findMany({ where: { character_id: char.id } });
+  const bySlot = new Map<number, OrchardRow>(rows.map(r => [r.slot, r as OrchardRow]));
+  const now = new Date();
+
+  const slots = [];
+  let fertUsed = 0;
+  for (let slot = 0; slot < plots; slot++) {
+    let row = bySlot.get(slot);
+    if (row && row.item_id) {
+      const adv = advancePlot(row as PlotState, orchardBasePrice(row.item_id), now);
+      if (adv.changed) {
+        await prisma.orchardPlot.update({
+          where: { character_id_slot: { character_id: char.id, slot } },
+          data: { accrued: adv.accrued, ticks_banked: adv.ticks_banked, last_tick_at: adv.last_tick_at },
+        }).catch(() => {});
+        row = { ...row, accrued: adv.accrued, ticks_banked: adv.ticks_banked, last_tick_at: adv.last_tick_at };
+      }
+    }
+    fertUsed += row?.fertilizer ?? 0;
+    slots.push(orchardSlotView(slot, row));
+  }
+
+  // Plantable inventory: owned, has a buy price, not an unlock permit. Odds shown
+  // at the 1-fertilizer baseline (the page re-derives per plot once fertilized).
+  const prices = baseBuyPrices(SHOP_DIR);
+  const inv = await prisma.inventoryItem.findMany({ where: { character_id: char.id } });
+  const plantable = inv
+    .filter(i => i.quantity > 0 && ITEMS[i.item_id]?.type !== 'unlock' && prices.has(i.item_id))
+    .map(i => ({
+      item_id: i.item_id, name: ITEMS[i.item_id]?.name ?? i.item_id, owned: i.quantity,
+      odds: effectiveChance(prices.get(i.item_id), 1), multiplier: expectedMultiplier(prices.get(i.item_id), 1),
+    }))
+    .sort((a, b) => b.multiplier - a.multiplier);
+
+  res.json({
+    lj_level: ljLevel, plots, capacity,
+    fertilizer_pool: fertilizerPool(ljLevel), fertilizer_free: Math.max(0, fertilizerPool(ljLevel) - fertUsed),
+    roll_ms: ORCHARD_TICK_MS, cap_rolls: 6,
+    slots, plantable,
+  });
+});
+
+app.post('/api/orchard/plant', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+
+  const body = req.body as { slot?: number; item_id?: string; quantity?: number };
+  const slot = Math.trunc(Number(body.slot));
+  const itemId = String(body.item_id ?? '');
+  const quantity = Math.trunc(Number(body.quantity));
+
+  const { plots, capacity } = orchardCapacity(await lumberjackLevel(char.id));
+  if (!(slot >= 0 && slot < plots)) { res.json({ success: false, message: 'That plot is locked.' }); return; }
+  if (!(quantity >= 1)) { res.json({ success: false, message: 'Plant at least one.' }); return; }
+  if (quantity > capacity) { res.json({ success: false, message: `That plot holds up to ${capacity}.` }); return; }
+  if (ITEMS[itemId]?.type === 'unlock' || !orchardBasePrice(itemId)) { res.json({ success: false, message: "You can't plant that." }); return; }
+
+  const result = await prisma.$transaction(async tx => {
+    const existing = await tx.orchardPlot.findUnique({ where: { character_id_slot: { character_id: char.id, slot } } });
+    if (existing?.item_id) return { success: false, message: 'Harvest or clear that plot first.' };
+    const inv = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } } });
+    if (!inv || inv.quantity < quantity) return { success: false, message: `You only have ${inv?.quantity ?? 0}.` };
+    if (inv.quantity === quantity) await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } } });
+    else await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: char.id, item_id: itemId } }, data: { quantity: { decrement: quantity } } });
+    await tx.orchardPlot.upsert({
+      where: { character_id_slot: { character_id: char.id, slot } },
+      update: { item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+      create: { character_id: char.id, slot, item_id: itemId, seed_count: quantity, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+    });
+    // Analytics for post-ship tuning: what's planted, how much, at what fertilizer.
+    await tx.eventLog.create({ data: { discord_id: discordId, event_type: 'orchard_planted', payload: { item: itemId, seed: quantity, fertilizer: existing?.fertilizer ?? 0 } } }).catch(() => {});
+    return { success: true, message: `Planted ${quantity} ${ITEMS[itemId]?.name ?? itemId}.` };
+  });
+  res.json(result);
+});
+
+// Harvest a plot. `replant: true` re-seeds the same item from inventory afterward.
+async function orchardHarvest(discordId: string, characterId: string, slot: number, replant: boolean) {
+  return prisma.$transaction(async tx => {
+    const row = await tx.orchardPlot.findUnique({ where: { character_id_slot: { character_id: characterId, slot } } });
+    if (!row || !row.item_id) return { success: false, message: 'Nothing growing there.' };
+    const itemId = row.item_id;
+    const adv = advancePlot(row as PlotState, orchardBasePrice(itemId), new Date());
+    const harvested = adv.accrued;
+
+    if (harvested > 0) {
+      await tx.inventoryItem.upsert({
+        where: { character_id_item_id: { character_id: characterId, item_id: itemId } },
+        update: { quantity: { increment: harvested } },
+        create: { character_id: characterId, item_id: itemId, quantity: harvested },
+      });
+    }
+
+    let replanted = false;
+    if (replant) {
+      const seed = row.seed_count;
+      const inv = await tx.inventoryItem.findUnique({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } } });
+      if (inv && inv.quantity >= seed) {
+        if (inv.quantity === seed) await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } } });
+        else await tx.inventoryItem.update({ where: { character_id_item_id: { character_id: characterId, item_id: itemId } }, data: { quantity: { decrement: seed } } });
+        await tx.orchardPlot.update({ where: { character_id_slot: { character_id: characterId, slot } }, data: { item_id: itemId, seed_count: seed, accrued: 0, ticks_banked: 0, last_tick_at: new Date() } });
+        replanted = true;
+      }
+    }
+    if (!replanted) {
+      await tx.orchardPlot.update({ where: { character_id_slot: { character_id: characterId, slot } }, data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() } });
+    }
+    // Analytics: realized output vs seed (the true multiplier) + rolls banked.
+    await tx.eventLog.create({ data: { discord_id: discordId, event_type: 'orchard_harvested', payload: { item: itemId, seed: row.seed_count, harvested, fertilizer: row.fertilizer, rolls: adv.ticks_banked, replanted } } }).catch(() => {});
+    const name = ITEMS[itemId]?.name ?? itemId;
+    const msg = harvested > 0 ? `Harvested ${harvested} ${name}.` : `No ${name} this time.`;
+    return { success: true, message: replant && !replanted ? `${msg} (not enough to replant)` : msg, harvested, item_id: itemId, replanted };
+  });
+}
+
+app.post('/api/orchard/harvest', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const body = req.body as { slot?: number; replant?: boolean };
+  res.json(await orchardHarvest(discordId, chars[0].id, Math.trunc(Number(body.slot)), !!body.replant));
+});
+
+app.post('/api/orchard/clear', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const slot = Math.trunc(Number((req.body as { slot?: number }).slot));
+  await prisma.orchardPlot.updateMany({
+    where: { character_id: chars[0].id, slot },
+    data: { item_id: null, seed_count: 0, accrued: 0, ticks_banked: 0, last_tick_at: new Date() },
+  }).catch(() => {});
+  res.json({ success: true, message: 'Plot cleared.' });
+});
+
+// Set a plot's fertilizer (absolute), clamped to what's free in the pool (= plots).
+app.post('/api/orchard/fertilize', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const body = req.body as { slot?: number; fertilizer?: number };
+  const slot = Math.trunc(Number(body.slot));
+  const want = Math.max(0, Math.trunc(Number(body.fertilizer)));
+  const ljLevel = await lumberjackLevel(char.id);
+  const { plots } = orchardCapacity(ljLevel);
+  if (!(slot >= 0 && slot < plots)) { res.json({ success: false, message: 'That plot is locked.' }); return; }
+  const pool = fertilizerPool(ljLevel);
+
+  const result = await prisma.$transaction(async tx => {
+    const rows = await tx.orchardPlot.findMany({ where: { character_id: char.id } });
+    const usedOther = rows.filter(r => r.slot !== slot).reduce((s, r) => s + r.fertilizer, 0);
+    const set = Math.max(0, Math.min(want, pool - usedOther));
+    await tx.orchardPlot.upsert({
+      where: { character_id_slot: { character_id: char.id, slot } },
+      update: { fertilizer: set },
+      create: { character_id: char.id, slot, fertilizer: set },
+    });
+    return { success: true, fertilizer: set };
+  });
+  res.json(result);
+});
+
 // ---- Global quests (Town Square) ----
 startQuestScheduler(prisma, join(__dirname, '../../database/quests'));
 
@@ -3381,14 +3610,21 @@ io.on('connection', (socket: Socket) => {
     const combatant = session.combatants.find(c => c.id === intent.combatantId);
     if (!combatant || combatant.isAI) return;
 
-    // Validate moveTo is actually reachable (prevents client spoofing)
+    // Validate moveTo is actually reachable (prevents client spoofing). An
+    // opposing unit's square is "soft": a legal destination you can bet on (the
+    // holder may move; move-priority is stationary ▶ player ▶ NPC), so it's
+    // landable but not pathable-through. Allies (same team) hard-block.
     if (intent.moveTo) {
-      const occupied = new Set(
-        session.combatants.filter(c => c.id !== combatant.id).flatMap(c => cellsOf(c).map(cell => `${cell.x},${cell.y}`))
-      );
+      const occupied = new Set<string>();
+      const softBlocked = new Set<string>();
+      for (const c of session.combatants) {
+        if (c.id === combatant.id) continue;
+        const target = c.teamId === combatant.teamId ? occupied : softBlocked;
+        for (const cell of cellsOf(c)) target.add(`${cell.x},${cell.y}`);
+      }
       const vMeta = session.meta.get(combatant.id);
       const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
-      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size);
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size, softBlocked);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }
