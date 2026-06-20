@@ -282,14 +282,14 @@ export function resolveIntents(
   }
 
   // --- Move phase ---
-  // Movement is a WALK — not a teleport and not a re-route. Each mover follows the
-  // path to the square it chose, one step at a time, and STOPS at the last square
-  // it can actually enter. Nobody picks a different destination mid-resolution; if
-  // you can't make it, you halt where you are (your locked action still resolves
-  // from there). When a step is contested, priority decides who takes the square:
-  // a unit that ISN'T moving holds it (can't be pushed off), then players, then
-  // NPCs; initiative breaks ties within a tier. A unit vacating a square this tick
-  // frees it for a follower, so trains move as a unit.
+  // Resolved IN ORDER, not simultaneously — but every unit still WALKS its path
+  // square by square (no teleport) and never re-routes to a different tile. Order
+  // is by priority: a non-mover holds its square, then players, then NPCs
+  // (initiative breaks ties). A player takes its WHOLE move first, then the NPC
+  // takes its whole move — so an NPC, moving after, can walk through a square the
+  // player just vacated, while a player can't step onto a square an NPC hasn't
+  // left yet. Each mover follows its path one square at a time and STOPS at the
+  // first square it can't enter; its locked action still resolves from there.
   const movePriority = (id: string) => {
     const c = snapshot.find(c => c.id === id);
     if (!c) return Infinity;
@@ -300,10 +300,10 @@ export function resolveIntents(
   const sizeOf = (id: string) => snapshot.find(c => c.id === id)?.size ?? 1;
 
   // Each mover's intended route: the geometric path to its chosen square. Empty
-  // `occupied` on purpose — movement is simultaneous, so the route ignores where
-  // others currently stand (the stepping below resolves collisions). Size keeps a
-  // 2×2 body's route on tiles its whole footprint clears. Non-movers have no path
-  // and just hold their square (they're stationary occupiers).
+  // `occupied` on purpose — the route ignores where others currently stand; the
+  // ordered walk below stops a body where it actually collides. Size keeps a 2×2
+  // body's route on tiles its whole footprint clears. Non-movers have no path and
+  // just hold their square (stationary occupiers).
   const intendedDest = new Map<string, { x: number; y: number }>();
   const intendedPath = new Map<string, { x: number; y: number }[]>();
   for (const [id, intent] of intents) {
@@ -318,59 +318,33 @@ export function resolveIntents(
     if (path && path.length) { intendedPath.set(id, path); intendedDest.set(id, { ...intent.moveTo }); }
   }
 
-  // Lockstep walk. Every tick each still-moving unit tries to step onto the next
-  // square of its path; the step is allowed only if its footprint won't overlap
-  // any other unit's footprint AFTER the tick (a unit vacating its square this
-  // tick frees it). A same-square contest goes to the higher priority — the loser
-  // can't pass through an occupied square, so it stops there for the turn. The
-  // fixpoint within each tick lets a train of movers in one direction all advance
-  // regardless of which order we visit them.
+  // Walk each mover, fully, in priority order. A unit sits on its CURRENT square
+  // until its own turn to walk; once it has walked, it sits at its final square for
+  // everyone after it. The walk advances square by square and stops the moment the
+  // body's footprint would overlap another unit's current square.
   const posNow = new Map(snapshot.map(c => [c.id, { x: c.pos.x, y: c.pos.y }]));
-  const stepIdx = new Map<string, number>();
-  const walked = new Map<string, { x: number; y: number }[]>();
-  for (const id of intendedPath.keys()) { stepIdx.set(id, 0); walked.set(id, []); }
-  const stopped = new Set<string>();
-  const order = snapshot.map(c => c.id).sort((a, b) => movePriority(a) - movePriority(b));
-  const cellsAt = (id: string, anchor: { x: number; y: number }) => footprint(anchor, sizeOf(id));
-
-  for (let tick = 0; tick < 64; tick++) {
-    const active = order.filter(id => intendedPath.has(id) && !stopped.has(id) && stepIdx.get(id)! < intendedPath.get(id)!.length);
-    if (active.length === 0) break;
-    const advancing = new Map<string, { x: number; y: number }>();   // id → its next anchor this tick
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const id of active) {
-        if (advancing.has(id)) continue;
-        const next = intendedPath.get(id)![stepIdx.get(id)!];
-        const myCells = cellsAt(id, next);
-        // Project every OTHER unit's post-step footprint: a unit that's advancing
-        // sits at its new anchor; everyone else (stationary, stopped, or a mover
-        // not yet cleared to advance this pass) sits where it is now.
-        const collides = myCells.some(cell =>
-          order.some(oid => oid !== id && alive(oid) &&
-            cellsAt(oid, advancing.get(oid) ?? posNow.get(oid)!).some(oc => oc.x === cell.x && oc.y === cell.y)));
-        if (!collides) { advancing.set(id, next); changed = true; }
-      }
-    }
-    for (const id of active) {
-      const next = advancing.get(id);
-      if (next) { posNow.set(id, next); stepIdx.set(id, stepIdx.get(id)! + 1); walked.get(id)!.push({ ...next }); }
-      else stopped.add(id);   // couldn't take the next step → halts here for the turn
-    }
-  }
-
-  // Commit final positions. `blockedDest` = the square a mover was stopped short of
-  // (drives the move log's ✗); `moverPaths` = the squares each actually entered
-  // (hazards + replay). A mover that reached its goal has neither.
   const blockedDest = new Map<string, { x: number; y: number }>();
   const moverPaths = new Map<string, { x: number; y: number }[]>();
   const moveStart = log.length;
-  for (const id of intendedPath.keys()) {
+  const cellTaken = (cell: { x: number; y: number }, selfId: string) =>
+    snapshot.some(o => o.id !== selfId && alive(o.id) &&
+      footprint(posNow.get(o.id)!, o.size).some(oc => oc.x === cell.x && oc.y === cell.y));
+
+  for (const id of snapshot.map(c => c.id).sort((a, b) => movePriority(a) - movePriority(b))) {
+    const path = intendedPath.get(id);
+    if (!path) continue;
     const c = session.combatants.find(c => c.id === id);
     if (!c) continue;
+    const walked: { x: number; y: number }[] = [];
+    for (const step of path) {
+      // The whole body must clear `step` — every footprint cell free of another
+      // unit's current square (units that already walked sit at their finals).
+      if (!footprint(step, sizeOf(id)).every(cell => !cellTaken(cell, id))) break;
+      walked.push({ ...step });
+      posNow.set(id, { ...step });   // commit this square before testing the next
+    }
     c.pos = { ...posNow.get(id)! };
-    moverPaths.set(id, walked.get(id) ?? []);
+    moverPaths.set(id, walked);
     const dest = intendedDest.get(id)!;
     if (c.pos.x !== dest.x || c.pos.y !== dest.y) blockedDest.set(id, dest);
   }

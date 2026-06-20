@@ -765,30 +765,43 @@ console.log('\nSoft-block: an enemy-held square is landable but not pathable-thr
   check(open.has('4,1'), 'control: with the chokepoint clear, (4,1) IS reachable');
 }
 
-// ---- Test 35: the move-priority contest end-to-end (stationary ▶ player ▶ NPC) ----
-console.log('\nMove onto a vacated NPC square lands; onto a stationary one is blocked:');
+// ---- Test 35: movement resolves IN ORDER — the player's whole walk, then the NPC's ----
+console.log('\nSequential order: a player can\'t enter a not-yet-vacated NPC square, but the NPC follows the player in:');
 {
-  // NPC vacates → the player (priority over a moving NPC) takes the square.
+  // Player moves FIRST: the NPC is still on its square (it moves after), so the
+  // player stops short even though the NPC is about to leave.
   const P = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
   const E = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
   const s = session(EMPTY, [P, E]);
   resolveIntents(s, new Map([
-    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // move onto the NPC's current square
-    ['E', act('E', 'pass', 0, { x: 4, y: 1 })],   // NPC moves away
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // toward the NPC's current square
+    ['E', act('E', 'pass', 0, { x: 4, y: 1 })],   // NPC will leave — but only AFTER the player walks
   ]));
   const pp = s.combatants.find(c => c.id === 'P')!.pos;
-  check(pp.x === 2 && pp.y === 1, `player took the square the NPC vacated (${pp.x},${pp.y})`);
+  check(pp.x === 1 && pp.y === 1, `player stopped short — the NPC hadn't vacated yet (${pp.x},${pp.y})`);
 
-  // NPC holds → it's stationary, which outranks the player-mover; the bet fails.
-  const P2 = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
-  const E2 = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  // NPC moves SECOND: it walks into the square the player just vacated.
+  const P2 = mk('P', 'A', { x: 2, y: 1 }, STRIKER, false);
+  const E2 = mk('E', 'B', { x: 1, y: 1 }, STRIKER, true);
   const s2 = session(EMPTY, [P2, E2]);
   resolveIntents(s2, new Map([
-    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // bet on the square
-    ['E', act('E', 'pass', 0)],                   // NPC holds it
+    ['P', act('P', 'pass', 0, { x: 3, y: 1 })],   // player vacates (2,1) first
+    ['E', act('E', 'pass', 0, { x: 2, y: 1 })],   // NPC follows into it
   ]));
   const pp2 = s2.combatants.find(c => c.id === 'P')!.pos;
-  check(pp2.x === 1 && pp2.y === 1, `player blocked by the stationary NPC, holds its square (${pp2.x},${pp2.y})`);
+  const ep2 = s2.combatants.find(c => c.id === 'E')!.pos;
+  check(pp2.x === 3 && ep2.x === 2 && ep2.y === 1, `NPC followed into the player's vacated square (player ${pp2.x},${pp2.y}; NPC ${ep2.x},${ep2.y})`);
+
+  // A stationary NPC blocks regardless — it never moves, so the player stops short.
+  const P3 = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
+  const E3 = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  const s3 = session(EMPTY, [P3, E3]);
+  resolveIntents(s3, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],
+    ['E', act('E', 'pass', 0)],                   // holds
+  ]));
+  const pp3 = s3.combatants.find(c => c.id === 'P')!.pos;
+  check(pp3.x === 1 && pp3.y === 1, `player blocked by the stationary NPC (${pp3.x},${pp3.y})`);
 }
 
 // ---- Test 36: walk-and-stop — a blocked mover halts on its path, never re-routes ----
@@ -809,23 +822,23 @@ console.log('\nWalk-and-stop: a blocked mover halts on its path (no re-route aro
   check(ep.x === 1 && ep.y === 0, `walked to (1,0) and stopped at the wall, didn't re-route (got ${ep.x},${ep.y})`);
 }
 
-// ---- Test 37: a train of movers in one direction all advance (the step fixpoint) ----
-// The follower steps into the square the unit ahead vacates THIS turn — they move
-// as a train, not blocked by where the leader currently stands.
-console.log('\nTrain follow: a mover steps into the square the unit ahead vacates this turn:');
+// ---- Test 37: a train follows in move order — the NPC (second) takes the player's vacated squares ----
+// The player leads (moves first, multiple squares); the NPC behind walks into the
+// squares the player just emptied. Both reach their destinations the same turn.
+console.log('\nTrain follow (in order): the NPC walks the squares the player vacated this turn:');
 {
   const board: BoardConfig = { width: 6, height: 1, obstacles: [] };
-  const A = mk('P', 'A', { x: 0, y: 0 }, STRIKER, false);   // follows
-  const B = mk('E', 'B', { x: 1, y: 0 }, STRIKER, true);    // leads, vacates the path
-  A.c.movementRange = 2; B.c.movementRange = 2;
-  const s = session(board, [A, B]);
+  const P = mk('P', 'A', { x: 1, y: 0 }, STRIKER, false);   // leads (moves first)
+  const E = mk('E', 'B', { x: 0, y: 0 }, STRIKER, true);    // follows behind
+  P.c.movementRange = 2; E.c.movementRange = 2;
+  const s = session(board, [P, E]);
   resolveIntents(s, new Map([
-    ['P', act('P', 'pass', 0, { x: 2, y: 0 })],
-    ['E', act('E', 'pass', 0, { x: 3, y: 0 })],
+    ['P', act('P', 'pass', 0, { x: 3, y: 0 })],
+    ['E', act('E', 'pass', 0, { x: 2, y: 0 })],
   ]));
-  const ap = s.combatants.find(c => c.id === 'P')!.pos;
-  const bp = s.combatants.find(c => c.id === 'E')!.pos;
-  check(bp.x === 3 && ap.x === 2, `both advanced — leader vacated (${bp.x},${bp.y}) for the follower (${ap.x},${ap.y})`);
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  const ep = s.combatants.find(c => c.id === 'E')!.pos;
+  check(pp.x === 3 && ep.x === 2, `both advanced — player led (${pp.x},${pp.y}), NPC followed into the vacated squares (${ep.x},${ep.y})`);
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
