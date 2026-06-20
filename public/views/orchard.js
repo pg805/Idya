@@ -11,6 +11,12 @@
   }
   const pct = (o) => `${Math.round(o * 100)}%`;
   const cap = () => data.cap_rolls || 6;
+  const dur = (ms) => {                                           // friendly roll interval (4h prod / 5min dev)
+    const h = ms / 3600000;
+    if (h >= 1) return `${Number.isInteger(h) ? h : h.toFixed(1)} hour${h === 1 ? '' : 's'}`;
+    const m = Math.round(ms / 60000);
+    return `${m} minute${m === 1 ? '' : 's'}`;
+  };
   const fertFactor = (f) => 0.5 + 0.5 * f;                       // mirrors orchard_service
   const effOdds = (baseOdds, f) => Math.min(1, baseOdds * fertFactor(f));
 
@@ -81,7 +87,7 @@
         <h1 class="orch-title">Orchard</h1>
         <span class="orch-meta">${data.plots} plot${data.plots > 1 ? 's' : ''} · up to ${data.capacity} each · <span class="orch-fert-pool">🌿 ${data.fertilizer_free}/${data.fertilizer_pool} fertilizer free</span></span>
       </header>
-      <p class="orch-blurb">Plant a material; each roll, every seed independently rolls its chance to multiply — so you bank a random amount, banking up to ${data.cap_rolls} rolls. Harvest takes the output — the seed's spent, so cheap mats pay off and pricey ones are a gamble. Fertilize a plot to raise its odds (1 = normal, 0 = lower, 2+ = boost).</p>
+      <p class="orch-blurb">A plot rolls to multiply its planted item every ${dur(data.roll_ms)}. After ${dur(data.roll_ms * data.cap_rolls)} it stops growing — harvest to collect (the planted seed is spent). More fertilizer means a higher chance to multiply.</p>
       <div class="orch-plots">${data.slots.map(plotCard).join('')}</div>`;
     // Restore any in-progress plant picks so a re-render (e.g. after fertilizing)
     // doesn't reset the dropdown/quantity.

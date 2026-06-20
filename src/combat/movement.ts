@@ -118,6 +118,7 @@ interface SearchLabel {
   cost: number;
   hazard: number;
   parent: number;
+  soft?: boolean;   // landed on a soft-blocked (held) square → a dead-end, don't expand
 }
 
 // Shared search. Explores every state reachable within `range` and keeps the
@@ -133,6 +134,7 @@ function searchLabels(
   occupied: Set<string>,
   teamId: string,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): SearchLabel[] {
   let nextId = 0;
   const settled: SearchLabel[] = [];
@@ -154,6 +156,7 @@ function searchLabels(
     if (dominated(ck, cur.cost, cur.hazard)) continue;
     record(ck, cur.cost, cur.hazard);
     settled.push(cur);
+    if (cur.soft) continue;   // a held square is a landable dead-end — don't path through it
 
     const slowPenalty = onSlow(cur.pos, size, board) ? 1 : 0;
     for (const n of neighbors(cur.pos)) {
@@ -172,6 +175,7 @@ function searchLabels(
       }
       if (occupied.has(k)) continue;
       if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
+      const soft = size === 1 && softBlocked.has(k);   // landable, but a dead-end
       // Charge opposing hazard once per tile the body's leading edge sweeps over.
       let haz = 0;
       for (const c of sweptCells(cur.pos, n, size)) {
@@ -181,7 +185,7 @@ function searchLabels(
       const newHazard = cur.hazard + haz;
       const sk = `${k}:${newParity}`;
       if (dominated(sk, newCost, newHazard)) continue;
-      frontier.push({ id: nextId++, pos: { ...n }, parity: newParity, cost: newCost, hazard: newHazard, parent: cur.id });
+      frontier.push({ id: nextId++, pos: { ...n }, parity: newParity, cost: newCost, hazard: newHazard, parent: cur.id, soft });
     }
   }
 
@@ -199,9 +203,10 @@ export function reachableDanger(
   occupied: Set<string>,
   teamId: string,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, ReachDanger> {
   const out = new Map<string, ReachDanger>();
-  for (const l of searchLabels(from, range, board, occupied, teamId, size)) {
+  for (const l of searchLabels(from, range, board, occupied, teamId, size, softBlocked)) {
     if (l.pos.x === from.x && l.pos.y === from.y) continue;
     const tk = key(l.pos);
     const prev = out.get(tk);

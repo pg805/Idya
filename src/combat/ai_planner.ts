@@ -9,7 +9,7 @@
 // disk around where the unit ends up (dodge = leave range). See predictPlayerTiles.
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { Pos, chebyshevDist, rangeDist, cellsOf } from './board.js';
+import { Pos, chebyshevDist, rangeDist, cellsOf, occupies } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
@@ -37,6 +37,8 @@ const W = {
   repeat: 5.0,     // slight nudge AWAY from repeating last turn's category (variety)
   clear: 0.4,      // bonus for overwriting a foe's tile with mine (tile wars — kept
                    // modest so a unit doesn't fixate on clearing instead of attacking)
+  betBlock: 10,    // penalty × P(foe stays) for ending on a square the foe holds — the
+                   // move contest blocks me if it doesn't vacate (stationary ▶ player ▶ NPC)
 };
 // Worth of wiping a foe's tile by dropping mine on top (overwrite). Hazards/buffs
 // by their value; slow by a flat delay estimate.
@@ -294,6 +296,13 @@ function scorePlan(
   // (This is what stops a fragile unit kiting forever with no payoff.)
   if (threatening) score += Math.min(d, foeThreat) * vuln * W.safety;
 
+  // Betting on a square a foe currently holds (I can chase onto it since it moves
+  // when I do) only pays off if it vacates — the move contest blocks me if it
+  // stays put. Discount by the predicted chance it stays, so I follow a fleeing
+  // foe but don't faceplant into a camper and waste the turn getting re-routed.
+  const foeHolds = session.combatants.find(c => c.teamId !== me.teamId && occupies(c, dest));
+  if (foeHolds) score -= (predicted.get(key(dest)) ?? 0) * W.betBlock;
+
   // Cornering (smart chaser only): when I still can't reach the foe, prefer the
   // approach ANGLE that leaves it less room to flee — i.e. back it toward a wall.
   // At equal move speed you can't catch a fleer in the open, but you CAN herd it
@@ -448,8 +457,17 @@ export function choosePlan(me: Combatant, session: CombatSession, collect?: Plan
   }
 
   const moveRange = effectiveMove(me.movementRange, meta.state);
-  const occupied = new Set(session.combatants.filter(c => c.id !== me.id).flatMap(c => cellsOf(c).map(key)));
-  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size);
+  // Same-team units hard-block; a foe's square is "soft" — a square I can bet on
+  // (it vacates if it moves, and I move second-ish in the contest), scored down by
+  // the chance it stays. Size-1 movers only (the BFS guards multi-square anyway).
+  const occupied = new Set<string>();
+  const soft = new Set<string>();
+  for (const c of session.combatants) {
+    if (c.id === me.id) continue;
+    const tgt = c.teamId === me.teamId ? occupied : soft;
+    for (const cell of cellsOf(c)) tgt.add(key(cell));
+  }
+  const reach = reachableDanger(me.pos, moveRange, session.board, occupied, me.teamId, me.size, soft);
   const dests: { pos: Pos; info?: ReachDanger }[] = [{ pos: me.pos }];
   for (const r of reach.values()) dests.push({ pos: r.pos, info: r });
 

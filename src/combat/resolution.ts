@@ -760,6 +760,9 @@ export function resolveIntents(
     const targetMeta = session.meta.get(occupant.id);
     if (!targetMeta) return;
     if (isDamaging(action)) actorMeta.state.aimed_hit += 1;
+    // Show the aimed square (mirrors the AOE "blast at (x,y)" line) so the player
+    // can see exactly where a single-target aimed attack landed.
+    log.push(`${actor.name} — ${action.name}: aimed at ${tileStr}`);
     pushLog(log, resolve_action(actorMeta.state, targetMeta.state, [action]));
     if (action.push > 0 && targetMeta.state.health > 0) knockback(actor.pos, occupant, action.push, session, log);
   };
