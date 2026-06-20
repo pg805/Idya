@@ -160,6 +160,14 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 }
 .cell.reachable:hover { background: #233a4d; outline-color: var(--buy); }
 
+/* Contested reachable tile — a unit holds it but may vacate. Dashed so it reads
+   as "you can bet on this square" rather than a guaranteed move. */
+.cell.reachable-contested {
+  cursor: pointer;
+  outline: 2px dashed var(--buy-dim);
+}
+.cell.reachable-contested:hover { outline-color: var(--buy); }
+
 /* Selected move target — palette teal */
 .cell.move-target {
   background: var(--teal-bg);

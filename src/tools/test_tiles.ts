@@ -749,5 +749,47 @@ console.log('\nMissed attack into a Special does NOT crit (foe hit me, I missed 
   check(hp(s, 'E') === foeBefore, 'foe took no crit damage (my attack whiffed)');
 }
 
+// ---- Test 34: soft-block — a held square is a reachable destination, not a thoroughfare ----
+// Movement priority is stationary ▶ player ▶ NPC, so you can MOVE ONTO a square an
+// opposing unit holds (betting it vacates) — but you can't path THROUGH it.
+console.log('\nSoft-block: an enemy-held square is landable but not pathable-through:');
+{
+  // Corridor: obstacles at (3,0)/(3,2) seal column x=3 except the middle (3,1).
+  const board: BoardConfig = { width: 8, height: 3, obstacles: [{ pos: { x: 3, y: 0 }, state: 'intact' }, { pos: { x: 3, y: 2 }, state: 'intact' }] };
+  const s = session(board, []);
+  const soft = new Set(['3,1']);   // an opposing unit holds the chokepoint
+  const reach = reachableTiles({ x: 1, y: 1 }, 4, s.board, new Set(), 1, soft);
+  check(reach.has('3,1'), 'the held square IS a reachable destination (you can bet on it)');
+  check(!reach.has('4,1'), 'cannot path THROUGH the held square to (4,1) beyond it');
+  const open = reachableTiles({ x: 1, y: 1 }, 4, s.board, new Set(), 1);
+  check(open.has('4,1'), 'control: with the chokepoint clear, (4,1) IS reachable');
+}
+
+// ---- Test 35: the move-priority contest end-to-end (stationary ▶ player ▶ NPC) ----
+console.log('\nMove onto a vacated NPC square lands; onto a stationary one is blocked:');
+{
+  // NPC vacates → the player (priority over a moving NPC) takes the square.
+  const P = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
+  const E = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  const s = session(EMPTY, [P, E]);
+  resolveIntents(s, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // move onto the NPC's current square
+    ['E', act('E', 'pass', 0, { x: 4, y: 1 })],   // NPC moves away
+  ]));
+  const pp = s.combatants.find(c => c.id === 'P')!.pos;
+  check(pp.x === 2 && pp.y === 1, `player took the square the NPC vacated (${pp.x},${pp.y})`);
+
+  // NPC holds → it's stationary, which outranks the player-mover; the bet fails.
+  const P2 = mk('P', 'A', { x: 1, y: 1 }, STRIKER, false);
+  const E2 = mk('E', 'B', { x: 2, y: 1 }, STRIKER, true);
+  const s2 = session(EMPTY, [P2, E2]);
+  resolveIntents(s2, new Map([
+    ['P', act('P', 'pass', 0, { x: 2, y: 1 })],   // bet on the square
+    ['E', act('E', 'pass', 0)],                   // NPC holds it
+  ]));
+  const pp2 = s2.combatants.find(c => c.id === 'P')!.pos;
+  check(pp2.x === 1 && pp2.y === 1, `player blocked by the stationary NPC, holds its square (${pp2.x},${pp2.y})`);
+}
+
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

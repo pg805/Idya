@@ -9,7 +9,7 @@
 // disk around where the unit ends up (dodge = leave range). See predictPlayerTiles.
 import { CombatSession, Combatant, CombatantMeta } from './combat_session.js';
 import { CombatIntent, ActionChoice } from './intent.js';
-import { Pos, chebyshevDist, cellsOf } from './board.js';
+import { Pos, chebyshevDist, rangeDist, cellsOf } from './board.js';
 import { hasLineOfSight } from './los.js';
 import { reachableDanger, ReachDanger } from './movement.js';
 import { effectiveMove } from './combatant_state.js';
@@ -147,7 +147,10 @@ function candidateTargets(action: Action, dest: Pos, predicted: Map<string, numb
   for (const k of predicted.keys()) {
     const [x, y] = k.split(',').map(Number);
     const p = { x, y };
-    const d = chebyshevDist(dest, p);
+    // Use rangeDist (the alternating-diagonal metric resolution gates on), NOT
+    // chebyshev — otherwise the planner aims at a diagonal tile it reads as in
+    // range that resolution then fizzles as "out of range" (the deer bug).
+    const d = rangeDist(dest, p);
     if (d < 1 || d > action.range) continue;
     if (action.range > 1 && !hasLineOfSight(dest, p, session.board)) continue;
     out.push(p);

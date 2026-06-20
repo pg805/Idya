@@ -3610,14 +3610,21 @@ io.on('connection', (socket: Socket) => {
     const combatant = session.combatants.find(c => c.id === intent.combatantId);
     if (!combatant || combatant.isAI) return;
 
-    // Validate moveTo is actually reachable (prevents client spoofing)
+    // Validate moveTo is actually reachable (prevents client spoofing). An
+    // opposing unit's square is "soft": a legal destination you can bet on (the
+    // holder may move; move-priority is stationary ▶ player ▶ NPC), so it's
+    // landable but not pathable-through. Allies (same team) hard-block.
     if (intent.moveTo) {
-      const occupied = new Set(
-        session.combatants.filter(c => c.id !== combatant.id).flatMap(c => cellsOf(c).map(cell => `${cell.x},${cell.y}`))
-      );
+      const occupied = new Set<string>();
+      const softBlocked = new Set<string>();
+      for (const c of session.combatants) {
+        if (c.id === combatant.id) continue;
+        const target = c.teamId === combatant.teamId ? occupied : softBlocked;
+        for (const cell of cellsOf(c)) target.add(`${cell.x},${cell.y}`);
+      }
       const vMeta = session.meta.get(combatant.id);
       const vMove = vMeta ? effectiveMove(combatant.movementRange, vMeta.state) : combatant.movementRange;
-      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size);
+      const reachable = reachableTiles(combatant.pos, vMove, session.board, occupied, combatant.size, softBlocked);
       if (!reachable.has(`${intent.moveTo.x},${intent.moveTo.y}`)) {
         intent.moveTo = null;
       }

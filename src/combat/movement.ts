@@ -38,9 +38,10 @@ export function reachableTiles(
   board: Board,
   occupied: Set<string>,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, Pos> {
   const out = new Map<string, Pos>();
-  for (const [k, v] of reachableCosts(from, range, board, occupied, size)) out.set(k, v.pos);
+  for (const [k, v] of reachableCosts(from, range, board, occupied, size, softBlocked)) out.set(k, v.pos);
   return out;
 }
 
@@ -48,12 +49,17 @@ export function reachableTiles(
 // charge +1 to leave, so a path that detours around them costs less — callers
 // (e.g. the AI) can use cost as a tiebreaker to route around difficult terrain
 // while still reaching tiles only available by crossing it.
+// `softBlocked` cells (e.g. squares an opposing unit holds, which it may vacate)
+// are valid DESTINATIONS but can't be transited through — you can move ONTO one
+// betting the holder moves (the resolution contest then decides who gets it), but
+// you can't path past it as if it were empty. Size-1 movers only.
 export function reachableCosts(
   from: Pos,
   range: number,
   board: Board,
   occupied: Set<string>,
   size = 1,
+  softBlocked: Set<string> = new Set(),
 ): Map<string, { pos: Pos; cost: number }> {
   const reachable = new Map<string, { pos: Pos; cost: number }>();
   const costs = new Map<string, number>(); // 'x,y:parity' → cost
@@ -86,10 +92,11 @@ export function reachableCosts(
       if (occupied.has(k)) continue;
       // Multi-square movers: the whole footprint anchored at n must fit.
       if (size > 1 && !footprintFits(n, size, board, occupied)) continue;
+      const soft = size === 1 && softBlocked.has(k);   // landable, but a dead end
       costs.set(sk, newCost);
       const existing = reachable.get(k);
       if (!existing || newCost < existing.cost) reachable.set(k, { pos: n, cost: newCost });
-      queue.push([n, newCost, newParity]);
+      if (!soft) queue.push([n, newCost, newParity]);   // don't path THROUGH a held square
     }
   }
 

@@ -276,9 +276,17 @@ function computeReachable(combatant) {
   for (const t of tiles) {
     if (t.kind === 'hazard' && t.teamId !== combatant.teamId) hazardVal.set(`${t.pos.x},${t.pos.y}`, t.value);
   }
-  const occupiedSet = new Set(
-    state.combatants.filter(c => c.id !== combatant.id).flatMap(combatantCells)
-  );
+  // Same-team units hard-block. An opposing unit's square is "soft": a legal
+  // destination (it may move, and move-priority is stationary ▶ player ▶ NPC),
+  // so you can land on it betting the holder vacates — but you can't path THROUGH
+  // it as if empty. Mirrors src/combat/movement.ts softBlocked.
+  const occupiedSet = new Set();
+  const softSet = new Set();
+  for (const c of state.combatants) {
+    if (c.id === combatant.id) continue;
+    const tgt = c.teamId === combatant.teamId ? occupiedSet : softSet;
+    for (const cell of combatantCells(c)) tgt.add(cell);
+  }
   const range = combatant.movementRange ?? 2;
   const startKey = `${combatant.pos.x},${combatant.pos.y}`;
 
@@ -312,6 +320,7 @@ function computeReachable(combatant) {
         reachable.add(tk);
       }
     }
+    if (cur.soft) continue;   // a held square is a landable dead-end — don't expand through it
 
     const slowPenalty = slowSet.has(tk) ? 1 : 0;  // leaving a slow tile costs +1
     for (let dx = -1; dx <= 1; dx++) {
@@ -334,7 +343,7 @@ function computeReachable(combatant) {
         if (occupiedSet.has(k)) continue;
         const newHazard = cur.hazard + (hazardVal.get(k) || 0);
         if (dominated(`${k}:${newParity}`, newCost, newHazard)) continue;
-        frontier.push({ pos: { x: nx, y: ny }, parity: newParity, cost: newCost, hazard: newHazard, parentKey: tk });
+        frontier.push({ pos: { x: nx, y: ny }, parity: newParity, cost: newCost, hazard: newHazard, parentKey: tk, soft: softSet.has(k) });
       }
     }
   }
@@ -581,11 +590,13 @@ function renderBoard() {
         cell.classList.add('move-target');
       } else if (ui.pathTiles.has(k) && !solidObstacle && !combatant) {
         cell.classList.add('path-tile');
-      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !solidObstacle && !combatant) {
+      } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !solidObstacle) {
         // Keep reachable highlights up through the whole selecting_move phase
         // (used to clear once moveTo was set) so arrow-key users can see how
-        // far they can still go from the current target.
-        cell.classList.add('reachable');
+        // far they can still go from the current target. A unit standing on a
+        // reachable tile = a "contested" bet (it holds the square but may move);
+        // mark it distinctly so the player knows the move isn't guaranteed.
+        cell.classList.add(combatant ? 'reachable-contested' : 'reachable');
       }
 
       // Overlay: any square the lined-up AOE will hit (coexists with other marks).
