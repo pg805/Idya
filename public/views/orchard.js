@@ -52,7 +52,7 @@
         <h1 class="orch-title">Orchard</h1>
         <span class="orch-meta">${data.plots} plot${data.plots > 1 ? 's' : ''} · up to ${data.capacity} each · <span class="orch-fert-pool">🌿 ${data.fertilizer_free}/${data.fertilizer_pool} fertilizer free</span></span>
       </header>
-      <p class="orch-blurb">Plant a material; each roll, every seed has a chance to multiply, banking up to ${data.cap_rolls} rolls. Harvest takes the output — the seed's spent, so cheap mats pay off and pricey ones are a gamble. Fertilize a plot to raise its odds (1 = normal, 0 = lower, 2+ = boost).</p>
+      <p class="orch-blurb">Plant a material; each roll, every seed independently rolls its chance to multiply — so you bank a random amount, banking up to ${data.cap_rolls} rolls. Harvest takes the output — the seed's spent, so cheap mats pay off and pricey ones are a gamble. Fertilize a plot to raise its odds (1 = normal, 0 = lower, 2+ = boost).</p>
       <div class="orch-plots">${data.slots.map(plotCard).join('')}</div>`;
     updateBars();
     for (const s of data.slots) if (s.empty) onPick(s.slot);   // fill the plant projections
@@ -84,12 +84,11 @@
         </div>`;
     }
     const full = s.ticks_until_cap === 0;
-    const cyc = perCycle(s.seed_count, s.odds);
     const cls = s.multiplier >= 1 ? 'gain' : 'gamble';
     return `
       <div class="orch-plot orch-growing${full ? ' orch-full' : ''}">
-        <div class="orch-plot-head"><p class="orch-plot-label">${esc(s.name)} <span class="orch-yield ${cls}">≈${cyc} a cycle</span></p>${fertRow(s)}</div>
-        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong>${s.accrued}</strong> · ≈${perRoll(s.seed_count, s.odds)}/roll</p>
+        <div class="orch-plot-head"><p class="orch-plot-label">${esc(s.name)} <span class="orch-yield ${cls}">${pct(s.odds)} / seed</span></p>${fertRow(s)}</div>
+        <p class="orch-stat">Seeded <strong>${s.seed_count}</strong> · banked <strong>${s.accrued}</strong> · ≈${perRoll(s.seed_count, s.odds)}/roll avg</p>
         <div class="orch-bar-wrap" data-slot="${s.slot}"><div class="orch-bar"></div></div>
         <p class="orch-stat orch-rolls">${full ? 'Full — harvest now' : `${s.ticks_banked}/${data.cap_rolls} rolls`}</p>
         <div class="orch-plant-row">
@@ -126,7 +125,7 @@
     const cyc = perCycle(qty, o);
     const gain = cyc > qty;
     note.className = `orch-pick-note ${gain ? 'gain' : 'gamble'}`;
-    note.textContent = `Plant ${qty} → ≈${cyc} a cycle (≈${perRoll(qty, o)}/roll) — ${gain ? 'net gain' : 'a gamble, usually a loss'}`;
+    note.textContent = `${pct(o)} per seed → ≈${perRoll(qty, o)}/roll, ≈${cyc} a harvest — ${gain ? 'net gain' : 'a gamble, usually a loss'}`;
   }
 
   async function plant(slot) {
