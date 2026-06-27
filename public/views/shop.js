@@ -7,7 +7,6 @@
   let data     = null;
   let cart     = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };  // buyWeapons: {weaponKey: qty}, weapons: Set of instance IDs
   let rootEl   = null;
-  let activeTab   = 'buy';
   let convMounted = false;
 
   function esc(s) {
@@ -50,7 +49,6 @@
     rootEl  = root;
     shopKey = params.shopKey;
     cart    = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };
-    activeTab = 'buy';
     convMounted = false;
     setLayoutTitle('Shop');
     root.innerHTML = `
@@ -60,11 +58,19 @@
           <p id="shop-greeting"></p>
         </div>
       </div>
-      <div class="shop-tabs" id="shop-tabs"></div>
-      <main class="shop-tab-body">
-        <section class="shop-tab-panel" data-tab="buy"><div id="shop-buy-list"></div></section>
-        <section class="shop-tab-panel" data-tab="sell"><div id="shop-sell-list"></div></section>
-        <section class="shop-tab-panel" data-tab="talk"><div id="shop-talk-mount"></div></section>
+      <main class="shop-panels">
+        <section class="shop-panel">
+          <div class="shop-panel-label">For Sale</div>
+          <div id="shop-buy-list"></div>
+        </section>
+        <section class="shop-panel">
+          <div class="shop-panel-label">Your Inventory</div>
+          <div id="shop-sell-list"></div>
+        </section>
+        <section class="shop-panel shop-panel-talk" id="shop-panel-talk" hidden>
+          <div class="shop-panel-label">Talk</div>
+          <div id="shop-talk-mount"></div>
+        </section>
       </main>
       <div id="shop-cart"></div>
       <div id="shop-toast"></div>
@@ -89,45 +95,23 @@
     setLayoutTitle(data.shopName);
     document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
     document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
-    renderTabs();
-    applyTab();
+    setupTalkColumn();
     renderBuy();
     renderSell();
     renderCart();
   }
 
-  // Buy / Sell / [Talk] tab strip. Talk only shows for NPCs with a dialogue tree.
-  function renderTabs() {
-    const el = document.getElementById('shop-tabs');
-    if (!el) return;
-    const tabs = [['buy', 'Buy'], ['sell', 'Sell']];
-    if (DIALOGUE_NPC[shopKey]) tabs.push(['talk', 'Talk']);
-    el.innerHTML = tabs.map(([id, label]) =>
-      `<button class="shop-tab${activeTab === id ? ' active' : ''}" onclick="Views.shop.setTab('${id}')">${label}</button>`
-    ).join('');
-  }
-
-  function setTab(id) {
-    activeTab = id;
-    applyTab();
-    renderTabs();
-  }
-
-  function applyTab() {
-    for (const p of document.querySelectorAll('.shop-tab-panel')) {
-      p.classList.toggle('active', p.dataset.tab === activeTab);
-    }
-    if (activeTab === 'talk') ensureConversation();
-  }
-
-  // Lazily mount the conversation the first time the Talk tab is opened;
-  // it persists (transcript intact) when switching tabs.
-  function ensureConversation() {
-    if (convMounted) return;
-    const npcId   = DIALOGUE_NPC[shopKey];
-    const mountEl = document.getElementById('shop-talk-mount');
-    if (npcId && mountEl && window.Conversation) {
-      window.Conversation.mount(mountEl, { npcId, onLeave: () => setTab('buy') });
+  // Reveal the third column (Talk) for NPCs with a dialogue tree, and mount the
+  // conversation into it once.
+  function setupTalkColumn() {
+    const panel = document.getElementById('shop-panel-talk');
+    if (!panel) return;
+    const npcId = DIALOGUE_NPC[shopKey];
+    if (!npcId) { panel.hidden = true; return; }
+    panel.hidden = false;
+    document.querySelector('.shop-panels')?.classList.add('has-talk');
+    if (!convMounted && window.Conversation) {
+      window.Conversation.mount(document.getElementById('shop-talk-mount'), { npcId });
       convMounted = true;
     }
   }
@@ -442,6 +426,6 @@
   }
 
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout, setTab };
+  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout };
   window.showToast = (msg) => toast(msg, true);
 })();

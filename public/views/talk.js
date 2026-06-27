@@ -82,11 +82,14 @@
     const box = containerEl?.querySelector('.conv-choices');
     if (!box) return;
     if (!current || current.end) {
+      const leaveBtn = onLeaveCb
+        ? `<button class="conv-choice conv-end" data-act="leave">
+             <span class="conv-choice-text">Back to the counter</span></button>`
+        : '';
       box.innerHTML = `
         <button class="conv-choice conv-end" data-act="again">
           <span class="conv-choice-text">Talk again</span></button>
-        <button class="conv-choice conv-end" data-act="leave">
-          <span class="conv-choice-text">Back to the counter</span></button>`;
+        ${leaveBtn}`;
     } else {
       const opts = current.options ?? [];
       box.innerHTML = opts.map((o, i) => `
