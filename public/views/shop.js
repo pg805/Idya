@@ -410,7 +410,7 @@
 
   function talk() {
     const npcId = DIALOGUE_NPC[shopKey];
-    if (npcId && window.Dialogue) window.Dialogue.open({ npcId });
+    if (npcId && window.appNavigate) window.appNavigate(`/talk/${npcId}`);
   }
 
   window.Views = window.Views ?? {};

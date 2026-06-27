@@ -33,6 +33,8 @@ function routeFromPath(path) {
   if (path === '/dev/prices')           return { viewName: 'dev_price_history', params: {} };
   const m = path.match(/^\/shop\/([^/]+)$/);
   if (m) return { viewName: 'shop', params: { shopKey: m[1] } };
+  const k = path.match(/^\/talk\/([^/]+)$/);
+  if (k) return { viewName: 'talk', params: { npcId: k[1] } };
   const t = path.match(/^\/trade\/([^/]+)$/);
   if (t) return { viewName: 'trade', params: { tradeId: t[1] } };
   return { viewName: 'character', params: {} };
@@ -85,6 +87,9 @@ document.getElementById('mobile-menu-backdrop')?.addEventListener('click', () =>
 window.addEventListener('popstate', () => {
   navigate(viewPathFromUrl(), { push: false });
 });
+
+// Let views navigate within the SPA (e.g. the shop's "Talk to Dolan" button).
+window.appNavigate = (viewPath) => navigate(viewPath);
 
 (async function init() {
   await claimAuthFromUrl();

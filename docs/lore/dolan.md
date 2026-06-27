@@ -16,6 +16,8 @@
   No pleasantries, no flattery, no warmth for its own sake. **Avoid grunted
   fragments and bark-imperatives** ("Speak." "Buying or loitering?"); prefer the
   dry, complete sentence ("Are you buying, or wearing out my floorboards?").
+- **House style applies** (see `docs/lore/voice.md`): no em dashes; complete,
+  values-driven sentences over clipped fragments.
 - **The crack in the stoicism: he's a storyteller.** Terse *until you find the
   thread* — his service, the empire, a campaign. Hit it and he opens up, and the
   clipped soldier becomes a man who clearly loves to tell it. This contrast is
