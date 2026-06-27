@@ -76,6 +76,7 @@
       }
       return `<div class="conv-sys">${esc(e.text)}</div>`;
     }).join('');
+    log.scrollTop = log.scrollHeight;   // keep the latest line in view
   }
 
   function renderChoices() {
@@ -106,8 +107,6 @@
         choose(parseInt(btn.dataset.idx, 10));
       });
     }
-    // keep the latest line + choices in view
-    box.scrollIntoView({ block: 'nearest' });
   }
 
   async function choose(idx) {

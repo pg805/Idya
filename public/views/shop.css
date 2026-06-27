@@ -32,7 +32,16 @@
 
 @media (max-width: 860px) {
   .shop-panels.has-talk { grid-template-columns: 1fr 1fr; }
-  .shop-panel-talk { grid-column: 1 / -1; border-right: none; border-top: 1px solid var(--border-soft); }
+  /* Stacked full-width: let it flow normally instead of a sticky viewport box. */
+  .shop-panels.has-talk .shop-panel-talk {
+    grid-column: 1 / -1;
+    border-right: none;
+    border-top: 1px solid var(--border-soft);
+    position: static;
+    height: auto;
+    min-height: 0;
+  }
+  .shop-panel-talk #shop-talk-mount { display: block; }
 }
 @media (max-width: 600px) {
   .shop-panels, .shop-panels.has-talk { grid-template-columns: 1fr; }
@@ -52,6 +61,23 @@
   border-bottom: 1px solid var(--border-soft);
   background: var(--bg-deep);
 }
+
+/* Center column (Your Inventory) gets a subtly different wash so the three
+   columns read as distinct. */
+.shop-panels.has-talk .shop-panel:nth-child(2) { background: var(--bg-surface); }
+
+/* Talk column: a self-contained chat box. Choices stay pinned at the bottom
+   while the transcript above scrolls. Sticks in view past long item lists. */
+.shop-panels.has-talk .shop-panel-talk {
+  align-self: start;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 9rem);
+  min-height: 360px;
+}
+.shop-panel-talk #shop-talk-mount { flex: 1 1 auto; min-height: 0; display: flex; }
 
 .shop-item { border-bottom: 1px solid var(--border-soft); }
 
