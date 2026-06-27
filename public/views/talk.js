@@ -1,64 +1,52 @@
-// View: Talk — NPC conversation as a chat page (transcript + choices).
+// Conversation — an embeddable NPC chat component (not a routed view).
 //
-// A full page, not an overlay: it lives in the content area like every other
-// view, and keeps a running transcript so the conversation reads as history.
+// Mounts into a container (e.g. the shop's "Talk" tab) and renders a running
+// transcript (NPC lines + the player's chosen replies) with numbered choices.
 // Relationship state (opinion/standing/mood) is NEVER shown; the player only
 // experiences it through which lines and choices the NPC gives.
 //
 // Data comes from a "source" with two async methods:
 //   source.open()              -> NodeView           (opening node)
 //   source.choose(nodeId, idx) -> NodeView | {end}   (next node)
-// where NodeView = { id, npcName, title, line, options:[{label}], end:false }.
+// where NodeView = { id, npcName, line, options:[{label}], end:false }.
 //
 // Today the source is a client-side MOCK so we can see the look. Swapping in
 // the real engine later means replacing makeMockSource() with makeApiSource()
-// that walks the server-built tree via /api/talk; the page is untouched.
+// that walks the server-built tree via /api/talk; this component is untouched.
 
 (function () {
-  let npcId      = null;
   let source     = null;
   let current    = null;     // current NodeView
   let transcript = [];       // [{who:'npc',name,lines}|{who:'me',text}|{who:'sys',text}]
   let busy       = false;
-  let rootEl     = null;
+  let containerEl = null;
+  let onLeaveCb   = null;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  async function mount(root, params) {
-    rootEl     = root;
-    npcId      = params.npcId;
-    transcript = [];
-    source     = makeMockSource(npcId);
+  function mount(container, opts) {
+    containerEl = container;
+    onLeaveCb   = opts?.onLeave ?? null;
+    source      = makeMockSource(opts?.npcId);
+    transcript  = [];
     if (!source) {
-      root.innerHTML = `<div class="splash"><p>There is no one here by that name.</p></div>`;
+      container.innerHTML = `<p class="conv-empty">There is no one here to talk to.</p>`;
       return;
     }
-    setLayoutTitle('Conversation');
-    root.innerHTML = `
-      <div class="talk-page">
-        <header class="talk-head">
-          <div class="talk-portrait" id="talk-portrait" aria-hidden="true"></div>
-          <div class="talk-head-meta">
-            <span class="talk-name" id="talk-name"></span>
-            <span class="talk-title" id="talk-title"></span>
-          </div>
-          <span class="talk-preview-tag" title="Placeholder dialogue; the engine is not wired yet.">preview</span>
-        </header>
-        <div class="talk-log" id="talk-log"></div>
-        <div class="talk-choices" id="talk-choices"></div>
+    container.innerHTML = `
+      <div class="conv">
+        <div class="conv-log"></div>
+        <div class="conv-choices"></div>
       </div>`;
     document.addEventListener('keydown', onKey);
+    start();
+  }
 
+  async function start() {
     current = await source.open();
-    setLayoutTitle(current.npcName);
-    document.getElementById('talk-name').textContent     = current.npcName ?? '';
-    document.getElementById('talk-title').textContent    = current.title ?? '';
-    document.getElementById('talk-portrait').textContent =
-      (current.npcName ?? '?').trim().charAt(0).toUpperCase();
-
     appendNpc(current);
     renderChoices();
   }
@@ -72,50 +60,51 @@
   function appendSys(text) { transcript.push({ who: 'sys', text }); renderLog(); }
 
   function renderLog() {
-    const log = document.getElementById('talk-log');
+    const log = containerEl?.querySelector('.conv-log');
     if (!log) return;
     log.innerHTML = transcript.map((e) => {
       if (e.who === 'npc') {
-        return `<div class="talk-row npc">
-            <div class="talk-bubble npc">
-              <span class="talk-bubble-name">${esc(e.name)}</span>
+        return `<div class="conv-row npc">
+            <div class="conv-bubble npc">
+              <span class="conv-bubble-name">${esc(e.name)}</span>
               ${e.lines.map(l => `<p>${esc(l)}</p>`).join('')}
             </div>
           </div>`;
       }
       if (e.who === 'me') {
-        return `<div class="talk-row me"><div class="talk-bubble me">${esc(e.text)}</div></div>`;
+        return `<div class="conv-row me"><div class="conv-bubble me">${esc(e.text)}</div></div>`;
       }
-      return `<div class="talk-sys">${esc(e.text)}</div>`;
+      return `<div class="conv-sys">${esc(e.text)}</div>`;
     }).join('');
-    log.scrollTop = log.scrollHeight;
   }
 
   function renderChoices() {
-    const box = document.getElementById('talk-choices');
+    const box = containerEl?.querySelector('.conv-choices');
     if (!box) return;
     if (!current || current.end) {
       box.innerHTML = `
-        <button class="talk-choice talk-end" data-act="again">
-          <span class="talk-choice-text">Talk again</span></button>
-        <button class="talk-choice talk-end" data-act="leave">
-          <span class="talk-choice-text">Back to the store</span></button>`;
+        <button class="conv-choice conv-end" data-act="again">
+          <span class="conv-choice-text">Talk again</span></button>
+        <button class="conv-choice conv-end" data-act="leave">
+          <span class="conv-choice-text">Back to the counter</span></button>`;
     } else {
       const opts = current.options ?? [];
       box.innerHTML = opts.map((o, i) => `
-        <button class="talk-choice" data-idx="${i}">
-          <span class="talk-choice-num">${i + 1}</span>
-          <span class="talk-choice-text">${esc(o.label)}</span>
+        <button class="conv-choice" data-idx="${i}">
+          <span class="conv-choice-num">${i + 1}</span>
+          <span class="conv-choice-text">${esc(o.label)}</span>
         </button>`).join('');
     }
-    for (const btn of box.querySelectorAll('.talk-choice')) {
+    for (const btn of box.querySelectorAll('.conv-choice')) {
       btn.addEventListener('click', () => {
         const act = btn.dataset.act;
-        if (act === 'leave') { leave(); return; }
+        if (act === 'leave') { onLeaveCb?.(); return; }
         if (act === 'again') { restart(); return; }
         choose(parseInt(btn.dataset.idx, 10));
       });
     }
+    // keep the latest line + choices in view
+    box.scrollIntoView({ block: 'nearest' });
   }
 
   async function choose(idx) {
@@ -147,22 +136,21 @@
     renderChoices();
   }
 
-  function leave() {
-    if (window.appNavigate) window.appNavigate('/shop/general_store');
-  }
+  function isVisible() { return !!(containerEl && containerEl.offsetParent !== null); }
 
   function onKey(e) {
-    if (busy) return;
+    if (busy || !isVisible()) return;
     const n = parseInt(e.key, 10);
     if (!Number.isNaN(n) && n >= 1) {
-      const btn = rootEl?.querySelector(`.talk-choice[data-idx="${n - 1}"]`);
+      const btn = containerEl.querySelector(`.conv-choice[data-idx="${n - 1}"]`);
       if (btn) { e.preventDefault(); btn.click(); }
     }
   }
 
   function unmount() {
     document.removeEventListener('keydown', onKey);
-    npcId = null; source = null; current = null; transcript = []; busy = false; rootEl = null;
+    source = null; current = null; transcript = []; busy = false;
+    containerEl = null; onLeaveCb = null;
   }
 
   // ---- MOCK source (placeholder until the engine is wired) ---------------
@@ -171,7 +159,6 @@
   const MOCK_TREES = {
     dolan: {
       npcName: 'Dolan',
-      title: 'The Fifth Regiment General Store',
       start: 'greet',
       nodes: {
         greet: {
@@ -227,7 +214,7 @@
     if (!tree) return null;
     const view = (nid) => {
       const n = tree.nodes[nid];
-      return { id: nid, npcName: tree.npcName, title: tree.title, line: n.line,
+      return { id: nid, npcName: tree.npcName, line: n.line,
         options: n.options.map(o => ({ label: o.label })), end: false };
     };
     return {
@@ -240,6 +227,5 @@
     };
   }
 
-  window.Views = window.Views ?? {};
-  window.Views.talk = { mount, unmount };
+  window.Conversation = { mount, unmount };
 })();

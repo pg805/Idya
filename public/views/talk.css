@@ -1,84 +1,37 @@
-/* View: Talk — NPC conversation as a chat page. */
+/* Conversation — embedded NPC chat (e.g. the shop's Talk tab). */
 
-.talk-page {
-  flex: 1;
-  min-height: 0;
+.conv {
   display: flex;
   flex-direction: column;
-}
-
-/* Header: speaker identity */
-.talk-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-soft);
-}
-.talk-portrait {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--gold-bg);
-  border: 1px solid var(--gold-dim);
-  color: var(--gold-bright);
-  font-size: 20px;
-  font-weight: 700;
-}
-.talk-head-meta { display: flex; flex-direction: column; min-width: 0; }
-.talk-name {
-  color: var(--gold);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.talk-title { color: var(--text-muted); font-size: 12px; }
-.talk-preview-tag {
-  margin-left: auto;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-faint);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
 }
 
 /* Transcript */
-.talk-log {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 20px 24px;
+.conv-log {
+  padding: 18px 24px 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.talk-row { display: flex; }
-.talk-row.npc { justify-content: flex-start; }
-.talk-row.me  { justify-content: flex-end; }
+.conv-row { display: flex; }
+.conv-row.npc { justify-content: flex-start; }
+.conv-row.me  { justify-content: flex-end; }
 
-.talk-bubble {
+.conv-bubble {
   max-width: 78%;
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 15px;
   line-height: 1.55;
 }
-.talk-bubble.npc {
+.conv-bubble.npc {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text);
   border-top-left-radius: 3px;
 }
-.talk-bubble.npc p { margin: 0 0 8px; }
-.talk-bubble.npc p:last-child { margin-bottom: 0; }
-.talk-bubble-name {
+.conv-bubble.npc p { margin: 0 0 8px; }
+.conv-bubble.npc p:last-child { margin-bottom: 0; }
+.conv-bubble-name {
   display: block;
   font-size: 11px;
   font-weight: 700;
@@ -87,14 +40,14 @@
   color: var(--gold-dim);
   margin-bottom: 4px;
 }
-.talk-bubble.me {
+.conv-bubble.me {
   background: var(--teal-bg);
   border: 1px solid var(--teal-dim);
   color: var(--teal-bright);
   border-top-right-radius: 3px;
 }
 
-.talk-sys {
+.conv-sys {
   text-align: center;
   color: var(--text-faint);
   font-style: italic;
@@ -102,16 +55,22 @@
   padding: 4px 0;
 }
 
-/* Choices, pinned at the bottom */
-.talk-choices {
-  border-top: 1px solid var(--border-soft);
-  background: var(--bg-deep);
-  padding: 12px 24px;
+.conv-empty {
+  padding: 28px 24px;
+  color: var(--text-faint);
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+/* Choices */
+.conv-choices {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 8px 24px 22px;
+  max-width: 620px;
 }
-.talk-choice {
+.conv-choice {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -127,21 +86,20 @@
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
 }
-.talk-choice:hover {
+.conv-choice:hover {
   background: var(--bg-hover);
   border-color: var(--border-strong);
 }
-.talk-choice-num {
+.conv-choice-num {
   flex: 0 0 auto;
   color: var(--teal-bright);
   font-size: 12px;
   font-weight: 700;
   min-width: 12px;
 }
-.talk-end { justify-content: center; color: var(--text-muted); }
-.talk-end .talk-choice-text { text-align: center; }
+.conv-end { justify-content: center; color: var(--text-muted); }
 
 @media (max-width: 560px) {
-  .talk-head, .talk-log, .talk-choices { padding-left: 16px; padding-right: 16px; }
-  .talk-bubble { max-width: 88%; }
+  .conv-log, .conv-choices { padding-left: 16px; padding-right: 16px; }
+  .conv-bubble { max-width: 88%; }
 }

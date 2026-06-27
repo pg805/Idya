@@ -7,6 +7,8 @@
   let data     = null;
   let cart     = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };  // buyWeapons: {weaponKey: qty}, weapons: Set of instance IDs
   let rootEl   = null;
+  let activeTab   = 'buy';
+  let convMounted = false;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -48,24 +50,21 @@
     rootEl  = root;
     shopKey = params.shopKey;
     cart    = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };
+    activeTab = 'buy';
+    convMounted = false;
     setLayoutTitle('Shop');
     root.innerHTML = `
       <div id="shop-subhead">
         <div id="shop-subhead-inner">
           <p id="shop-name-line"></p>
           <p id="shop-greeting"></p>
-          <div id="shop-talk"></div>
         </div>
       </div>
-      <main class="shop-panels">
-        <section class="shop-panel">
-          <div class="shop-panel-label">For Sale</div>
-          <div id="shop-buy-list"></div>
-        </section>
-        <section class="shop-panel">
-          <div class="shop-panel-label">Your Inventory</div>
-          <div id="shop-sell-list"></div>
-        </section>
+      <div class="shop-tabs" id="shop-tabs"></div>
+      <main class="shop-tab-body">
+        <section class="shop-tab-panel" data-tab="buy"><div id="shop-buy-list"></div></section>
+        <section class="shop-tab-panel" data-tab="sell"><div id="shop-sell-list"></div></section>
+        <section class="shop-tab-panel" data-tab="talk"><div id="shop-talk-mount"></div></section>
       </main>
       <div id="shop-cart"></div>
       <div id="shop-toast"></div>
@@ -90,15 +89,47 @@
     setLayoutTitle(data.shopName);
     document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
     document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
-    const talkEl = document.getElementById('shop-talk');
-    if (talkEl) {
-      talkEl.innerHTML = DIALOGUE_NPC[shopKey]
-        ? `<button class="shop-talk-btn" onclick="Views.shop.talk()">Talk to ${esc(data.npc)}</button>`
-        : '';
-    }
+    renderTabs();
+    applyTab();
     renderBuy();
     renderSell();
     renderCart();
+  }
+
+  // Buy / Sell / [Talk] tab strip. Talk only shows for NPCs with a dialogue tree.
+  function renderTabs() {
+    const el = document.getElementById('shop-tabs');
+    if (!el) return;
+    const tabs = [['buy', 'Buy'], ['sell', 'Sell']];
+    if (DIALOGUE_NPC[shopKey]) tabs.push(['talk', 'Talk']);
+    el.innerHTML = tabs.map(([id, label]) =>
+      `<button class="shop-tab${activeTab === id ? ' active' : ''}" onclick="Views.shop.setTab('${id}')">${label}</button>`
+    ).join('');
+  }
+
+  function setTab(id) {
+    activeTab = id;
+    applyTab();
+    renderTabs();
+  }
+
+  function applyTab() {
+    for (const p of document.querySelectorAll('.shop-tab-panel')) {
+      p.classList.toggle('active', p.dataset.tab === activeTab);
+    }
+    if (activeTab === 'talk') ensureConversation();
+  }
+
+  // Lazily mount the conversation the first time the Talk tab is opened;
+  // it persists (transcript intact) when switching tabs.
+  function ensureConversation() {
+    if (convMounted) return;
+    const npcId   = DIALOGUE_NPC[shopKey];
+    const mountEl = document.getElementById('shop-talk-mount');
+    if (npcId && mountEl && window.Conversation) {
+      window.Conversation.mount(mountEl, { npcId, onLeave: () => setTab('buy') });
+      convMounted = true;
+    }
   }
 
   function renderBuy() {
@@ -405,15 +436,12 @@
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
     document.body.classList.remove('cart-open');
+    if (convMounted && window.Conversation) window.Conversation.unmount();
+    convMounted = false;
     data = null; cart = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() }; rootEl = null;
   }
 
-  function talk() {
-    const npcId = DIALOGUE_NPC[shopKey];
-    if (npcId && window.appNavigate) window.appNavigate(`/talk/${npcId}`);
-  }
-
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout, talk };
+  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout, setTab };
   window.showToast = (msg) => toast(msg, true);
 })();

@@ -22,48 +22,33 @@
   line-height: 1.5;
 }
 
-#shop-talk { margin-top: 10px; }
-.shop-talk-btn {
-  background: var(--gold-bg);
-  border: 1px solid var(--gold-dim);
-  color: var(--gold-bright);
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-.shop-talk-btn:hover {
-  background: var(--gold-dim);
-  border-color: var(--gold);
-  color: var(--c-white);
-}
-
-.shop-panels {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 100%;
-}
-
-@media (max-width: 600px) {
-  .shop-panels { grid-template-columns: 1fr; }
-}
-
-.shop-panel {
-  border-right: 1px solid var(--border-soft);
-}
-.shop-panel:last-child { border-right: none; }
-
-.shop-panel-label {
-  padding: 9px 20px;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-faint);
-  border-bottom: 1px solid var(--border-soft);
+/* ---- Buy / Sell / Talk tabs ---- */
+.shop-tabs {
+  display: flex;
   background: var(--bg-deep);
+  border-bottom: 1px solid var(--border-soft);
 }
+.shop-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 10px 22px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.shop-tab:hover { color: var(--text); }
+.shop-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.shop-tab-body { width: 100%; }
+.shop-tab-panel { display: none; }
+.shop-tab-panel.active { display: block; }
 
 .shop-item { border-bottom: 1px solid var(--border-soft); }
 
@@ -227,7 +212,7 @@
 }
 #shop-cart.show { display: flex; }
 
-body.cart-open .shop-panels { padding-bottom: calc(var(--cart-h, 240px) + 100px); }
+body.cart-open .shop-tab-body { padding-bottom: calc(var(--cart-h, 240px) + 100px); }
 
 @media (max-width: 640px) {
   #shop-cart { left: 140px; }
