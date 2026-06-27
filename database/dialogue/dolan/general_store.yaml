@@ -1,0 +1,230 @@
+# Dolan — The Fifth Regiment General Store
+# SAMPLE conversation tree (0.3.0 draft). Illustrates the system; copy is for
+# review, not final. Voice + truth: docs/lore/dolan.md. Spec: docs/npc-dialogue-system.md.
+#
+# Demonstrates: entry buckets, standing-tiered greetings, faction friction,
+# recent-loss read, profession read, purchase callback, low-stock business beat,
+# a trusted-gated war story, and a confidant-gated crack (locked for ~everyone).
+
+npc: dolan
+
+# First entry whose conditions all pass becomes the opening node.
+entry:
+  - node: first_meeting
+    conditions: { metBefore: false }
+  - node: cold_open
+    conditions: { faction: town, opinion: "<=3" }
+  - node: greet
+    conditions: {}
+
+nodes:
+
+  # ---------- First contact ----------
+  first_meeting:
+    say:
+      - text: "Salvus. New face. The Fifth Regiment General Store — mine. Buy if
+               you're buying; move along if you're not."
+    options:
+      - text: "Fifth Regiment?"
+        effects: { familiarity: +1, flag: asked_about_service }
+        goto: service_intro
+      - text: "Salvus. I'm after a hunt — what've you got?"
+        conditions: { faction: empire }
+        effects: { opinion: +1 }
+        goto: greet
+      - text: "Just looking."
+        goto: end
+
+  # ---------- Cold open (town-leaning, low opinion) ----------
+  cold_open:
+    say:
+      - text: "Hunter. You again. Counter's there — I assume you came to buy
+               something, not to talk."
+    options:
+      - text: "Maybe I came to talk."
+        goto: politics
+      - text: "To buy. That's all."
+        effects: { opinion: +1 }
+        goto: greet
+      - text: "Forget it."
+        goto: end
+
+  # ---------- Default hub ----------
+  greet:
+    say:
+      # Grumpy-day bark — a raw-mood flavor gate, independent of who you are.
+      - text: "Hunter. It has been a trying day — do me the courtesy of being brief."
+        conditions: { mood: "<=2" }
+        weight: 2
+      - text: "{playerName}. What do you need?"                # warm, knows you
+        conditions: { standing: confidant }
+      - text: "{playerName}. Back again. What is it you need?"
+        conditions: { standing: trusted }
+      - text: "Hunter. Are you here to buy something, or to wear out my floorboards?"
+        conditions: { opinion: "<5" }                          # compares effectiveOpinion
+      - text: "Hunter. Take what you came for."
+    options:
+      - text: "Your shelf's looking light."
+        conditions: { lowStock: true }
+        goto: low_stock
+      - text: "That permit's already earning its keep."        # purchase callback
+        conditions: { recentPurchases: includes swallow_bait }
+        effects: { opinion: +1 }
+        goto: shop_smalltalk
+      - text: "Felled a fair bit of timber lately."            # profession read
+        conditions: { lumberjackRank: ">=5" }
+        effects: { opinion: +1 }
+        goto: respect_trade
+      - text: "Tell me about the Fifth."
+        conditions: { sharedHistory: includes asked_about_service }
+        goto: service_story
+      - text: "Rough stretch. Lost more than I won out there."
+        conditions: { recentLosses: ">=2" }
+        goto: losing
+      - text: "This empire bleeds the town for taxes and calls it order."
+        conditions: { faction: town }
+        effects: { flag: pushed_politics }
+        goto: politics
+      - text: "Nothing today."
+        goto: end
+
+  # ---------- Service: the thread that opens him up ----------
+  service_intro:
+    say:
+      - text: "Fifth Regiment. Twenty-six years under the standard — I made
+               Vexillar before the end. You don't earn that loitering in Sulku'it."
+    options:
+      - text: "Why come home, then?"
+        effects: { familiarity: +1, flag: asked_why_back }
+        goto: why_back
+      - text: "Hm."
+        goto: greet
+
+  # Warmth buys the STORIES (successes). Trusted-gated.
+  service_story:
+    say:
+      - text: "You want the whole of it? Sit, then. The Fifth held the Maddow
+               crossing three days against twice our number — roads behind us, so
+               the relief came through. That's what order buys you. Supply that
+               shows up. A road that's still there in the morning."
+        conditions: { standing: trusted }
+      - text: "The Fifth held lines that mattered. Trade moved because we made it
+               safe to move. That's the short version, and it's the one you get."
+    options:
+      # The CRACK. Almost nobody sees this. Gated on standing, not opinion.
+      - text: "And the ones who didn't come back?"
+        conditions: { standing: confidant, sharedHistory: excludes told_regret }
+        effects: { flag: told_regret }
+        goto: regret
+      - text: "Sounds like you'd go back tomorrow."
+        conditions: { standing: confidant }
+        goto: road_not_taken
+      - text: "Good of the empire."
+        goto: greet
+
+  # confidant-only: a genuine crack (see bible #3h)
+  regret:
+    say:
+      - text: "...Some of them I put where they fell. Orders I'd give again, and a
+               few I'm not sure were ever mine to give. I tally the good against
+               them. Most days the sum comes out right."
+      - text: "Don't ask me their names. That's where I stop."
+    options:
+      - text: "I won't, then."
+        effects: { opinion: +1 }
+        goto: greet
+
+  # confidant-only: the road not taken (bible #3g)
+  road_not_taken:
+    say:
+      - text: "Tomorrow? No. I'm too old, and the army doesn't keep relics.
+               ...Sometimes I wonder what I'd be if I'd stayed. Padev, maybe. Sons.
+               Fendalok's chair. Don't repeat that."
+    options:
+      - text: "Your secret's kept."
+        effects: { opinion: +1 }
+        goto: greet
+
+  why_back:
+    say:
+      - text: "Mother fell ill. You go. The rest —"
+      - text: "— the rest is that there was nowhere else the army still needed an
+               old man. Was there anything you actually meant to buy?"
+    options:
+      - text: "Fair enough."
+        goto: greet
+
+  # ---------- Faction friction: dodge first, insult only if pushed ----------
+  politics:
+    say:
+      - text: "That is not what you came in for. Did you come to trade, or to argue
+               politics with an old soldier?"
+    options:
+      - text: "Debating. The empire's boot is heavy here."
+        conditions: { sharedHistory: includes pushed_politics }
+        effects: { opinion: -1, flag: mocked_the_empire }
+        goto: politics_rebuke
+      - text: "Buying. Forget I said it."
+        goto: greet
+      - text: "Forget it."
+        goto: end
+
+  politics_rebuke:
+    say:
+      - text: "Heavy. You've never seen what light looks like, then. I have —
+               villages that settled their disputes by opening a girl's throat to
+               the dirt. This town is chaos with the volume down: superstitious,
+               filthy, and proud of both. That boot is the only reason you sleep
+               soundly enough to resent it. Now — the counter, or the door."
+    options:
+      - text: "Counter."
+        goto: greet
+      - text: "Door."
+        goto: end
+
+  # ---------- Recent losses: jab or grudging counsel by opinion ----------
+  losing:
+    say:
+      - text: "Losing teaches faster than winning, if you let it. What's breaking
+               — your footwork, or your nerve?"
+        conditions: { opinion: ">=5" }
+      - text: "Then bleed less or bait smaller. The forest doesn't grade on
+               effort, hunter."
+    options:
+      - text: "Footwork. They close before I'm set."
+        conditions: { opinion: ">=5" }
+        effects: { familiarity: +1 }
+        goto: greet
+      - text: "I'll manage."
+        goto: greet
+
+  # ---------- Profession respect (lumberjack) ----------
+  respect_trade:
+    say:
+      - text: "Honest work, timber. Hard to fake a full cord. I cut my share once —
+               a regiment shoes its own and fells its own. Keep at it."
+    options:
+      - text: "Will do."
+        goto: greet
+
+  # ---------- Purchase callback ----------
+  shop_smalltalk:
+    say:
+      - text: "Permit, not a pile of bait — that was the point. Buy it once, hunt
+               forever. Practical. The empire ran on paperwork like that."
+    options:
+      - text: "What else should I be carrying?"
+        goto: greet
+      - text: "Noted."
+        goto: end
+
+  # ---------- Low-stock business beat ----------
+  low_stock:
+    say:
+      - text: "Hm. You're right — short on {lowStockItem}. Next caravan'll set it
+               straight. Anything I do have?"
+    options:
+      - text: "Show me."
+        goto: greet
+      - text: "I'll come back."
+        goto: end

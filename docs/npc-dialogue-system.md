@@ -1,187 +1,319 @@
-# NPC Dialogue System — Design Spec
+# NPC Dialogue System — Design Spec (0.3.0)
 
-## Core Idea
+## Goal
 
-Emergent dialogue from simple rules. Instead of writing complete scripted lines, dialogue is *assembled* at runtime from fragment slots conditioned on state. Complex, varied output falls out of combinations — no LLM, no infinite branching tree.
+Give NPCs conversations that feel *somewhat alive* — closer to a D&D NPC than a
+shopkeeper with one canned line. The player talks to an NPC and gets dialogue
+that reacts to **who they are and what they've been doing**: their profession
+ranks, what they've hunted, whether they've been losing, what they've bought,
+which side they lean (empire vs. town), and how this NPC has come to feel about
+them over time.
 
----
+The player never free-types. Conversations are **branching choice trees**
+(Baldur's Gate / Stardew style) — the NPC speaks, the player picks from a few
+offered replies, the tree branches. Both the NPC's lines *and* which replies are
+offered are gated by state, so the same NPC reads differently to different
+players and to the same player over time.
 
-## Fragment Composition
-
-### How it works
-
-A dialogue entry is a template with named slots. Each slot has a pool of options, each with optional conditions. At runtime, eligible options are filtered by current state, one is selected (randomly or weighted), and the template is assembled.
-
-```yaml
-# database/dialogue/fendalok/greeting.yaml
-template: "{opener} {concern} {aside}"
-
-slots:
-  opener:
-    - text: "Good morning."
-      conditions:
-        timeOfDay: morning
-    - text: "Ah, {playerName}."
-      conditions:
-        familiarity: ">=2"
-    - text: "What brings you here?"
-      conditions: {}              # always eligible
-
-  concern:
-    - text: "Taxes are due again."
-      conditions:
-        recentEvents: includes tax_collector_visited
-    - text: "That mushroom sighting has me worried."
-      conditions:
-        recentEvents: includes mushroom_spotted
-    - text: "Town's been quiet."
-      conditions: {}
-
-  aside:
-    - text: ""                    # no aside — always eligible
-      conditions: {}
-    - text: "But that's not your problem."
-      conditions:
-        trust: "<5"
-    - text: "Morna's been asking about you."
-      conditions:
-        familiarity: ">=3"
-```
-
-4 openers × 5 concerns × 3 asides = 60 possible combinations from ~12 written fragments.
-
-### Template variables
-
-Slots can reference state values directly: `{playerName}`, `{townName}`, `{daysSinceLastVisit}`. These are substituted after assembly.
-
-### Selection weighting
-
-Options can carry an optional `weight` field (default 1). Higher weight = more likely when eligible. Useful for making neutral fallbacks less dominant once better options unlock.
+> **Scope of this spec.** v1 is **one NPC — Dolan** — to nail the interface, the
+> state model, and the "feels alive" bar before scaling out. Anything marked
+> *Deferred* below is explicitly out of scope for the first build.
 
 ---
 
-## NPC State
+## Architecture at a glance
 
-Each NPC has global state — independent of any player — that evolves based on world events.
+Three layers, cleanly separated:
 
-```typescript
-interface NPCState {
-  npcId: string;
-
-  // Scalar scores, 0–10, drift toward baseline over time
-  stressLevel: number;
-  moodScore: number;
-  trustOfStrangers: number;
-
-  // Recent world events affecting this NPC, with expiry timestamps
-  recentEvents: Array<{ event: string; expiresAt: Date }>;
-}
-```
-
-### Event triggers
-
-World events mutate NPC state directly. Propagation between NPCs is also handled here — no general pub/sub, just explicit function calls.
-
-```typescript
-onWorldEvent("tax_collector_visited", () => {
-  fendalok.stressLevel    = clamp(fendalok.stressLevel + 3, 0, 10);
-  fendalok.trustOfStrangers = clamp(fendalok.trustOfStrangers - 2, 0, 10);
-  fendalok.recentEvents.push({ event: "tax_collector_visited", expiresAt: daysFromNow(3) });
-
-  // Propagate: Fendalok's stress affects Morna
-  morna.moodScore = clamp(morna.moodScore - 1, 0, 10);
-});
-```
-
-### State decay
-
-A daily tick drifts scalar scores back toward their baseline and removes expired events.
-
-```typescript
-function tickNPCState(npc: NPCState, baseline: NPCStateBaseline) {
-  npc.stressLevel  = lerp(npc.stressLevel,  baseline.stressLevel,  DECAY_RATE);
-  npc.moodScore    = lerp(npc.moodScore,    baseline.moodScore,    DECAY_RATE);
-  npc.recentEvents = npc.recentEvents.filter(e => e.expiresAt > now());
-}
-```
+1. **Authored content** — branching dialogue trees in YAML, under
+   `database/dialogue/{npcId}/`. Hand-curated, but *drafted* by an LLM at author
+   time (see Authoring). Not loaded by any model at runtime.
+2. **State** — what the dialogue is conditioned on. For v1 this is almost
+   entirely **player-relative** (this player ↔ this NPC), assembled at request
+   time from data we already store plus one new relation row.
+3. **Runtime** — a deterministic tree-walker. Given the current node and the
+   player's pick, it filters eligible lines/options by condition, applies
+   effects, and returns the next node. **No live LLM call in the player path.**
 
 ---
 
-## Player–NPC Relation
+## Runtime is deterministic; the LLM is a writing-room tool
 
-Separate from NPC global state. Tracks the relationship between a specific player and a specific NPC.
+The dialogue a player sees is always static, reviewed YAML. The LLM's job is at
+**author time**: given Dolan's character bible and a target state-bucket
+("a town-leaning player who just lost three fights"), it drafts candidate lines
+and replies. A human (you) approves/edits them into the YAML. Benefits:
+
+- Nothing to latency-budget, rate-limit, or moderate in the live request path.
+- Every line is reviewable and consistent with the character's voice.
+- "I don't want to write it all, but I want to review it" — this is exactly that.
+
+This replaces the old runtime-agnostic fragment-composition idea (see
+*Deferred*). Fragment slots may still be used to add small variety *inside* a
+single authored line (e.g. a `{playerName}` substitution or a 2-way bark pool),
+but the spine of a conversation is the authored tree, not runtime recombination.
+
+---
+
+## State: the factor model
+
+Everything the dialogue reacts to, assembled into one `DialogueContext` per
+conversation request.
+
+### Player-relative factors (the v1 driver)
+
+| Factor | Source | Status |
+|---|---|---|
+| Profession ranks (LJ / BS / EN) | `CharacterProfession` | existing data |
+| Recent hunts (which enemies, how often) | `BattleLog` (enemy, outcome) | existing data |
+| Recent losses / forfeits | `BattleLog` (outcome) | existing data |
+| Recent purchases | `ShopTransaction` | existing data |
+| Faction lean (empire vs. town) | new player attribute, set at creation | **net-new** |
+| **Opinion** (this NPC's like/dislike of this player) | `player_npc_relations` | **net-new** |
+| **Familiarity** (how well they know this player) | `player_npc_relations` | **net-new** |
+
+"Recent" is a rolling window (e.g. last N days or last N battles) computed at
+request time. `EventLog` — already used for crafting/upgrade/orchard analytics —
+is the natural backstop for any signal not directly queryable from the tables
+above.
+
+### Faction
+
+A player's empire-vs-town lean is **chosen at character creation** (creation
+already lives in the web app). It's not cosmetic: it sets first impressions
+across *every* NPC. Dolan is pro-Chaevul, so a town-leaning player starts on his
+bad side — that's the point. Different NPCs filter the *same* player action
+through their own politics, so opinion is never symmetric across the cast.
+
+> **Existing characters** default to a neutral lean. Full character
+> customization (revisiting this and more) is planned but **not** a 0.3.0
+> priority — neutral-default is fine for now; don't build a migration UI.
+
+### Opinion, familiarity & standing (the relation row)
+
+`opinion` and `familiarity` are **separate axes on purpose**. Dolan can know you
+well (high familiarity) and still not like you (low opinion), or warm to you
+fast without knowing you. Both gate dialogue. Opinion drifts based on what you do
+and say (dialogue effects + world signals); familiarity only ever climbs with
+contact. A third axis — `standing` — is the relationship *tier*, below.
 
 ```typescript
+type Standing = "stranger" | "regular" | "trusted" | "confidant";
+
 interface PlayerNPCRelation {
-  playerId: string;
-  npcId: string;
-
+  characterId: string;
+  npcId: string;            // "dolan"
   metBefore: boolean;
-  familiarity: number;        // increases with each interaction
-  trust: number;              // changes based on player actions, 0–10
-
-  sharedHistory: string[];    // event flags specific to this player
-                              // e.g. ["completed_fendalok_task_1", "was_rude_in_greeting"]
+  familiarity: number;      // climbs with each conversation, never drops
+  opinion: number;          // like/dislike, 0–10, drifts toward an NPC baseline
+  standing: Standing;       // relationship tier — gated, can decay (see below)
+  sharedHistory: string[];  // flags: ["asked_about_service", "mocked_the_empire"]
+  lastSpokenAt: Date | null;
 }
 ```
 
-### Familiarity vs. trust
+### Standing — warmth is not friendship
 
-These are separate axes intentionally. Fendalok can know you well (high familiarity) but have reason to be wary (low trust), or trust you quickly without knowing you yet. Both affect which dialogue options are eligible.
+**Neither opinion nor familiarity alone makes you a friend** — that's `standing`,
+a tier the dialogue checks directly. High opinion is *necessary but not
+sufficient* for the top tier.
 
----
+| Tier | Gate | Unlocks |
+|---|---|---|
+| `stranger` | default | the cold, functional hub |
+| `regular` | met a few times, opinion not hostile | small talk; your name instead of "hunter" |
+| `trusted` | high opinion + familiarity + key story flags | the war **stories** (his successes) |
+| `confidant` | trusted **+ sustained**: long regular contact, hunting what he asks, top opinion | the **cracks** — his regrets, the road not taken, the truth about Fendalok |
 
-## Dialogue Selection Pipeline
+Two rules keep friendship *rare* without an arbitrary global friend-cap (which
+would unfairly lock out latecomers):
 
-At runtime when a player initiates `/talk [npc]`:
+1. **The top jump is compound and behavioral.** `trusted → confidant` needs story
+   progression *and* a record of doing what he wants (hunting his targets) *over
+   real time* — not a number you grind.
+2. **`confidant` decays.** Standing slips on neglect (stale `lastSpokenAt`,
+   opinion drift). "A few close friends, not many" then emerges from *who's
+   actively maintaining it* — the set stays small on its own.
 
-1. Load NPC global state
-2. Load player–NPC relation (create default if first meeting)
-3. Merge into a **context object** passed to the slot evaluator
-4. For each slot in the template, filter options whose conditions all pass
-5. Weighted random selection from eligible options
-6. Assemble template string
-7. Substitute variables (`{playerName}` etc.)
-8. Post to Discord; update `metBefore`, increment `familiarity`
+The deep nodes gate on `standing: confidant`, **never on `opinion` alone** — that
+gate *is* the enforcement.
+
+### Mood — a little weather (NPC-global, fuzzes the soft gates)
+
+A single per-NPC scalar `mood` (0–10) that **drifts on a slow tick** — mean-
+reverting toward the NPC's baseline with a small random walk, the same shape as
+the shop price ticks. It's **global, not per-player**: when Dolan's having a foul
+day, everyone who walks in that day gets a slightly colder Dolan. It gives him
+weather, and it makes the gates a little fuzzy so the same player state doesn't
+always produce the same conversation.
+
+**What it touches — deliberately only the *soft* gates:**
+
+- Opinion comparisons evaluate against
+  `effectiveOpinion = clamp₀₋₁₀(opinion + moodOffset)`, where
+  `moodOffset = round((mood − baseline) × k)` with a small `k` (≈ ±1–2 at the
+  extremes). So a borderline player sometimes gets the warm greeting and sometimes
+  the cold one; `cold_open` vs `greet` can flip; a jab-vs-counsel fork can tip.
+- `mood` is also exposed **raw** in the context, so a line/option *can* gate on it
+  explicitly for flavor (`mood: "<=2"` → a grumpy bark).
+
+**What it must NOT touch:**
+
+- **`standing` is mood-independent.** Friendship doesn't flicker because he slept
+  badly — tier promotion and the `confidant` cracks evaluate on the *real*
+  relation, never on `effectiveOpinion`. Mood breathes the **warmth**, not the
+  **bond**.
+
+**Stability:** mood is **snapshotted when a conversation opens** and held for that
+whole conversation — it can't shift between nodes mid-talk (that would read as a
+bug). It only re-rolls *between* visits, on its tick.
+
+**Storage:** one row per NPC (`npc_mood`: value + lastTick), or computed from a
+per-NPC seed + the tick clock. Baseline is a per-NPC constant — Dolan runs cool
+(baseline ~4), so his "neutral" already skews terse.
 
 ### Context object shape
 
 ```typescript
 interface DialogueContext {
-  // NPC global state
-  stressLevel: number;
-  moodScore: number;
-  trustOfStrangers: number;
-  recentEvents: string[];     // just the event strings, expiry already filtered
-
-  // Player–NPC relation
+  // Identity / relation
+  playerName: string;
   metBefore: boolean;
   familiarity: number;
-  trust: number;
+  opinion: number;          // raw relation opinion
+  effectiveOpinion: number; // opinion + mood offset; what opinion-gates compare against
+  standing: "stranger" | "regular" | "trusted" | "confidant";  // mood-independent
+  mood: number;             // NPC-global, snapshotted at conversation open
   sharedHistory: string[];
+  faction: "empire" | "town" | "neutral";
 
-  // World/time
-  timeOfDay: "morning" | "afternoon" | "evening" | "night";
-  playerName: string;
-  daysSinceLastVisit: number;
+  // Derived player signals (rolling window)
+  professionRanks: { lumberjack: number; blacksmith: number; enchanter: number };
+  recentHunts: string[];        // enemy ids hunted recently
+  recentLosses: number;         // losses/forfeits in window
+  recentPurchases: string[];    // item ids bought recently
+
+  // Time
+  daysSinceLastVisit: number | null;
 }
 ```
 
 ---
 
-## Condition Syntax
+## Conversation tree format
 
-Conditions on slot options are key-value pairs evaluated against the context object. Keep it simple — no scripting language.
+One file per conversation surface, under `database/dialogue/{npcId}/`. A file
+declares an **entry** (which node to open on, first matching condition wins) and
+a map of **nodes**. A node has the NPC's line(s) and the player's options.
 
-| Condition form | Example | Meaning |
+```yaml
+# database/dialogue/dolan/general_store.yaml
+npc: dolan
+
+# First entry whose conditions pass becomes the opening node.
+entry:
+  - node: first_meeting
+    conditions: { metBefore: false }
+  - node: cold_open
+    conditions: { opinion: "<=3" }
+  - node: greet
+    conditions: {}                       # fallback
+
+nodes:
+  greet:
+    # NPC line: a single string, or a weighted/conditioned pool (first eligible
+    # wins unless multiple are eligible, then weighted-random).
+    say:
+      - text: "{playerName}. What do you need?"
+        conditions: { opinion: ">=6" }
+      - text: "Back again. Buying, or loitering?"
+        conditions: { opinion: "<6" }
+      - text: "Take a look around."          # always-eligible fallback
+    # Player choices, top-to-bottom; only eligible ones are shown.
+    options:
+      - text: "You served in the Fifth, I heard."
+        conditions: { sharedHistory: excludes asked_about_service }
+        effects: { familiarity: +1, flag: asked_about_service }
+        goto: service_story
+      - text: "That swallow permit's already paying off."
+        conditions: { recentPurchases: includes swallow_bait }
+        effects: { opinion: +1 }
+        goto: shop_smalltalk
+      - text: "The empire's boots are too heavy for a town this size."
+        conditions: { faction: town }
+        effects: { opinion: -1, flag: mocked_the_empire }
+        goto: empire_rebuke
+      - text: "Nothing. Leaving."
+        goto: end
+
+  service_story:
+    say:
+      - text: "Twenty-six years. Officer, Fifth Division. You don't get that
+               standing around Sulku'it."
+    options:
+      - text: "Why come back, then?"
+        conditions: { sharedHistory: excludes asked_why_back }
+        effects: { familiarity: +1, flag: asked_why_back }
+        goto: why_back
+      - text: "Hm."
+        goto: greet            # loop back to the hub node
+```
+
+### Node mechanics
+
+- **`say`** — the NPC's line(s). String or a list of `{ text, conditions?, weight? }`.
+- **`options`** — player replies. Each: `text`, optional `conditions`,
+  optional `effects`, and `goto` (another node id, or `end`).
+- **`effects`** — `opinion: ±N`, `familiarity: ±N`, `flag: name` (push onto
+  `sharedHistory`). Applied when the option is chosen, before navigating.
+- **`goto: end`** — closes the conversation. Terse NPCs (Dolan) should have
+  short trees with frequent `end`s; that *is* the characterization.
+- **Loops** — `goto` back to a hub node lets a conversation fan out and return.
+  Options already-taken are gated off via `sharedHistory: excludes …`.
+
+### Condition syntax
+
+Conditions are key→value pairs over the `DialogueContext`; **all must pass**.
+An option/line with no conditions is always eligible (the fallback).
+
+| Form | Example | Meaning |
 |---|---|---|
-| `key: value` | `metBefore: true` | Exact match |
-| `key: ">=N"` | `familiarity: ">=3"` | Numeric comparison |
-| `key: "<=N"` | `trust: "<=4"` | Numeric comparison |
-| `key: includes value` | `recentEvents: includes tax_collector_visited` | Array contains |
-| `key: excludes value` | `sharedHistory: excludes completed_task_1` | Array does not contain |
+| `key: value` | `metBefore: true` | exact match |
+| `key: enum` | `faction: town`, `standing: confidant` | enum match |
+| `key: ">=N"` | `familiarity: ">=3"` | numeric compare |
+| `key: "<=N"` / `"<N"` / `">N"` | `opinion: "<=3"` | numeric compare |
+| `key: includes v` | `recentHunts: includes talwyrm` | array contains |
+| `key: excludes v` | `sharedHistory: excludes asked_about_service` | array lacks |
 
-An option with no conditions is always eligible (fallback).
+No scripting language — if a condition needs more than this, it's a sign the
+state should expose a new derived field instead.
+
+---
+
+## Interface
+
+The live system is the web SPA, so the conversation UI is web. Dolan already has
+a home: **The Fifth Regiment General Store** page. v1 adds a **Talk** affordance
+there that opens a conversation panel — the NPC's line, the offered replies as
+buttons, click to advance. Keeping it on the shop page means Dolan can comment on
+what you just bought, and players find him where they already expect him.
+
+(The old `/talk` Discord command from the previous draft is dropped — that bot is
+archived.)
+
+A dedicated **Town hub** page listing every talkable NPC makes sense *later*,
+once there's more than one. Deferred.
+
+### Endpoint sketch
+
+- `GET  /api/talk/:npcId` — open a conversation: build `DialogueContext`,
+  resolve `entry`, return the opening node (NPC line + eligible options).
+- `POST /api/talk/:npcId` — `{ node, optionIndex }`: validate the pick is
+  currently eligible, apply effects, persist the relation row, return the next
+  node (or a closed signal for `end`).
+
+State (opinion/familiarity/flags) is persisted server-side on the relation row;
+the client only holds the current node + rendered options.
 
 ---
 
@@ -189,15 +321,38 @@ An option with no conditions is always eligible (fallback).
 
 | Data | Location | Notes |
 |---|---|---|
-| Dialogue definitions | `database/dialogue/{npcId}/*.yaml` | Authored content, not in DB |
-| NPC global state | DB table `npc_states` | One row per NPC, updated by event system |
-| Player–NPC relations | DB table `player_npc_relations` | One row per (player, npc) pair |
-| World events log | DB table `world_events` | Append-only, used to reconstruct/audit state |
+| Dialogue trees | `database/dialogue/{npcId}/*.yaml` | runtime-loaded; LLM-drafted + reviewed |
+| Character bible | `docs/lore/{npcId}.md` | author-time reference; **not** loaded at runtime |
+| Player↔NPC relation | DB table `player_npc_relations` | one row per (character, npc) |
+| Faction lean | player/character attribute, set at creation | new field |
 
 ---
 
-## What This Does Not Cover
+## Authoring pipeline
 
-- **Service gating**: Which professions or commands an NPC unlocks based on trust/familiarity — that's a separate access-control layer that reads the same `PlayerNPCRelation` data.
-- **Dialogue trees**: Multi-turn conversations with player choices. This spec covers NPC *greeting/ambient* lines. A choice tree (Telltale-style) uses the same state but needs a separate branching structure.
-- **Tutorial/intro scripts**: First-meeting dialogue for key NPCs can be fully scripted (ignoring the slot system) and transition into the slot system afterward.
+1. Write the **character bible** (voice, biography, opinions, opinion-triggers).
+2. Enumerate the **state buckets** worth distinct dialogue (e.g. "first meeting,"
+   "town-leaning + low opinion," "veteran customer," "just lost a string of
+   fights," "high blacksmith rank"). Not every combination — the ones that *say
+   something about the character*.
+3. For each bucket, have the LLM **draft** NPC lines + player replies in voice.
+4. **Review/edit** into the tree YAML, wiring conditions + effects.
+5. Playtest the tree-walk; tune opinion deltas and gating.
+
+---
+
+## Deferred (post-Dolan)
+
+- **World-global NPC state** — the *broad* version: multiple scalars (stress,
+  etc.) that evolve from **world events** and **propagate** between NPCs (Dolan's
+  mood rippling to others). v1 ships only the single self-contained `mood` scalar
+  (above), drifting on its own tick with no world-event inputs or propagation —
+  that richer event-driven layer is deferred.
+- **Runtime fragment composition** — the old combinatorial slot system, as a
+  technique for ambient/idle barks. Superseded for conversations by authored
+  trees; may return for ambient flavor.
+- **Town hub page** — a directory of talkable NPCs. Needs >1 NPC first.
+- **Service gating** — unlocking shop functions / quests by opinion or
+  familiarity. Reads the same relation data; a separate access layer.
+- **Full character customization** — revisiting faction and more, beyond the
+  creation-time pick.

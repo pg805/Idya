@@ -1,0 +1,135 @@
+/* Dialogue overlay — RPG conversation box. */
+
+.dlg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px 6vh;
+  background: rgba(4, 9, 14, 0.62);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.dlg-overlay.show { opacity: 1; }
+
+.dlg-card {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  padding: 20px 22px 18px;
+  transform: translateY(10px);
+  transition: transform 0.16s ease;
+}
+.dlg-overlay.show .dlg-card { transform: translateY(0); }
+
+.dlg-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.dlg-close:hover { color: var(--text); }
+
+/* Speaker */
+.dlg-speaker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dlg-portrait {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-bright);
+  font-size: 22px;
+  font-weight: 700;
+}
+.dlg-speaker-meta { display: flex; flex-direction: column; min-width: 0; }
+.dlg-name {
+  color: var(--gold);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dlg-title {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* The spoken line */
+.dlg-line {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+.dlg-line p { margin: 0 0 10px; }
+.dlg-line p:last-child { margin-bottom: 0; }
+
+/* Choices */
+.dlg-options { display: flex; flex-direction: column; gap: 8px; }
+.dlg-option {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.dlg-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.dlg-option-num {
+  flex: 0 0 auto;
+  color: var(--teal-bright);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 12px;
+}
+.dlg-leave { color: var(--text-muted); }
+
+/* Per-node line fade-in */
+.dlg-card.dlg-step .dlg-line { animation: dlg-fade 0.18s ease; }
+@keyframes dlg-fade {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 560px) {
+  .dlg-overlay { align-items: stretch; padding: 0; }
+  .dlg-card {
+    max-width: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-top: auto;
+  }
+}

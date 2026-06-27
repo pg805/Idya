@@ -1,5 +1,8 @@
 // View: Shop — cart-based buy/sell.
 (function() {
+  // Shops whose NPC has a conversation tree. (Later: a flag from /api/shop.)
+  const DIALOGUE_NPC = { general_store: 'dolan' };
+
   let shopKey  = null;
   let data     = null;
   let cart     = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };  // buyWeapons: {weaponKey: qty}, weapons: Set of instance IDs
@@ -51,6 +54,7 @@
         <div id="shop-subhead-inner">
           <p id="shop-name-line"></p>
           <p id="shop-greeting"></p>
+          <div id="shop-talk"></div>
         </div>
       </div>
       <main class="shop-panels">
@@ -86,6 +90,12 @@
     setLayoutTitle(data.shopName);
     document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
     document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
+    const talkEl = document.getElementById('shop-talk');
+    if (talkEl) {
+      talkEl.innerHTML = DIALOGUE_NPC[shopKey]
+        ? `<button class="shop-talk-btn" onclick="Views.shop.talk()">Talk to ${esc(data.npc)}</button>`
+        : '';
+    }
     renderBuy();
     renderSell();
     renderCart();
@@ -398,7 +408,12 @@
     data = null; cart = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() }; rootEl = null;
   }
 
+  function talk() {
+    const npcId = DIALOGUE_NPC[shopKey];
+    if (npcId && window.Dialogue) window.Dialogue.open({ npcId });
+  }
+
   window.Views = window.Views ?? {};
-  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout };
+  window.Views.shop = { mount, unmount, onQtyChange, setCartQty, adjBuyWeapon, toggleWeapon, clearCart, checkout, talk };
   window.showToast = (msg) => toast(msg, true);
 })();

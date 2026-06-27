@@ -22,6 +22,24 @@
   line-height: 1.5;
 }
 
+#shop-talk { margin-top: 10px; }
+.shop-talk-btn {
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-bright);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.shop-talk-btn:hover {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--c-white);
+}
+
 .shop-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;

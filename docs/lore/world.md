@@ -52,7 +52,7 @@ Canonical names for the locations in and around Sulku'it. The YAML `Name:` field
 | Place | Canonical name | Notes |
 |---|---|---|
 | Town hunting grounds | **Sulkupa Forest** | The forest the Hunt page describes. |
-| General store | **The Fifth Regiment General Store** | Dolan's shop. Named for his old 5th Division. |
+| General store | **The Fifth Regiment General Store** | Dolan's shop. Named for his old Fifth Regiment. |
 | Blacksmith | **Barrel Hoop Blacksmith** | Kethalis's smithy. |
 | Lumberjack | **Velvet Hat Lumberjack** | Vetha's workshop. |
 | Enchanting shop | **Sidaev Tome Enchanting Shop** | Lomis's shop — half workshop, half library. |
@@ -86,9 +86,9 @@ Can be off-color without meaning to be. Delegates disputes to Morna when he has 
 
 ### Dolan — General Store, Sulku'it
 
-**Age:** 78 | **Origin:** Ketulvu (denounced) | **Background:** Retired officer, 5th Division, Chaevul military
+**Age:** 78 | **Origin:** Ketulvu (denounced) | **Background:** Retired officer (Vexillar), Fifth Regiment, Chaevul military
 
-Grew up in Sulku'it and always found it stifling. Left at 18 to join the Chaevul military when recruiters came through — his parents weren't happy but didn't want to cross the empire. Spent decades traveling the continent, rising to officer of the 5th Division. The experience shaped him profoundly: he came to see the Chae empire's power as legitimate and admirable, and quietly shed his Ketulvu heritage along the way.
+Grew up in Sulku'it and always found it stifling. Left at 18 to join the Chaevul military when recruiters came through — his parents weren't happy but didn't want to cross the empire. Spent decades traveling the continent, rising to officer of the Fifth Regiment. The experience shaped him profoundly: he came to see the Chae empire's power as legitimate and admirable, and quietly shed his Ketulvu heritage along the way.
 
 Returned home in his later years after his mother fell ill. His parents have since both died, and he's too old to rejoin the army. He opened the general store to make ends meet — a practical decision that also keeps him informed. His military connections and caravan trades mean he often carries equipment and supplies the town couldn't source otherwise.
 
@@ -96,7 +96,7 @@ His pretension is earned but wearing. He genuinely believes his experience — l
 
 Never married and never wanted to. Keeps largely to himself — participates in town traditions only when the social cost of skipping is too high, which makes him an outsider in a place he grew up in. Views the Chae empire favorably, thinks little of Ketulvu tradition, and has few friends for it.
 
-**Served with:** Fakel (military, 5th Division)
+**Served with:** Fakel (military, Fifth Regiment)
 **Rivals:** Fendalok
 
 ---
@@ -177,7 +177,7 @@ He loves Nisra and sees a lot of himself in her — protective of the people she
 He thinks Kethalis is genuinely a good person and considers him a friend. He's noticed some low hostility and attributes it to the tax collection — he really hopes Kethalis actually likes him. He doesn't actually like Dolan much despite Dolan's respect for his service. He thinks being grouped with Dolan is bad for the life he's trying to build here.
 
 **Married to:** Vetha | **Daughter:** Nisra
-**Served with:** Dolan (5th Division) | **Respects:** Fendalok
+**Served with:** Dolan (Fifth Regiment) | **Respects:** Fendalok
 
 ---
 
