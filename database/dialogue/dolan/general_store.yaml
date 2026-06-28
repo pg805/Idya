@@ -1,12 +1,11 @@
 # Dolan - The Fifth Regiment General Store
 # Conversation tree (0.3.0). Voice + truth: docs/lore/dolan.md, docs/lore/voice.md.
-# Spec: docs/npc-dialogue-system.md. House style: no em dashes; concise but
-# educated; full sentences over fragments.
+# House style: no em dashes; concise but educated; vary the rhythm (do not stack
+# short declaratives); full sentences over fragments.
 #
-# Buckets: standing-tiered + mood greetings, service arc (-> war story -> cracks),
-# politics (dodge -> push -> rebuke), profession reads (lumberjack/enchanter nod,
-# blacksmith needle), recent-hunt reads (swallow feathers, deep-wood respect),
-# recent-loss read, purchase callback, wares pitch, low-stock beat.
+# `greet` is the opener (entry only). Mid-conversation, sub-nodes return to `hub`,
+# which borrows greet's option menu but speaks a short "anything else" bridge so
+# he is not re-greeting you every turn.
 
 npc: dolan
 
@@ -24,7 +23,7 @@ nodes:
   first_meeting:
     say:
       - text: "Salvus. A new face. This is the Fifth Regiment General Store, and it
-               is mine. Buy if you came to buy, and move along if you did not."
+               is mine, so buy if you came to buy and move along if you did not."
     options:
       - text: "You carry yourself like a soldier."
         effects: { familiarity: +1, flag: asked_about_service }
@@ -39,32 +38,32 @@ nodes:
   # ---------- Cold open (town-leaning, low opinion) ----------
   cold_open:
     say:
-      - text: "Hunter. You again. The counter is right there. I will assume you came
-               to buy something and not to lecture me about it."
+      - text: "Hunter. You again. The counter is right there, and I will assume you
+               came to use it rather than to lecture me from across it."
     options:
       - text: "Maybe I came to talk."
         goto: politics
       - text: "To buy. That is all."
         effects: { opinion: +1 }
-        goto: greet
+        goto: hub
       - text: "Forget it."
         goto: end
 
-  # ---------- Default hub ----------
+  # ---------- Opener hub ----------
   greet:
     say:
-      - text: "Hunter. It has been a trying day. Do me the courtesy of being brief."
+      - text: "Hunter. It has been a trying day, so do me the courtesy of being brief."
         conditions: { mood: "<=2" }
         weight: 2
-      - text: "{playerName}. A fair day, for once. What do you need?"
+      - text: "{playerName}. A fair day for once. What do you need?"
         conditions: { mood: ">=8" }
       - text: "{playerName}. Sit if you like. What is it you need?"
         conditions: { standing: confidant }
-      - text: "{playerName}. Back again. What is it you need?"
+      - text: "{playerName}. Back again. What is it this time?"
         conditions: { standing: trusted }
       - text: "{playerName}. What can I get you?"
         conditions: { standing: regular }
-      - text: "Hunter. Are you here to buy something, or to wear out my floorboards?"
+      - text: "Hunter. Are you here to buy something, or only to wear out my floorboards?"
         conditions: { opinion: "<5" }
       - text: "Hunter. Take what you came for."
     options:
@@ -101,6 +100,10 @@ nodes:
       - text: "I have been at the forge myself, lately."
         conditions: { blacksmithRank: ">=5" }
         goto: needle_blacksmith
+      - text: "You have the bearing of a soldier."
+        conditions: { sharedHistory: excludes asked_about_service }
+        effects: { familiarity: +1, flag: asked_about_service }
+        goto: service_intro
       - text: "Tell me about the Fifth."
         conditions: { sharedHistory: includes asked_about_service }
         goto: service_story
@@ -112,11 +115,28 @@ nodes:
       - text: "Nothing today."
         goto: end
 
+  # ---------- Return bridge (borrows greet's menu, speaks a short prompt) ----------
+  hub:
+    say:
+      - text: "If there is more, out with it."
+        conditions: { mood: "<=2" }
+      - text: "Be quick about the rest of it."
+        conditions: { mood: "<=2" }
+      - text: "What else? I have the patience for it today."
+        conditions: { mood: ">=8" }
+      - text: "Anything else?"
+      - text: "What else do you need?"
+      - text: "Go on, then."
+      - text: "Was there something else?"
+      - text: "And?"
+    optionsFrom: greet
+
   # ---------- Service: the thread that opens him up ----------
   service_intro:
     say:
-      - text: "Fifth Regiment. Twenty-six years under the standard. I made Vexillar
-               before the end. You do not earn that by loitering in Sulku'it."
+      - text: "Fifth Regiment, twenty-six years under the standard, and I made
+               Vexillar before the end of it. You do not earn that loitering around
+               a town like this one."
     options:
       - text: "Why come home, then?"
         effects: { familiarity: +1, flag: asked_why_back }
@@ -124,27 +144,30 @@ nodes:
       - text: "What is a Vexillar?"
         goto: vexillar
       - text: "Hm."
-        goto: greet
+        goto: hub
 
   vexillar:
     say:
       - text: "The officer who carries a regiment's standard and answers for it. The
-               line forms where the standard stands. You hold that, or you hold
-               nothing. I held mine for a long time."
+               line forms where the standard stands, so if you cannot hold that you
+               are not holding anything. I held mine for a long time."
     options:
       - text: "Understood."
-        goto: greet
+        goto: hub
 
   # Warmth buys the STORIES (successes). Trusted-gated.
   service_story:
     say:
-      - text: "You want the whole of it? Sit, then. The Fifth held the Maddow
-               crossing for three days against twice our number. The roads were
-               good behind us, so the relief came through. That is what order buys
-               you. Supply that shows up. A road still there in the morning."
+      - text: "You want the whole of it? Sit, then. The Fifth held the crossing at
+               Velsa for three days against twice our number, and we held it because
+               the roads behind us were good enough that the relief actually came
+               through on them. That is what order buys a man: supply that arrives
+               when it should, and a road still under his boots in the morning.
+               Sentiment never held a bridge in its life. Logistics did."
         conditions: { standing: trusted }
-      - text: "The Fifth held lines that mattered. Trade moved because we made it
-               safe to move. That is the short version, and it is the one you get."
+      - text: "The Fifth held lines that mattered, and trade moved through that
+               country because we were the reason it was safe to. That is the short
+               version, and it is the one you get."
     options:
       - text: "And the ones who did not come back?"
         conditions: { standing: confidant, sharedHistory: excludes told_regret }
@@ -154,187 +177,191 @@ nodes:
         conditions: { standing: confidant }
         goto: road_not_taken
       - text: "Good of the empire."
-        goto: greet
+        goto: hub
 
   # confidant-only: a genuine crack (bible #3h)
   regret:
     say:
       - text:
           - "Some of them I put in the ground where they fell. There are orders I
-             would give again, and a few I am no longer certain were ever mine to
-             give. I weigh the good against them. Most days the sum comes out right."
+             would give again without a second thought, and a few I am no longer
+             certain were ever mine to give, and I have learned to weigh the good
+             against them and let the sum come out where it comes out."
           - "Do not ask me their names. That is where I stop."
     options:
       - text: "I will not, then."
         effects: { opinion: +1 }
-        goto: greet
+        goto: hub
 
   # confidant-only: the road not taken (bible #3g)
   road_not_taken:
     say:
       - text: "Go back? No. I am too old, and the army does not keep relics. Still,
-               I wonder sometimes what I would have been if I had stayed. Padev,
-               perhaps. Sons. Fendalok's chair. Do not repeat that."
+               there are nights I wonder what I would have been if I had stayed in
+               this town, whether I would be sitting in Fendalok's chair by now,
+               with sons and a name people said kindly. Do not repeat that."
     options:
       - text: "Your secret is kept."
         effects: { opinion: +1 }
-        goto: greet
+        goto: hub
 
   why_back:
     say:
       - text:
-          - "When your mother falls ill, you help her. That is the honorable thing
-             to do."
+          - "When your mother falls ill, you help her. That is the honorable thing to
+             do, and there is not much more to say about it than that."
           - "There was nowhere else the army still needed an old man, in any case.
-             Was there something you actually meant to buy?"
+             Now, was there something you actually meant to buy?"
     options:
       - text: "Fair enough."
-        goto: greet
+        goto: hub
 
   # ---------- Faction friction: dodge first, insult only if pushed ----------
   politics:
     say:
-      - text: "That is not what you came in for. Did you come to trade, or to argue
-               politics with an old soldier?"
+      - text: "That is not what you came in for. Did you come here to trade, or to
+               argue politics with an old soldier who has heard it all before?"
     options:
       - text: "Debating. The empire's boot is heavy here."
         effects: { opinion: -1, flag: mocked_the_empire }
         goto: politics_rebuke
       - text: "Buying. Forget I said it."
-        goto: greet
+        goto: hub
       - text: "Forget it."
         goto: end
 
   politics_rebuke:
     say:
-      - text: "Heavy. Then you have never seen what light looks like. I have. I have
-               watched villages settle their disputes by opening a girl's throat
-               over the dirt. This town is only chaos with the volume turned down:
-               superstitious, filthy, and proud of both. That boot is the only
-               reason you sleep soundly enough to resent it. Now then. The counter,
-               or the door."
+      - text: "Heavy. Then you have never once seen what light looks like, because I
+               have, and it is not this. I have watched villages settle a quarrel by
+               opening a girl's throat over the dirt, and this town is only that same
+               chaos with the volume turned down: superstitious, filthy, and proud of
+               both. The boot you resent is the only reason you sleep soundly enough
+               to resent it. Now then, the counter or the door."
     options:
       - text: "The counter."
-        goto: greet
+        goto: hub
       - text: "The door."
         goto: end
 
   # ---------- Recent losses: counsel or jab by opinion ----------
   losing:
     say:
-      - text: "Losing teaches faster than winning, if you let it. What is breaking
-               down out there, your footwork or your nerve?"
+      - text: "Losing teaches faster than winning ever will, if you let it. So tell
+               me what is breaking down out there, your footwork or your nerve."
         conditions: { opinion: ">=5" }
-      - text: "Then bleed less, or bait smaller. The forest does not grade on
-               effort, hunter."
+      - text: "Then bleed a little less, or bait something smaller. The forest does
+               not grade a man on effort, hunter."
     options:
       - text: "Footwork. They close before I am set."
         conditions: { opinion: ">=5" }
         effects: { familiarity: +1 }
         goto: footwork
       - text: "I will manage."
-        goto: greet
+        goto: hub
 
   footwork:
     say:
-      - text: "Then stop meeting them where they want to meet you. Pick your ground
-               before the fight, not during it. A line you choose is worth twice
-               one you are forced onto. That is most of what command ever was."
+      - text: "Then stop meeting them where they want to be met. Choose your ground
+               before the fight starts instead of during it, because a line you
+               picked is worth twice one you were forced onto. That was most of what
+               command ever came down to."
     options:
       - text: "I will try it."
         effects: { opinion: +1 }
-        goto: greet
+        goto: hub
 
   # ---------- Recent-hunt reads ----------
   swallow_feathers:
     say:
       - text: "Swallows. Good. Their feathers are worth more this season than the
-               birds have any right to be. The Chae have decided plumes are fashion
-               again, so you bring me feathers and we both eat. Sentiment I can
-               bank is the only kind I trust."
+               birds have any right to be, now that the Chae have decided plumes are
+               in fashion again. You bring me feathers and we both eat, which is the
+               only kind of sentiment I have ever trusted: the kind I can bank."
     options:
       - text: "Fashion sets the price?"
         goto: swallow_fashion
       - text: "I will keep them coming."
         effects: { opinion: +1 }
-        goto: greet
+        goto: hub
 
   swallow_fashion:
     say:
-      - text: "Fashion sets every price worth having. A thing is worth what someone
-               far away has decided to want. The roads carry the wanting here, and
-               the feathers back. Disunity could never move a feather a hundred
-               miles and find a buyer waiting. Order does that. Keep hunting."
+      - text: "Fashion sets every price worth having, because a thing is only worth
+               what someone far away has decided to want. The roads carry the wanting
+               down here and the feathers back up, and disunity could never move a
+               feather a hundred miles to a buyer still waiting on it. Order does
+               that much for you. Keep hunting."
     options:
       - text: "Noted."
-        goto: greet
+        goto: hub
 
   respect_hunt:
     say:
       - text: "That is real work, not bait-and-pray on swallows. Most who go that
-               deep into the wood feed it instead. You walked back out. The empire
-               could have used you, once."
+               deep into the wood end up feeding it instead, and you walked back out,
+               which is more than most. The empire could have used a hunter like you,
+               once."
     options:
       - text: "High praise, from you."
-        goto: greet
+        goto: hub
       - text: "It nearly used me up."
-        goto: greet
+        goto: hub
 
   # ---------- Profession reads ----------
   respect_lumberjack:
     say:
-      - text: "Honest work, timber. Hard to fake a full cord. I cut my share of it
-               once. A regiment shoes its own horses and fells its own wood. Keep
-               at it."
+      - text: "Honest work, timber, and you cannot fake a full cord the way you can
+               fake most things people sell me. I cut my share of it once, back when
+               a regiment shoed its own horses and felled its own wood. Keep at it."
     options:
       - text: "I will."
-        goto: greet
+        goto: hub
 
   respect_enchanter:
     say:
-      - text: "Enchanting. There is a discipline I can respect. Whatever the temple
-               pretends, it is not prayer. It is knowing exactly what a thing does
-               and bending it on purpose. The Sidaev understood that better than the
-               priests ever will."
+      - text: "Enchanting is a discipline I can respect. Whatever the temple
+               pretends, it is not prayer; it is knowing exactly what a thing does
+               and then bending it on purpose, and the Sidaev understood that better
+               than the priests ever will."
     options:
-      - text: "You sound like a believer."
-        goto: greet
+      - text: "Heresy, in the wrong company."
+        goto: hub
       - text: "Noted."
-        goto: greet
+        goto: hub
 
   needle_blacksmith:
     say:
       - text: "A smith. I shod my own unit's horses and forged in the field while
-               your trade was still apprenticed to the bellows. Do not look for me
-               to be impressed by a hot bar and a hammer. Kethalis is not impressed
-               either, and he is the best this town can manage."
+               your trade was still apprenticed to the bellows, so do not look to me
+               to be impressed by a hot bar and a hammer. Kethalis never managed it,
+               and he is the best this town can field."
     options:
       - text: "You have a problem with smiths."
-        goto: greet
+        goto: hub
       - text: "Noted."
-        goto: greet
+        goto: hub
 
   # ---------- Wares pitch / empire goods ----------
   wares:
     say:
       - text: "Caravans, mostly. I carry what the town cannot make and what the
-               forest will not drop. There is a banana on that shelf. Bananas grow
-               nowhere within a month's march of here. You are welcome to it, and to
-               the roads and the soldiers that put it there."
+               forest will not drop, and there is a banana on that shelf to prove it,
+               since bananas grow nowhere within a month's march of here. You are
+               welcome to it, and to the roads and the soldiers that put it there."
     options:
       - text: "The empire brought a banana."
-        goto: greet
-      - text: "Anything fresh in?"
-        goto: greet
-      - text: "Just browsing."
+        goto: hub
+      - text: "I will take a look."
         goto: end
 
   # ---------- Purchase callback ----------
   shop_smalltalk:
     say:
-      - text: "A permit, not a pile of bait. That was the point. Buy it once and
-               hunt forever. Practical. The empire ran on paperwork like that, and
-               the paperwork is half of why it works."
+      - text: "A permit, not a pile of bait. That was the point of it: you buy the
+               thing once and you hunt forever, which is the empire's whole trick
+               written small. Half of why it works is the paperwork nobody thanks
+               it for."
     options:
       - text: "What else should I be carrying?"
         goto: wares
@@ -344,10 +371,11 @@ nodes:
   # ---------- Low-stock business beat ----------
   low_stock:
     say:
-      - text: "Hm. You are right. I am short on {lowStockItem}. The next caravan
-               will set that straight. Is there anything I do have for you?"
+      - text: "Hm. You are right, I am short on {lowStockItem}, but the next caravan
+               will set that straight soon enough. Is there anything I do have that
+               you want?"
     options:
       - text: "Show me."
-        goto: greet
+        goto: hub
       - text: "I will come back."
         goto: end

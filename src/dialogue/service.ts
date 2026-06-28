@@ -193,7 +193,7 @@ export async function chooseOption(npcId: string, char: TalkCharacter, discordId
   const rel = await getRelation(char.id, npcId, faction);
   const ctx = await buildContext(npcId, char, discordId, rel);
 
-  const chosen = eligibleOptions(node, ctx)[optionIndex];
+  const chosen = eligibleOptions(tree, node, ctx)[optionIndex];
   if (!chosen) return { end: true };
 
   await persist(char.id, npcId, rel, chosen.effects, {});

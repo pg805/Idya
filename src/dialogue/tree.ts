@@ -34,6 +34,7 @@ export interface DialogueOption {
 export interface DialogueNode {
   say: SayVariant[];
   options?: DialogueOption[];
+  optionsFrom?: string;     // borrow another node's options (e.g. a hub reusing greet's menu)
 }
 
 export interface EntryRule {
@@ -167,10 +168,16 @@ function pickSay(node: DialogueNode, ctx: EvalContext): string | string[] {
   return Array.isArray(text) ? text.map(t => substitute(t, ctx)) : substitute(text, ctx);
 }
 
+// A node's option list, resolving `optionsFrom` (a node can borrow another's menu).
+function optionsOf(tree: DialogueTree, node: DialogueNode): DialogueOption[] {
+  if (node.optionsFrom) return tree.nodes[node.optionsFrom]?.options ?? [];
+  return node.options ?? [];
+}
+
 // The options eligible at a node, in authored order. The index into THIS list
 // is what the client sends back to choose (the server re-derives the same list).
-export function eligibleOptions(node: DialogueNode, ctx: EvalContext): DialogueOption[] {
-  return (node.options ?? []).filter(o => conditionsMet(ctx, o.conditions));
+export function eligibleOptions(tree: DialogueTree, node: DialogueNode, ctx: EvalContext): DialogueOption[] {
+  return optionsOf(tree, node).filter(o => conditionsMet(ctx, o.conditions));
 }
 
 export function nodeView(tree: DialogueTree, nodeId: string, npcName: string, ctx: EvalContext): NodeView {
@@ -179,7 +186,7 @@ export function nodeView(tree: DialogueTree, nodeId: string, npcName: string, ct
     id: nodeId,
     npcName,
     line: pickSay(node, ctx),
-    options: eligibleOptions(node, ctx).map(o => ({ label: substitute(o.text, ctx) })),
+    options: eligibleOptions(tree, node, ctx).map(o => ({ label: substitute(o.text, ctx) })),
     end: false,
   };
 }
