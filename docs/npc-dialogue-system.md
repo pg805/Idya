@@ -306,6 +306,82 @@ An option/line with no conditions is always eligible (the fallback).
 No scripting language — if a condition needs more than this, it's a sign the
 state should expose a new derived field instead.
 
+Multiple stance-flags at once (what callbacks need):
+
+```yaml
+conditions: { flags: { defended_town: true, mocked_service: false } }
+```
+
+---
+
+## Tension, alignment, and staying in it
+
+A real conversation isn't a path to the exit — it's a topic *circled* until
+someone releases it. Two layers make that happen.
+
+### Conversation-local tension (`heat`, and its warm twin)
+
+`heat` is **conversation-local** state — it accumulates across turns, is **not**
+persisted, and round-trips with the client (`NodeView.convo`). It models the
+charge of an *argument*: pressing raises it, lines sharpen with it, and it only
+drops when you concede, change the subject, or the NPC ends it. The loop's
+gravity is *staying in*, not leaving.
+
+The **same mechanic, opposite valence**, gives the warm mode: a `warmth`/rapport
+counter that rises as you draw him out (asking, listening), which he likes you
+for. Both are just conversation-local counters; the loop pattern is
+topic-agnostic. *(heat is built; warmth is the planned symmetric twin.)*
+
+### The loop pattern (any topic, two modes)
+
+- A **loop node** whose `say` tiers on the counter (measured → pointed → cutting,
+  or cordial → open → confiding), and whose options are *several ways to press
+  the same point* — they don't drain, you circle.
+- **Release valves are always present** (lint enforces escapability): concede,
+  change subject, walk away.
+- **The NPC offers outs too.** At high `heat` he forces the door; in a warm loop
+  he can offer a graceful exit ("that is enough of that"). Release isn't only the
+  player's to call.
+
+### Alignment shifts per choice, and tension settles into it
+
+Opinion moves a *little* on most choices — his read of you, decision by decision.
+On top of that, when a loop **releases**, the accumulated tension **settles into
+a lasting opinion delta by how it went**: a hot argument you conceded with grace
+nets positive; a nasty one you stormed out of, negative; a long warm engagement,
+positive. Ephemeral `heat` leaves a permanent mark proportional to its conduct.
+*(per-choice nudges are live; the settle-up is the next engine step.)*
+
+---
+
+## Verifying an interconnected system
+
+This is complicated **by design**, so you don't verify it by enumerating paths
+(combinatorial, and "correct" isn't even well-defined for emergent content). You
+assert **invariants** and **properties over random walks** — `npm run
+dialogue:lint` (`src/tools/dialogue_lint.ts`):
+
+- **Static invariants:** every `goto` resolves; every node is reachable from an
+  entry; **every node can reach an exit** (no loop ever traps you); no node has
+  zero options.
+- **Fuzz:** thousands of random conversations under randomized state, applying
+  the real heat/flag/opinion effects, asserting: never stuck, always terminates
+  (a release is always reachable *and* gets taken), state stays in bounds.
+
+The *feel* is verified by playing; the *system* is verified by these. Run the
+lint on every content change — a new loop that can't be escaped, or a flag typo
+that strands a branch, fails it immediately.
+
+### Documenting it
+
+The **YAML is the source of truth** — don't hand-maintain a second description
+of the graph; it rots. Document the **rules**, not the wiring: the axes (opinion,
+familiarity, standing, mood, heat, faction) and what moves them; the **flag
+vocabulary** (stance flags and their meaning); the conventions (loops always
+offer an out; aggressive +heat, concede −heat; release settles into opinion).
+Views *over* the graph (a visualizer, a flag-registry extractor) should be
+**generated** from the YAML, never kept in sync by hand.
+
 ---
 
 ## Interface
