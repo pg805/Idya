@@ -131,6 +131,7 @@ async function buildContext(npcId: string, char: TalkCharacter, discordId: strin
     enchanterRank: rank('enchanter'),
     lowStock: false,            // TODO: wire to the NPC's shop stock (<50%)
     lowStockItem: null,
+    lastTopic: null,            // set by the caller when rendering a post-choice node
   };
 }
 
@@ -200,8 +201,10 @@ export async function chooseOption(npcId: string, char: TalkCharacter, discordId
 
   if (chosen.goto === 'end' || !tree.nodes[chosen.goto]) return { end: true };
 
-  // Re-read state after effects so the next node reflects the new opinion/flags.
+  // Re-read state after effects so the next node reflects the new opinion/flags,
+  // and tag it with the topic just left so the continuation can react to it.
   const rel2 = await getRelation(char.id, npcId, faction);
   const ctx2 = await buildContext(npcId, char, discordId, rel2);
+  ctx2.lastTopic = node.topic ?? nodeId;
   return nodeView(tree, chosen.goto, npcName, ctx2);
 }

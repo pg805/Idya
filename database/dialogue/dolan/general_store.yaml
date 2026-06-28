@@ -115,24 +115,52 @@ nodes:
       - text: "Nothing today."
         goto: end
 
-  # ---------- Return bridge (borrows greet's menu, speaks a short prompt) ----------
+  # ---------- Return bridge -------------------------------------------------
+  # Borrows greet's menu, but the line evolves from his view of you and the
+  # topic you just left (lastTopic). Topic-aware lines are preferred; mood and
+  # standing colour the rest; plain prompts are the fallback.
   hub:
     say:
+      # After confiding something real, he shuts the door gently and moves on.
+      - text: "That is enough of the old days. What did you actually come in for?"
+        conditions: { lastTopic: confided }
+      - text: "I have said more than I meant to. Was there something you needed?"
+        conditions: { lastTopic: confided }
+      # After politics: cooled, transactional.
+      - text: "Now. Was there something you needed, or are we finished here?"
+        conditions: { lastTopic: politics }
+      - text: "That is the end of that subject. The counter is still open, at least."
+        conditions: { lastTopic: politics }
+      # After he opened up about the service: a rare, grudging near-warmth.
+      - text: "Well. I have talked your ear half off. What is it you need?"
+        conditions: { lastTopic: service }
+      # After the forge needle: still a little sharp.
+      - text: "Enough about hammers. What else?"
+        conditions: { lastTopic: forge }
+      # After giving counsel.
+      - text: "Take the advice or leave it. Was there anything else?"
+        conditions: { lastTopic: counsel }
+      # After a hunt he approves of: businesslike and pleased.
+      - text: "Good hunting pays both of us. What else can I do for you?"
+        conditions: { lastTopic: hunt }
+      # Mood, regardless of subject.
       - text: "If there is more, out with it."
-        conditions: { mood: "<=2" }
-      - text: "Be quick about the rest of it."
         conditions: { mood: "<=2" }
       - text: "What else? I have the patience for it today."
         conditions: { mood: ">=8" }
+      # Standing colour for the people he actually knows.
+      - text: "What else, {playerName}?"
+        conditions: { standing: confidant }
+      # Plain fallbacks (varied so it is not the same prompt each loop).
       - text: "Anything else?"
       - text: "What else do you need?"
       - text: "Go on, then."
-      - text: "Was there something else?"
       - text: "And?"
     optionsFrom: greet
 
   # ---------- Service: the thread that opens him up ----------
   service_intro:
+    topic: service
     say:
       - text: "Fifth Regiment, twenty-six years under the standard, and I made
                Vexillar before the end of it. You do not earn that loitering around
@@ -147,6 +175,7 @@ nodes:
         goto: hub
 
   vexillar:
+    topic: service
     say:
       - text: "The officer who carries a regiment's standard and answers for it. The
                line forms where the standard stands, so if you cannot hold that you
@@ -157,6 +186,7 @@ nodes:
 
   # Warmth buys the STORIES (successes). Trusted-gated.
   service_story:
+    topic: service
     say:
       - text: "You want the whole of it? Sit, then. The Fifth held the crossing at
                Velsa for three days against twice our number, and we held it because
@@ -181,6 +211,7 @@ nodes:
 
   # confidant-only: a genuine crack (bible #3h)
   regret:
+    topic: confided
     say:
       - text:
           - "Some of them I put in the ground where they fell. There are orders I
@@ -195,6 +226,7 @@ nodes:
 
   # confidant-only: the road not taken (bible #3g)
   road_not_taken:
+    topic: confided
     say:
       - text: "Go back? No. I am too old, and the army does not keep relics. Still,
                there are nights I wonder what I would have been if I had stayed in
@@ -206,6 +238,7 @@ nodes:
         goto: hub
 
   why_back:
+    topic: service
     say:
       - text:
           - "When your mother falls ill, you help her. That is the honorable thing to
@@ -218,6 +251,7 @@ nodes:
 
   # ---------- Faction friction: dodge first, insult only if pushed ----------
   politics:
+    topic: politics
     say:
       - text: "That is not what you came in for. Did you come here to trade, or to
                argue politics with an old soldier who has heard it all before?"
@@ -231,6 +265,7 @@ nodes:
         goto: end
 
   politics_rebuke:
+    topic: politics
     say:
       - text: "Heavy. Then you have never once seen what light looks like, because I
                have, and it is not this. I have watched villages settle a quarrel by
@@ -246,6 +281,7 @@ nodes:
 
   # ---------- Recent losses: counsel or jab by opinion ----------
   losing:
+    topic: counsel
     say:
       - text: "Losing teaches faster than winning ever will, if you let it. So tell
                me what is breaking down out there, your footwork or your nerve."
@@ -261,6 +297,7 @@ nodes:
         goto: hub
 
   footwork:
+    topic: counsel
     say:
       - text: "Then stop meeting them where they want to be met. Choose your ground
                before the fight starts instead of during it, because a line you
@@ -273,6 +310,7 @@ nodes:
 
   # ---------- Recent-hunt reads ----------
   swallow_feathers:
+    topic: hunt
     say:
       - text: "Swallows. Good. Their feathers are worth more this season than the
                birds have any right to be, now that the Chae have decided plumes are
@@ -286,6 +324,7 @@ nodes:
         goto: hub
 
   swallow_fashion:
+    topic: hunt
     say:
       - text: "Fashion sets every price worth having, because a thing is only worth
                what someone far away has decided to want. The roads carry the wanting
@@ -297,6 +336,7 @@ nodes:
         goto: hub
 
   respect_hunt:
+    topic: hunt
     say:
       - text: "That is real work, not bait-and-pray on swallows. Most who go that
                deep into the wood end up feeding it instead, and you walked back out,
@@ -331,6 +371,7 @@ nodes:
         goto: hub
 
   needle_blacksmith:
+    topic: forge
     say:
       - text: "A smith. I shod my own unit's horses and forged in the field while
                your trade was still apprenticed to the bellows, so do not look to me

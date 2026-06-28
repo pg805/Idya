@@ -35,6 +35,7 @@ export interface DialogueNode {
   say: SayVariant[];
   options?: DialogueOption[];
   optionsFrom?: string;     // borrow another node's options (e.g. a hub reusing greet's menu)
+  topic?: string;           // groups related nodes; surfaces as `lastTopic` after you leave it
 }
 
 export interface EntryRule {
@@ -69,6 +70,7 @@ export interface EvalContext {
   enchanterRank: number;
   lowStock: boolean;
   lowStockItem: string | null;
+  lastTopic: string | null;        // the topic just left (null at conversation open)
 }
 
 // What the client renders for a node.
@@ -153,12 +155,16 @@ function substitute(text: string, ctx: EvalContext): string {
     .replace(/\{lowStockItem\}/g, ctx.lowStockItem ?? 'that');
 }
 
-// Pick one spoken variant. Prefer condition-bearing (specific) variants that
-// pass; fall back to unconditioned ones only when no specific matches.
+// Pick one spoken variant, by priority tier:
+//   1. lines that react to the topic just left (condition on `lastTopic`),
+//   2. else other conditioned (specific) lines that pass — mood/standing colour,
+//   3. else unconditioned fallbacks.
+// Weighted-random within the chosen tier.
 function pickSay(node: DialogueNode, ctx: EvalContext): string | string[] {
   const eligible = node.say.filter(s => conditionsMet(ctx, s.conditions));
+  const topical  = eligible.filter(s => s.conditions && Object.prototype.hasOwnProperty.call(s.conditions, 'lastTopic'));
   const specific = eligible.filter(s => s.conditions && Object.keys(s.conditions).length > 0);
-  const pool = specific.length ? specific : eligible;
+  const pool = topical.length ? topical : (specific.length ? specific : eligible);
   if (pool.length === 0) return '';
   const total = pool.reduce((sum, s) => sum + (s.weight ?? 1), 0);
   let roll = Math.random() * total;

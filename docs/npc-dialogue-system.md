@@ -278,6 +278,16 @@ nodes:
   short trees with frequent `end`s; that *is* the characterization.
 - **Loops** — `goto` back to a hub node lets a conversation fan out and return.
   Options already-taken are gated off via `sharedHistory: excludes …`.
+- **`optionsFrom: <nodeId>`** — a node borrows another node's option menu. Used by
+  the return **hub** to reuse the opener's (`greet`'s) menu without duplicating it.
+- **`topic: <label>`** — tags a node. When you leave it, the next node sees
+  `lastTopic: <label>` in context. The hub's `say` conditions on `lastTopic` so the
+  **continuation evolves from what was just said** (cooled after `politics`, guarded
+  after `confided`, near-warm after `service`) rather than a fixed bridge line.
+- **`say` priority tiers** (in `pickSay`): a line that conditions on `lastTopic`
+  wins first; then other conditioned lines (mood/standing colour); then
+  unconditioned fallbacks. So the topic reaction beats the generic prompt, and the
+  generic prompt beats nothing.
 
 ### Condition syntax
 
