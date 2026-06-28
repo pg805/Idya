@@ -81,7 +81,13 @@ above.
 
 A player's empire-vs-town lean is **chosen at character creation** (creation
 already lives in the web app). It's not cosmetic: it sets first impressions
-across *every* NPC. Dolan is pro-Chaevul, so a town-leaning player starts on his
+across *every* NPC.
+
+> **`faction` is not `nationality`.** Nationality (Chae / Ketulvu) is *heritage*,
+> already on the character. Faction (empire / town / neutral) is *allegiance* —
+> the new, separate field the dialogue reacts to. Dolan is the case in point:
+> **Ketulvu by heritage, pro-empire by allegiance.** The two axes are
+> independent and must stay separate. Dolan is pro-Chaevul, so a town-leaning player starts on his
 bad side — that's the point. Different NPCs filter the *same* player action
 through their own politics, so opinion is never symmetric across the cast.
 
