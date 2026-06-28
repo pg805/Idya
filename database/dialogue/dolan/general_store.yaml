@@ -1,15 +1,15 @@
 # Dolan - The Fifth Regiment General Store
-# SAMPLE conversation tree (0.3.0 draft). Illustrates the system; copy is for
-# review, not final. Voice + truth: docs/lore/dolan.md and docs/lore/voice.md.
-# Spec: docs/npc-dialogue-system.md.
+# Conversation tree (0.3.0). Voice + truth: docs/lore/dolan.md, docs/lore/voice.md.
+# Spec: docs/npc-dialogue-system.md. House style: no em dashes; concise but
+# educated; full sentences over fragments.
 #
-# Demonstrates: entry buckets, standing-tiered greetings, faction friction,
-# recent-loss read, profession read, purchase callback, low-stock business beat,
-# a trusted-gated war story, and a confidant-gated crack (locked for ~everyone).
+# Buckets: standing-tiered + mood greetings, service arc (-> war story -> cracks),
+# politics (dodge -> push -> rebuke), profession reads (lumberjack/enchanter nod,
+# blacksmith needle), recent-hunt reads (swallow feathers, deep-wood respect),
+# recent-loss read, purchase callback, wares pitch, low-stock beat.
 
 npc: dolan
 
-# First entry whose conditions all pass becomes the opening node.
 entry:
   - node: first_meeting
     conditions: { metBefore: false }
@@ -24,27 +24,27 @@ nodes:
   first_meeting:
     say:
       - text: "Salvus. A new face. This is the Fifth Regiment General Store, and it
-               is mine. Buy if you came to buy. Move along if you didn't."
+               is mine. Buy if you came to buy, and move along if you did not."
     options:
-      - text: "Fifth Regiment?"
+      - text: "You carry yourself like a soldier."
         effects: { familiarity: +1, flag: asked_about_service }
         goto: service_intro
-      - text: "Salvus. I'm after a hunt. What have you got?"
+      - text: "Salvus. I am after a hunt. What do you keep?"
         conditions: { faction: empire }
         effects: { opinion: +1 }
-        goto: greet
+        goto: wares
       - text: "Just looking."
         goto: end
 
   # ---------- Cold open (town-leaning, low opinion) ----------
   cold_open:
     say:
-      - text: "Hunter. You again. The counter is right there. I'll assume you came
-               to buy something and not to talk."
+      - text: "Hunter. You again. The counter is right there. I will assume you came
+               to buy something and not to lecture me about it."
     options:
       - text: "Maybe I came to talk."
         goto: politics
-      - text: "To buy. That's all."
+      - text: "To buy. That is all."
         effects: { opinion: +1 }
         goto: greet
       - text: "Forget it."
@@ -53,38 +53,61 @@ nodes:
   # ---------- Default hub ----------
   greet:
     say:
-      # Grumpy-day bark: a raw-mood flavor gate, independent of who you are.
       - text: "Hunter. It has been a trying day. Do me the courtesy of being brief."
         conditions: { mood: "<=2" }
         weight: 2
-      - text: "{playerName}. What do you need?"                # warm, knows you
+      - text: "{playerName}. A fair day, for once. What do you need?"
+        conditions: { mood: ">=8" }
+      - text: "{playerName}. Sit if you like. What is it you need?"
         conditions: { standing: confidant }
       - text: "{playerName}. Back again. What is it you need?"
         conditions: { standing: trusted }
+      - text: "{playerName}. What can I get you?"
+        conditions: { standing: regular }
       - text: "Hunter. Are you here to buy something, or to wear out my floorboards?"
-        conditions: { opinion: "<5" }                          # compares effectiveOpinion
+        conditions: { opinion: "<5" }
       - text: "Hunter. Take what you came for."
     options:
       - text: "Your shelf is looking light."
         conditions: { lowStock: true }
         goto: low_stock
-      - text: "That permit is already earning its keep."        # purchase callback
+      - text: "Brought down a fair few swallows out there."
+        conditions: { recentHunts: includes lithkem_swallow }
+        effects: { opinion: +1 }
+        goto: swallow_feathers
+      - text: "Put one of the glass children down in the deep wood."
+        conditions: { recentHunts: includes child_of_sidaev }
+        effects: { opinion: +1 }
+        goto: respect_hunt
+      - text: "Crossed the sulgovenath and walked away from it."
+        conditions: { recentHunts: includes sulgovenath }
+        effects: { opinion: +1 }
+        goto: respect_hunt
+      - text: "Rough stretch. I have lost more than I have won out there."
+        conditions: { recentLosses: ">=2" }
+        goto: losing
+      - text: "That permit is already earning its keep."
         conditions: { recentPurchases: includes swallow_bait }
         effects: { opinion: +1 }
         goto: shop_smalltalk
-      - text: "Felled a fair bit of timber lately."            # profession read
+      - text: "I have felled a fair bit of timber lately."
         conditions: { lumberjackRank: ">=5" }
         effects: { opinion: +1 }
-        goto: respect_trade
+        goto: respect_lumberjack
+      - text: "I have been doing enchanting work."
+        conditions: { enchanterRank: ">=5" }
+        effects: { opinion: +1 }
+        goto: respect_enchanter
+      - text: "I have been at the forge myself, lately."
+        conditions: { blacksmithRank: ">=5" }
+        goto: needle_blacksmith
       - text: "Tell me about the Fifth."
         conditions: { sharedHistory: includes asked_about_service }
         goto: service_story
-      - text: "Rough stretch. Lost more than I won out there."
-        conditions: { recentLosses: ">=2" }
-        goto: losing
+      - text: "What is worth buying?"
+        goto: wares
       - text: "This empire bleeds the town for taxes and calls it order."
         conditions: { faction: town }
-        effects: { flag: pushed_politics }
         goto: politics
       - text: "Nothing today."
         goto: end
@@ -93,12 +116,23 @@ nodes:
   service_intro:
     say:
       - text: "Fifth Regiment. Twenty-six years under the standard. I made Vexillar
-               before the end. You don't earn that by loitering in Sulku'it."
+               before the end. You do not earn that by loitering in Sulku'it."
     options:
       - text: "Why come home, then?"
         effects: { familiarity: +1, flag: asked_why_back }
         goto: why_back
+      - text: "What is a Vexillar?"
+        goto: vexillar
       - text: "Hm."
+        goto: greet
+
+  vexillar:
+    say:
+      - text: "The officer who carries a regiment's standard and answers for it. The
+               line forms where the standard stands. You hold that, or you hold
+               nothing. I held mine for a long time."
+    options:
+      - text: "Understood."
         goto: greet
 
   # Warmth buys the STORIES (successes). Trusted-gated.
@@ -112,27 +146,26 @@ nodes:
       - text: "The Fifth held lines that mattered. Trade moved because we made it
                safe to move. That is the short version, and it is the one you get."
     options:
-      # The CRACK. Almost nobody sees this. Gated on standing, not opinion.
-      - text: "And the ones who didn't come back?"
+      - text: "And the ones who did not come back?"
         conditions: { standing: confidant, sharedHistory: excludes told_regret }
         effects: { flag: told_regret }
         goto: regret
-      - text: "Sounds like you'd go back tomorrow."
+      - text: "Sounds like you would go back tomorrow."
         conditions: { standing: confidant }
         goto: road_not_taken
       - text: "Good of the empire."
         goto: greet
 
-  # confidant-only: a genuine crack (see bible #3h)
+  # confidant-only: a genuine crack (bible #3h)
   regret:
     say:
       - text:
           - "Some of them I put in the ground where they fell. There are orders I
              would give again, and a few I am no longer certain were ever mine to
              give. I weigh the good against them. Most days the sum comes out right."
-          - "Don't ask me their names. That is where I stop."
+          - "Do not ask me their names. That is where I stop."
     options:
-      - text: "I won't, then."
+      - text: "I will not, then."
         effects: { opinion: +1 }
         goto: greet
 
@@ -141,7 +174,7 @@ nodes:
     say:
       - text: "Go back? No. I am too old, and the army does not keep relics. Still,
                I wonder sometimes what I would have been if I had stayed. Padev,
-               perhaps. Sons. Fendalok's chair. Don't repeat that."
+               perhaps. Sons. Fendalok's chair. Do not repeat that."
     options:
       - text: "Your secret is kept."
         effects: { opinion: +1 }
@@ -165,7 +198,6 @@ nodes:
                politics with an old soldier?"
     options:
       - text: "Debating. The empire's boot is heavy here."
-        conditions: { sharedHistory: includes pushed_politics }
         effects: { opinion: -1, flag: mocked_the_empire }
         goto: politics_rebuke
       - text: "Buying. Forget I said it."
@@ -187,7 +219,7 @@ nodes:
       - text: "The door."
         goto: end
 
-  # ---------- Recent losses: jab or grudging counsel by opinion ----------
+  # ---------- Recent losses: counsel or jab by opinion ----------
   losing:
     say:
       - text: "Losing teaches faster than winning, if you let it. What is breaking
@@ -196,41 +228,126 @@ nodes:
       - text: "Then bleed less, or bait smaller. The forest does not grade on
                effort, hunter."
     options:
-      - text: "Footwork. They close before I'm set."
+      - text: "Footwork. They close before I am set."
         conditions: { opinion: ">=5" }
         effects: { familiarity: +1 }
-        goto: greet
-      - text: "I'll manage."
+        goto: footwork
+      - text: "I will manage."
         goto: greet
 
-  # ---------- Profession respect (lumberjack) ----------
-  respect_trade:
+  footwork:
+    say:
+      - text: "Then stop meeting them where they want to meet you. Pick your ground
+               before the fight, not during it. A line you choose is worth twice
+               one you are forced onto. That is most of what command ever was."
+    options:
+      - text: "I will try it."
+        effects: { opinion: +1 }
+        goto: greet
+
+  # ---------- Recent-hunt reads ----------
+  swallow_feathers:
+    say:
+      - text: "Swallows. Good. Their feathers are worth more this season than the
+               birds have any right to be. The Chae have decided plumes are fashion
+               again, so you bring me feathers and we both eat. Sentiment I can
+               bank is the only kind I trust."
+    options:
+      - text: "Fashion sets the price?"
+        goto: swallow_fashion
+      - text: "I will keep them coming."
+        effects: { opinion: +1 }
+        goto: greet
+
+  swallow_fashion:
+    say:
+      - text: "Fashion sets every price worth having. A thing is worth what someone
+               far away has decided to want. The roads carry the wanting here, and
+               the feathers back. Disunity could never move a feather a hundred
+               miles and find a buyer waiting. Order does that. Keep hunting."
+    options:
+      - text: "Noted."
+        goto: greet
+
+  respect_hunt:
+    say:
+      - text: "That is real work, not bait-and-pray on swallows. Most who go that
+               deep into the wood feed it instead. You walked back out. The empire
+               could have used you, once."
+    options:
+      - text: "High praise, from you."
+        goto: greet
+      - text: "It nearly used me up."
+        goto: greet
+
+  # ---------- Profession reads ----------
+  respect_lumberjack:
     say:
       - text: "Honest work, timber. Hard to fake a full cord. I cut my share of it
                once. A regiment shoes its own horses and fells its own wood. Keep
                at it."
     options:
-      - text: "Will do."
+      - text: "I will."
         goto: greet
+
+  respect_enchanter:
+    say:
+      - text: "Enchanting. There is a discipline I can respect. Whatever the temple
+               pretends, it is not prayer. It is knowing exactly what a thing does
+               and bending it on purpose. The Sidaev understood that better than the
+               priests ever will."
+    options:
+      - text: "You sound like a believer."
+        goto: greet
+      - text: "Noted."
+        goto: greet
+
+  needle_blacksmith:
+    say:
+      - text: "A smith. I shod my own unit's horses and forged in the field while
+               your trade was still apprenticed to the bellows. Do not look for me
+               to be impressed by a hot bar and a hammer. Kethalis is not impressed
+               either, and he is the best this town can manage."
+    options:
+      - text: "You have a problem with smiths."
+        goto: greet
+      - text: "Noted."
+        goto: greet
+
+  # ---------- Wares pitch / empire goods ----------
+  wares:
+    say:
+      - text: "Caravans, mostly. I carry what the town cannot make and what the
+               forest will not drop. There is a banana on that shelf. Bananas grow
+               nowhere within a month's march of here. You are welcome to it, and to
+               the roads and the soldiers that put it there."
+    options:
+      - text: "The empire brought a banana."
+        goto: greet
+      - text: "Anything fresh in?"
+        goto: greet
+      - text: "Just browsing."
+        goto: end
 
   # ---------- Purchase callback ----------
   shop_smalltalk:
     say:
       - text: "A permit, not a pile of bait. That was the point. Buy it once and
-               hunt forever. Practical. The empire ran on paperwork like that."
+               hunt forever. Practical. The empire ran on paperwork like that, and
+               the paperwork is half of why it works."
     options:
       - text: "What else should I be carrying?"
-        goto: greet
+        goto: wares
       - text: "Noted."
         goto: end
 
   # ---------- Low-stock business beat ----------
   low_stock:
     say:
-      - text: "Hm. You're right. I am short on {lowStockItem}. The next caravan will
-               set that straight. Is there anything I do have for you?"
+      - text: "Hm. You are right. I am short on {lowStockItem}. The next caravan
+               will set that straight. Is there anything I do have for you?"
     options:
       - text: "Show me."
         goto: greet
-      - text: "I'll come back."
+      - text: "I will come back."
         goto: end

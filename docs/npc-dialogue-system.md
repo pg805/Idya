@@ -79,21 +79,23 @@ above.
 
 ### Faction
 
-A player's empire-vs-town lean is **chosen at character creation** (creation
-already lives in the web app). It's not cosmetic: it sets first impressions
-across *every* NPC.
+A player's empire-vs-town lean is a **soft flag calculated from their actions**,
+not a creation choice. Imperial-leaning behavior (imperial sinks, certain
+purchases/quests) pulls it empire-ward; Sulku'it/town activity pulls it
+town-ward. It settles into `empire` / `town` / `neutral`, and the dialogue reacts
+to it. It's not cosmetic: it colors first impressions across *every* NPC. Dolan is
+pro-Chaevul, so a town-leaning player starts on his bad side. Different NPCs filter
+the *same* player action through their own politics, so opinion is never symmetric
+across the cast.
 
 > **`faction` is not `nationality`.** Nationality (Chae / Ketulvu) is *heritage*,
-> already on the character. Faction (empire / town / neutral) is *allegiance* —
-> the new, separate field the dialogue reacts to. Dolan is the case in point:
-> **Ketulvu by heritage, pro-empire by allegiance.** The two axes are
-> independent and must stay separate. Dolan is pro-Chaevul, so a town-leaning player starts on his
-bad side — that's the point. Different NPCs filter the *same* player action
-through their own politics, so opinion is never symmetric across the cast.
+> already on the character. Faction (empire / town / neutral) is *allegiance*, a
+> separate, **derived** value the dialogue reacts to. Dolan is the case in point:
+> **Ketulvu by heritage, pro-empire by allegiance.** Independent axes.
 
-> **Existing characters** default to a neutral lean. Full character
-> customization (revisiting this and more) is planned but **not** a 0.3.0
-> priority — neutral-default is fine for now; don't build a migration UI.
+> **Status:** the `faction` column exists and reads `neutral` for everyone until
+> the action-scoring is built (deferred). The dialogue already gates on faction,
+> so wiring the calculation later lights up those branches with no tree changes.
 
 ### Opinion, familiarity & standing (the relation row)
 
