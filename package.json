@@ -15,7 +15,8 @@
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "simulate": "npm run build && node ./lib/tools/simulate.js",
     "matrix:save": "npm run build && node ./lib/tools/spatial_sim.js matrix-save 100",
-    "price:smoke": "npm run build && node ./lib/tools/price_smoke.js"
+    "price:smoke": "npm run build && node ./lib/tools/price_smoke.js",
+    "dialogue:lint": "npm run build && node ./lib/tools/dialogue_lint.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

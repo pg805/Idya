@@ -480,35 +480,131 @@ nodes:
       - text: "Fair enough."
         goto: service_intro
 
-  # ---------- Faction friction: dodge first, insult only if pushed ----------
+  # ========== THE ARGUMENT LOOP — tension, not a path ==========
+  # You can sit in this as long as you keep finding angles. `argue` and its
+  # retorts escalate by conversation-local `heat`: the same topic, said sharper
+  # each turn. Heat only drops when YOU release (concede / "forget it") or DOLAN
+  # forces it at high heat. Aggressive lines +1 heat, conceding a point -1, a
+  # release -10 (clamped to 0).
   politics:
     topic: politics
     say:
-      - text: "That is not what you came in for. Did you come here to trade, or to
-               argue politics with an old soldier who has heard it all before?"
+      - text: "That is not what you came in for. Did you come to trade, or to argue
+               politics with an old soldier who has heard it all before?"
     options:
-      - text: "Debating. The empire's boot is heavy here."
-        effects: { opinion: -1, flag: mocked_the_empire }
-        goto: politics_rebuke
-      - text: "Buying. Forget I said it."
+      - text: "To argue, if you have the stomach for it."
+        effects: { heat: +1, flag: argued_empire }
+        goto: argue
+      - text: "To trade. Forget I said it."
         goto: hub
       - text: "Forget it."
         goto: end
 
-  politics_rebuke:
+  argue:
     topic: politics
     say:
-      - text: "Heavy. Then you have never once seen what light looks like, because I
-               have, and it is not this. I have watched villages settle a quarrel by
-               opening a girl's throat over the dirt, and this town is only that same
-               chaos with the volume turned down: superstitious, filthy, and proud of
-               both. The boot you resent is the only reason you sleep soundly enough
-               to resent it. Now then, the counter or the door."
+      # Heat tiers: the prompt itself escalates, and at the top he moves to end it.
+      - text: "We are going in circles and I am near the end of my patience for it.
+               Say it once more if you must. Then it is the counter or the door, and
+               I mean that."
+        conditions: { heat: ">=5" }
+      - text: "You keep worrying the same sore tooth. Fine. Out with the rest of it."
+        conditions: { heat: ">=3" }
+      - text: "Go on, then. Make your case against the empire. I have heard them all,
+               but make it."
     options:
-      - text: "The counter."
+      - text: "The taxes are bleeding this town white."
+        effects: { heat: +1 }
+        goto: argue_taxes
+      - text: "Your soldiers swagger like they own the place."
+        effects: { heat: +1 }
+        goto: argue_soldiers
+      - text: "You traded your own gods for theirs."
+        effects: { heat: +1 }
+        goto: argue_gods
+      # Release valves, always available.
+      - text: "...You know what, maybe you have a point."
+        effects: { opinion: +1, heat: -10, flag: conceded_empire }
+        goto: argue_concede
+      - text: "Forget it. We are done."
+        effects: { heat: -10 }
         goto: hub
-      - text: "The door."
-        goto: end
+      # His way out, once it is hot enough for him to take it.
+      - text: "Fine. The counter."
+        conditions: { heat: ">=5" }
+        effects: { heat: -10 }
+        goto: hub
+
+  argue_taxes:
+    topic: politics
+    say:
+      - text: "The tax, the tax, always the tax. You would burn the road to spite the
+               toll and then weep when no caravan comes up it. It is a child's
+               argument, and you are not a child."
+        conditions: { heat: ">=4" }
+      - text: "The tax buys the road the tax came up on. You want the road for
+               nothing. Nothing is for nothing. You are old enough to know that much."
+    options:
+      - text: "Convenient, for the man selling road-grown bananas."
+        effects: { heat: +1 }
+        goto: argue
+      - text: "...fine. But the families here still go hungry."
+        effects: { heat: -1 }
+        goto: argue
+      - text: "Forget it."
+        effects: { heat: -10 }
+        goto: hub
+
+  argue_soldiers:
+    topic: politics
+    say:
+      - text: "Swagger. You would rather they were timid? A timid garrison is a dead
+               one, and a dead garrison is a burned town. You have no notion of what
+               they hold back simply by standing there, bored, where you can resent
+               them."
+        conditions: { heat: ">=4" }
+      - text: "They keep the road safe enough that you can resent them in comfort.
+               Manners are a luxury of the protected, and you are very protected."
+    options:
+      - text: "Protected, or occupied?"
+        effects: { heat: +1 }
+        goto: argue
+      - text: "...I had not thought of it from the wall's side."
+        effects: { opinion: +1, heat: -1 }
+        goto: argue
+      - text: "Forget it."
+        effects: { heat: -10 }
+        goto: hub
+
+  argue_gods:
+    topic: politics
+    say:
+      - text: "My gods. The ones who never once made the trebuchet shot fly true,
+               while a Chae engineer's arithmetic did it every time. I traded a
+               prayer that changed nothing for a science that changes everything.
+               Call it selling out. I would do it again twice before breakfast."
+        conditions: { heat: ">=4" }
+      - text: "I traded superstition for a thing that works. If your gods object,
+               they are welcome to take it up with me directly. I will wait."
+    options:
+      - text: "Some things are not meant to be measured."
+        effects: { heat: +1 }
+        goto: argue
+      - text: "...you are not wrong about the trebuchet."
+        effects: { heat: -1 }
+        goto: argue
+      - text: "Forget it."
+        effects: { heat: -10 }
+        goto: hub
+
+  argue_concede:
+    topic: politics
+    say:
+      - text: "Hah. There it is. I will not pretend it is not satisfying to hear. We
+               leave it there, then, before you find your nerve again."
+    options:
+      - text: "Leave it there."
+        goto: hub
 
   # ---------- Recent losses: counsel or jab by opinion ----------
   losing:

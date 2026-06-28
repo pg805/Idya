@@ -11,9 +11,10 @@ import yaml from 'js-yaml';
 export type Conditions = Record<string, unknown>;
 
 export interface Effects {
-  opinion?: number;
-  familiarity?: number;
-  flag?: string;          // pushed onto sharedHistory
+  opinion?: number;       // persisted on the relation row
+  familiarity?: number;   // persisted
+  flag?: string;          // persisted (pushed onto sharedHistory)
+  heat?: number;          // conversation-local tension delta (NOT persisted); release = a big negative
 }
 
 export interface SayVariant {
@@ -71,6 +72,7 @@ export interface EvalContext {
   lowStock: boolean;
   lowStockItem: string | null;
   lastTopic: string | null;        // the topic just left (null at conversation open)
+  heat: number;                    // conversation-local tension (0 at open); rises as you press, released deliberately
 }
 
 // What the client renders for a node.

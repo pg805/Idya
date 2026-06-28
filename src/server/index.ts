@@ -3399,6 +3399,7 @@ function parseTalkOverride(req: Request, discordId: string): TalkOverride | unde
   if (q.as_opinion != null && q.as_opinion !== '') ov.opinion = Number(q.as_opinion);
   if (q.as_hunts) ov.hunts = String(q.as_hunts).split(',').filter(Boolean);
   if (q.as_flags) ov.flags = String(q.as_flags).split(',').filter(Boolean);
+  if (q.as_heat != null && q.as_heat !== '') ov.heat = Number(q.as_heat);
   return Object.keys(ov).length ? ov : undefined;
 }
 
@@ -3418,11 +3419,11 @@ app.post('/api/talk/:npcId', async (req: Request, res: Response) => {
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
-  const body = req.body as { node?: string; optionIndex?: number };
+  const body = req.body as { node?: string; optionIndex?: number; convo?: { heat?: number } };
   const nodeId = String(body.node ?? '');
   const idx = Math.trunc(Number(body.optionIndex));
   if (!nodeId || !(idx >= 0)) { res.status(400).json({ error: 'Bad request' }); return; }
-  const result = await chooseOption(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, nodeId, idx, parseTalkOverride(req, discordId));
+  const result = await chooseOption(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, nodeId, idx, parseTalkOverride(req, discordId), body.convo);
   res.json(result);
 });
 

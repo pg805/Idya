@@ -22,6 +22,7 @@
   let containerEl = null;
   let onLeaveCb   = null;
   let devOv       = {};      // dev override params (empty for non-devs)
+  let convoState  = { heat: 0 };  // conversation-local tension, round-tripped with the server
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -32,6 +33,7 @@
     containerEl = container;
     onLeaveCb   = opts?.onLeave ?? null;
     devOv       = {};
+    convoState  = { heat: 0 };
     source      = makeApiSource(opts?.npcId, devQuery);
     transcript  = [];
     const dev = !!(window.getLayoutData?.()?.is_dev);
@@ -88,6 +90,7 @@
       return;
     }
     current = opening;
+    convoState = opening.convo || { heat: 0 };
     appendNpc(current);
     renderChoices();
   }
@@ -157,7 +160,8 @@
     busy = true;
     try {
       appendMe(opt.label);
-      const next = await source.choose(current.id, idx);
+      const next = await source.choose(current.id, idx, convoState);
+      if (next && next.convo) convoState = next.convo;
       if (!next || next.end) {
         current = { end: true };
         appendSys('Dolan turns back to his ledger.');
@@ -191,7 +195,7 @@
   function unmount() {
     document.removeEventListener('keydown', onKey);
     source = null; current = null; transcript = []; busy = false;
-    containerEl = null; onLeaveCb = null; devOv = {};
+    containerEl = null; onLeaveCb = null; devOv = {}; convoState = { heat: 0 };
   }
 
   // ---- API source: walks the server-built tree via /api/talk -------------
@@ -207,12 +211,12 @@
           return await res.json();
         } catch { return { end: true }; }
       },
-      async choose(nodeId, idx) {
+      async choose(nodeId, idx, convo) {
         try {
           const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}${q()}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ node: nodeId, optionIndex: idx }),
+            body: JSON.stringify({ node: nodeId, optionIndex: idx, convo }),
           });
           if (!res.ok) return { end: true };
           return await res.json();

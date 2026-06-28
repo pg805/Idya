@@ -39,6 +39,7 @@ export interface TalkOverride {
   opinion?: number;
   hunts?: string[];
   flags?: string[];
+  heat?: number;
 }
 
 function applyOverride(ctx: EvalContext, ov?: TalkOverride): void {
@@ -49,7 +50,11 @@ function applyOverride(ctx: EvalContext, ov?: TalkOverride): void {
   if (typeof ov.opinion === 'number') ctx.opinion = ov.opinion;
   if (ov.hunts?.length) ctx.recentHunts = [...new Set([...ctx.recentHunts, ...ov.hunts])];
   if (ov.flags?.length) ctx.sharedHistory = [...new Set([...ctx.sharedHistory, ...ov.flags])];
+  if (typeof ov.heat === 'number') ctx.heat = ov.heat;
 }
+
+// A node view plus the conversation-local state the client round-trips back.
+type NodeViewWithConvo = NodeView & { convo: ConvoState };
 
 interface Rel {
   opinion: number;
@@ -153,8 +158,13 @@ async function buildContext(npcId: string, char: TalkCharacter, discordId: strin
     lowStock: false,            // TODO: wire to the NPC's shop stock (<50%)
     lowStockItem: null,
     lastTopic: null,            // set by the caller when rendering a post-choice node
+    heat: 0,                    // set by the caller from the round-tripped convo state
   };
 }
+
+const HEAT_MAX = 6;
+export interface ConvoState { heat: number; }
+const cleanConvo = (c?: Partial<ConvoState>): ConvoState => ({ heat: clamp(Math.trunc(Number(c?.heat ?? 0)) || 0, 0, HEAT_MAX) });
 
 // ---- Persistence --------------------------------------------------------
 
@@ -183,7 +193,7 @@ async function persist(characterId: string, npcId: string, rel: Rel, effects: Ef
 
 // ---- Public API (called by the server) ----------------------------------
 
-export type TalkResult = NodeView | { end: true };
+export type TalkResult = NodeViewWithConvo | { end: true };
 
 export async function openConversation(npcId: string, char: TalkCharacter, discordId: string, override?: TalkOverride): Promise<TalkResult> {
   const tree = loadTree(DIALOGUE_DIR, npcId);
@@ -202,19 +212,21 @@ export async function openConversation(npcId: string, char: TalkCharacter, disco
     (Date.now() - rel.last_spoken_at.getTime() < FAMILIARITY_COOLDOWN_MS);
   await persist(char.id, npcId, rel, undefined, { meeting: !recentlySpoke });
 
-  return nodeView(tree, entry, npcName, ctx);
+  return { ...nodeView(tree, entry, npcName, ctx), convo: { heat: ctx.heat } };
 }
 
-export async function chooseOption(npcId: string, char: TalkCharacter, discordId: string, nodeId: string, optionIndex: number, override?: TalkOverride): Promise<TalkResult> {
+export async function chooseOption(npcId: string, char: TalkCharacter, discordId: string, nodeId: string, optionIndex: number, override?: TalkOverride, convoIn?: Partial<ConvoState>): Promise<TalkResult> {
   const tree = loadTree(DIALOGUE_DIR, npcId);
   if (!tree) return { end: true };
   const node = tree.nodes[nodeId];
   if (!node) return { end: true };
   const npcName = NPC_NAMES[npcId] ?? npcId;
   const faction = asFaction(char.faction);
+  const convo = cleanConvo(convoIn);
 
   const rel = await getRelation(char.id, npcId, faction);
   const ctx = await buildContext(npcId, char, discordId, rel);
+  ctx.heat = convo.heat;
   applyOverride(ctx, override);
 
   const chosen = eligibleOptions(tree, node, ctx)[optionIndex];
@@ -222,13 +234,17 @@ export async function chooseOption(npcId: string, char: TalkCharacter, discordId
 
   await persist(char.id, npcId, rel, chosen.effects, {});
 
+  // Conversation-local tension: the chosen reply nudges heat (release = big negative).
+  const nextHeat = clamp(convo.heat + (chosen.effects?.heat ?? 0), 0, HEAT_MAX);
+
   if (chosen.goto === 'end' || !tree.nodes[chosen.goto]) return { end: true };
 
   // Re-read state after effects so the next node reflects the new opinion/flags,
   // and tag it with the topic just left so the continuation can react to it.
   const rel2 = await getRelation(char.id, npcId, faction);
   const ctx2 = await buildContext(npcId, char, discordId, rel2);
+  ctx2.heat = nextHeat;
   applyOverride(ctx2, override);
   ctx2.lastTopic = node.topic ?? nodeId;
-  return nodeView(tree, chosen.goto, npcName, ctx2);
+  return { ...nodeView(tree, chosen.goto, npcName, ctx2), convo: { heat: nextHeat } };
 }
