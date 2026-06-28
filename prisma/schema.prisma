@@ -24,6 +24,7 @@ model Character {
   name                String
   sprite_token        String?
   nationality         String?
+  faction             String   @default("neutral")   // empire | town | neutral; set at creation, gates NPC dialogue
   bio                 String?
   health              Int
   max_health          Int
@@ -35,6 +36,25 @@ model Character {
   weapons             CharacterWeapon[]     @relation("OwnedWeapons")
   professions         CharacterProfession[]
   orchard_plots       OrchardPlot[]
+  npc_relations       PlayerNpcRelation[]
+}
+
+// Player <-> NPC relationship. opinion (warmth, 0-10) and familiarity are the
+// stored axes; `standing` (the friendship tier) is DERIVED at read time, not
+// stored. shared_history holds dialogue flags. One row per (character, npc).
+model PlayerNpcRelation {
+  character_id   String
+  npc_id         String
+  met_before     Boolean   @default(false)
+  familiarity    Int       @default(0)
+  opinion        Int       @default(5)
+  shared_history Json      @default("[]")
+  last_spoken_at DateTime?
+  updated_at     DateTime  @updatedAt
+
+  character      Character @relation(fields: [character_id], references: [id])
+
+  @@id([character_id, npc_id])
 }
 
 model CharacterProfession {

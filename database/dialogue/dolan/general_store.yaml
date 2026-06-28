@@ -126,11 +126,11 @@ nodes:
   # confidant-only: a genuine crack (see bible #3h)
   regret:
     say:
-      - text: "Some of them I put in the ground where they fell. There are orders I
-               would give again, and a few I am no longer certain were ever mine to
-               give. I weigh the good against them. Most days the sum comes out
-               right."
-      - text: "Don't ask me their names. That is where I stop."
+      - text:
+          - "Some of them I put in the ground where they fell. There are orders I
+             would give again, and a few I am no longer certain were ever mine to
+             give. I weigh the good against them. Most days the sum comes out right."
+          - "Don't ask me their names. That is where I stop."
     options:
       - text: "I won't, then."
         effects: { opinion: +1 }
@@ -149,10 +149,11 @@ nodes:
 
   why_back:
     say:
-      - text: "When your mother falls ill, you help her. That is the honorable thing
-               to do."
-      - text: "There was nowhere else the army still needed an old man, in any case.
-               Was there something you actually meant to buy?"
+      - text:
+          - "When your mother falls ill, you help her. That is the honorable thing
+             to do."
+          - "There was nowhere else the army still needed an old man, in any case.
+             Was there something you actually meant to buy?"
     options:
       - text: "Fair enough."
         goto: greet

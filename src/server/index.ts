@@ -15,6 +15,7 @@ import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
 import { Prisma } from '@prisma/client';
+import { openConversation, chooseOption } from '../dialogue/service.js';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
@@ -3380,6 +3381,33 @@ app.post('/api/orchard/plant', async (req: Request, res: Response) => {
     await tx.eventLog.create({ data: { discord_id: discordId, event_type: 'orchard_planted', payload: { item: itemId, seed: quantity, fertilizer: existing?.fertilizer ?? 0 } } }).catch(() => {});
     return { success: true, message: `Planted ${quantity} ${ITEMS[itemId]?.name ?? itemId}.` };
   });
+  res.json(result);
+});
+
+// --- NPC dialogue (0.3.0): a conversation is a stateless walk. GET opens
+// (resolves the entry node); POST commits one choice and returns the next node.
+// The relation row (opinion/familiarity/flags) is the server-side source of truth.
+app.get('/api/talk/:npcId', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const result = await openConversation(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId);
+  res.json(result);
+});
+
+app.post('/api/talk/:npcId', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  const char = chars[0];
+  const body = req.body as { node?: string; optionIndex?: number };
+  const nodeId = String(body.node ?? '');
+  const idx = Math.trunc(Number(body.optionIndex));
+  if (!nodeId || !(idx >= 0)) { res.status(400).json({ error: 'Bad request' }); return; }
+  const result = await chooseOption(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, nodeId, idx);
   res.json(result);
 });
 

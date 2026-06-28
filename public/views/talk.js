@@ -30,12 +30,8 @@
   function mount(container, opts) {
     containerEl = container;
     onLeaveCb   = opts?.onLeave ?? null;
-    source      = makeMockSource(opts?.npcId);
+    source      = makeApiSource(opts?.npcId);
     transcript  = [];
-    if (!source) {
-      container.innerHTML = `<p class="conv-empty">There is no one here to talk to.</p>`;
-      return;
-    }
     container.innerHTML = `
       <div class="conv">
         <div class="conv-log"></div>
@@ -46,7 +42,16 @@
   }
 
   async function start() {
-    current = await source.open();
+    const opening = await source.open();
+    if (!opening || opening.end) {
+      const log = containerEl?.querySelector('.conv-log');
+      if (log) log.innerHTML = `<p class="conv-empty">There is no one here to talk to.</p>`;
+      const box = containerEl?.querySelector('.conv-choices');
+      if (box) box.innerHTML = '';
+      current = null;
+      return;
+    }
+    current = opening;
     appendNpc(current);
     renderChoices();
   }
@@ -155,76 +160,28 @@
     containerEl = null; onLeaveCb = null;
   }
 
-  // ---- MOCK source (placeholder until the engine is wired) ---------------
-  // Mirrors what /api/talk will return. Copy lifted from
-  // database/dialogue/dolan/general_store.yaml so the look reads true.
-  const MOCK_TREES = {
-    dolan: {
-      npcName: 'Dolan',
-      start: 'greet',
-      nodes: {
-        greet: {
-          line: 'Hunter. Are you here to buy something, or to wear out my floorboards?',
-          options: [
-            { label: 'Tell me about the Fifth.', goto: 'service' },
-            { label: 'That permit is already earning its keep.', goto: 'permit' },
-            { label: 'This empire bleeds the town for taxes and calls it order.', goto: 'politics' },
-            { label: 'Nothing today.', goto: 'end' },
-          ],
-        },
-        service: {
-          line: 'The Fifth held lines that mattered. Trade moved because we made it safe to move. That is the short version, and it is the one you get.',
-          options: [
-            { label: 'Why come home, then?', goto: 'whyback' },
-            { label: 'Good of the empire.', goto: 'greet' },
-          ],
-        },
-        whyback: {
-          line: [
-            'When your mother falls ill, you help her. That is the honorable thing to do.',
-            'There was nowhere else the army still needed an old man, in any case. Was there something you actually meant to buy?',
-          ],
-          options: [{ label: 'Fair enough.', goto: 'greet' }],
-        },
-        permit: {
-          line: 'A permit, not a pile of bait. That was the point. Buy it once and hunt forever. Practical. The empire ran on paperwork like that.',
-          options: [
-            { label: 'What else should I be carrying?', goto: 'greet' },
-            { label: 'Noted.', goto: 'end' },
-          ],
-        },
-        politics: {
-          line: 'That is not what you came in for. Did you come to trade, or to argue politics with an old soldier?',
-          options: [
-            { label: 'Debating. The empire’s boot is heavy here.', goto: 'rebuke' },
-            { label: 'Buying. Forget I said it.', goto: 'greet' },
-          ],
-        },
-        rebuke: {
-          line: 'Heavy. Then you have never seen what light looks like. I have. I have watched villages settle their disputes by opening a girl’s throat over the dirt. This town is only chaos with the volume turned down: superstitious, filthy, and proud of both. That boot is the only reason you sleep soundly enough to resent it. Now then. The counter, or the door.',
-          options: [
-            { label: 'The counter.', goto: 'greet' },
-            { label: 'The door.', goto: 'end' },
-          ],
-        },
-      },
-    },
-  };
-
-  function makeMockSource(id) {
-    const tree = MOCK_TREES[id];
-    if (!tree) return null;
-    const view = (nid) => {
-      const n = tree.nodes[nid];
-      return { id: nid, npcName: tree.npcName, line: n.line,
-        options: n.options.map(o => ({ label: o.label })), end: false };
-    };
+  // ---- API source: walks the server-built tree via /api/talk -------------
+  // Returns NodeView { id, npcName, line, options:[{label}], end:false } or
+  // { end:true }. The server holds the relation state; we just render.
+  function makeApiSource(npcId) {
     return {
-      async open() { return view(tree.start); },
+      async open() {
+        try {
+          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}`);
+          if (!res.ok) return { end: true };
+          return await res.json();
+        } catch { return { end: true }; }
+      },
       async choose(nodeId, idx) {
-        const opt = tree.nodes[nodeId]?.options?.[idx];
-        if (!opt || opt.goto === 'end') return { end: true };
-        return view(opt.goto);
+        try {
+          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node: nodeId, optionIndex: idx }),
+          });
+          if (!res.ok) return { end: true };
+          return await res.json();
+        } catch { return { end: true }; }
       },
     };
   }

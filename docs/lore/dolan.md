@@ -157,6 +157,10 @@ What moves his like/dislike, and how a stoic *shows* it.
 - Competence — hunters who win, who don't waste his time.
 - **Enchanters and Lumberjacks** (respects the rank).
 - Paying customers; blunt, direct talk.
+- **Hunters bringing in what sells.** He's a merchant first. **Swallow feathers are
+  in fashion right now**, so swallow kills genuinely please him — good stock, good
+  margin. (Recent-hunt read: swallows earn approval, not the contempt you'd expect
+  for low-level fodder; he's thinking about the ledger, not the glory.)
 
 **Cools to:**
 - Town-leaning players.
