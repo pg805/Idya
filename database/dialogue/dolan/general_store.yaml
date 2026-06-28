@@ -100,13 +100,13 @@ nodes:
       - text: "I have been at the forge myself, lately."
         conditions: { blacksmithRank: ">=5" }
         goto: needle_blacksmith
-      - text: "You have the bearing of a soldier."
+      - text: "Why is your store called the Fifth Regiment?"
         conditions: { sharedHistory: excludes asked_about_service }
         effects: { familiarity: +1, flag: asked_about_service }
         goto: service_intro
-      - text: "Tell me about the Fifth."
+      - text: "Back to your old regiment."
         conditions: { sharedHistory: includes asked_about_service }
-        goto: service_story
+        goto: service_intro
       - text: "What is worth buying?"
         goto: wares
       - text: "This empire bleeds the town for taxes and calls it order."
@@ -158,31 +158,125 @@ nodes:
       - text: "And?"
     optionsFrom: greet
 
-  # ---------- Service: the thread that opens him up ----------
+  # ---------- Service: a thread you pull, not a lecture ----------
+  # Short answers; the player drills in. Sub-threads return to service_intro so
+  # you stay in the topic until you choose to leave. Explored threads drop off
+  # via per-thread flags.
   service_intro:
     topic: service
     say:
-      - text: "Fifth Regiment, twenty-six years under the standard, and I made
-               Vexillar before the end of it. You do not earn that loitering around
-               a town like this one."
+      - text: "Hah. My old company, from back when I was a soldier. I made Vexillar
+               before the end of it. Ask, if you are curious."
     options:
-      - text: "Why come home, then?"
+      - text: "What is a Vexillar?"
+        conditions: { sharedHistory: excludes knows_vexillar }
+        effects: { flag: knows_vexillar }
+        goto: vexillar
+      - text: "You fought for the empire?"
+        conditions: { sharedHistory: excludes asked_military }
+        effects: { flag: asked_military }
+        goto: military_man
+      - text: "You look Ketulvu yourself."
+        conditions: { sharedHistory: excludes remarked_ketulvu }
+        effects: { flag: remarked_ketulvu }
+        goto: ketulvu_remark
+      - text: "Tell me about a battle you fought."
+        conditions: { standing: trusted, sharedHistory: excludes heard_war_story }
+        effects: { flag: heard_war_story }
+        goto: service_story
+      - text: "Why did you ever come back here?"
+        conditions: { sharedHistory: excludes asked_why_back }
         effects: { familiarity: +1, flag: asked_why_back }
         goto: why_back
-      - text: "What is a Vexillar?"
-        goto: vexillar
-      - text: "Hm."
+      - text: "Another time."
         goto: hub
 
   vexillar:
     topic: service
     say:
-      - text: "The officer who carries a regiment's standard and answers for it. The
-               line forms where the standard stands, so if you cannot hold that you
-               are not holding anything. I held mine for a long time."
+      - text: "The officer who carries the regiment's standard and answers for it.
+               The line forms where the standard stands. I held mine a long while."
     options:
-      - text: "Understood."
-        goto: hub
+      - text: "A lot to answer for."
+        goto: service_intro
+      - text: "Back to it."
+        goto: service_intro
+
+  military_man:
+    topic: service
+    say:
+      - text: "Twenty-six years of it. I saw more of the empire than most men see of
+               their own street, and most of it was the better for the empire being
+               in it."
+    options:
+      - text: "Better how? What do you mean, order?"
+        conditions: { sharedHistory: excludes heard_order }
+        effects: { flag: heard_order }
+        goto: order_thread
+      - text: "Back to it."
+        goto: service_intro
+
+  order_thread:
+    topic: service
+    say:
+      - text: "A road a caravan crosses without an escort. Coin worth the same in
+               two towns. You were born into it, so you cannot see it. I watched
+               them build it."
+    options:
+      - text: "And you helped build it."
+        goto: order_built
+      - text: "Sounds like a sales pitch."
+        goto: order_pitch
+      - text: "Back to it."
+        goto: service_intro
+
+  order_built:
+    topic: service
+    say:
+      - text: "A small part. One regiment, one stretch of road at a time. It is
+               enough to know my hands were on it."
+    options:
+      - text: "Back to it."
+        goto: service_intro
+
+  order_pitch:
+    topic: service
+    say:
+      - text: "Call it what you like. I have seen the other thing, the one with no
+               roads and no law. You have not. Pray you never do."
+    options:
+      - text: "Back to it."
+        goto: service_intro
+
+  ketulvu_remark:
+    topic: service
+    say:
+      - text: "By blood. Not by anything that matters. I left that behind with the
+               rest of what this town tried to make me."
+    options:
+      - text: "Your own people."
+        goto: ketulvu_own
+      - text: "But you came back to them."
+        goto: ketulvu_back
+      - text: "Back to it."
+        goto: service_intro
+
+  ketulvu_own:
+    topic: service
+    say:
+      - text: "My people are whoever keeps the roads open and the lamps lit. Blood
+               is an accident. What a man chooses is the part worth counting."
+    options:
+      - text: "Back to it."
+        goto: service_intro
+
+  ketulvu_back:
+    topic: service
+    say:
+      - text: "For my mother. Not for them. Do not mistake the one for the other."
+    options:
+      - text: "Back to it."
+        goto: service_intro
 
   # Warmth buys the STORIES (successes). Trusted-gated.
   service_story:
@@ -207,7 +301,7 @@ nodes:
         conditions: { standing: confidant }
         goto: road_not_taken
       - text: "Good of the empire."
-        goto: hub
+        goto: service_intro
 
   # confidant-only: a genuine crack (bible #3h)
   regret:
@@ -240,14 +334,11 @@ nodes:
   why_back:
     topic: service
     say:
-      - text:
-          - "When your mother falls ill, you help her. That is the honorable thing to
-             do, and there is not much more to say about it than that."
-          - "There was nowhere else the army still needed an old man, in any case.
-             Now, was there something you actually meant to buy?"
+      - text: "My mother fell ill. You go, when that happens. There was nowhere else
+               the army still needed an old man anyway."
     options:
       - text: "Fair enough."
-        goto: hub
+        goto: service_intro
 
   # ---------- Faction friction: dodge first, insult only if pushed ----------
   politics:
@@ -383,18 +474,44 @@ nodes:
       - text: "Noted."
         goto: hub
 
-  # ---------- Wares pitch / empire goods ----------
+  # ---------- Wares: answer the question, then let them pull the thread ----------
   wares:
+    topic: trade
     say:
-      - text: "Caravans, mostly. I carry what the town cannot make and what the
-               forest will not drop, and there is a banana on that shelf to prove it,
-               since bananas grow nowhere within a month's march of here. You are
-               welcome to it, and to the roads and the soldiers that put it there."
+      - text: "Depends what you hunt. Bait for the beast, and a blade you can trust.
+               Past that, I keep a few things the forest never drops."
     options:
-      - text: "The empire brought a banana."
+      - text: "A few things?"
+        conditions: { sharedHistory: excludes saw_oddments }
+        effects: { flag: saw_oddments }
+        goto: oddments
+      - text: "Just the basics, then."
         goto: hub
       - text: "I will take a look."
         goto: end
+
+  oddments:
+    topic: trade
+    say:
+      - text: "There is a banana on that shelf, for one. Bananas grow nowhere within
+               a month's march of this forest."
+    options:
+      - text: "So how is it here?"
+        goto: banana_roads
+      - text: "Huh."
+        goto: hub
+
+  banana_roads:
+    topic: trade
+    say:
+      - text: "Roads, and the soldiers who keep them open. The empire's two great
+               works. The banana is only the proof that reaches your hand."
+    options:
+      - text: "Convenient, your empire."
+        goto: hub
+      - text: "Fair point."
+        effects: { opinion: +1 }
+        goto: hub
 
   # ---------- Purchase callback ----------
   shop_smalltalk:
