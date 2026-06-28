@@ -30,6 +30,27 @@ export interface TalkCharacter { id: string; name: string; faction: string | nul
 type Faction = 'empire' | 'town' | 'neutral';
 type Standing = EvalContext['standing'];
 
+// Dev-only context overlay for testing gated content (the server gates it on
+// isDev). Lets a dev force standing/faction/mood/flags without grinding state.
+export interface TalkOverride {
+  standing?: Standing;
+  faction?: Faction;
+  mood?: number;
+  opinion?: number;
+  hunts?: string[];
+  flags?: string[];
+}
+
+function applyOverride(ctx: EvalContext, ov?: TalkOverride): void {
+  if (!ov) return;
+  if (ov.standing) ctx.standing = ov.standing;
+  if (ov.faction) ctx.faction = ov.faction;
+  if (typeof ov.mood === 'number') ctx.mood = ov.mood;
+  if (typeof ov.opinion === 'number') ctx.opinion = ov.opinion;
+  if (ov.hunts?.length) ctx.recentHunts = [...new Set([...ctx.recentHunts, ...ov.hunts])];
+  if (ov.flags?.length) ctx.sharedHistory = [...new Set([...ctx.sharedHistory, ...ov.flags])];
+}
+
 interface Rel {
   opinion: number;
   familiarity: number;
@@ -164,7 +185,7 @@ async function persist(characterId: string, npcId: string, rel: Rel, effects: Ef
 
 export type TalkResult = NodeView | { end: true };
 
-export async function openConversation(npcId: string, char: TalkCharacter, discordId: string): Promise<TalkResult> {
+export async function openConversation(npcId: string, char: TalkCharacter, discordId: string, override?: TalkOverride): Promise<TalkResult> {
   const tree = loadTree(DIALOGUE_DIR, npcId);
   if (!tree) return { end: true };
   const npcName = NPC_NAMES[npcId] ?? npcId;
@@ -172,6 +193,7 @@ export async function openConversation(npcId: string, char: TalkCharacter, disco
 
   const rel = await getRelation(char.id, npcId, faction);
   const ctx = await buildContext(npcId, char, discordId, rel);  // reads metBefore as-is
+  applyOverride(ctx, override);
   const entry = resolveEntry(tree, ctx);
 
   // Mark the meeting. Familiarity climbs once per conversation, but re-opening
@@ -183,7 +205,7 @@ export async function openConversation(npcId: string, char: TalkCharacter, disco
   return nodeView(tree, entry, npcName, ctx);
 }
 
-export async function chooseOption(npcId: string, char: TalkCharacter, discordId: string, nodeId: string, optionIndex: number): Promise<TalkResult> {
+export async function chooseOption(npcId: string, char: TalkCharacter, discordId: string, nodeId: string, optionIndex: number, override?: TalkOverride): Promise<TalkResult> {
   const tree = loadTree(DIALOGUE_DIR, npcId);
   if (!tree) return { end: true };
   const node = tree.nodes[nodeId];
@@ -193,6 +215,7 @@ export async function chooseOption(npcId: string, char: TalkCharacter, discordId
 
   const rel = await getRelation(char.id, npcId, faction);
   const ctx = await buildContext(npcId, char, discordId, rel);
+  applyOverride(ctx, override);
 
   const chosen = eligibleOptions(tree, node, ctx)[optionIndex];
   if (!chosen) return { end: true };
@@ -205,6 +228,7 @@ export async function chooseOption(npcId: string, char: TalkCharacter, discordId
   // and tag it with the topic just left so the continuation can react to it.
   const rel2 = await getRelation(char.id, npcId, faction);
   const ctx2 = await buildContext(npcId, char, discordId, rel2);
+  applyOverride(ctx2, override);
   ctx2.lastTopic = node.topic ?? nodeId;
   return nodeView(tree, chosen.goto, npcName, ctx2);
 }

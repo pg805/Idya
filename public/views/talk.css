@@ -7,6 +7,38 @@
   min-height: 0;
 }
 
+/* Dev bar (is_dev only) */
+.conv-dev {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-darkest);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.conv-dev-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--warn-bright);
+  border: 1px solid var(--warn-dim);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.conv-dev-field { display: flex; align-items: center; gap: 4px; }
+.conv-dev select, .conv-dev input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+.conv-dev-num { width: 44px; }
+.conv-dev-text { width: 120px; }
+
 /* Transcript (scrolls; choices below stay pinned) */
 .conv-log {
   flex: 1 1 auto;

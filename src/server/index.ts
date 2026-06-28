@@ -15,7 +15,7 @@ import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
 import { Prisma } from '@prisma/client';
-import { openConversation, chooseOption } from '../dialogue/service.js';
+import { openConversation, chooseOption, type TalkOverride } from '../dialogue/service.js';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
@@ -3387,13 +3387,28 @@ app.post('/api/orchard/plant', async (req: Request, res: Response) => {
 // --- NPC dialogue (0.3.0): a conversation is a stateless walk. GET opens
 // (resolves the entry node); POST commits one choice and returns the next node.
 // The relation row (opinion/familiarity/flags) is the server-side source of truth.
+// Dev-only context overlay (force standing/faction/mood/flags to walk gated
+// content). Gated on isDev; ignored for everyone else.
+function parseTalkOverride(req: Request, discordId: string): TalkOverride | undefined {
+  if (!isDev(discordId)) return undefined;
+  const q = req.query as Record<string, string | undefined>;
+  const ov: TalkOverride = {};
+  if (q.as_standing) ov.standing = q.as_standing as TalkOverride['standing'];
+  if (q.as_faction)  ov.faction  = q.as_faction as TalkOverride['faction'];
+  if (q.as_mood != null && q.as_mood !== '')   ov.mood = Number(q.as_mood);
+  if (q.as_opinion != null && q.as_opinion !== '') ov.opinion = Number(q.as_opinion);
+  if (q.as_hunts) ov.hunts = String(q.as_hunts).split(',').filter(Boolean);
+  if (q.as_flags) ov.flags = String(q.as_flags).split(',').filter(Boolean);
+  return Object.keys(ov).length ? ov : undefined;
+}
+
 app.get('/api/talk/:npcId', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const chars = await charRepo.list(discordId);
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
-  const result = await openConversation(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId);
+  const result = await openConversation(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, parseTalkOverride(req, discordId));
   res.json(result);
 });
 
@@ -3407,7 +3422,7 @@ app.post('/api/talk/:npcId', async (req: Request, res: Response) => {
   const nodeId = String(body.node ?? '');
   const idx = Math.trunc(Number(body.optionIndex));
   if (!nodeId || !(idx >= 0)) { res.status(400).json({ error: 'Bad request' }); return; }
-  const result = await chooseOption(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, nodeId, idx);
+  const result = await chooseOption(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, nodeId, idx, parseTalkOverride(req, discordId));
   res.json(result);
 });
 

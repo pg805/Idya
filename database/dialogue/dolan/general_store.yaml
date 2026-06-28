@@ -158,21 +158,29 @@ nodes:
       - text: "And?"
     optionsFrom: greet
 
-  # ---------- Service: a thread you pull, not a lecture ----------
-  # Short answers; the player drills in. Sub-threads return to service_intro so
-  # you stay in the topic until you choose to leave. Explored threads drop off
-  # via per-thread flags.
+  # ========== SERVICE / WAR — the full-ideal vertical slice ==========
+  # The template the other arcs get rebuilt against. Demonstrates: Dolan driving
+  # turns (he asks YOU things and reads the answer), stance-tracking via flags
+  # with later CALLBACKS (multi-flag `flags:` conditions), divergent branches
+  # that don't just funnel back, varied beat length, line variants, and the
+  # confidant cracks reacting to how you treated him.
   service_intro:
     topic: service
     say:
-      - text: "Hah. My old company, from back when I was a soldier. I made Vexillar
-               before the end of it. Ask, if you are curious."
+      # Callback openers: if you took a side earlier, he opens on it.
+      - text: "Back to my soldiering days. You did not leave them alone last time
+               either."
+        conditions: { flags: { sided_empire: true } }
+      - text: "The regiment again. You town-blind sorts always circle back to it."
+        conditions: { flags: { defended_town: true } }
+      - text: "Hah. My old company, from when I was a soldier. I made Vexillar
+               before the end. Ask, if you are curious."
     options:
       - text: "What is a Vexillar?"
         conditions: { sharedHistory: excludes knows_vexillar }
         effects: { flag: knows_vexillar }
         goto: vexillar
-      - text: "You fought for the empire?"
+      - text: "You fought for the empire your whole life?"
         conditions: { sharedHistory: excludes asked_military }
         effects: { flag: asked_military }
         goto: military_man
@@ -182,8 +190,11 @@ nodes:
         goto: ketulvu_remark
       - text: "Tell me about a battle you fought."
         conditions: { standing: trusted, sharedHistory: excludes heard_war_story }
-        effects: { flag: heard_war_story }
-        goto: service_story
+        goto: war_open
+      - text: "Do you ever wish you had stayed?"
+        conditions: { standing: confidant, sharedHistory: excludes asked_road }
+        effects: { flag: asked_road }
+        goto: road_not_taken
       - text: "Why did you ever come back here?"
         conditions: { sharedHistory: excludes asked_why_back }
         effects: { familiarity: +1, flag: asked_why_back }
@@ -197,19 +208,97 @@ nodes:
       - text: "The officer who carries the regiment's standard and answers for it.
                The line forms where the standard stands. I held mine a long while."
     options:
-      - text: "A lot to answer for."
+      - text: "That is a lot to answer for."
+        effects: { flag: honored_service }
         goto: service_intro
+      - text: "A glorified flag-bearer, then."
+        effects: { opinion: -1, flag: mocked_service }
+        goto: vexillar_jab
       - text: "Back to it."
         goto: service_intro
 
+  vexillar_jab:
+    topic: service
+    say:
+      - text: "Hah. Say that to the men who formed on that flag when the line was
+               breaking. The ones still breathing, anyway. Mind your tongue."
+    options:
+      - text: "Fair. My mistake."
+        effects: { opinion: +1 }
+        goto: service_intro
+      - text: "Touchy."
+        effects: { opinion: -1 }
+        goto: hub
+
+  # NPC-DRIVEN: he turns the question back on you. Your answer sets a stance.
   military_man:
     topic: service
     say:
-      - text: "Twenty-six years of it. I saw more of the empire than most men see of
-               their own street, and most of it was the better for the empire being
-               in it."
+      - text:
+          - "Twenty-six years. I have seen more of the empire than most men see of
+             their own street."
+          - "So tell me. Are you the sort who thinks all that marching was theft, or
+             the sort who can see what it bought?"
     options:
-      - text: "Better how? What do you mean, order?"
+      - text: "It bought roads, trade, order. I can see it."
+        effects: { opinion: +1, flag: sided_empire }
+        goto: empire_agree
+      - text: "It bought boots on this town's neck."
+        effects: { opinion: -1, flag: defended_town }
+        goto: empire_disagree
+      - text: "I have not decided."
+        effects: { flag: noncommittal }
+        goto: empire_neutral
+
+  empire_agree:
+    topic: service
+    say:
+      - text: "Good. Most who pass through only ever feel the tax, never the road
+               under their feet that let them get here to complain about it."
+    options:
+      - text: "What did you mean, order?"
+        conditions: { sharedHistory: excludes heard_order }
+        effects: { flag: heard_order }
+        goto: order_thread
+      - text: "Back to it."
+        goto: service_intro
+
+  empire_disagree:
+    topic: service
+    say:
+      - text: "Spoken like someone who has never once gone without the road. Keep
+               your town-blindness if it comforts you. It is a luxury the empire
+               paid for, same as the rest of what you take for granted."
+    options:
+      - text: "The town pays the taxes. That is no luxury."
+        goto: empire_argue
+      - text: "Maybe. I have never seen the other side of it."
+        effects: { opinion: +1, flag: noncommittal }
+        goto: order_thread
+      - text: "Leave it."
+        goto: hub
+
+  empire_argue:
+    topic: service
+    say:
+      - text: "You want to weigh the price of the road and never the road. I have
+               walked countries with neither, where a strong man's mood was the only
+               law a village got. Pray you never see one. The counter is still there
+               when you are finished lecturing me."
+    options:
+      - text: "Enough. We are done here."
+        goto: hub
+      - text: "...All right. What was it like, a place with no law?"
+        effects: { opinion: +1, flag: curious }
+        goto: order_thread
+
+  empire_neutral:
+    topic: service
+    say:
+      - text: "Honest, at least. Most pretend a certainty they have not earned. Come
+               back when you have decided. I will still be standing here."
+    options:
+      - text: "What did you mean, order?"
         conditions: { sharedHistory: excludes heard_order }
         effects: { flag: heard_order }
         goto: order_thread
@@ -220,30 +309,23 @@ nodes:
     topic: service
     say:
       - text: "A road a caravan crosses without an escort. Coin worth the same in
-               two towns. You were born into it, so you cannot see it. I watched
-               them build it."
+               two towns. You were born into it, so you cannot see it. I helped
+               build it, one stretch at a time."
     options:
-      - text: "And you helped build it."
-        goto: order_built
-      - text: "Sounds like a sales pitch."
-        goto: order_pitch
+      - text: "And it was worth what it cost?"
+        goto: order_cost
       - text: "Back to it."
         goto: service_intro
 
-  order_built:
+  order_cost:
     topic: service
     say:
-      - text: "A small part. One regiment, one stretch of road at a time. It is
-               enough to know my hands were on it."
-    options:
-      - text: "Back to it."
-        goto: service_intro
-
-  order_pitch:
-    topic: service
-    say:
-      - text: "Call it what you like. I have seen the other thing, the one with no
-               roads and no law. You have not. Pray you never do."
+      # Callback: leans on the side you took.
+      - text: "You already know my answer, after the things you have said to me. Yes.
+               Ask the men who can cross that road alive now."
+        conditions: { flags: { defended_town: true } }
+      - text: "Everything worth having costs. Yes. Ask the men who cross that road
+               alive now, and were not so sure they would."
     options:
       - text: "Back to it."
         goto: service_intro
@@ -254,7 +336,7 @@ nodes:
       - text: "By blood. Not by anything that matters. I left that behind with the
                rest of what this town tried to make me."
     options:
-      - text: "Your own people."
+      - text: "Your own people, though."
         goto: ketulvu_own
       - text: "But you came back to them."
         goto: ketulvu_back
@@ -264,10 +346,23 @@ nodes:
   ketulvu_own:
     topic: service
     say:
-      - text: "My people are whoever keeps the roads open and the lamps lit. Blood
-               is an accident. What a man chooses is the part worth counting."
+      - text: "My people are whoever keeps the road open and the lamp lit. Blood is
+               an accident. What a man chooses is the only part worth counting."
     options:
+      - text: "And yet here you stand, among them."
+        effects: { flag: pressed_ketulvu }
+        goto: ketulvu_press
       - text: "Back to it."
+        goto: service_intro
+
+  ketulvu_press:
+    topic: service
+    say:
+      - text: "Hah. Careful. You are starting to ask the questions I came home to
+               stop asking. Leave it there."
+    options:
+      - text: "As you like."
+        effects: { opinion: +1 }
         goto: service_intro
 
   ketulvu_back:
@@ -278,54 +373,99 @@ nodes:
       - text: "Back to it."
         goto: service_intro
 
-  # Warmth buys the STORIES (successes). Trusted-gated.
-  service_story:
+  # NPC-DRIVEN: he asks what you actually want from the story; the two answers
+  # are genuinely different tellings.
+  war_open:
     topic: service
     say:
-      - text: "You want the whole of it? Sit, then. The Fifth held the crossing at
-               Velsa for three days against twice our number, and we held it because
-               the roads behind us were good enough that the relief actually came
-               through on them. That is what order buys a man: supply that arrives
-               when it should, and a road still under his boots in the morning.
-               Sentiment never held a bridge in its life. Logistics did."
-        conditions: { standing: trusted }
-      - text: "The Fifth held lines that mattered, and trade moved through that
-               country because we were the reason it was safe to. That is the short
-               version, and it is the one you get."
+      - text: "A battle. Hah. Do you want the blood of it or the meaning of it? They
+               are not the same story, and I do not tell them the same way."
     options:
-      - text: "And the ones who did not come back?"
+      - text: "The meaning."
+        effects: { flag: heard_war_story }
+        goto: war_meaning
+      - text: "The blood."
+        effects: { flag: heard_war_story }
+        goto: war_blood
+      - text: "Whichever you would rather tell."
+        effects: { opinion: +1, flag: heard_war_story }
+        goto: war_meaning
+
+  war_meaning:
+    topic: service
+    say:
+      # Callback if you defended the town earlier.
+      - text: "You will not love the lesson, given what you think of the empire, but
+               here it is. The Fifth held a river crossing three days because the
+               road behind us held. Order is not a flag or a speech. It is the supply
+               that arrives, and the bridge still there in the morning."
+        conditions: { flags: { defended_town: true } }
+      - text: "The Fifth held a river crossing three days against twice our number,
+               because the road behind us held and the relief came up it. Order is
+               not a flag or a speech. It is the supply that arrives, and the bridge
+               still there in the morning."
+    options:
+      - text: "And the men who held it with you?"
         conditions: { standing: confidant, sharedHistory: excludes told_regret }
         effects: { flag: told_regret }
         goto: regret
-      - text: "Sounds like you would go back tomorrow."
-        conditions: { standing: confidant }
-        goto: road_not_taken
-      - text: "Good of the empire."
+      - text: "A soldier's idea of poetry."
         goto: service_intro
 
-  # confidant-only: a genuine crack (bible #3h)
+  war_blood:
+    topic: service
+    say:
+      - text:
+          - "The blood, then. The first hour you are certain you will die. The second
+             hour you are too tired to care, and that is the hour you are dangerous."
+          - "You do not fight for the empire when the line breaks. You fight for the
+             man whose shoulder is against yours. The empire is what you remember it
+             was for, afterward."
+    options:
+      - text: "And the men beside you?"
+        conditions: { standing: confidant, sharedHistory: excludes told_regret }
+        effects: { flag: told_regret }
+        goto: regret
+      - text: "Sounds like hell."
+        effects: { opinion: +1 }
+        goto: service_intro
+
+  # CONFIDANT CRACK — opens differently depending on how you treated his service.
   regret:
     topic: confided
     say:
       - text:
-          - "Some of them I put in the ground where they fell. There are orders I
-             would give again without a second thought, and a few I am no longer
-             certain were ever mine to give, and I have learned to weigh the good
-             against them and let the sum come out where it comes out."
-          - "Do not ask me their names. That is where I stop."
+          - "Some of them I put in the ground where they fell. I will give you their
+             measure, since you have not made a joke of any of this."
+          - "There are orders I would give again without blinking, and a few I am no
+             longer sure were ever mine to give. I weigh the good against them, and
+             most days it balances."
+        conditions: { flags: { mocked_service: false } }
+      - text: "Some of them I put in the ground where they fell. That is as much as
+               you get, after the mouth you have had on you tonight. Do not ask for
+               names."
+        conditions: { flags: { mocked_service: true } }
     options:
-      - text: "I will not, then."
+      - text: "Thank you for telling me."
+        conditions: { flags: { mocked_service: false } }
+        effects: { opinion: +1, flag: honored_grief }
+        goto: hub
+      - text: "I will not ask for more."
         effects: { opinion: +1 }
         goto: hub
 
-  # confidant-only: the road not taken (bible #3g)
+  # CONFIDANT CRACK — calls back your stance on the town directly.
   road_not_taken:
     topic: confided
     say:
-      - text: "Go back? No. I am too old, and the army does not keep relics. Still,
-               there are nights I wonder what I would have been if I had stayed in
-               this town, whether I would be sitting in Fendalok's chair by now,
-               with sons and a name people said kindly. Do not repeat that."
+      - text: "You think this place is worth defending. I have spent years deciding
+               you are wrong. Some nights, watching the lamps come on one by one, I
+               am less certain than I let on. I could have stayed. Been Padev. Had
+               sons, and a name said kindly. Do not repeat that."
+        conditions: { flags: { defended_town: true } }
+      - text: "I am too old to go back, and the army does not keep relics. Still, I
+               wonder some nights what I would have been if I had stayed. Padev,
+               maybe. Sons. Fendalok's chair. Do not repeat that."
     options:
       - text: "Your secret is kept."
         effects: { opinion: +1 }

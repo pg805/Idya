@@ -10,9 +10,9 @@
 //   source.choose(nodeId, idx) -> NodeView | {end}   (next node)
 // where NodeView = { id, npcName, line, options:[{label}], end:false }.
 //
-// Today the source is a client-side MOCK so we can see the look. Swapping in
-// the real engine later means replacing makeMockSource() with makeApiSource()
-// that walks the server-built tree via /api/talk; this component is untouched.
+// The source walks the server-built tree via /api/talk. For devs, an optional
+// dev bar overlays standing/faction/mood/hunts (passed as query params, gated
+// server-side on isDev) so gated content can be walked without grinding state.
 
 (function () {
   let source     = null;
@@ -21,6 +21,7 @@
   let busy       = false;
   let containerEl = null;
   let onLeaveCb   = null;
+  let devOv       = {};      // dev override params (empty for non-devs)
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -30,15 +31,50 @@
   function mount(container, opts) {
     containerEl = container;
     onLeaveCb   = opts?.onLeave ?? null;
-    source      = makeApiSource(opts?.npcId);
+    devOv       = {};
+    source      = makeApiSource(opts?.npcId, devQuery);
     transcript  = [];
+    const dev = !!(window.getLayoutData?.()?.is_dev);
     container.innerHTML = `
       <div class="conv">
+        ${dev ? devBarHtml() : ''}
         <div class="conv-log"></div>
         <div class="conv-choices"></div>
       </div>`;
+    if (dev) wireDevBar();
     document.addEventListener('keydown', onKey);
     start();
+  }
+
+  // ---- Dev bar (is_dev only) ---------------------------------------------
+  function devBarHtml() {
+    const sel = (id, label, opts) =>
+      `<label class="conv-dev-field">${label}
+        <select data-dev="${id}">${opts.map(o => `<option value="${o}">${o || '—'}</option>`).join('')}</select>
+      </label>`;
+    return `<div class="conv-dev">
+      <span class="conv-dev-tag">dev</span>
+      ${sel('as_standing', 'view', ['', 'stranger', 'regular', 'trusted', 'confidant'])}
+      ${sel('as_faction', 'faction', ['', 'neutral', 'empire', 'town'])}
+      <label class="conv-dev-field">mood <input type="number" min="0" max="10" data-dev="as_mood" class="conv-dev-num"></label>
+      <label class="conv-dev-field">hunts <input type="text" data-dev="as_hunts" class="conv-dev-text" placeholder="lithkem_swallow"></label>
+    </div>`;
+  }
+
+  function wireDevBar() {
+    for (const el of containerEl.querySelectorAll('[data-dev]')) {
+      el.addEventListener('change', () => {
+        const k = el.dataset.dev;
+        const v = String(el.value).trim();
+        if (v === '') delete devOv[k]; else devOv[k] = v;
+        restart();
+      });
+    }
+  }
+
+  function devQuery() {
+    const parts = Object.entries(devOv).map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+    return parts.length ? '?' + parts.join('&') : '';
   }
 
   async function start() {
@@ -138,9 +174,7 @@
 
   async function restart() {
     transcript = [];
-    current = await source.open();
-    appendNpc(current);
-    renderChoices();
+    await start();
   }
 
   function isVisible() { return !!(containerEl && containerEl.offsetParent !== null); }
@@ -157,24 +191,25 @@
   function unmount() {
     document.removeEventListener('keydown', onKey);
     source = null; current = null; transcript = []; busy = false;
-    containerEl = null; onLeaveCb = null;
+    containerEl = null; onLeaveCb = null; devOv = {};
   }
 
   // ---- API source: walks the server-built tree via /api/talk -------------
   // Returns NodeView { id, npcName, line, options:[{label}], end:false } or
   // { end:true }. The server holds the relation state; we just render.
-  function makeApiSource(npcId) {
+  function makeApiSource(npcId, queryFn) {
+    const q = () => (queryFn ? queryFn() : '');
     return {
       async open() {
         try {
-          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}`);
+          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}${q()}`);
           if (!res.ok) return { end: true };
           return await res.json();
         } catch { return { end: true }; }
       },
       async choose(nodeId, idx) {
         try {
-          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}`, {
+          const res = await fetch(`/api/talk/${encodeURIComponent(npcId)}${q()}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ node: nodeId, optionIndex: idx }),

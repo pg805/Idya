@@ -134,6 +134,15 @@ function condPasses(value: unknown, spec: unknown): boolean {
 export function conditionsMet(ctx: EvalContext, conditions?: Conditions): boolean {
   if (!conditions) return true;
   for (const [key, spec] of Object.entries(conditions)) {
+    // `flags: { a: true, b: false }` checks several stance-flags at once (the
+    // single `sharedHistory: includes/excludes` form only allows one). This is
+    // what callbacks need: react to a *combination* of earlier choices.
+    if (key === 'flags' && spec && typeof spec === 'object' && !Array.isArray(spec)) {
+      for (const [flag, want] of Object.entries(spec as Record<string, unknown>)) {
+        if (ctx.sharedHistory.includes(flag) !== Boolean(want)) return false;
+      }
+      continue;
+    }
     if (!condPasses((ctx as unknown as Record<string, unknown>)[key], spec)) return false;
   }
   return true;
