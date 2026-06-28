@@ -52,12 +52,6 @@
     convMounted = false;
     setLayoutTitle('Shop');
     root.innerHTML = `
-      <div id="shop-subhead">
-        <div id="shop-subhead-inner">
-          <p id="shop-name-line"></p>
-          <p id="shop-greeting"></p>
-        </div>
-      </div>
       <main class="shop-panels">
         <section class="shop-panel">
           <div class="shop-panel-label">For Sale</div>
@@ -93,8 +87,6 @@
 
   async function render() {
     setLayoutTitle(data.shopName);
-    document.getElementById('shop-name-line').textContent = `${data.npc} · ${data.title}`;
-    document.getElementById('shop-greeting').textContent  = `"${data.greeting}"`;
     setupTalkColumn();
     renderBuy();
     renderSell();

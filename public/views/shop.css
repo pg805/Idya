@@ -1,27 +1,5 @@
 /* View: Shop */
 
-#shop-subhead {
-  padding: 10px 24px 14px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-soft);
-}
-#shop-subhead-inner { }
-
-#shop-name-line {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 6px;
-}
-
-#shop-greeting {
-  font-size: 0.78rem;
-  color: var(--text-faint);
-  font-style: italic;
-  line-height: 1.5;
-}
-
 .shop-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -53,6 +31,9 @@
 .shop-panel:last-child { border-right: none; }
 
 .shop-panel-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 9px 20px;
   font-size: 0.65rem;
   text-transform: uppercase;
@@ -74,7 +55,7 @@
   top: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 13rem);
+  height: calc(100dvh - 10rem);
   min-height: 360px;
 }
 .shop-panel-talk #shop-talk-mount { flex: 1 1 auto; min-height: 0; display: flex; }
