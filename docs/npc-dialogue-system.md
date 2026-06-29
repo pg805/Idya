@@ -354,18 +354,23 @@ positive. Ephemeral `heat` leaves a permanent mark proportional to its conduct.
 
 ### Beyond dialogue: actions move opinion too (roadmap)
 
-He reacts to what you *do*, not only what you say:
+NPCs react to what you *do*, not only what you say. This generalizes to **all
+shopkeepers** (the relation row is already per-NPC), not just Dolan.
 
-- **Transact-and-leave vs. engage.** Buying at his counter without a word nudges
-  opinion *down* a touch (he's prickly about being a vending machine); actually
-  talking nudges it *up*. Hook: the shop checkout reads/writes his relation row.
-- **A line on purchase.** On checkout, Dolan says something in voice — conditioned
-  on the item and on whether you've talked (warm if you have, clipped if you just
-  bought and bolted). Ties the reaction to #1.
-- **He knows the whole town.** His bible has him informed by caravans and old
-  contacts, so he tracks purchases at *other* shops too — at **lower weight** than
-  his own. (`recentPurchases` already spans shops; split into here/elsewhere and
-  weight them.)
+- **Transact-and-leave vs. engage — a DAILY check.** One conversation a day is
+  enough; a day of buying from someone with no word exchanged reads as rude and
+  nudges opinion *down* a touch, talking nudges it *up*. Evaluated per day, not
+  per purchase. Magnitude is **per-NPC personality** (Dolan is prickly; a harried
+  baker may not care). Only applies to NPCs you can actually converse with — an
+  un-talkable shopkeeper can't hold it against you.
+- **A line on purchase, in the Talk column.** On checkout his reaction is pushed
+  into the **conversation log** (where the chat lives), in voice, conditioned on
+  the item and whether you've talked today. The three-column shop (chat beside the
+  buy list) makes this natural: buy a thing, he comments on it in the chat. Needs
+  the conversation panel to accept **world-pushed lines**, not only request/reply.
+- **Town gossip.** Caravans and contacts keep him informed, so he tracks purchases
+  at *other* shops too, at **lower weight** than his own — gossip, not ledger.
+  (`recentPurchases` already spans shops; split here/elsewhere and weight them.)
 
 > **Prerequisite — opinion granularity.** "Small movements" are sub-integer, but
 > opinion is `Int 0–10` and dialogue moves it by ±1. To do gentle drift, bump the
