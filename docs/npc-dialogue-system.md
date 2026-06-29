@@ -352,6 +352,26 @@ nets positive; a nasty one you stormed out of, negative; a long warm engagement,
 positive. Ephemeral `heat` leaves a permanent mark proportional to its conduct.
 *(per-choice nudges are live; the settle-up is the next engine step.)*
 
+### Beyond dialogue: actions move opinion too (roadmap)
+
+He reacts to what you *do*, not only what you say:
+
+- **Transact-and-leave vs. engage.** Buying at his counter without a word nudges
+  opinion *down* a touch (he's prickly about being a vending machine); actually
+  talking nudges it *up*. Hook: the shop checkout reads/writes his relation row.
+- **A line on purchase.** On checkout, Dolan says something in voice — conditioned
+  on the item and on whether you've talked (warm if you have, clipped if you just
+  bought and bolted). Ties the reaction to #1.
+- **He knows the whole town.** His bible has him informed by caravans and old
+  contacts, so he tracks purchases at *other* shops too — at **lower weight** than
+  his own. (`recentPurchases` already spans shops; split into here/elsewhere and
+  weight them.)
+
+> **Prerequisite — opinion granularity.** "Small movements" are sub-integer, but
+> opinion is `Int 0–10` and dialogue moves it by ±1. To do gentle drift, bump the
+> resolution (a float, or scale to 0–100). All three features above want it; the
+> settle-up does too.
+
 ---
 
 ## Verifying an interconnected system
