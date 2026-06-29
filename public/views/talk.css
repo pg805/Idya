@@ -38,6 +38,17 @@
 }
 .conv-dev-num { width: 44px; }
 .conv-dev-text { width: 120px; }
+.conv-dev-dl {
+  margin-left: auto;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.conv-dev-dl:hover { color: var(--text); border-color: var(--border-strong); }
 
 /* Transcript (scrolls; choices below stay pinned) */
 .conv-log {

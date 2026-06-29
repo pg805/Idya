@@ -60,7 +60,30 @@
       ${sel('as_faction', 'faction', ['', 'neutral', 'empire', 'town'])}
       <label class="conv-dev-field">mood <input type="number" min="0" max="10" data-dev="as_mood" class="conv-dev-num"></label>
       <label class="conv-dev-field">hunts <input type="text" data-dev="as_hunts" class="conv-dev-text" placeholder="lithkem_swallow"></label>
+      <button type="button" class="conv-dev-dl" data-dev-dl>⬇ transcript</button>
     </div>`;
+  }
+
+  // Dump the running transcript (with node + heat annotations) for review.
+  function downloadTranscript() {
+    const ov = Object.entries(devOv).map(([k, v]) => `${k}=${v}`).join(' ') || 'none';
+    const out = [`Dolan — conversation transcript`, `dev overrides: ${ov}`, ''];
+    for (const e of transcript) {
+      if (e.who === 'npc') {
+        out.push(`Dolan [node=${e.node ?? '?'} heat=${e.heat ?? 0}]: ${(e.lines || []).join('\n       ')}`);
+      } else if (e.who === 'me') {
+        out.push(`  You: ${e.text}`);
+      } else {
+        out.push(`  (${e.text})`);
+      }
+    }
+    const blob = new Blob([out.join('\n') + '\n'], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dolan-conversation.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function wireDevBar() {
@@ -72,6 +95,7 @@
         restart();
       });
     }
+    containerEl.querySelector('[data-dev-dl]')?.addEventListener('click', downloadTranscript);
   }
 
   function devQuery() {
@@ -97,7 +121,7 @@
 
   function appendNpc(node) {
     const lines = Array.isArray(node.line) ? node.line : [node.line];
-    transcript.push({ who: 'npc', name: node.npcName, lines });
+    transcript.push({ who: 'npc', name: node.npcName, lines, node: node.id, heat: convoState.heat });
     renderLog();
   }
   function appendMe(text)  { transcript.push({ who: 'me',  text }); renderLog(); }
