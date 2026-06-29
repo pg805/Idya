@@ -357,20 +357,37 @@ positive. Ephemeral `heat` leaves a permanent mark proportional to its conduct.
 NPCs react to what you *do*, not only what you say. This generalizes to **all
 shopkeepers** (the relation row is already per-NPC), not just Dolan.
 
-- **Transact-and-leave vs. engage — a DAILY check.** One conversation a day is
-  enough; a day of buying from someone with no word exchanged reads as rude and
-  nudges opinion *down* a touch, talking nudges it *up*. Evaluated per day, not
-  per purchase. Magnitude is **per-NPC personality** (Dolan is prickly; a harried
-  baker may not care). Only applies to NPCs you can actually converse with — an
-  un-talkable shopkeeper can't hold it against you.
+- **Transact-and-leave vs. engage — a DAILY check, only on a purchase day.** The
+  ding fires only when you **bought that day AND didn't talk that day** — treating
+  them as a vending machine. Just not visiting is neutral; absence is never rude.
+  One conversation that day clears it. Evaluated per day, not per purchase.
+  Magnitude is **per-NPC personality** (Dolan is prickly; a harried baker may not
+  care), and it only applies to NPCs you can actually converse with.
 - **A line on purchase, in the Talk column.** On checkout his reaction is pushed
   into the **conversation log** (where the chat lives), in voice, conditioned on
-  the item and whether you've talked today. The three-column shop (chat beside the
-  buy list) makes this natural: buy a thing, he comments on it in the chat. Needs
-  the conversation panel to accept **world-pushed lines**, not only request/reply.
+  the item and whether you've talked. The three-column shop (chat beside the buy
+  list) makes this natural: buy a thing, he comments on it in the chat. **If you
+  buy mid-conversation, the live `heat`/`warmth` colors it** — clipped mid-
+  argument, warm mid-rapport. Needs the conversation panel to accept
+  **world-pushed lines**, not only request/reply.
 - **Town gossip.** Caravans and contacts keep him informed, so he tracks purchases
   at *other* shops too, at **lower weight** than his own — gossip, not ledger.
   (`recentPurchases` already spans shops; split here/elsewhere and weight them.)
+
+### Further out (not this pass)
+
+- **NPCs reference the player's doings.** Right now Dolan only talks about himself;
+  the player is an agent in the world too. Small acknowledgments — "heard you made
+  Journeyman with Lomis," "you've been thinning the swallows" — make the world feel
+  aware. This is the **same gossip mechanism as cross-shop purchases**, widened to
+  `EventLog` (rank-ups, crafts, quests) and `BattleLog` (hunts/losses): expose
+  recent player events in context, condition aside/greeting variants on them. Deep
+  conversation *about* arbitrary player actions isn't feasible to author; small
+  mentions are, and they go a long way.
+- **Multi-NPC / multi-user conversations.** Everything is 1-on-1. Multiple speakers
+  (two NPCs bantering, or a player audience) is a real future direction but a large
+  one — the authoring and turn-model complexity multiplies. Nail 1-on-1 first;
+  getting that doing everything we want is the win.
 
 > **Prerequisite — opinion granularity.** "Small movements" are sub-integer, but
 > opinion is `Int 0–10` and dialogue moves it by ±1. To do gentle drift, bump the
