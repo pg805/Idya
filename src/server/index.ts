@@ -15,7 +15,7 @@ import CharacterRepository from '../character/character_repository.js';
 import { SPRITES } from '../character/sprites.js';
 import prisma from '../database/prisma.js';
 import { Prisma } from '@prisma/client';
-import { openConversation, chooseOption, type TalkOverride } from '../dialogue/service.js';
+import { openConversation, chooseOption, resetRelation, type TalkOverride } from '../dialogue/service.js';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
@@ -3411,6 +3411,17 @@ app.get('/api/talk/:npcId', async (req: Request, res: Response) => {
   const char = chars[0];
   const result = await openConversation(String(req.params.npcId), { id: char.id, name: char.name, faction: char.faction }, discordId, parseTalkOverride(req, discordId));
   res.json(result);
+});
+
+// Dev-only: reset the relationship (back to first-meeting) to retest from scratch.
+app.post('/api/talk/:npcId/reset', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const chars = await charRepo.list(discordId);
+  if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
+  await resetRelation(String(req.params.npcId), chars[0].id);
+  res.json({ ok: true });
 });
 
 app.post('/api/talk/:npcId', async (req: Request, res: Response) => {

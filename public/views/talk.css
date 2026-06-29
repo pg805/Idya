@@ -38,8 +38,7 @@
 }
 .conv-dev-num { width: 44px; }
 .conv-dev-text { width: 120px; }
-.conv-dev-dl {
-  margin-left: auto;
+.conv-dev-dl, .conv-dev-reset {
   background: var(--bg-deep);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -48,7 +47,10 @@
   font-size: 11px;
   cursor: pointer;
 }
+.conv-dev-dl { margin-left: auto; }
 .conv-dev-dl:hover { color: var(--text); border-color: var(--border-strong); }
+.conv-dev-reset { color: var(--warn); border-color: var(--warn-dim); }
+.conv-dev-reset:hover { background: var(--warn-bg); color: var(--warn-bright); }
 
 /* Transcript (scrolls; choices below stay pinned) */
 .conv-log {

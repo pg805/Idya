@@ -193,6 +193,11 @@ async function persist(characterId: string, npcId: string, rel: Rel, effects: Ef
 
 // ---- Public API (called by the server) ----------------------------------
 
+// Dev-only: wipe a player's relationship with an NPC (back to first-meeting).
+export async function resetRelation(npcId: string, characterId: string): Promise<void> {
+  await prisma.playerNpcRelation.deleteMany({ where: { character_id: characterId, npc_id: npcId } });
+}
+
 export type TalkResult = NodeViewWithConvo | { end: true };
 
 export async function openConversation(npcId: string, char: TalkCharacter, discordId: string, override?: TalkOverride): Promise<TalkResult> {

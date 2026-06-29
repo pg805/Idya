@@ -23,6 +23,7 @@
   let onLeaveCb   = null;
   let devOv       = {};      // dev override params (empty for non-devs)
   let convoState  = { heat: 0 };  // conversation-local tension, round-tripped with the server
+  let currentNpc  = null;    // npc id of the open conversation
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -32,6 +33,7 @@
   function mount(container, opts) {
     containerEl = container;
     onLeaveCb   = opts?.onLeave ?? null;
+    currentNpc  = opts?.npcId ?? null;
     convoState  = { heat: 0 };
     source      = makeApiSource(opts?.npcId, devQuery);
     transcript  = [];
@@ -59,6 +61,7 @@
       ${sel('as_faction', 'faction', ['', 'neutral', 'empire', 'town'])}
       <label class="conv-dev-field">mood <input type="number" min="0" max="10" data-dev="as_mood" class="conv-dev-num" value="${devOv.as_mood ?? ''}"></label>
       <label class="conv-dev-field">hunts <input type="text" data-dev="as_hunts" class="conv-dev-text" placeholder="lithkem_swallow" value="${devOv.as_hunts ?? ''}"></label>
+      <button type="button" class="conv-dev-reset" data-dev-reset title="Wipe the relationship — back to first-meeting">reset</button>
       <button type="button" class="conv-dev-dl" data-dev-dl>⬇ transcript</button>
     </div>`;
   }
@@ -95,6 +98,10 @@
       });
     }
     containerEl.querySelector('[data-dev-dl]')?.addEventListener('click', downloadTranscript);
+    containerEl.querySelector('[data-dev-reset]')?.addEventListener('click', async () => {
+      try { await fetch(`/api/talk/${encodeURIComponent(currentNpc)}/reset`, { method: 'POST' }); } catch (_) {}
+      restart();
+    });
   }
 
   function devQuery() {
