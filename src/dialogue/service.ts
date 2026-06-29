@@ -172,7 +172,7 @@ async function persist(characterId: string, npcId: string, rel: Rel, effects: Ef
   const opinion = clamp(rel.opinion + (effects?.opinion ?? 0), 0, 10);
   const famInc = (effects?.familiarity ?? 0) + (opts.meeting ? 1 : 0);
   const flags = new Set(rel.shared_history);
-  if (effects?.flag) flags.add(effects.flag);
+  if (effects?.flag) for (const f of (Array.isArray(effects.flag) ? effects.flag : [effects.flag])) flags.add(f);
 
   await prisma.playerNpcRelation.upsert({
     where: { character_id_npc_id: { character_id: characterId, npc_id: npcId } },

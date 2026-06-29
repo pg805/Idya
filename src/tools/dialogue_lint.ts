@@ -110,7 +110,7 @@ function fuzz(tree: DialogueTree, runs: number): { fails: string[]; maxSteps: nu
       if (opts.length === 0) { fails.push(`run ${r}: STUCK at "${nodeId}" (no eligible option)`); break; }
       const choice = opts[Math.floor(Math.random() * opts.length)];
       const fx = choice.effects;
-      if (fx?.flag) ctx.sharedHistory = [...new Set([...ctx.sharedHistory, fx.flag])];
+      if (fx?.flag) ctx.sharedHistory = [...new Set([...ctx.sharedHistory, ...(Array.isArray(fx.flag) ? fx.flag : [fx.flag])])];
       if (typeof fx?.opinion === 'number') ctx.opinion = clamp(ctx.opinion + fx.opinion, 0, 10);
       if (typeof fx?.heat === 'number') ctx.heat = clamp(ctx.heat + fx.heat, 0, HEAT_MAX);
       maxHeat = Math.max(maxHeat, ctx.heat);

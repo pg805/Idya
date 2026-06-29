@@ -134,6 +134,10 @@ nodes:
       # After he opened up about the service: a rare, grudging near-warmth.
       - text: "Well. I have talked your ear half off. What is it you need?"
         conditions: { lastTopic: service }
+      - text: "Enough of the old days. What did you actually come in for?"
+        conditions: { lastTopic: service }
+      - text: "That is enough soldiering for one visit. Go on, then."
+        conditions: { lastTopic: service }
       # After the forge needle: still a little sharp.
       - text: "Enough about hammers. What else?"
         conditions: { lastTopic: forge }
@@ -156,6 +160,9 @@ nodes:
       - text: "What else do you need?"
       - text: "Go on, then."
       - text: "And?"
+      - text: "Was there something else?"
+      - text: "Speak, then."
+      - text: "Something more, or are we through?"
     optionsFrom: greet
 
   # ========== SERVICE / WAR — the full-ideal vertical slice ==========
@@ -167,37 +174,49 @@ nodes:
   service_intro:
     topic: service
     say:
-      # Callback openers: if you took a side earlier, he opens on it.
+      # First visit (in_regiment unset): the full opener, by the side you took.
       - text: "Back to my soldiering days. You did not leave them alone last time
                either."
-        conditions: { flags: { sided_empire: true } }
+        conditions: { flags: { sided_empire: true, in_regiment: false } }
       - text: "The regiment again. You town-blind sorts always circle back to it."
-        conditions: { flags: { defended_town: true } }
+        conditions: { flags: { defended_town: true, in_regiment: false } }
       - text: "Hah. My old company, from when I was a soldier. I made Vexillar
                before the end. Ask, if you are curious."
+        conditions: { flags: { in_regiment: false, sided_empire: false, defended_town: false } }
+      # Returns (in_regiment set by engaging once): short, varied prompts so
+      # re-entry never re-delivers the opener.
+      - text: "What else about the Fifth?"
+        conditions: { flags: { in_regiment: true } }
+      - text: "Go on. What else do you want from an old soldier?"
+        conditions: { flags: { in_regiment: true } }
+      - text: "More of the old days, then?"
+        conditions: { flags: { in_regiment: true } }
+      - text: "And? Out with it."
+        conditions: { flags: { in_regiment: true } }
     options:
       - text: "What is a Vexillar?"
         conditions: { sharedHistory: excludes knows_vexillar }
-        effects: { flag: knows_vexillar }
+        effects: { flag: [knows_vexillar, in_regiment] }
         goto: vexillar
       - text: "You fought for the empire your whole life?"
         conditions: { sharedHistory: excludes asked_military }
-        effects: { flag: asked_military }
+        effects: { flag: [asked_military, in_regiment] }
         goto: military_man
       - text: "You look Ketulvu yourself."
         conditions: { sharedHistory: excludes remarked_ketulvu }
-        effects: { flag: remarked_ketulvu }
+        effects: { flag: [remarked_ketulvu, in_regiment] }
         goto: ketulvu_remark
       - text: "Tell me about a battle you fought."
         conditions: { standing: trusted, sharedHistory: excludes heard_war_story }
+        effects: { flag: in_regiment }
         goto: war_open
       - text: "Do you ever wish you had stayed?"
         conditions: { standing: confidant, sharedHistory: excludes asked_road }
-        effects: { flag: asked_road }
+        effects: { flag: [asked_road, in_regiment] }
         goto: road_not_taken
       - text: "Why did you ever come back here?"
         conditions: { sharedHistory: excludes asked_why_back }
-        effects: { familiarity: +1, flag: asked_why_back }
+        effects: { familiarity: +1, flag: [asked_why_back, in_regiment] }
         goto: why_back
       - text: "Another time."
         goto: hub

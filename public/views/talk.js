@@ -32,7 +32,6 @@
   function mount(container, opts) {
     containerEl = container;
     onLeaveCb   = opts?.onLeave ?? null;
-    devOv       = {};
     convoState  = { heat: 0 };
     source      = makeApiSource(opts?.npcId, devQuery);
     transcript  = [];
@@ -52,14 +51,14 @@
   function devBarHtml() {
     const sel = (id, label, opts) =>
       `<label class="conv-dev-field">${label}
-        <select data-dev="${id}">${opts.map(o => `<option value="${o}">${o || '—'}</option>`).join('')}</select>
+        <select data-dev="${id}">${opts.map(o => `<option value="${o}"${devOv[id] === o ? ' selected' : ''}>${o || '—'}</option>`).join('')}</select>
       </label>`;
     return `<div class="conv-dev">
       <span class="conv-dev-tag">dev</span>
       ${sel('as_standing', 'view', ['', 'stranger', 'regular', 'trusted', 'confidant'])}
       ${sel('as_faction', 'faction', ['', 'neutral', 'empire', 'town'])}
-      <label class="conv-dev-field">mood <input type="number" min="0" max="10" data-dev="as_mood" class="conv-dev-num"></label>
-      <label class="conv-dev-field">hunts <input type="text" data-dev="as_hunts" class="conv-dev-text" placeholder="lithkem_swallow"></label>
+      <label class="conv-dev-field">mood <input type="number" min="0" max="10" data-dev="as_mood" class="conv-dev-num" value="${devOv.as_mood ?? ''}"></label>
+      <label class="conv-dev-field">hunts <input type="text" data-dev="as_hunts" class="conv-dev-text" placeholder="lithkem_swallow" value="${devOv.as_hunts ?? ''}"></label>
       <button type="button" class="conv-dev-dl" data-dev-dl>⬇ transcript</button>
     </div>`;
   }
@@ -219,7 +218,8 @@
   function unmount() {
     document.removeEventListener('keydown', onKey);
     source = null; current = null; transcript = []; busy = false;
-    containerEl = null; onLeaveCb = null; devOv = {}; convoState = { heat: 0 };
+    containerEl = null; onLeaveCb = null; convoState = { heat: 0 };
+    // devOv persists across mounts so a dev keeps their view/faction while testing.
   }
 
   // ---- API source: walks the server-built tree via /api/talk -------------

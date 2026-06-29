@@ -13,7 +13,7 @@ export type Conditions = Record<string, unknown>;
 export interface Effects {
   opinion?: number;       // persisted on the relation row
   familiarity?: number;   // persisted
-  flag?: string;          // persisted (pushed onto sharedHistory)
+  flag?: string | string[];  // persisted (pushed onto sharedHistory); array sets several at once
   heat?: number;          // conversation-local tension delta (NOT persisted); release = a big negative
 }
 
