@@ -519,18 +519,16 @@ nodes:
       - text: "Forget it."
         goto: end
 
+  # `argue` is only the OPENING challenge (once). After this there is no central
+  # menu: each retort's comebacks pivot straight into the next front, so the
+  # argument flows and escalates instead of returning to a prompt. Escalating a
+  # front +1 heat; conceding a point to press another -1; walking away or the
+  # earned concede releases. His lines sharpen by heat (calm / heated / boiling).
   argue:
     topic: politics
     say:
-      # Heat tiers: the prompt itself escalates, and at the top he moves to end it.
-      - text: "We are going in circles and I am near the end of my patience for it.
-               Say it once more if you must. Then it is the counter or the door, and
-               I mean that."
-        conditions: { heat: ">=5" }
-      - text: "You keep worrying the same sore tooth. Fine. Out with the rest of it."
-        conditions: { heat: ">=3" }
-      - text: "Go on, then. Make your case against the empire. I have heard them all,
-               but make it."
+      - text: "Go on, then. Make your case against the empire. I have heard them
+               all, but make yours."
     options:
       - text: "The taxes are bleeding this town white."
         effects: { heat: +1 }
@@ -538,85 +536,93 @@ nodes:
       - text: "Your soldiers swagger like they own the place."
         effects: { heat: +1 }
         goto: argue_soldiers
-      - text: "You traded your own gods for theirs."
+      - text: "You threw over your own gods for theirs."
         effects: { heat: +1 }
         goto: argue_gods
-      # Release valves, always available.
-      - text: "...You know what, maybe you have a point."
-        effects: { opinion: +1, heat: -10, flag: conceded_empire }
-        goto: argue_concede
-      - text: "Forget it. We are done."
-        effects: { heat: -10 }
-        goto: hub
-      # His way out, once it is hot enough for him to take it.
-      - text: "Fine. The counter."
-        conditions: { heat: ">=5" }
+      - text: "...Actually, forget it."
         effects: { heat: -10 }
         goto: hub
 
   argue_taxes:
     topic: politics
     say:
-      - text: "The tax, the tax, always the tax. You would burn the road to spite the
-               toll and then weep when no caravan comes up it. It is a child's
-               argument, and you are not a child."
-        conditions: { heat: ">=4" }
+      - text: "The tax, again. Always the tax. Enough of it. Give me something I
+               have not heard, or give me the door."
+        conditions: { heat: ">=5" }
+      - text: "The tax, the tax. You would tear up the road to spite the toll and
+               weep when no caravan comes up it. It is a child's argument."
+        conditions: { heat: ">=3" }
       - text: "The tax buys the road the tax came up on. You want the road for
-               nothing. Nothing is for nothing. You are old enough to know that much."
+               nothing, and nothing is for nothing. You are old enough to know it."
     options:
-      - text: "Convenient, for the man selling road-grown bananas."
+      - text: "And your soldiers are worse than any toll."
         effects: { heat: +1 }
-        goto: argue
-      - text: "...fine. But the families here still go hungry."
+        goto: argue_soldiers
+      - text: "The tax, fine. But you threw over your own gods too."
         effects: { heat: -1 }
-        goto: argue
-      - text: "Forget it."
+        goto: argue_gods
+      - text: "Enough of this."
         effects: { heat: -10 }
         goto: hub
+      - text: "...You know what, maybe you have a point."
+        conditions: { heat: ">=5" }
+        effects: { opinion: +1, heat: -10, flag: conceded_empire }
+        goto: argue_relent
 
   argue_soldiers:
     topic: politics
     say:
-      - text: "Swagger. You would rather they were timid? A timid garrison is a dead
-               one, and a dead garrison is a burned town. You have no notion of what
-               they hold back simply by standing there, bored, where you can resent
-               them."
-        conditions: { heat: ">=4" }
+      - text: "Swagger, swagger. We are well past swagger now. Say something I have
+               not heard a hundred times, or we are finished here."
+        conditions: { heat: ">=5" }
+      - text: "Timid, you would rather? A timid garrison is a dead one, and a dead
+               garrison is a burned town. You have no notion of what they hold back."
+        conditions: { heat: ">=3" }
       - text: "They keep the road safe enough that you can resent them in comfort.
                Manners are a luxury of the protected, and you are very protected."
     options:
-      - text: "Protected, or occupied?"
+      - text: "And you abandoned your own gods for their science."
         effects: { heat: +1 }
-        goto: argue
-      - text: "...I had not thought of it from the wall's side."
-        effects: { opinion: +1, heat: -1 }
-        goto: argue
-      - text: "Forget it."
+        goto: argue_gods
+      - text: "The garrison, fine. But the taxes still crush this town."
+        effects: { heat: -1 }
+        goto: argue_taxes
+      - text: "Enough of this."
         effects: { heat: -10 }
         goto: hub
+      - text: "...You know what, maybe you have a point."
+        conditions: { heat: ">=5" }
+        effects: { opinion: +1, heat: -10, flag: conceded_empire }
+        goto: argue_relent
 
   argue_gods:
     topic: politics
     say:
-      - text: "My gods. The ones who never once made the trebuchet shot fly true,
-               while a Chae engineer's arithmetic did it every time. I traded a
-               prayer that changed nothing for a science that changes everything.
-               Call it selling out. I would do it again twice before breakfast."
-        conditions: { heat: ">=4" }
+      - text: "My gods, still? We have flogged this one long enough. Something new,
+               or the door. I will not say it a third time."
+        conditions: { heat: ">=5" }
+      - text: "My gods never once made the trebuchet shot fly true. A Chae
+               engineer's arithmetic did it every time. I would trade them again
+               twice before breakfast."
+        conditions: { heat: ">=3" }
       - text: "I traded superstition for a thing that works. If your gods object,
                they are welcome to take it up with me directly. I will wait."
     options:
-      - text: "Some things are not meant to be measured."
+      - text: "Faith aside, the taxes are still crushing this town."
         effects: { heat: +1 }
-        goto: argue
-      - text: "...you are not wrong about the trebuchet."
+        goto: argue_taxes
+      - text: "The science, fine. But your soldiers enforce it at spearpoint."
         effects: { heat: -1 }
-        goto: argue
-      - text: "Forget it."
+        goto: argue_soldiers
+      - text: "Enough of this."
         effects: { heat: -10 }
         goto: hub
+      - text: "...You know what, maybe you have a point."
+        conditions: { heat: ">=5" }
+        effects: { opinion: +1, heat: -10, flag: conceded_empire }
+        goto: argue_relent
 
-  argue_concede:
+  argue_relent:
     topic: politics
     say:
       - text: "Hah. There it is. I will not pretend it is not satisfying to hear. We
