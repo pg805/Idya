@@ -49,6 +49,54 @@
     obj_chest_01: ['d', 1, 7],
   };
 
+  // ---- shadows ----
+  // Each shadow sprite is drawn to fit a particular piece of decor, so which one
+  // a square gets follows from the sprite standing on it. That's why the shadow
+  // pass runs after every prop is placed rather than being decided upstream.
+  const SHADOW_FOR = {
+    dec_tree_01_bottom: 'shadow_xl',
+    dec_tree_01_stump:  'shadow_md',
+    dec_bush_01: 'shadow_lg', dec_bush_02: 'shadow_lg',
+    dec_bush_03: 'shadow_lg', dec_bush_04: 'shadow_lg',
+    dec_flower_02: 'shadow_md',   // sunflowers
+    dec_flower_01: 'shadow_sm',   // rose
+    dec_rock_01:   'shadow_sm',   // pebbles
+  };
+
+  // Baked shadows, ported from the Asset Library's bake-shadows.lua. A shadow is
+  // not a translucent wash — every pixel it covers is REPLACED with the palette
+  // entry one perceptual step below whatever ground is underneath it. That's what
+  // keeps a shadow reading as the same material in shade rather than as grey
+  // film, and it's why a shadow spanning grass and dirt gets both halves right.
+  //
+  // PALETTE is mac-asset-library-64.gpl in index order; SHADE is the lua's
+  // hand-tuned index -> darker index map. Both are copied verbatim — if either
+  // changes over there, re-copy rather than re-deriving.
+  const PALETTE = [
+    0xff00ff, 0xffffff, 0x858585, 0x686868, 0x3d3d3d, 0x000000, 0xb6a8af, 0xa6979f,
+    0x7c6e75, 0x564b50, 0x8f9aa2, 0x737d85, 0x58626a, 0x3e484f, 0xd7c6b2, 0xae9e8c,
+    0xf4e4a4, 0xe5bf69, 0xc9a659, 0xb2924a, 0x9f8560, 0x816946, 0x634f30, 0xae725d,
+    0x91523c, 0x734434, 0x50382e, 0x392c20, 0xf2cb4d, 0xce5f23, 0x4e774d, 0x3e6b3e,
+    0x335b33, 0x1e461f, 0x0a3410, 0x2c6239, 0x1a4e29, 0x083b19, 0x467a5e, 0x2e6448,
+    0x235143, 0x123e31, 0x072e23, 0xa7c9e7, 0x7896d1, 0x4775ba, 0x275a9a, 0x1d2b53,
+    0x83769c, 0x3b3b58, 0x343345, 0xcd4051, 0xaf3476, 0x7e2553, 0xff004d, 0xf64d18,
+    0xf6a513, 0xefec1f, 0x41be28, 0x1ac19a, 0x1dc2d4, 0x198ae1, 0x534be4, 0xe03cd6,
+  ];
+
+  const SHADE = [
+    0, 2, 3, 4, 9, 5, 6, 8, 9, 5, 15, 21, 14, 21, 21, 7,
+    8, 15, 19, 21, 22, 22, 23, 26, 25, 26, 27, 27, 28, 32, 32, 36,
+    37, 34, 34, 37, 37, 33, 39, 40, 40, 42, 43, 44, 45, 45, 47, 47,
+    49, 49, 50, 51, 53, 53, 51, 28, 56, 18, 58, 59, 60, 43, 62, 63,
+  ];
+
+  // ground RGB (packed 0xRRGGBB) -> its shaded RGB. Built once.
+  const SHADE_RGB = new Map();
+  for (let i = 0; i < PALETTE.length; i++) {
+    const to = SHADE[i];
+    if (to !== undefined && to !== i) SHADE_RGB.set(PALETTE[i], PALETTE[to]);
+  }
+
   // Row of the terrain sheet each material's 6-shape set lives on.
   const MATERIAL_ROW = { grass: 0, dirt: 1, road: 2, stone: 4, sand: 5, water: 6 };
 
@@ -107,77 +155,138 @@
   sheets.t.src = '/tiles/tileset_terrain.png';
   sheets.d.src = '/tiles/tileset_decor.png';
 
+  // ---- geometry ----
+  // Everything is positioned in BOARD SQUARES and converted here, once, to whole
+  // device pixels. Two reasons that matters:
+  //
+  //  - The canvas backing store is exactly the device-pixel size of the board, so
+  //    the browser never rescales the canvas afterwards. Any resampling happens
+  //    once, inside drawImage with smoothing off. A backing store at some tidy
+  //    multiple of 32 that then gets CSS-scaled to fit is what made this blurry:
+  //    on a 125%-zoom Windows display it landed on a ~1.07x rescale, which is the
+  //    worst case there is.
+  //  - Rounding the square boundaries (rather than the tile size) means adjacent
+  //    tiles always share an edge exactly, with no seams or double-drawn columns
+  //    when a square works out to a fractional number of device pixels.
+  function geometry(w, h, cellPx, dpr) {
+    const at = (sq) => Math.round(sq * cellPx * dpr);
+    return {
+      w, h,
+      width: at(w), height: at(h),
+      // The device-pixel rect of the 1x1 square whose top-left corner is (x, y).
+      rect(x, y) {
+        const x0 = at(x), y0 = at(y);
+        return { x: x0, y: y0, w: at(x + 1) - x0, h: at(y + 1) - y0 };
+      },
+      // CSS pixels -> device pixels, for line weights.
+      lw: (css) => Math.max(1, Math.round(css * dpr)),
+    };
+  }
+
   // ---- painting ----
-  function blit(ctx, sheet, col, row, dx, dy, S) {
-    ctx.drawImage(sheets[sheet], col * TS, row * TS, TS, TS, dx, dy, TS * S, TS * S);
+  function blit(ctx, sheet, col, row, r) {
+    ctx.drawImage(sheets[sheet], col * TS, row * TS, TS, TS, r.x, r.y, r.w, r.h);
   }
 
   // Props can be drawn mirrored for variety. A horizontal flip is exact under
   // nearest-neighbour, so it costs nothing in sharpness.
-  function blitNamed(ctx, name, dx, dy, S, flip) {
+  function blitNamed(ctx, name, r, flip) {
     const a = ATLAS[name];
     if (!a) return;
-    if (!flip) { blit(ctx, a[0], a[1], a[2], dx, dy, S); return; }
-    const size = TS * S;
+    if (!flip) { blit(ctx, a[0], a[1], a[2], r); return; }
     ctx.save();
-    ctx.translate(dx + size, dy);
+    ctx.translate(r.x + r.w, r.y);
     ctx.scale(-1, 1);
-    ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, 0, 0, size, size);
+    ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, 0, 0, r.w, r.h);
     ctx.restore();
   }
 
   // Rotations are exact multiples of 90°, so nearest-neighbour sampling stays
   // pixel-exact — no smoothing, no half-pixel drift.
-  function blitRotated(ctx, sheet, col, row, dx, dy, S, rot) {
-    if (rot === 0) { blit(ctx, sheet, col, row, dx, dy, S); return; }
-    const half = (TS * S) / 2;
+  function blitRotated(ctx, sheet, col, row, r, rot) {
+    if (rot === 0) { blit(ctx, sheet, col, row, r); return; }
     ctx.save();
-    ctx.translate(dx + half, dy + half);
+    ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
     ctx.rotate((rot * Math.PI) / 2);
-    ctx.drawImage(sheets[sheet], col * TS, row * TS, TS, TS, -half, -half, TS * S, TS * S);
+    ctx.drawImage(sheets[sheet], col * TS, row * TS, TS, TS, -r.w / 2, -r.h / 2, r.w, r.h);
     ctx.restore();
   }
 
-  // Paint one material over whatever is already on the canvas, autotiled.
-  // `isMat(x, y)` answers "is board square (x,y) this material?", with squares
-  // off the board clamped to the nearest edge square so the border reads as the
-  // ground continuing rather than as a hard cut.
-  function paintMaterial(ctx, material, w, h, isMat, S) {
+  // Paint one material, autotiled, on the SAME aligned grid as everything else.
+  //
+  // The material lives on the grid's CORNERS, not its squares: each tile is
+  // chosen by which of its own four corners are the material. That keeps every
+  // tile — terrain, decor, props — on one 32px grid, which is how the art is
+  // authored. (An earlier version put the material on squares and offset the
+  // terrain grid by half a tile instead. Same shapes, but the ground then sat
+  // half a square off from everything else and hung over the board edges.)
+  //
+  // `isMat(i, j)` answers "is corner (i, j) this material?".
+  function paintMaterial(ctx, material, g, isMat) {
     const row = MATERIAL_ROW[material];
-    const at = (x, y) => isMat(Math.min(w - 1, Math.max(0, x)), Math.min(h - 1, Math.max(0, y)));
-    // (w+1) x (h+1) tiles, each shifted back half a tile.
-    for (let j = 0; j <= h; j++) {
-      for (let i = 0; i <= w; i++) {
-        const mask = (at(i - 1, j - 1) ? 0b1000 : 0)    // NW
-                   | (at(i,     j - 1) ? 0b0100 : 0)    // NE
-                   | (at(i - 1, j)     ? 0b0010 : 0)    // SW
-                   | (at(i,     j)     ? 0b0001 : 0);   // SE
-        if (mask === 0) continue;                        // nothing to draw
+    for (let y = 0; y < g.h; y++) {
+      for (let x = 0; x < g.w; x++) {
+        const mask = (isMat(x,     y)     ? 0b1000 : 0)    // NW corner
+                   | (isMat(x + 1, y)     ? 0b0100 : 0)    // NE
+                   | (isMat(x,     y + 1) ? 0b0010 : 0)    // SW
+                   | (isMat(x + 1, y + 1) ? 0b0001 : 0);   // SE
+        if (mask === 0) continue;                          // nothing to draw
         const shape = AUTOTILE[mask];
-        blitRotated(ctx, 't', shape.col, row, (i * TS - TS / 2) * S, (j * TS - TS / 2) * S, S, shape.rot);
+        blitRotated(ctx, 't', shape.col, row, g.rect(x, y), shape.rot);
       }
     }
   }
 
-  function drawGrid(ctx, w, h, S, cellPx) {
-    // One CSS pixel's worth of canvas, so the line looks the same weight
-    // whatever integer scale the backing store ended up at.
-    const lw = Math.max(1, Math.round((TS * S) / cellPx));
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-    for (let x = 1; x < w; x++) ctx.fillRect(x * TS * S - lw / 2, 0, lw, h * TS * S);
-    for (let y = 1; y < h; y++) ctx.fillRect(0, y * TS * S - lw / 2, w * TS * S, lw);
+  // Bake shadows into the ground, the way bake-shadows.lua does it: every pixel
+  // the shadow sprite covers is replaced with the palette entry one step darker
+  // than the ground already there. Not a translucent overlay — grass in shade
+  // stays grass, dirt in shade stays dirt, and a shadow straddling both gets
+  // each half right.
+  //
+  // Runs square by square rather than over one big region: a shadow sprite never
+  // leaves its own square, so this touches only the squares that have one
+  // instead of reading back the whole board.
+  function bakeShadows(ctx, canvas, shadows, g) {
+    if (!shadows.length) return;
+    const mask = document.createElement('canvas');
+    mask.width = canvas.width;
+    mask.height = canvas.height;
+    const mctx = mask.getContext('2d');
+    mctx.imageSmoothingEnabled = false;
+    for (const s of shadows) blitNamed(mctx, s.sprite, g.rect(s.x, s.y), false);
+
+    for (const s of shadows) {
+      const r = g.rect(s.x, s.y);
+      const shade = mctx.getImageData(r.x, r.y, r.w, r.h);
+      const ground = ctx.getImageData(r.x, r.y, r.w, r.h);
+      const sd = shade.data, gd = ground.data;
+      let touched = false;
+      for (let i = 0; i < sd.length; i += 4) {
+        if (sd[i + 3] < 128) continue;                 // not shadow here
+        if (gd[i + 3] === 0) continue;                 // nothing under it
+        const to = SHADE_RGB.get((gd[i] << 16) | (gd[i + 1] << 8) | gd[i + 2]);
+        if (to === undefined) continue;                // no darker entry: leave it
+        gd[i] = (to >> 16) & 255; gd[i + 1] = (to >> 8) & 255; gd[i + 2] = to & 255;
+        touched = true;
+      }
+      if (touched) ctx.putImageData(ground, r.x, r.y);
+    }
   }
 
-  // Size a canvas so one board square is `cellPx` CSS pixels, and hand back a
-  // cleared context. The backing store is an INTEGER multiple of the 32px art,
-  // so the art is never resampled at a fractional scale — on a 2x display with
-  // 48px squares that works out to an exact 3x. Elsewhere the browser does a
-  // final nearest rescale to fit, which pixel art survives far better than a blur.
-  function prepare(canvas, w, h, cellPx, S) {
-    canvas.width  = w * TS * S;
-    canvas.height = h * TS * S;
-    canvas.style.width  = `${w * cellPx}px`;
-    canvas.style.height = `${h * cellPx}px`;
+  function drawGrid(ctx, g) {
+    const lw = g.lw(1);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    for (let x = 1; x < g.w; x++) ctx.fillRect(g.rect(x, 0).x - (lw >> 1), 0, lw, g.height);
+    for (let y = 1; y < g.h; y++) ctx.fillRect(0, g.rect(0, y).y - (lw >> 1), g.width, lw);
+  }
+
+  // Size a canvas to the board's exact device-pixel footprint and hand back a
+  // cleared context. No CSS rescale happens after this, which is the whole point.
+  function prepare(canvas, g, cellPx) {
+    canvas.width  = g.width;
+    canvas.height = g.height;
+    canvas.style.width  = `${g.w * cellPx}px`;
+    canvas.style.height = `${g.h * cellPx}px`;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -188,16 +297,16 @@
   // itself is a DOM element under the canopy canvas — this is just its outline
   // promoted to the very top so you never lose track of a unit standing in a
   // tree. Matches .combatant's border colours in game.css.
-  function drawTokenRing(ctx, unit, isOwn, isSelected, S, cellPx) {
-    const cell = TS * S;
+  function drawTokenRing(ctx, unit, isOwn, isSelected, g) {
     const span = unit.size || 1;
-    const lw = Math.max(2, Math.round((2 * cell) / cellPx));
-    const cx = (unit.pos.x + span / 2) * cell;
-    const cy = (unit.pos.y + span / 2) * cell;
-    const r = (cell * span - lw) / 2;
+    const a = g.rect(unit.pos.x, unit.pos.y);
+    const b = g.rect(unit.pos.x + span - 1, unit.pos.y + span - 1);
+    const lw = g.lw(2);                                  // matches .combatant's border
+    const cx = (a.x + b.x + b.w) / 2, cy = (a.y + b.y + b.h) / 2;
+    const r = (b.x + b.w - a.x - lw) / 2;
 
     // Dark ring just outside the coloured one, so it holds up against foliage.
-    ctx.lineWidth = lw + Math.max(2, lw);
+    ctx.lineWidth = lw * 2;
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
@@ -229,57 +338,62 @@
     if (!terrain) return false;
     if (!ready) { waiting.push(opts.onReady); return false; }
 
-    const w = terrain.width, h = terrain.height;
-    const dpr = window.devicePixelRatio || 1;
-    const S = Math.max(1, Math.round((cellPx * dpr) / TS));
-    const px = (n) => n * TS * S;
-
-    const ctx = prepare(canvases.ground, w, h, cellPx, S);
+    const g = geometry(terrain.width, terrain.height, cellPx, window.devicePixelRatio || 1);
+    const ctx = prepare(canvases.ground, g, cellPx);
 
     // 1. dirt — the base everything else sits on, so it's a flat fill.
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
-        blit(ctx, 't', 0, MATERIAL_ROW.dirt, px(x), px(y), S);
+    for (let y = 0; y < g.h; y++)
+      for (let x = 0; x < g.w; x++)
+        blit(ctx, 't', 0, MATERIAL_ROW.dirt, g.rect(x, y));
 
-    // 2. grass — autotiled on top. Dirt is the rare thing, so what shows through
-    // reads as bare earth worn into a forest floor.
-    paintMaterial(ctx, 'grass', w, h, (x, y) => terrain.ground[y][x] === 'g', S);
+    // 2. grass — autotiled over the dirt from the CORNER lattice. Dirt is the
+    // rare thing, so what shows through reads as bare earth worn into a forest
+    // floor rather than as terrain in its own right.
+    paintMaterial(ctx, 'grass', g, (i, j) => terrain.corners[j][i] === 'g');
 
     // 3. grass overlay — tufts that break up the flat fill.
-    for (const o of terrain.overlay) blitNamed(ctx, o.s, px(o.x), px(o.y), S, o.f);
+    for (const o of terrain.overlay) blitNamed(ctx, o.s, g.rect(o.x, o.y), o.f);
 
     // Obstacles are dressed from live state, not baked: a destroyed one is
-    // walkable, so it loses its canopy and its shadow and becomes rubble.
+    // walkable, so it loses its canopy and becomes rubble.
     const state = new Map();
     for (const o of board.obstacles) state.set(`${o.pos.x},${o.pos.y}`, o.state);
     const props = terrain.obstacles.map((p) => {
       const dead = state.get(`${p.x},${p.y}`) === 'destroyed';
-      return {
-        x: p.x, y: p.y, f: p.f,
-        stack: dead ? [p.rubble] : p.stack,
-        shadow: dead ? null : p.shadow,
-      };
+      return { x: p.x, y: p.y, f: p.f, stack: dead ? [p.rubble] : p.stack };
     });
 
-    // 4. shadows — under the props, over the ground.
-    for (const p of props) if (p.shadow) blitNamed(ctx, p.shadow, px(p.x), px(p.y), S, false);
+    // 4. shadows — LAST thing decided, first thing drawn. Which shadow a square
+    // gets depends on the sprite standing on it, so the set can't be worked out
+    // until every prop is placed; but it belongs under the decor, so once it's
+    // known it goes down before them. Baked into the ground, not laid over it.
+    const shadows = [];
+    for (const s of terrain.scatter) {
+      const sprite = SHADOW_FOR[s.s];
+      if (sprite) shadows.push({ x: s.x, y: s.y, sprite });
+    }
+    for (const p of props) {
+      const sprite = SHADOW_FOR[p.stack[0]];
+      if (sprite) shadows.push({ x: p.x, y: p.y, sprite });
+    }
+    bakeShadows(ctx, canvases.ground, shadows, g);
 
     // 5. decor — scatter, then the part of each prop that stands on its square.
-    for (const s of terrain.scatter) blitNamed(ctx, s.s, px(s.x), px(s.y), S, s.f);
-    for (const p of props) blitNamed(ctx, p.stack[0], px(p.x), px(p.y), S, p.f);
+    for (const s of terrain.scatter) blitNamed(ctx, s.s, g.rect(s.x, s.y), s.f);
+    for (const p of props) blitNamed(ctx, p.stack[0], g.rect(p.x, p.y), p.f);
 
     // Square lines close out the ground layer. This is a tactical grid before
     // it's a landscape — you have to be able to count squares at a glance — but
     // it's kept faint enough to read as ground markings rather than UI chrome.
-    drawGrid(ctx, w, h, S, cellPx);
+    drawGrid(ctx, g);
 
     // 6. above decor, on its own canvas above the tokens.
-    const top = prepare(canvases.canopy, w, h, cellPx, S);
+    const top = prepare(canvases.canopy, g, cellPx);
     const covered = new Set();
     // Sorted by row so a nearer tree overlaps a farther one, not the reverse.
     for (const p of [...props].sort((a, b) => a.y - b.y)) {
       for (let i = 1; i < p.stack.length; i++) {
-        blitNamed(top, p.stack[i], px(p.x), px(p.y - i), S, p.f);
+        blitNamed(top, p.stack[i], g.rect(p.x, p.y - i), p.f);
         covered.add(`${p.x},${p.y - i}`);
       }
     }
@@ -293,7 +407,8 @@
       top.fillStyle = 'rgba(0, 0, 0, 0.72)';
       for (const k of highlighted) {
         const [hx, hy] = k.split(',');
-        top.fillRect(px(+hx), px(+hy), TS * S, TS * S);
+        const r = g.rect(+hx, +hy);
+        top.fillRect(r.x, r.y, r.w, r.h);
       }
       top.globalCompositeOperation = 'source-over';
     }
@@ -312,7 +427,7 @@
       }
       if (!hidden) continue;
       const key = `${unit.pos.x},${unit.pos.y}`;
-      drawTokenRing(top, unit, unit.teamId === opts.playerTeamId, key === opts.selectedKey, S, cellPx);
+      drawTokenRing(top, unit, unit.teamId === opts.playerTeamId, key === opts.selectedKey, g);
     }
 
     return true;

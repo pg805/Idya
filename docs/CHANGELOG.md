@@ -20,6 +20,50 @@ work is weighed by whether it puts players in contact with each other.
 
 ### Combat boards are drawn with the pixel-art tileset
 
+**Everything is a 32px tile on one aligned grid** — terrain, decor and props
+alike, matching how the art is authored. Ground material lives on the grid's
+**corners**, so each tile is chosen by its own four corners and still draws
+aligned; a lone dirt corner is a rounded patch straddling four squares. Dirt is a
+hole worn in the grass layer, not a material painted on top.
+
+Three things were wrong on the way here and are worth remembering:
+
+- The first version put material on *squares* and offset the terrain grid by half
+  a tile. Same shapes, but the ground sat half a square out from the decor and
+  hung over the board's edges.
+- The ground canvas was at `z-index: -1`, which reads as "just below the cells"
+  and isn't — `#board` forms no stacking context, so it painted *behind* `#board`'s
+  own background. The board rendered as a flat dark fill with canopies floating on
+  it and no trunk bases. Now: `isolation: isolate`, ground first at z 0, canopy
+  last at 7, no negative indices.
+- The canvas backing store was a tidy multiple of 32 that CSS then scaled to fit,
+  which on a 125%-zoom Windows display landed on a ~1.07x rescale and turned
+  everything to mush. Now sized to the board's exact device-pixel footprint, with
+  square boundaries rounded so tiles share edges exactly.
+
+Also in this pass:
+
+- **Shadows are baked**, ported from the Asset Library's `bake-shadows.lua`: each
+  covered pixel is replaced with the palette entry one perceptual step below the
+  ground beneath it, so grass in shade stays grass and a shadow spanning grass and
+  dirt gets both halves right. Size is chosen from the sprite standing on the
+  square (xl tree, md sunflower, sm rose), which is why the pass comes last — it
+  can't be settled until every prop is placed. Scatter gets shadows now too.
+- **Dirt is a fraction of the board, not a fixed noise cutoff.** A board is only
+  ~13x11 corners, so a fixed cutoff swung wildly — the constant that gave one
+  board a few scuffs gave the next a clearing over a quarter of it. Cutting at a
+  quantile of the board's own values pins the amount (7–15%) and lets the noise
+  vary the shape.
+- `--cell-size` 48px, 64px at >=1400px viewport. 64 lands on a whole multiple of
+  32 device pixels at 1x and 2x, so pixels come out even.
+- Scatter no longer lands under the part of a tree that leans over from below.
+- `paintTerrain` is now verified headlessly (stub `Image` + a recording 2d
+  context, then map each draw back to a sprite name). Two of the bugs above were
+  geometry mistakes a five-line assertion would have caught.
+
+### How the tileset rendering started
+
+
 First step toward combat happening on real terrain. Cosmetic for now — the
 engine still sees empty squares and obstacles — but the data sits where the
 rules live, ready for terrain to start mattering.

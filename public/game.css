@@ -1,9 +1,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* 48px = the 32px tile art at 1.5x, or an exact 3x on a 2x display. Keeping it a
-   sensible ratio to the 32px tileset is what keeps the pixel art crisp — see the
-   scale note in terrain.js before changing it. */
+/* Square size drives how the 32px tile art lands on screen. terrain.js now sizes
+   its canvases to the board's exact device-pixel footprint, so nothing is ever
+   rescaled twice — but the art still looks best when a square works out to a
+   whole multiple of 32 device pixels. 64px does that on a 1x display (exact 2x)
+   and on a 2x one (exact 4x); 48px is the fallback where 64 would push the
+   battle screen wider than the viewport, and comes out sharp but with uneven
+   pixel widths. */
 :root { --cell-size: 48px; }
+@media (min-width: 1400px) { :root { --cell-size: 64px; } }
 
 body {
   background: var(--bg);

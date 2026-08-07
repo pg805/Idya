@@ -17,7 +17,9 @@
 
 import type { Obstacle, Pos } from './board.js';
 
-// 'g' = grass, 'd' = dirt. One char per square, one string per row.
+// 'g' = grass, 'd' = dirt. One char per grid CORNER, one string per row of
+// corners — so this array is (height + 1) rows of (width + 1) chars, not one
+// entry per square. See the note on `corners` in TerrainData.
 export type GroundRow = string;
 
 export interface TerrainProp {
@@ -35,7 +37,6 @@ export interface TerrainObstacleProp {
   x: number;
   y: number;
   stack: string[];
-  shadow: string | null;
   rubble: string;    // what's drawn once the obstacle is destroyed
   // Mirror the sprite horizontally. Cheap variety from a small sprite set — a
   // board of trees stops looking stamped. One flag for the WHOLE stack, not per
@@ -48,7 +49,15 @@ export interface TerrainData {
   seed: number;
   width: number;
   height: number;
-  ground: GroundRow[];
+  // Ground material lives on the grid's CORNERS, not on its squares. Every tile
+  // the renderer draws — terrain, decor, all of it — sits on the same aligned
+  // 32px grid; what varies per tile is which of its four corners are grass, and
+  // that picks the shape. So a lone dirt corner isn't a dirt square, it's a
+  // rounded patch straddling the four squares that meet there.
+  //
+  // (h + 1) rows of (w + 1) chars. corners[j][i] is the corner at the top-left
+  // of square (i, j); the last row/column close off the board's far edges.
+  corners: GroundRow[];
   overlay: TerrainProp[];    // grass tufts — the detail pass over the grass layer
   scatter: TerrainProp[];    // ground-level decor on walkable squares
   obstacles: TerrainObstacleProp[];
@@ -72,17 +81,23 @@ function pick<T>(r: () => number, xs: readonly T[]): T {
 
 // ---- ground -------------------------------------------------------------
 // These fights happen in a forest, so the board is grass and dirt is the
-// exception — bare earth showing through here and there, not terrain in its own
-// right. Value noise on a fine lattice with a low threshold gives exactly that:
-// only the deepest dips in the field become dirt, so patches come out small and
-// scattered (~8% of squares, most of them one or two squares across) instead of
-// as the big clearings a mid threshold produces.
+// exception — bare earth showing through, not terrain in its own right. Value
+// noise thresholded low turns only the dips in the field into dirt.
 //
-// Small is safe here because of the dual-grid autotiling: a lone dirt square
-// isn't drawn as a hard square of dirt, it's four corner tiles meeting, which
-// reads as a rounded scuff worn into the grass.
-const LATTICE = 1.4;             // squares per noise cell
-const DIRT_THRESHOLD = 0.18;     // noise BELOW this is dirt; everything else grass
+// The lattice is the knob that decides what dirt LOOKS like, and it's worth more
+// than the coverage number. Too fine and every dirt corner is isolated: a scatter
+// of identical round dots. Around 2 squares per noise cell, corners start coming
+// up dirt in short runs, which is what reads as a scuff or a worn trench.
+const LATTICE = 2.0;             // squares per noise cell
+
+// How much dirt, as a FRACTION of corners rather than a fixed noise cutoff. A
+// board is only ~13x11 corners, which is a handful of noise cells, so a fixed
+// cutoff swings wildly: the same constant that gave one board a few scuffs gave
+// the next a clearing covering a quarter of it. Taking the lowest N of the
+// board's own values pins the amount and lets the noise vary the shape, which is
+// the half worth varying. The range keeps some board-to-board spread.
+const DIRT_FRACTION_MIN = 0.07;
+const DIRT_FRACTION_MAX = 0.15;
 
 function smooth(t: number): number {
   return t * t * (3 - 2 * t);
@@ -148,6 +163,11 @@ function treeStack(r: () => number, headroom: number): string[] {
   return tall ? [TREE_BOTTOM, pick(r, TREE_MIDS), top] : [TREE_BOTTOM, top];
 }
 
+// Shadows are NOT chosen here. Each shadow sprite is drawn to fit a particular
+// piece of decor, so the size follows from which sprite ends up on the square —
+// which isn't settled until every prop, obstacle and scatter alike, is placed.
+// The renderer picks it from the sprite name (SHADOW_FOR in public/terrain.js).
+//
 // Forest floor: overwhelmingly trees, with the occasional bush or stump for
 // low cover. An obstacle with no headroom for a tree becomes a stump rather than
 // a bush — bushes are meant to stay rare, not to pile up along the top row.
@@ -160,12 +180,11 @@ function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
     // A tree that has nowhere to grow becomes a stump, NOT a bush — falling
     // through to the bush branch here would pile every top-row obstacle into
     // the one prop that's supposed to stay rare.
-    if (headroom < 1) return { ...at, stack: [TREE_STUMP], shadow: 'shadow_sm', rubble: 'dec_rock_01' };
-    const stack = treeStack(r, headroom);
-    return { ...at, stack, shadow: stack.length > 2 ? 'shadow_xl' : 'shadow_lg', rubble: TREE_STUMP };
+    if (headroom < 1) return { ...at, stack: [TREE_STUMP], rubble: 'dec_rock_01' };
+    return { ...at, stack: treeStack(r, headroom), rubble: TREE_STUMP };
   }
-  if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], shadow: 'shadow_md', rubble: 'dec_rock_01' };
-  return { ...at, stack: [TREE_STUMP], shadow: 'shadow_sm', rubble: 'dec_rock_01' };
+  if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], rubble: 'dec_rock_01' };
+  return { ...at, stack: [TREE_STUMP], rubble: 'dec_rock_01' };
 }
 
 // Build the cosmetic layers for a board of the given size and obstacle set.
@@ -182,24 +201,50 @@ export function generateTerrain(
 
   const blocked = new Set(obstacles.map(o => `${o.pos.x},${o.pos.y}`));
 
-  const ground: GroundRow[] = [];
-  for (let y = 0; y < height; y++) {
-    let row = '';
-    for (let x = 0; x < width; x++) row += noise(x, y) < DIRT_THRESHOLD ? 'd' : 'g';
-    ground.push(row);
+  // One value per CORNER, so the lattice is one wider and one taller than the
+  // board. Corner (i, j) sits at the top-left of square (i, j).
+  const field: number[][] = [];
+  for (let j = 0; j <= height; j++) {
+    const row: number[] = [];
+    for (let i = 0; i <= width; i++) row.push(noise(i, j));
+    field.push(row);
+  }
+
+  // Cut at the chosen quantile of this board's own values, so the amount of dirt
+  // is what we asked for and the noise only decides where it goes.
+  const flat = field.flat().slice().sort((a, b) => a - b);
+  const fraction = DIRT_FRACTION_MIN + r() * (DIRT_FRACTION_MAX - DIRT_FRACTION_MIN);
+  const cut = flat[Math.max(0, Math.floor(flat.length * fraction) - 1)];
+
+  const corners: GroundRow[] = field.map(row => row.map(v => (v <= cut ? 'd' : 'g')).join(''));
+
+  // Obstacles are dressed BEFORE the loose props, because a tree occupies more
+  // squares than the one it blocks: its trunk and canopy are drawn over the open
+  // squares above it. Scatter has to know about those or it puts a flower where a
+  // trunk will land on top of it.
+  const dressed = obstacles.map(o => dressObstacle(r, o.pos));
+  const underProp = new Set<string>();
+  for (const p of dressed) {
+    for (let i = 1; i < p.stack.length; i++) underProp.add(`${p.x},${p.y - i}`);
   }
 
   const overlay: TerrainProp[] = [];
   const scatter: TerrainProp[] = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const isGrass = ground[y][x] === 'g';
+      // A square's own look comes from its four corners; for deciding what to
+      // scatter on it, "is this grassy" is the majority of those four.
+      const grassCorners = (corners[y][x] === 'g' ? 1 : 0) + (corners[y][x + 1] === 'g' ? 1 : 0)
+                         + (corners[y + 1][x] === 'g' ? 1 : 0) + (corners[y + 1][x + 1] === 'g' ? 1 : 0);
+      const isGrass = grassCorners >= 3;
       if (isGrass && r() < TUFT_CHANCE) {
         overlay.push({ x, y, s: pick(r, GRASS_TUFTS), f: r() < 0.5 });
       }
       // Props only go on squares a unit can stand on — an obstacle square has
-      // its own dressing and stacking two props there would read as one prop.
-      if (blocked.has(`${x},${y}`)) continue;
+      // its own dressing and stacking two props there would read as one prop —
+      // and not under the part of a tree that leans over from below.
+      const k = `${x},${y}`;
+      if (blocked.has(k) || underProp.has(k)) continue;
       if (r() < SCATTER_CHANCE) {
         scatter.push({ x, y, s: pick(r, isGrass ? GRASS_SCATTER : DIRT_SCATTER), f: r() < 0.5 });
       }
@@ -210,9 +255,9 @@ export function generateTerrain(
     seed,
     width,
     height,
-    ground,
+    corners,
     overlay,
     scatter,
-    obstacles: obstacles.map(o => dressObstacle(r, o.pos)),
+    obstacles: dressed,
   };
 }
