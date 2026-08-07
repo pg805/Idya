@@ -24,26 +24,47 @@ First step toward combat happening on real terrain. Cosmetic for now — the
 engine still sees empty squares and obstacles — but the data sits where the
 rules live, ready for terrain to start mattering.
 
-- **Six layers on one canvas behind the grid**: dirt → grass → grass overlay →
-  shadows → decor → above decor. The `.cell` divs are unchanged and become
-  transparent windows onto it, so no highlight/token/targeting code had to learn
-  terrain exists. Everything stays *below* the cells on purpose — a canopy covers
-  walkable squares, and the unit and highlight there must stay readable.
+- **Six layers across two canvases that sandwich the grid**: dirt → grass →
+  grass overlay → shadows → decor on `#board-terrain` below the cells, above
+  decor on `#board-canopy` above the tokens. The `.cell` divs are unchanged and
+  become transparent windows onto the ground, so no highlight/token/targeting
+  code had to learn terrain exists.
+- **A unit under a tree is behind the leaves**, which is what's physically true —
+  so two rules keep it readable. The unit's **ring is redrawn on top** of the
+  canopy in its own colour (only for units the leaves actually reach; a second
+  circle over a token in the open would look doubled). And **leaves lose to the
+  UI**: squares the player can act on this turn get the canopy thinned out over
+  them, so a move or target highlight is never buried under a tree.
+- **Every prop can be drawn mirrored** — cheap variety from a small sprite set,
+  so a board of trees stops looking stamped. One flag for the whole stack, not
+  per sprite: flipping a trunk segment independently of the one below it would
+  break the tree apart down the middle.
 - **Dual-grid autotiling.** The tileset's six shapes per material
   (full/empty/edge/outer/inner/diagonal) × 4 rotations cover all 16 corner
   masks, with the drawing grid offset half a tile from the board grid. Ground
   boundaries curve through squares instead of stepping along their edges.
 - **Obstacles are trees**, trunk base on the blocked square, canopy leaning up
-  into the open squares above. An obstacle too near the top edge falls back to a
-  bush, boulder or stump so nothing clips off-board. A destroyed obstacle loses
-  its canopy and shadow and becomes rubble — picked from live state, so terrain
-  never regenerates mid-battle.
+  into the open squares above. These are forests, so the mix is ~80% tree, ~13%
+  stump, ~7% bush. The two tops and two middles are interchangeable parts rather
+  than fixed builds — any top on any middle, the leafy top on 90% of trees, the
+  capped bare one on the rest; height is 2 or 3 squares. An obstacle too near the
+  top edge falls back to something that fits, and a tree with no headroom becomes
+  a *stump* rather than a bush — otherwise every top-row obstacle piles into the
+  one prop that's meant to stay rare. A destroyed obstacle loses its canopy and
+  shadow and becomes rubble, picked from live state, so terrain never
+  regenerates mid-battle.
 - **Bushes are obstacles, not scatter.** Tried as scatter first and it read
   badly: a bush and a canopy are the same silhouette, so a scattered bush looked
   like a canopy with no trunk and you couldn't tell walkable from blocked. Now
-  the rule is clean — any big leafy mass is blocked.
-- Ground is value noise on a coarse lattice (3.2 squares). Per-square noise
-  autotiles into a checkerboard of transition tiles and reads as static.
+  the rule is clean — any big leafy mass is blocked. Scatter is small ground
+  clutter only: flowers and pebbles. The loose grass blades are out (the tuft
+  overlay already does that job) and the big boulder is parked.
+- **The board is grass; dirt is the exception.** A fine noise lattice with a low
+  threshold turns only the deepest dips into dirt — ~8% coverage in patches
+  mostly one or two squares across, rather than the big clearings a mid
+  threshold gives. Small patches work *because* of the dual-grid: a lone dirt
+  square is four corner tiles meeting, which reads as a scuff worn into the
+  grass, not a hard square.
 - Generated **server-side** (`src/combat/terrain.ts`) so every client and
   reconnect sees the same board; lazy on `Board.terrain` because the balance sims
   build tens of thousands of boards and never draw one. Stripped from the dev AI

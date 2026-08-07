@@ -224,17 +224,26 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   gap: 0;
   background: #1b2417;   /* the strip under the padding — dark earth, not UI navy */
 }
-/* z-index:-1 puts the canvas above #board's own background but below every cell,
-   without making the cells into stacking contexts — which matters, because a 2×2
-   token relies on its anchor cell's z-index to spill over its neighbours. */
-#board-terrain {
+/* Two canvases sandwich the grid.
+
+   The ground layer is z-index:-1 — above #board's own background but below every
+   cell, and without making the cells into stacking contexts, which matters
+   because a 2×2 token relies on its anchor cell's z-index to spill over its
+   neighbours.
+
+   The canopy layer is above the tokens (z-index 4, or 6 for a 2×2) so a unit
+   standing under a tree is genuinely behind the leaves. terrain.js redraws that
+   unit's ring on top of it, and thins the leaves over any square the player can
+   act on, so nothing that matters ends up buried. */
+#board-terrain, #board-canopy {
   position: absolute;
   top: 8px; left: 8px;   /* clears #board's padding */
-  z-index: -1;
   image-rendering: pixelated;
   border-radius: 3px;
   pointer-events: none;
 }
+#board-terrain { z-index: -1; }
+#board-canopy  { z-index: 7; }
 /* No box-shadow here: the tile-block/buff/hazard rules and .area-footprint all
    use inset shadows, and an ID-specificity rule would wipe them out. */
 #board.has-terrain .cell { background: transparent; border-radius: 0; }

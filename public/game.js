@@ -500,7 +500,11 @@ function renderBoard() {
   const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'), 10) || 72;
   boardEl.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
   boardEl.innerHTML = '';
-  renderTerrain(cellSize);
+
+  // Squares the player can act on this turn. Collected as the cells are built
+  // and handed to the terrain painter, which thins the tree canopy over them so
+  // a highlight is never buried under leaves (see renderTerrain).
+  const actionable = new Set();
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
   // Every cell a unit covers maps to that unit (so a 2×2 body suppresses path /
@@ -583,14 +587,18 @@ function renderBoard() {
 
       if (k === targetTileKey) {
         cell.classList.add('target-selected');
+        actionable.add(k);
         if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (targetableTiles.has(k)) {
         cell.classList.add('target-valid');
+        actionable.add(k);
         if (ui.action?.moveTo) cell.classList.add('target-blink');
       } else if (k === moveTargetKey) {
         cell.classList.add('move-target');
+        actionable.add(k);
       } else if (ui.pathTiles.has(k) && !solidObstacle && !combatant) {
         cell.classList.add('path-tile');
+        actionable.add(k);
       } else if (ui.reachable.has(k) && ui.phase === 'selecting_move' && !solidObstacle) {
         // Keep reachable highlights up through the whole selecting_move phase
         // (used to clear once moveTo was set) so arrow-key users can see how
@@ -598,37 +606,54 @@ function renderBoard() {
         // reachable tile = a "contested" bet (it holds the square but may move);
         // mark it distinctly so the player knows the move isn't guaranteed.
         cell.classList.add(combatant ? 'reachable-contested' : 'reachable');
+        actionable.add(k);
       }
 
       // Overlay: any square the lined-up AOE will hit (coexists with other marks).
-      if (areaFootprint.has(k)) cell.classList.add('area-footprint');
+      if (areaFootprint.has(k)) { cell.classList.add('area-footprint'); actionable.add(k); }
 
       cell.addEventListener('click', () => onCellClick(x, y));
       boardEl.appendChild(cell);
     }
   }
+
+  renderTerrain(cellSize, actionable, selectedKey);
 }
 
-// The pixel-art ground, painted onto a canvas behind the grid (terrain.js). The
-// `.cell` divs stay exactly as they were — they just become transparent windows
-// onto it, which is why the highlight/token code above doesn't need to know
-// terrain exists.
+// The pixel-art terrain (terrain.js), painted onto two canvases that sandwich
+// the grid. The `.cell` divs stay exactly as they were — they just become
+// transparent windows onto the ground — which is why the highlight/token code
+// above doesn't need to know terrain exists.
+//
+//   #board-terrain  below the cells: ground, decor, everything at floor level.
+//   #board-canopy   above the tokens: the parts of a tree that lean into the
+//                   squares above its trunk, so a unit standing in a tree is
+//                   actually behind the leaves. The painter draws that unit's
+//                   ring back on top so it's never lost, and thins the canopy
+//                   over any square the player can act on.
 //
 // Boards without terrain data (an older session, a hand-built one) simply don't
 // get the class, and the plain coloured-cell board renders as before.
-let terrainCanvas = null;
-function renderTerrain(cellSize) {
+let terrainCanvases = null;
+function renderTerrain(cellSize, actionable, selectedKey) {
   if (typeof paintTerrain !== 'function') return;
-  if (!terrainCanvas) {
-    terrainCanvas = document.createElement('canvas');
-    terrainCanvas.id = 'board-terrain';
+  if (!terrainCanvases) {
+    const make = (id) => { const c = document.createElement('canvas'); c.id = id; return c; };
+    terrainCanvases = { ground: make('board-terrain'), canopy: make('board-canopy') };
   }
-  // renderBoard() clears the grid on every update, so the canvas is re-attached
-  // rather than assumed to still be there.
-  boardEl.appendChild(terrainCanvas);
-  const painted = paintTerrain(terrainCanvas, state.board, cellSize, () => renderBoard());
+  // renderBoard() clears the grid on every update, so the canvases are
+  // re-attached rather than assumed to still be there.
+  boardEl.appendChild(terrainCanvases.ground);
+  boardEl.appendChild(terrainCanvases.canopy);
+  const painted = paintTerrain(terrainCanvases, state.board, cellSize, {
+    combatants: state.combatants,
+    playerTeamId,
+    selectedKey,
+    highlighted: actionable,
+    onReady: () => renderBoard(),
+  });
   boardEl.classList.toggle('has-terrain', painted);
-  if (!painted) terrainCanvas.remove();
+  if (!painted) { terrainCanvases.ground.remove(); terrainCanvases.canopy.remove(); }
 }
 
 // A stat { value, mods } → plain effect text + an outline-pill box per modifier.

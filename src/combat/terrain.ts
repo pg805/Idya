@@ -24,6 +24,7 @@ export interface TerrainProp {
   x: number;
   y: number;
   s: string;         // sprite name
+  f: boolean;        // draw mirrored — see the flip note on TerrainObstacleProp
 }
 
 // An obstacle's dressing. `stack` is bottom-first: stack[0] sits on the blocked
@@ -36,6 +37,11 @@ export interface TerrainObstacleProp {
   stack: string[];
   shadow: string | null;
   rubble: string;    // what's drawn once the obstacle is destroyed
+  // Mirror the sprite horizontally. Cheap variety from a small sprite set — a
+  // board of trees stops looking stamped. One flag for the WHOLE stack, not per
+  // sprite: flipping a trunk segment independently of the one below it would
+  // break the tree apart down the middle.
+  f: boolean;
 }
 
 export interface TerrainData {
@@ -65,12 +71,18 @@ function pick<T>(r: () => number, xs: readonly T[]): T {
 }
 
 // ---- ground -------------------------------------------------------------
-// Value noise on a coarse lattice, bilinearly interpolated. The lattice is
-// deliberately larger than one square (LATTICE below) so dirt comes out as
-// patches and clearings rather than per-square speckle — speckle would autotile
-// into a checkerboard of transition tiles and read as noise, not ground.
-const LATTICE = 3.2;              // squares per noise cell
-const GRASS_THRESHOLD = 0.42;     // noise above this is grass; ~75-80% of the board
+// These fights happen in a forest, so the board is grass and dirt is the
+// exception — bare earth showing through here and there, not terrain in its own
+// right. Value noise on a fine lattice with a low threshold gives exactly that:
+// only the deepest dips in the field become dirt, so patches come out small and
+// scattered (~8% of squares, most of them one or two squares across) instead of
+// as the big clearings a mid threshold produces.
+//
+// Small is safe here because of the dual-grid autotiling: a lone dirt square
+// isn't drawn as a hard square of dirt, it's four corner tiles meeting, which
+// reads as a rounded scuff worn into the grass.
+const LATTICE = 1.4;             // squares per noise cell
+const DIRT_THRESHOLD = 0.18;     // noise BELOW this is dirt; everything else grass
 
 function smooth(t: number): number {
   return t * t * (3 - 2 * t);
@@ -97,28 +109,29 @@ function makeNoise(r: () => number, w: number, h: number): (x: number, y: number
 const TREE_BOTTOM = 'dec_tree_01_bottom';
 const TREE_STUMP  = 'dec_tree_01_stump';
 
-// Two tree builds share the one trunk base (see build-tilesets.lua): variant 01
-// is leafy, variant 02 is a bare pole. Both read as "you can't walk here".
-const LEAFY_MID = 'dec_tree_01_middle_01';
-const LEAFY_TOP = 'dec_tree_01_top_01';
-const BARE_MID  = 'dec_tree_01_middle_02';
-const BARE_TOP  = 'dec_tree_01_top_02';
+// The two tops and the two middles are interchangeable parts, not two fixed tree
+// builds — any top sits on any middle. Top 01 is the leafy canopy and carries
+// most trees; top 02 (the capped bare trunk) is the occasional dead one.
+const TREE_TOP_MAIN = 'dec_tree_01_top_01';
+const TREE_TOP_ALT  = 'dec_tree_01_top_02';
+const TREE_MIDS = ['dec_tree_01_middle_01', 'dec_tree_01_middle_02'] as const;
+const TREE_TOP_ALT_CHANCE = 0.10;
+const TREE_TALL_CHANCE    = 0.55;   // 3 squares tall vs 2, where there's headroom
 
-const BUSHES   = ['dec_bush_01', 'dec_bush_02', 'dec_bush_03', 'dec_bush_04'] as const;
-const BOULDERS = ['dec_rock_01', 'dec_rock_02'] as const;
+const BUSHES = ['dec_bush_01', 'dec_bush_02', 'dec_bush_03', 'dec_bush_04'] as const;
 
-// Scatter is deliberately all SMALL props. Bushes are the obvious candidates for
-// ground clutter and were the first thing tried here — but a bush and a tree's
-// canopy are near-identical silhouettes, so a scattered bush reads as a canopy
-// with a missing trunk and the player can't tell walkable from blocked at a
-// glance. Bushes are obstacles instead (see dressObstacle), which makes the rule
-// dead simple: any big leafy mass is a square you can't enter.
-const GRASS_SCATTER = [
-  'dec_flower_01', 'dec_flower_02', 'dec_grass_01', 'dec_grass_02',
-  'dec_rock_01', 'dec_rock_02', 'dec_reed_01',
-] as const;
-
-const DIRT_SCATTER = ['dec_rock_01', 'dec_rock_02', 'dec_grass_01'] as const;
+// Scatter is small ground clutter only — flowers and pebbles. Two things are
+// deliberately absent:
+//
+// Bushes, because a bush and a tree's canopy are near-identical silhouettes, so
+// a scattered bush reads as a canopy with a missing trunk and the player can't
+// tell walkable from blocked at a glance. They're obstacles instead, which keeps
+// the rule dead simple: any big leafy mass is a square you can't enter.
+//
+// The dec_grass_* blades, because the ov_grass_* tufts already do that job on
+// the overlay layer and two kinds of loose greenery just muddies it.
+const GRASS_SCATTER = ['dec_flower_01', 'dec_flower_02', 'dec_rock_01'] as const;
+const DIRT_SCATTER  = ['dec_rock_01'] as const;
 
 const GRASS_TUFTS = ['ov_grass_01', 'ov_grass_02', 'ov_grass_03'] as const;
 
@@ -126,25 +139,32 @@ const SCATTER_CHANCE = 0.10;   // walkable squares that get a small prop
 const TUFT_CHANCE    = 0.30;   // grass squares that get a tuft overlay
 
 // A tree is drawn taller than the square it blocks — the trunk base sits on the
-// blocked square and the canopy leans up into the squares above. Those squares
-// are open, so the only real constraint is the top edge of the board: a tree on
-// row 0 has nowhere to put its canopy. Rather than let it clip, an obstacle that
-// can't fit its height falls back to something one square tall, which
-// incidentally lines the board's top row with bushes, boulders and stumps.
+// blocked square and the rest leans up into the squares above. Those squares are
+// open, so the only real constraint is the top edge of the board: a tree on row 0
+// has nowhere to put its canopy, and one on row 1 only has room to be short.
+function treeStack(r: () => number, headroom: number): string[] {
+  const top = r() < TREE_TOP_ALT_CHANCE ? TREE_TOP_ALT : TREE_TOP_MAIN;
+  const tall = headroom >= 2 && r() < TREE_TALL_CHANCE;
+  return tall ? [TREE_BOTTOM, pick(r, TREE_MIDS), top] : [TREE_BOTTOM, top];
+}
+
+// Forest floor: overwhelmingly trees, with the occasional bush or stump for
+// low cover. An obstacle with no headroom for a tree becomes a stump rather than
+// a bush — bushes are meant to stay rare, not to pile up along the top row.
 function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
   const headroom = pos.y;
-  const at = { x: pos.x, y: pos.y };
+  const at = { x: pos.x, y: pos.y, f: r() < 0.5 };
   const roll = r();
 
-  if (roll < 0.62 && headroom >= 1) {
-    const bare = r() < 0.22;
-    const stack = headroom >= 2
-      ? [TREE_BOTTOM, bare ? BARE_MID : LEAFY_MID, bare ? BARE_TOP : LEAFY_TOP]
-      : [TREE_BOTTOM, bare ? BARE_TOP : LEAFY_TOP];
-    return { ...at, stack, shadow: headroom >= 2 ? 'shadow_xl' : 'shadow_lg', rubble: TREE_STUMP };
+  if (roll < 0.88) {
+    // A tree that has nowhere to grow becomes a stump, NOT a bush — falling
+    // through to the bush branch here would pile every top-row obstacle into
+    // the one prop that's supposed to stay rare.
+    if (headroom < 1) return { ...at, stack: [TREE_STUMP], shadow: 'shadow_sm', rubble: 'dec_rock_01' };
+    const stack = treeStack(r, headroom);
+    return { ...at, stack, shadow: stack.length > 2 ? 'shadow_xl' : 'shadow_lg', rubble: TREE_STUMP };
   }
-  if (roll < 0.80) return { ...at, stack: [pick(r, BUSHES)],   shadow: 'shadow_md', rubble: 'dec_grass_02' };
-  if (roll < 0.92) return { ...at, stack: [pick(r, BOULDERS)], shadow: 'shadow_md', rubble: 'dec_rock_01' };
+  if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], shadow: 'shadow_md', rubble: 'dec_rock_01' };
   return { ...at, stack: [TREE_STUMP], shadow: 'shadow_sm', rubble: 'dec_rock_01' };
 }
 
@@ -165,7 +185,7 @@ export function generateTerrain(
   const ground: GroundRow[] = [];
   for (let y = 0; y < height; y++) {
     let row = '';
-    for (let x = 0; x < width; x++) row += noise(x, y) >= GRASS_THRESHOLD ? 'g' : 'd';
+    for (let x = 0; x < width; x++) row += noise(x, y) < DIRT_THRESHOLD ? 'd' : 'g';
     ground.push(row);
   }
 
@@ -174,12 +194,14 @@ export function generateTerrain(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const isGrass = ground[y][x] === 'g';
-      if (isGrass && r() < TUFT_CHANCE) overlay.push({ x, y, s: pick(r, GRASS_TUFTS) });
+      if (isGrass && r() < TUFT_CHANCE) {
+        overlay.push({ x, y, s: pick(r, GRASS_TUFTS), f: r() < 0.5 });
+      }
       // Props only go on squares a unit can stand on — an obstacle square has
       // its own dressing and stacking two props there would read as one prop.
       if (blocked.has(`${x},${y}`)) continue;
       if (r() < SCATTER_CHANCE) {
-        scatter.push({ x, y, s: pick(r, isGrass ? GRASS_SCATTER : DIRT_SCATTER) });
+        scatter.push({ x, y, s: pick(r, isGrass ? GRASS_SCATTER : DIRT_SCATTER), f: r() < 0.5 });
       }
     }
   }

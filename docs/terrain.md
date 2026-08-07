@@ -12,19 +12,34 @@ Authored as, and drawn as, six passes:
 | # | Layer | What's in it |
 |---|---|---|
 | 1 | dirt | flat fill of `ter_dirt_full` — the base everything sits on |
-| 2 | grass | `ter_grass_*` autotiled over the dirt, so dirt shows through as clearings |
+| 2 | grass | `ter_grass_*` autotiled over the dirt, so dirt shows through as bare patches |
 | 3 | grass overlay | `ov_grass_*` tufts breaking up the flat green |
 | 4 | shadows | `shadow_sm/md/lg/xl` under each prop |
-| 5 | decor | scatter (flowers, rocks, reeds) + the square-level part of each obstacle |
+| 5 | decor | scatter (flowers, pebbles) + the square-level part of each obstacle |
 | 6 | above decor | trunks and canopies leaning up into the squares above |
 
-All six go onto **one canvas behind the DOM grid**. The `.cell` divs are
-unchanged — they just become transparent windows onto it — which is why none of
-the highlight/token/targeting code had to learn that terrain exists.
+They go onto **two canvases that sandwich the DOM grid**. The `.cell` divs are
+unchanged — they just become transparent windows onto the ground — which is why
+none of the highlight/token/targeting code had to learn that terrain exists.
 
-Everything is below the cells in z-order on purpose. A tree's canopy covers
-squares that are *walkable*, so a unit standing under a tree, and the move or
-target highlight on its square, both have to stay readable through the leaves.
+| Canvas | z | Holds |
+|---|---|---|
+| `#board-terrain` | below the cells | layers 1–5, everything at floor level |
+| `#board-canopy` | above the tokens | layer 6, the parts of a tree that lean upward |
+
+Layer 6 is above the tokens because that's what's physically true: a unit
+standing under a tree is *behind* the leaves. Two things keep that from costing
+readability, both handled in `paintTerrain`:
+
+- **The unit's ring is redrawn on top of the canopy** (`drawTokenRing`), in the
+  same colour as its CSS border, with a dark ring outside it for contrast. The
+  body of the token can be lost in the foliage; where it *is* never can. Only
+  units the leaves actually reach get one — a second circle on top of a token in
+  the open would just look doubled.
+- **Leaves lose to the UI.** Squares the player can act on this turn get the
+  canopy thinned out over them (`destination-out` at 0.72), so a move or target
+  highlight is never buried under a tree it happens to sit beneath. `game.js`
+  collects those squares while it builds the cells and passes them down.
 
 ## Dual-grid autotiling
 
@@ -60,18 +75,35 @@ stacks upward into the open squares above it (`stack[i]` is drawn at `y - i`).
 Those squares stay walkable; only the trunk square blocks.
 
 The one constraint is the top edge — a tree on row 0 has nowhere to put its
-canopy. Rather than clip it, an obstacle that can't fit its height falls back to
-something one square tall, which incidentally lines the board's top row with
-bushes, boulders and stumps.
+canopy, and one on row 1 only has room to be short. Rather than clip anything, an
+obstacle that can't fit its height falls back to something that does.
 
-Obstacle roll: ~62% tree (3 squares tall with headroom, else 2), 18% bush,
-12% boulder, 8% stump. Trees come in a leafy and a bare-pole variant.
+These are forests, so obstacles are overwhelmingly trees: **~80% tree, ~13%
+stump, ~7% bush**, no boulders. A tree with no headroom becomes a *stump*, not a
+bush — falling through to the bush branch there would pile every top-row
+obstacle into the one prop that's meant to stay rare.
+
+The two tops and the two middles are **interchangeable parts, not two fixed tree
+builds** — any top sits on any middle. Top 01 (the leafy canopy) carries 90% of
+trees; top 02 (the capped bare trunk) is the occasional dead one. Height is 2 or
+3 squares (~55% tall where there's room), and a 3-tall tree picks either middle
+50/50.
+
+Every prop also carries a **horizontal flip flag** — cheap variety from a small
+sprite set, so a board of trees stops looking stamped. It's one flag for the
+whole stack, not per sprite: flipping a trunk segment independently of the one
+below it would break the tree apart down the middle.
 
 **Bushes are obstacles, not scatter.** They were scatter first, and it read
 badly: a bush and a tree canopy are near-identical silhouettes, so a scattered
 bush looked like a canopy with a missing trunk and you couldn't tell walkable
 from blocked at a glance. Making them obstacles gives one clean rule — *any big
-leafy mass is a square you can't enter*. Scatter is small props only.
+leafy mass is a square you can't enter*.
+
+Scatter is therefore small ground clutter only: **flowers and pebbles**. The
+`dec_grass_*` blades are deliberately out too — the `ov_grass_*` tufts already do
+that job on the overlay layer, and two kinds of loose greenery just muddies it.
+`dec_rock_02` (the big boulder) is parked; `dec_rock_01` is the pebbles.
 
 A **destroyed** obstacle loses its canopy and shadow and becomes rubble (a stump
 for a tree). That's picked client-side from live obstacle state, so the terrain
@@ -91,9 +123,18 @@ board, and so the data already sits where the rules live for when terrain starts
 mattering. It's lazy (`Board.terrain` builds on first use) because the balance
 sims spin up tens of thousands of boards and never draw one.
 
-The ground mask is value noise on a coarse lattice (`LATTICE = 3.2` squares).
-The lattice is deliberately bigger than one square: per-square noise autotiles
-into a checkerboard of transition tiles and reads as static, not ground.
+The ground mask is value noise, and the constants matter more than they look.
+These fights happen in a **forest**, so the board is grass and dirt is the
+exception — bare earth showing through, not terrain in its own right. A fine
+lattice (`LATTICE = 1.4` squares) with a low threshold (`DIRT_THRESHOLD = 0.18`)
+turns only the deepest dips in the field into dirt, giving ~8% coverage in small
+scattered patches, most of them one or two squares across. A mid threshold on a
+coarse lattice — which is where this started — produces big clearings instead,
+and the board stops reading as forest.
+
+Small patches are safe here *because* of the dual-grid autotiling: a lone dirt
+square isn't drawn as a hard square of dirt, it's four corner tiles meeting,
+which reads as a rounded scuff worn into the grass.
 
 ## Scale
 
@@ -106,6 +147,7 @@ Keep `--cell-size` a sensible ratio to 32 if you change it.
 
 The sheets carry more than this pass draws: dirt roads (both an area blend and a
 path network), stone, sand, water, deep water and foam; fences, buildings, a
-well, a chest, campfires, logs. Roads and water are the obvious next step —
+well, a chest, campfires, logs, and the `dec_rock_02` boulder (parked — it read
+too heavy next to the pebbles). Roads and water are the obvious next step —
 water especially, since impassable terrain is the first thing that would make
 the ground matter to the rules rather than just to the eye.
