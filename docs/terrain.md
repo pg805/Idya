@@ -27,6 +27,20 @@ none of the highlight/token/targeting code had to learn that terrain exists.
 | `#board-terrain` | below the cells | layers 1–5, everything at floor level |
 | `#board-canopy` | above the tokens | layer 6, the parts of a tree that lean upward |
 
+The stacking is load-bearing and easy to get wrong — it was, once. `#board-terrain`
+is the **first child** at `z-index: 0`: it shares a paint step with the cells
+(both positioned, z-index 0/auto), so DOM order alone is what puts it underneath
+them. `#board-canopy` is the **last child** at `z-index: 7`, above `.combatant`
+(4) and `.cell.big-anchor` (6). `#board.has-terrain` carries `isolation: isolate`
+so all of that resolves locally.
+
+It first shipped with the ground layer at `z-index: -1`, which reads as "just
+below" and is not. `#board` is `position: relative` with `z-index: auto`, so it
+forms **no stacking context** — the negative index resolved against an ancestor
+and the canvas painted *behind* `#board`'s own background. The board came out as
+a flat dark fill with tree canopies floating on it and no trunk bases, since
+those live on the hidden layer. Don't reintroduce a negative z-index here.
+
 Layer 6 is above the tokens because that's what's physically true: a unit
 standing under a tree is *behind* the leaves. Two things keep that from costing
 readability, both handled in `paintTerrain`:
@@ -93,6 +107,13 @@ Every prop also carries a **horizontal flip flag** — cheap variety from a smal
 sprite set, so a board of trees stops looking stamped. It's one flag for the
 whole stack, not per sprite: flipping a trunk segment independently of the one
 below it would break the tree apart down the middle.
+
+The flip carries its weight because the art is asymmetric: mirroring changes
+33% of the trunk base's opaque pixels, 60% of `middle_02` (the branch), ~25% of
+the canopy and the bushes, and 100% of the small stuff (flowers, pebbles,
+tufts). Most of that lives on the **ground** layer, so if flips ever look like
+they're doing nothing, suspect that layer isn't drawing before suspecting the
+flag.
 
 **Bushes are obstacles, not scatter.** They were scatter first, and it read
 badly: a bush and a tree canopy are near-identical silhouettes, so a scattered

@@ -642,8 +642,11 @@ function renderTerrain(cellSize, actionable, selectedKey) {
     terrainCanvases = { ground: make('board-terrain'), canopy: make('board-canopy') };
   }
   // renderBoard() clears the grid on every update, so the canvases are
-  // re-attached rather than assumed to still be there.
-  boardEl.appendChild(terrainCanvases.ground);
+  // re-attached rather than assumed to still be there. Order matters and is the
+  // only thing keeping the ground under the cells: it shares a paint step with
+  // them (both positioned, z-index 0/auto), so being the FIRST child is what
+  // puts it behind. The canopy goes last and wins on z-index. See game.css.
+  boardEl.insertBefore(terrainCanvases.ground, boardEl.firstChild);
   boardEl.appendChild(terrainCanvases.canopy);
   const painted = paintTerrain(terrainCanvases, state.board, cellSize, {
     combatants: state.combatants,

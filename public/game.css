@@ -221,20 +221,29 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    coloured-cell look above, unchanged. */
 #board.has-terrain {
   position: relative;
+  isolation: isolate;    /* make #board a stacking context so the layering below
+                            is resolved locally and can't be reordered by an
+                            ancestor. Without it, #board is position:relative +
+                            z-index:auto, which is NOT a stacking context. */
   gap: 0;
   background: #1b2417;   /* the strip under the padding — dark earth, not UI navy */
 }
-/* Two canvases sandwich the grid.
+/* Two canvases sandwich the grid. The order is load-bearing, so it's spelled out:
 
-   The ground layer is z-index:-1 — above #board's own background but below every
-   cell, and without making the cells into stacking contexts, which matters
-   because a 2×2 token relies on its anchor cell's z-index to spill over its
-   neighbours.
+     #board background          the padding strip
+     #board-terrain   z 0       FIRST child — same paint step as the cells, so
+                                DOM order alone puts it underneath them
+     .cell            z auto    grid + highlights
+     .combatant       z 4       tokens
+     .cell.big-anchor z 6       a 2×2 token's cell, lifted to spill over neighbours
+     #board-canopy    z 7       LAST child — leaves, above the tokens
 
-   The canopy layer is above the tokens (z-index 4, or 6 for a 2×2) so a unit
-   standing under a tree is genuinely behind the leaves. terrain.js redraws that
-   unit's ring on top of it, and thins the leaves over any square the player can
-   act on, so nothing that matters ends up buried. */
+   The ground layer used to be z-index:-1, which looked right and was wrong:
+   #board is position:relative with z-index:auto and so forms NO stacking
+   context, meaning the negative index resolved against an ancestor and the
+   canvas painted *behind* #board's own background. The whole board rendered as
+   a flat dark fill with only the canopy floating on it. Hence `isolation:
+   isolate` above, and only non-negative indices here. */
 #board-terrain, #board-canopy {
   position: absolute;
   top: 8px; left: 8px;   /* clears #board's padding */
@@ -242,7 +251,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   border-radius: 3px;
   pointer-events: none;
 }
-#board-terrain { z-index: -1; }
+#board-terrain { z-index: 0; }
 #board-canopy  { z-index: 7; }
 /* No box-shadow here: the tile-block/buff/hazard rules and .area-footprint all
    use inset shadows, and an ID-specificity rule would wipe them out. */
