@@ -141,7 +141,7 @@ board.
 The two tops and the two middles are **interchangeable parts, not two fixed tree
 builds** — any top sits on any middle. Top 01 (the leafy canopy) carries 90% of
 trees; top 02 (the capped bare trunk) is the occasional dead one. Height is 2 or
-3 squares (~55% tall where there's room), and a 3-tall tree picks either middle
+3 squares (~55% tall), and a 3-tall tree picks either middle
 50/50.
 
 Every prop carries a **horizontal flip flag** — cheap variety from a small sprite
