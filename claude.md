@@ -112,7 +112,7 @@ Generated server-side (`src/combat/terrain.ts`, lazily via `Board.terrain`), pai
 ## Scripts
 
 ```bash
-npm start              # Run the web server (from lib/)
+npm start              # DON'T (see below) — boots the real bot against the shared DB
 npm run build          # Compile TypeScript
 npm run simulate       # Monte-Carlo weapon-balance sim
 npm run lint           # Fix linting issues (WARNING: reformats the whole repo)
@@ -120,6 +120,33 @@ npm run tiles:sync     # Copy exported tilesets from the Asset Library
 node lib/tools/test_tiles.js     # Spatial combat smoke tests
 node lib/tools/cost_report.js N  # Budget report for level N
 ```
+
+## Running things locally
+
+**Do not run `npm start`.** It is not a local dev server. `src/server/index.ts`
+reads the real token out of `database/config.json` and calls `discord.login()`,
+and `.env` points `DATABASE_URL` at the **shared** Postgres — so a local run is a
+*second live bot instance on the same token, against real data*. It announces
+"🟢 Bot online (dev)" in the log channel, double-handles any Discord interaction
+that arrives while it's up, and on boot writes to the shared DB (`backfillTrophies`
+upserts, `tickAllDue` advances shop prices/stock and inserts `shopPriceTick` rows).
+
+Dev is a server. **The way to test a change is to commit to `dev` and push** — the
+webhook redeploys and restarts it. Then the user tests in the browser.
+
+For local verification, drive the compiled modules directly instead. They touch
+neither Discord nor the database:
+
+```bash
+npm run build
+node -e "const {Board}=require('./lib/combat/board.js'); ..."   # engine / terrain / board
+npm test                          # jest
+npm run simulate                  # balance sim
+node lib/tools/test_tiles.js      # spatial combat smoke tests
+```
+
+That covers essentially everything short of the socket layer, and it's not worth
+booting a duplicate bot to check the socket layer.
 
 ## Configuration
 
