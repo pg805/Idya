@@ -505,6 +505,9 @@ function renderBoard() {
   // and handed to the terrain painter, which thins the tree canopy over them so
   // a highlight is never buried under leaves (see renderTerrain).
   const actionable = new Set();
+  // Board-effect tiles, likewise — their outline and label get redrawn above the
+  // canopy so a tree can't hide one.
+  const tileMarks = [];
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
   // Every cell a unit covers maps to that unit (so a 2×2 body suppresses path /
@@ -564,6 +567,10 @@ function renderBoard() {
           const sym = tile.kind === 'block' ? '🛡' : tile.kind === 'buff' ? '⚔' : tile.kind === 'slow' ? '🐌' : '⚠';
           mark.textContent = `${sym}${tile.value}`;
           cell.appendChild(mark);
+          // Also handed to the terrain painter, which redraws the outline and
+          // label above the canopy — a board effect under a tree still has to be
+          // findable. The symbol is chosen here so there's one place that knows it.
+          tileMarks.push({ x, y, kind: tile.kind, label: mark.textContent });
         }
         if (combatant && anchorCells.has(k)) {  // top layer: token (drawn once, at the anchor)
           const isOwn = combatant.teamId === playerTeamId;
@@ -617,7 +624,7 @@ function renderBoard() {
     }
   }
 
-  renderTerrain(cellSize, actionable, selectedKey);
+  renderTerrain(cellSize, actionable, selectedKey, tileMarks);
 }
 
 // The pixel-art terrain (terrain.js), painted onto two canvases that sandwich
@@ -635,7 +642,7 @@ function renderBoard() {
 // Boards without terrain data (an older session, a hand-built one) simply don't
 // get the class, and the plain coloured-cell board renders as before.
 let terrainCanvases = null;
-function renderTerrain(cellSize, actionable, selectedKey) {
+function renderTerrain(cellSize, actionable, selectedKey, tileMarks) {
   if (typeof paintTerrain !== 'function') return;
   if (!terrainCanvases) {
     const make = (id) => { const c = document.createElement('canvas'); c.id = id; return c; };
@@ -653,6 +660,7 @@ function renderTerrain(cellSize, actionable, selectedKey) {
     playerTeamId,
     selectedKey,
     highlighted: actionable,
+    tileMarks,
     onReady: () => renderBoard(),
   });
   boardEl.classList.toggle('has-terrain', painted);

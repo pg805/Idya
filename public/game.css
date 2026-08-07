@@ -270,6 +270,18 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #board.has-terrain .cell.target-valid:hover,
 #board.has-terrain .cell.target-selected  { background: rgba(194, 66, 95, 0.4); }
 
+/* Tokens stand ON the ground rather than on a coloured disc. The token is the
+   same pixel-art register as the map now, so a filled circle behind it reads as
+   a UI chip sitting on top of the scene. The team-coloured ring stays — that's
+   the part carrying whose-unit-is-this — and the initials get a hard shadow so
+   they hold up against grass. (terrain.js redraws this same ring above the
+   canopy for a unit standing under a tree.) */
+#board.has-terrain .combatant.team-a,
+#board.has-terrain .combatant.team-b { background: transparent; }
+#board.has-terrain .combatant {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.7);
+}
+
 /* 2×2 tokens span cells plus the gaps between them — with terrain the gap is 0. */
 #board.has-terrain .combatant.big {
   width:  calc(var(--cell-size) * var(--span));

@@ -67,6 +67,15 @@ readability, both in `paintTerrain`:
   same colour as its CSS border, with a dark ring outside it for contrast. The
   body of the token can be lost in the foliage; where it *is* never can. Only
   units the leaves actually reach get one.
+- **Board-effect tiles get the same treatment** (`drawTileMark`) — outline and
+  label back on top, in the kind's hue. The cell's tint is lost under leaves and
+  that's fine, but a buff or hazard you can't see is a trap. Stopgap until trees
+  become custom tiles that know what's under them.
+
+Tokens on a painted board have **no filled disc** — the token is in the same
+pixel-art register as the map now, so a coloured circle behind it reads as a UI
+chip sitting on the scene. The team ring stays (that's the part carrying whose
+unit it is) and the initials get a hard shadow to hold up against grass.
 - **Leaves lose to the UI.** Squares the player can act on this turn get the
   canopy thinned out over them (`destination-out` at 0.72), so a move or target
   highlight is never buried under a tree. `game.js` collects those squares while

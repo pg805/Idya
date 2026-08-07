@@ -291,6 +291,40 @@
   // itself is a DOM element under the canopy canvas — this is just its outline
   // promoted to the very top so you never lose track of a unit standing in a
   // tree. Matches .combatant's border colours in game.css.
+  // Board-effect tile outlines, same hues as the .cell.tile-* rules in game.css.
+  const TILE_OUTLINE = {
+    block:  'rgba(80, 150, 230, 0.9)',
+    buff:   'rgba(220, 180, 60, 0.9)',
+    hazard: 'rgba(220, 70, 70, 0.9)',
+    slow:   'rgba(150, 120, 60, 0.9)',
+  };
+
+  // A board-effect tile's outline and label, redrawn above the canopy. The cell's
+  // tint is lost under leaves and that's acceptable — but a buff or a hazard you
+  // can't see is a trap, so the two parts that say "something is on this square"
+  // and "here's what" come back on top. Stopgap until trees become custom tiles
+  // that know what's under them.
+  function drawTileMark(ctx, mark, g) {
+    const r = g.rect(mark.x, mark.y);
+    const lw = g.lw(2);
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = TILE_OUTLINE[mark.kind] || 'rgba(255, 255, 255, 0.8)';
+    ctx.strokeRect(r.x + lw / 2, r.y + lw / 2, r.w - lw, r.h - lw);
+
+    if (!mark.label) return;
+    const size = g.lw(15);
+    ctx.font = `bold ${size}px 'Segoe UI', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    // Dark outline first so the label reads against foliage as well as ground.
+    ctx.lineWidth = Math.max(2, g.lw(2));
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.strokeText(mark.label, cx, cy);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillText(mark.label, cx, cy);
+  }
+
   function drawTokenRing(ctx, unit, isOwn, isSelected, g) {
     const span = unit.size || 1;
     const a = g.rect(unit.pos.x, unit.pos.y);
@@ -323,6 +357,7 @@
    *   playerTeamId   which of them are yours
    *   selectedKey    'x,y' of the selected unit, or null
    *   highlighted    Set of 'x,y' the player can currently act on
+   *   tileMarks      board-effect tiles to re-outline above the leaves
    *   onReady        re-render callback, used if the sheets are still loading
    *
    * Returns false and leaves the canvases alone if there's nothing to draw yet.
@@ -405,6 +440,11 @@
         top.fillRect(r.x, r.y, r.w, r.h);
       }
       top.globalCompositeOperation = 'source-over';
+    }
+
+    // Board-effect tiles the leaves reach get their outline and label back.
+    for (const mark of opts.tileMarks || []) {
+      if (covered.has(`${mark.x},${mark.y}`)) drawTileMark(top, mark, g);
     }
 
     // Rings last, over everything — but only for units the leaves actually

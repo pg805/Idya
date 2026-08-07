@@ -66,6 +66,13 @@ Also in this pass:
   uniform everywhere.
 - Stumps take a tree-sized shadow (a stump is a felled tree, same girth) and
   pebbles take none at all.
+- **Board-effect tiles keep their outline and label above the canopy**, the same
+  way a unit's ring does. Under a tree the tint is lost, but a buff or hazard you
+  can't see is a trap — so the two parts that say "something is here" and "here's
+  what" come back on top. Stopgap until trees become custom tiles.
+- **Tokens lost their filled disc.** The token is in the same pixel-art register
+  as the map now, so a coloured circle behind it read as a UI chip sitting on the
+  scene; the unit stands on the ground instead. The team-coloured ring stays.
 - `paintTerrain` is now verified headlessly (stub `Image` + a recording 2d
   context, then map each draw back to a sprite name). Two of the bugs above were
   geometry mistakes a five-line assertion would have caught.
