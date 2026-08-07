@@ -57,6 +57,15 @@ Also in this pass:
 - `--cell-size` 48px, 64px at >=1400px viewport. 64 lands on a whole multiple of
   32 device pixels at 1x and 2x, so pixels come out even.
 - Scatter no longer lands under the part of a tree that leans over from below.
+- **No grid layer at all** — square lines and coordinate labels are gone. The
+  board is a place, not a spreadsheet; the move and target highlights are still
+  per-square, so nothing about reading a square was lost with them.
+- Trees near the top edge are no longer swapped for a short prop — they run off
+  the canvas and clip, which reads as forest carrying on past the board instead
+  of a deliberately bald top row. Obstacles are ~88% tree / ~7% bush / ~5% stump,
+  uniform everywhere.
+- Stumps take a tree-sized shadow (a stump is a felled tree, same girth) and
+  pebbles take none at all.
 - `paintTerrain` is now verified headlessly (stub `Image` + a recording 2d
   context, then map each draw back to a sprite name). Two of the bugs above were
   geometry mistakes a five-line assertion would have caught.

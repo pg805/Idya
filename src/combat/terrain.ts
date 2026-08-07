@@ -154,13 +154,18 @@ const SCATTER_CHANCE = 0.10;   // walkable squares that get a small prop
 const TUFT_CHANCE    = 0.30;   // grass squares that get a tuft overlay
 
 // A tree is drawn taller than the square it blocks — the trunk base sits on the
-// blocked square and the rest leans up into the squares above. Those squares are
-// open, so the only real constraint is the top edge of the board: a tree on row 0
-// has nowhere to put its canopy, and one on row 1 only has room to be short.
-function treeStack(r: () => number, headroom: number): string[] {
+// blocked square and the rest leans up into the squares above.
+//
+// Trees near the top edge run off the top of the canvas and get clipped, and
+// that's fine: a canopy cut off by the edge reads as forest carrying on past the
+// board rather than as a mistake. (An earlier version dodged the clip by giving
+// those squares a short prop instead, which just made the top row look
+// deliberately bald.)
+function treeStack(r: () => number): string[] {
   const top = r() < TREE_TOP_ALT_CHANCE ? TREE_TOP_ALT : TREE_TOP_MAIN;
-  const tall = headroom >= 2 && r() < TREE_TALL_CHANCE;
-  return tall ? [TREE_BOTTOM, pick(r, TREE_MIDS), top] : [TREE_BOTTOM, top];
+  return r() < TREE_TALL_CHANCE
+    ? [TREE_BOTTOM, pick(r, TREE_MIDS), top]
+    : [TREE_BOTTOM, top];
 }
 
 // Shadows are NOT chosen here. Each shadow sprite is drawn to fit a particular
@@ -172,17 +177,10 @@ function treeStack(r: () => number, headroom: number): string[] {
 // low cover. An obstacle with no headroom for a tree becomes a stump rather than
 // a bush — bushes are meant to stay rare, not to pile up along the top row.
 function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
-  const headroom = pos.y;
   const at = { x: pos.x, y: pos.y, f: r() < 0.5 };
   const roll = r();
 
-  if (roll < 0.88) {
-    // A tree that has nowhere to grow becomes a stump, NOT a bush — falling
-    // through to the bush branch here would pile every top-row obstacle into
-    // the one prop that's supposed to stay rare.
-    if (headroom < 1) return { ...at, stack: [TREE_STUMP], rubble: 'dec_rock_01' };
-    return { ...at, stack: treeStack(r, headroom), rubble: TREE_STUMP };
-  }
+  if (roll < 0.88) return { ...at, stack: treeStack(r), rubble: TREE_STUMP };
   if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], rubble: 'dec_rock_01' };
   return { ...at, stack: [TREE_STUMP], rubble: 'dec_rock_01' };
 }

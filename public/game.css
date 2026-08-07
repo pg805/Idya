@@ -129,15 +129,8 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   outline: 2px solid transparent;
 }
 
-.cell[data-coord]::after {
-  content: attr(data-coord);
-  position: absolute;
-  bottom: 2px;
-  right: 4px;
-  font-size: 0.5rem;
-  color: var(--text-vdim);
-  pointer-events: none;
-}
+/* No coordinate labels. The `data-coord` attribute stays on each cell — it's a
+   useful hook in devtools for a spatial game — but nothing draws it. */
 
 /* Obstacle — earthy brown, kept off-palette by design (it's terrain) */
 .cell.obstacle { background: #2a1e10; cursor: not-allowed; }
@@ -261,7 +254,6 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 /* No box-shadow here: the tile-block/buff/hazard rules and .area-footprint all
    use inset shadows, and an ID-specificity rule would wipe them out. */
 #board.has-terrain .cell { background: transparent; border-radius: 0; }
-#board.has-terrain .cell[data-coord]::after { color: rgba(255, 255, 255, 0.3); }
 
 /* The obstacle square is drawn by the tileset now (a tree trunk, a bush, a
    boulder), so the block glyph goes — but the cursor still says "not here". */
@@ -732,7 +724,6 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   .action-list { flex-direction: column; }
   .combatant { font-size: 0.7rem; border-width: 1px; }
   .combatant-name { display: none; }
-  .cell[data-coord]::after { display: none; }
   #combatant-list { width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap; }
   .combatant-card { height: auto; min-width: 0; flex: 1 1 48%; padding: 8px 10px; }
   h1 { font-size: 1rem; }

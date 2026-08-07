@@ -31,6 +31,11 @@ Authored as, and drawn as, six passes:
 | 5 | decor | scatter (flowers, pebbles) + the square-level part of each obstacle |
 | 6 | above decor | trunks and canopies leaning up into the squares above |
 
+There is deliberately **no grid layer**: no square lines, no coordinate labels.
+The board is a place, not a spreadsheet, and what you can do with a square is
+shown when it matters — the move and target highlights are still per-square. The
+`data-coord` attribute stays on each cell as a devtools hook; nothing draws it.
+
 They go onto **two canvases that sandwich the DOM grid**. The `.cell` divs are
 unchanged — they just become transparent windows onto the ground — which is why
 none of the highlight/token/targeting code had to learn that terrain exists.
@@ -121,17 +126,17 @@ An obstacle's **trunk base sits on the blocked square** and the rest of the tree
 stacks upward into the open squares above it (`stack[i]` is drawn at `y - i`).
 Those squares stay walkable; only the trunk square blocks.
 
-The one constraint is the top edge — a tree on row 0 has nowhere to put its
-canopy, and one on row 1 only has room to be short. Rather than clip anything, an
-obstacle that can't fit its height falls back to something that does.
+Trees near the top edge run off the canvas and get clipped, and that's the point
+— a canopy cut off by the edge reads as forest carrying on past the board. An
+earlier version dodged the clip by giving those squares a short prop instead,
+which just made the top row look deliberately bald.
 
 Obstacles are dressed **before** the loose props, because a tree occupies more
 squares than the one it blocks — scatter has to know about the squares its trunk
 and canopy will cover, or it puts a flower where a trunk lands on top of it.
 
-The mix: **~80% tree, ~13% stump, ~7% bush**, no boulders. A tree with no
-headroom becomes a *stump*, not a bush — falling through to the bush branch there
-would pile every top-row obstacle into the one prop that's meant to stay rare.
+The mix: **~88% tree, ~7% bush, ~5% stump**, no boulders, uniform across the
+board.
 
 The two tops and the two middles are **interchangeable parts, not two fixed tree
 builds** — any top sits on any middle. Top 01 (the leafy canopy) carries 90% of
@@ -165,9 +170,10 @@ itself never has to be regenerated mid-battle.
 
 ## Shadows are baked, and chosen last
 
-Each shadow sprite is drawn to fit a particular piece of decor — xl for a tree,
-md for sunflowers, sm for a rose — so **which shadow a square gets follows from
-the sprite standing on it**. That can't be settled until every prop, obstacle and
+Each shadow sprite is drawn to fit a particular piece of decor — xl for a tree
+(and for a stump, which is a felled tree and the same girth), lg for a bush, md
+for sunflowers, sm for a rose, none at all for pebbles since they sit flat — so
+**which shadow a square gets follows from the sprite standing on it**. That can't be settled until every prop, obstacle and
 scatter alike, is placed, which is why the shadow pass comes last in the
 reckoning even though it draws under the decor. The map is `SHADOW_FOR` in
 `public/terrain.js`, keyed by sprite name; the server carries no shadow field.

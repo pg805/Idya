@@ -53,14 +53,15 @@
   // Each shadow sprite is drawn to fit a particular piece of decor, so which one
   // a square gets follows from the sprite standing on it. That's why the shadow
   // pass runs after every prop is placed rather than being decided upstream.
+  // A stump is a felled tree, so it's the same girth as one and takes the same
+  // shadow. Pebbles get none at all — they sit flat on the ground.
   const SHADOW_FOR = {
     dec_tree_01_bottom: 'shadow_xl',
-    dec_tree_01_stump:  'shadow_md',
+    dec_tree_01_stump:  'shadow_xl',
     dec_bush_01: 'shadow_lg', dec_bush_02: 'shadow_lg',
     dec_bush_03: 'shadow_lg', dec_bush_04: 'shadow_lg',
     dec_flower_02: 'shadow_md',   // sunflowers
     dec_flower_01: 'shadow_sm',   // rose
-    dec_rock_01:   'shadow_sm',   // pebbles
   };
 
   // Baked shadows, ported from the Asset Library's bake-shadows.lua. A shadow is
@@ -273,13 +274,6 @@
     }
   }
 
-  function drawGrid(ctx, g) {
-    const lw = g.lw(1);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-    for (let x = 1; x < g.w; x++) ctx.fillRect(g.rect(x, 0).x - (lw >> 1), 0, lw, g.height);
-    for (let y = 1; y < g.h; y++) ctx.fillRect(0, g.rect(0, y).y - (lw >> 1), g.width, lw);
-  }
-
   // Size a canvas to the board's exact device-pixel footprint and hand back a
   // cleared context. No CSS rescale happens after this, which is the whole point.
   function prepare(canvas, g, cellPx) {
@@ -382,10 +376,10 @@
     for (const s of terrain.scatter) blitNamed(ctx, s.s, g.rect(s.x, s.y), s.f);
     for (const p of props) blitNamed(ctx, p.stack[0], g.rect(p.x, p.y), p.f);
 
-    // Square lines close out the ground layer. This is a tactical grid before
-    // it's a landscape — you have to be able to count squares at a glance — but
-    // it's kept faint enough to read as ground markings rather than UI chrome.
-    drawGrid(ctx, g);
+    // No square lines and no coordinates: the board is a place, not a
+    // spreadsheet. What you can do with a square is shown when it matters — the
+    // move and target highlights are still per-square — so the lines were only
+    // ever chrome laid over the art.
 
     // 6. above decor, on its own canvas above the tokens.
     const top = prepare(canvases.canopy, g, cellPx);
