@@ -1,13 +1,9 @@
 // View: Shop — cart-based buy/sell.
 (function() {
-  // Shops whose NPC has a conversation tree. (Later: a flag from /api/shop.)
-  const DIALOGUE_NPC = { general_store: 'dolan' };
-
   let shopKey  = null;
   let data     = null;
   let cart     = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };  // buyWeapons: {weaponKey: qty}, weapons: Set of instance IDs
   let rootEl   = null;
-  let convMounted = false;
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -49,7 +45,6 @@
     rootEl  = root;
     shopKey = params.shopKey;
     cart    = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() };
-    convMounted = false;
     setLayoutTitle('Shop');
     root.innerHTML = `
       <main class="shop-panels">
@@ -60,10 +55,6 @@
         <section class="shop-panel">
           <div class="shop-panel-label">Your Inventory</div>
           <div id="shop-sell-list"></div>
-        </section>
-        <section class="shop-panel shop-panel-talk" id="shop-panel-talk" hidden>
-          <div class="shop-panel-label">Talk</div>
-          <div id="shop-talk-mount"></div>
         </section>
       </main>
       <div id="shop-cart"></div>
@@ -87,25 +78,9 @@
 
   async function render() {
     setLayoutTitle(data.shopName);
-    setupTalkColumn();
     renderBuy();
     renderSell();
     renderCart();
-  }
-
-  // Reveal the third column (Talk) for NPCs with a dialogue tree, and mount the
-  // conversation into it once.
-  function setupTalkColumn() {
-    const panel = document.getElementById('shop-panel-talk');
-    if (!panel) return;
-    const npcId = DIALOGUE_NPC[shopKey];
-    if (!npcId) { panel.hidden = true; return; }
-    panel.hidden = false;
-    document.querySelector('.shop-panels')?.classList.add('has-talk');
-    if (!convMounted && window.Conversation) {
-      window.Conversation.mount(document.getElementById('shop-talk-mount'), { npcId });
-      convMounted = true;
-    }
   }
 
   function renderBuy() {
@@ -412,8 +387,6 @@
   function unmount() {
     window.removeEventListener('layout-changed', layoutChangedHandler);
     document.body.classList.remove('cart-open');
-    if (convMounted && window.Conversation) window.Conversation.unmount();
-    convMounted = false;
     data = null; cart = { buys: {}, sells: {}, buyWeapons: {}, weapons: new Set() }; rootEl = null;
   }
 

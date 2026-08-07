@@ -3,6 +3,59 @@
 The detailed, dev-side log. The condensed, player-facing version that goes
 to the Discord #updates channel lives at `docs/CHANGELOG_DISCORD.md`.
 
+## Unreleased
+
+### Direction — a platform, not a simulation
+
+The goal shifts to a **place players share**: somewhere to roleplay with each
+other and play an economy, rather than a world simulated around one player. New
+work is weighed by whether it puts players in contact with each other.
+
+- **NPC dialogue system archived** to `archive/dialogue/` — the engine, Dolan's
+  tree, the lint tool, the Talk column, the spec doc, and the `/api/talk/*`
+  endpoints. Nothing was broken; it's frozen whole so it can return if NPCs
+  later earn a role that serves players *together*. The `PlayerNpcRelation`
+  Prisma model is left in place deliberately: dropping it is a destructive
+  migration for no benefit, and keeping it means an un-archive loses no history.
+
+### Combat boards are drawn with the pixel-art tileset
+
+First step toward combat happening on real terrain. Cosmetic for now — the
+engine still sees empty squares and obstacles — but the data sits where the
+rules live, ready for terrain to start mattering.
+
+- **Six layers on one canvas behind the grid**: dirt → grass → grass overlay →
+  shadows → decor → above decor. The `.cell` divs are unchanged and become
+  transparent windows onto it, so no highlight/token/targeting code had to learn
+  terrain exists. Everything stays *below* the cells on purpose — a canopy covers
+  walkable squares, and the unit and highlight there must stay readable.
+- **Dual-grid autotiling.** The tileset's six shapes per material
+  (full/empty/edge/outer/inner/diagonal) × 4 rotations cover all 16 corner
+  masks, with the drawing grid offset half a tile from the board grid. Ground
+  boundaries curve through squares instead of stepping along their edges.
+- **Obstacles are trees**, trunk base on the blocked square, canopy leaning up
+  into the open squares above. An obstacle too near the top edge falls back to a
+  bush, boulder or stump so nothing clips off-board. A destroyed obstacle loses
+  its canopy and shadow and becomes rubble — picked from live state, so terrain
+  never regenerates mid-battle.
+- **Bushes are obstacles, not scatter.** Tried as scatter first and it read
+  badly: a bush and a canopy are the same silhouette, so a scattered bush looked
+  like a canopy with no trunk and you couldn't tell walkable from blocked. Now
+  the rule is clean — any big leafy mass is blocked.
+- Ground is value noise on a coarse lattice (3.2 squares). Per-square noise
+  autotiles into a checkerboard of transition tiles and reads as static.
+- Generated **server-side** (`src/combat/terrain.ts`) so every client and
+  reconnect sees the same board; lazy on `Board.terrain` because the balance sims
+  build tens of thousands of boards and never draw one. Stripped from the dev AI
+  replay's per-turn board snapshots, where it would have multiplied the payload
+  by the round count for nothing.
+- `--cell-size` 44px → **48px**, and the canvas backing store is an integer
+  multiple of the 32px art, so tiles are never resampled at a fractional scale.
+- New: `public/terrain.js` (atlas + painter), `public/tiles/` (exported sheets),
+  `npm run tiles:sync`, and `docs/terrain.md`.
+
+---
+
 ## 0.2.2 — 2026-06-20
 
 The Orchard (the Lumberjack profession layer) and a rebuilt movement model, plus

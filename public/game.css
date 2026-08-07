@@ -1,6 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root { --cell-size: 44px; }
+/* 48px = the 32px tile art at 1.5x, or an exact 3x on a 2x display. Keeping it a
+   sensible ratio to the 32px tileset is what keeps the pixel art crisp — see the
+   scale note in terrain.js before changing it. */
+:root { --cell-size: 48px; }
 
 body {
   background: var(--bg);
@@ -205,6 +208,57 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 .cell.target-blink.target-selected {
   outline: 3px solid var(--teal);
   box-shadow: inset 0 0 14px rgba(56, 189, 178, 0.55);
+}
+
+/* ---- Painted terrain ----
+   With terrain on, the board's ground comes from a canvas behind the grid
+   (terrain.js) and the cells become transparent windows onto it. The gap between
+   cells has to go — a continuous landscape can't have 3px of backdrop showing
+   through it — so the square lines are painted onto the canvas instead.
+
+   Everything here is scoped to .has-terrain, which JS only sets once a board has
+   actually been painted. A board without terrain data keeps the plain
+   coloured-cell look above, unchanged. */
+#board.has-terrain {
+  position: relative;
+  gap: 0;
+  background: #1b2417;   /* the strip under the padding — dark earth, not UI navy */
+}
+/* z-index:-1 puts the canvas above #board's own background but below every cell,
+   without making the cells into stacking contexts — which matters, because a 2×2
+   token relies on its anchor cell's z-index to spill over its neighbours. */
+#board-terrain {
+  position: absolute;
+  top: 8px; left: 8px;   /* clears #board's padding */
+  z-index: -1;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  pointer-events: none;
+}
+/* No box-shadow here: the tile-block/buff/hazard rules and .area-footprint all
+   use inset shadows, and an ID-specificity rule would wipe them out. */
+#board.has-terrain .cell { background: transparent; border-radius: 0; }
+#board.has-terrain .cell[data-coord]::after { color: rgba(255, 255, 255, 0.3); }
+
+/* The obstacle square is drawn by the tileset now (a tree trunk, a bush, a
+   boulder), so the block glyph goes — but the cursor still says "not here". */
+#board.has-terrain .cell.obstacle { background: transparent; }
+#board.has-terrain .cell.obstacle::before { content: none; }
+
+/* Highlights become washes rather than fills, so the ground reads through them.
+   Same hues as the opaque versions above — only the alpha changes. */
+#board.has-terrain .cell.reachable        { background: rgba(58, 88, 112, 0.42); }
+#board.has-terrain .cell.reachable:hover  { background: rgba(136, 176, 200, 0.38); }
+#board.has-terrain .cell.move-target      { background: rgba(61, 94, 77, 0.5); }
+#board.has-terrain .cell.path-tile        { background: rgba(61, 94, 77, 0.38); }
+#board.has-terrain .cell.target-valid     { background: rgba(90, 18, 36, 0.4); }
+#board.has-terrain .cell.target-valid:hover,
+#board.has-terrain .cell.target-selected  { background: rgba(194, 66, 95, 0.4); }
+
+/* 2×2 tokens span cells plus the gaps between them — with terrain the gap is 0. */
+#board.has-terrain .combatant.big {
+  width:  calc(var(--cell-size) * var(--span));
+  height: calc(var(--cell-size) * var(--span));
 }
 
 /* AOE blast footprint — every square a lined-up Area attack will hit. Drawn as

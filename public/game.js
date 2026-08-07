@@ -500,6 +500,7 @@ function renderBoard() {
   const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'), 10) || 72;
   boardEl.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
   boardEl.innerHTML = '';
+  renderTerrain(cellSize);
 
   const obstacleMap = new Map(obstacles.map(o => [`${o.pos.x},${o.pos.y}`, o]));
   // Every cell a unit covers maps to that unit (so a 2×2 body suppresses path /
@@ -606,6 +607,28 @@ function renderBoard() {
       boardEl.appendChild(cell);
     }
   }
+}
+
+// The pixel-art ground, painted onto a canvas behind the grid (terrain.js). The
+// `.cell` divs stay exactly as they were — they just become transparent windows
+// onto it, which is why the highlight/token code above doesn't need to know
+// terrain exists.
+//
+// Boards without terrain data (an older session, a hand-built one) simply don't
+// get the class, and the plain coloured-cell board renders as before.
+let terrainCanvas = null;
+function renderTerrain(cellSize) {
+  if (typeof paintTerrain !== 'function') return;
+  if (!terrainCanvas) {
+    terrainCanvas = document.createElement('canvas');
+    terrainCanvas.id = 'board-terrain';
+  }
+  // renderBoard() clears the grid on every update, so the canvas is re-attached
+  // rather than assumed to still be there.
+  boardEl.appendChild(terrainCanvas);
+  const painted = paintTerrain(terrainCanvas, state.board, cellSize, () => renderBoard());
+  boardEl.classList.toggle('has-terrain', painted);
+  if (!painted) terrainCanvas.remove();
 }
 
 // A stat { value, mods } → plain effect text + an outline-pill box per modifier.

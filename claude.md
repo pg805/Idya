@@ -4,6 +4,12 @@
 
 Idya is a web + Discord RPG battle bot (0.2.0 dev). Players engage AI-controlled enemies on a spatial grid through the web SPA (the live system); combat, crafting, upgrades, enchants, and a market all run off the Express + Socket.io server.
 
+### Direction: a platform, not a simulation
+
+The goal is a **place players share** — somewhere to roleplay with each other and play an economy — rather than a world simulated around one player. Weigh new work by whether it puts players in contact with each other; single-player content consumed alone is not where effort goes.
+
+The NPC dialogue system was the first casualty of that shift and is **archived** (`archive/dialogue/`, see its README). Don't build on it or reference it as live.
+
 ## Tech Stack
 
 - **Runtime**: Node.js (v16.6.0+)
@@ -27,6 +33,7 @@ src/
 
 archive/                 # Frozen legacy, excluded from build (tsconfig)
 ├── discord/             # Old Discord bot (commands + handlers)
+├── dialogue/            # NPC conversation engine (archived — see its README)
 ├── battle.ts            # Old turn-based combat engine
 └── test_battle.ts       # Its CLI driver
 
@@ -37,13 +44,16 @@ database/
 ├── shops/               # Shop YAML definitions
 └── recipes/             # Crafting recipe YAML
 
+public/
+└── tiles/               # Exported pixel-art tilesets (npm run tiles:sync)
+
 docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG.md         # Detailed dev changelog
 ├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
 ├── PRD.md               # Vision / product requirements
 ├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
-├── npc-dialogue-system.md
+├── terrain.md           # Painted terrain: the six layers + dual-grid autotiling
 ├── rules.md
 ├── demo.md
 ├── reference.md         # Served at /api/info/reference (Reference info page)
@@ -82,6 +92,13 @@ Everything else under `docs/` is dev-only. When adding a new doc, decide first w
 ### Front-end
 The live system is the web SPA (`public/`) on the Express + Socket.io server. The old Discord slash-command bot (`/demobattle` etc.) is **archived** (`archive/`) — if rebuilt, it should drive the spatial system, not the old engine.
 
+### Painted terrain
+The combat board is drawn with the 32px pixel-art tileset, in six layers on one canvas **behind** the DOM grid: dirt → grass → grass overlay → shadows → decor → above decor. The `.cell` divs are unchanged and just become transparent windows onto it, so highlight/token/targeting code never has to know terrain exists.
+
+Ground uses **dual-grid autotiling**: the 6 shapes per material (full/empty/edge/outer/inner/diagonal) × 4 rotations cover all 16 corner masks, with the drawing grid offset half a tile from the board grid. Obstacles are trees whose **trunk base sits on the blocked square**, stacking upward into the (still walkable) squares above; an obstacle too near the top edge falls back to a one-square prop. Bushes are obstacles, never scatter — a scattered bush is indistinguishable from a canopy, and the rule has to stay *any big leafy mass is blocked*.
+
+Generated server-side (`src/combat/terrain.ts`, lazily via `Board.terrain`), painted by `public/terrain.js`. Full detail incl. the scale rules: **`docs/terrain.md`**. Art source of truth is the Asset Library (`G:\Pixel Art\Asset Library`) and its `build-tilesets.lua`; `npm run tiles:sync` copies the exported sheets into `public/tiles/`.
+
 ## Important Classes
 
 - `Combatant` / `CombatantMeta` (`src/combat/combat_session.ts`) - Live unit + its weapon/state/AI pattern
@@ -96,7 +113,8 @@ The live system is the web SPA (`public/`) on the Express + Socket.io server. Th
 npm start              # Run the web server (from lib/)
 npm run build          # Compile TypeScript
 npm run simulate       # Monte-Carlo weapon-balance sim
-npm run lint           # Fix linting issues
+npm run lint           # Fix linting issues (WARNING: reformats the whole repo)
+npm run tiles:sync     # Copy exported tilesets from the Asset Library
 node lib/tools/test_tiles.js     # Spatial combat smoke tests
 node lib/tools/cost_report.js N  # Budget report for level N
 ```

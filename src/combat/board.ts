@@ -1,3 +1,5 @@
+import { generateTerrain, type TerrainData } from './terrain.js';
+
 export type Pos = { x: number; y: number };
 export type ObstacleState = 'intact' | 'damaged' | 'destroyed';
 
@@ -10,6 +12,10 @@ export interface BoardConfig {
   width: number;
   height: number;
   obstacles: Obstacle[];
+  // Cosmetic dressing (ground materials + props). Optional: a board without one
+  // rolls its own the first time it's serialized. Pass a seed to reproduce a
+  // specific board's look.
+  terrainSeed?: number;
 }
 
 // Board-effect tiles (0.2.0 positional layer). Permanent; placing on an occupied
@@ -25,16 +31,32 @@ export interface Tile {
 export class Board {
   readonly width: number;
   readonly height: number;
+  readonly terrainSeed: number;
   private obstacles: Map<string, Obstacle>;
   private tiles: Map<string, Tile> = new Map();
+  // Built on first use, not in the constructor: the balance sims spin up tens of
+  // thousands of boards and never draw one, so dressing them all would be pure
+  // waste. Obstacle *state* isn't baked in — the client picks the destroyed look
+  // itself — so one build per board is enough however the fight goes.
+  private terrainCache?: TerrainData;
 
   constructor(config: BoardConfig) {
     this.width = config.width;
     this.height = config.height;
+    this.terrainSeed = config.terrainSeed ?? Math.floor(Math.random() * 0xffffffff);
     this.obstacles = new Map();
     for (const obs of config.obstacles) {
       this.obstacles.set(posKey(obs.pos), { ...obs });
     }
+  }
+
+  get terrain(): TerrainData {
+    if (!this.terrainCache) {
+      this.terrainCache = generateTerrain(
+        this.width, this.height, Array.from(this.obstacles.values()), this.terrainSeed,
+      );
+    }
+    return this.terrainCache;
   }
 
   inBounds(pos: Pos): boolean {
@@ -74,6 +96,7 @@ export class Board {
       height: this.height,
       obstacles: Array.from(this.obstacles.values()),
       tiles: Array.from(this.tiles.values()),
+      terrain: this.terrain,
     };
   }
 }

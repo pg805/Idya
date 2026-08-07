@@ -107,9 +107,18 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     initiative: c.initiative, initiativeRank: c.initiativeRank,
   });
 
+  // One board snapshot per turn, minus the cosmetic terrain: it's identical on
+  // every frame and the dev replay draws a plain debug grid anyway, so carrying
+  // it would multiply the payload by the round count for nothing.
+  const boardFrame = () => {
+    const { terrain, ...rest } = session.board.toJSON();
+    void terrain;
+    return rest;
+  };
+
   for (let n = 0; n < MAX_ROUNDS; n++) {
     if (session.teams.some(t => t.combatants.length === 0)) break;
-    const boardSnap = session.board.toJSON();
+    const boardSnap = boardFrame();
     const units = session.combatants.map(c => {
       const m = session.meta.get(c.id)!;
       const enemies = session.combatants.filter(o => o.teamId !== c.teamId);
@@ -146,7 +155,7 @@ export function generateReplay(weaponName: string, enemyName: string): ReplayDat
     ...session.deadCombatants.map(d => snap(d.combatant, 0, d.meta.state.resource_current, '')),
   ].sort((a, b) => (a.team === b.team ? 0 : a.team === 'team-a' ? -1 : 1));
   turns.push({
-    n: rounds + 1, board: session.board.toJSON(), units: finalUnits, decisions: [],
+    n: rounds + 1, board: boardFrame(), units: finalUnits, decisions: [],
     log: [winner ? `${winner === 'team-a' ? 'Player' : 'Enemy'} wins — battle over.` : 'Round cap reached — timeout.'],
   });
 
