@@ -55,6 +55,7 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
 ├── terrain.md           # Painted terrain: the six layers + dual-grid autotiling
+├── interface-art.md     # Asset todo list for moving the UI to pixel art + FX decisions
 ├── rules.md
 ├── demo.md
 ├── reference.md         # Served at /api/info/reference (Reference info page)
