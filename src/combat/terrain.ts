@@ -158,15 +158,26 @@ interface ScatterCluster {
   min: number; max: number;   // clusters of this kind per board
   radius: number;             // squares; density falls linearly to 0 here
   density: number;            // chance at the centre
+  cap: number;                // most props one patch may hold
   grassOnly: boolean;
+  group: string;              // patches in the same group stay PATCH_GAP apart
 }
 
+// Two patches landing beside each other merge into one big mass, which is the
+// thing clustering was meant to avoid — so same-group centres keep their
+// distance. Flowers share a group: a rose patch next to a sunflower patch reads
+// just as loud as two rose patches.
+const PATCH_GAP = 4.5;   // squares between the centres of same-group patches
+
 const SCATTER_CLUSTERS: ScatterCluster[] = [
-  { sprite: 'dec_flower_01', min: 1, max: 2, radius: 2.1, density: 0.85, grassOnly: true },
-  { sprite: 'dec_flower_02', min: 1, max: 2, radius: 1.9, density: 0.80, grassOnly: true },
+  // Flowers are the loudest thing on the ground, so a board gets at most one
+  // patch of each and often none. Capped rather than thinned — thinning a patch
+  // would undo the clustering and put us back at an even sprinkle.
+  { sprite: 'dec_flower_01', min: 0, max: 1, radius: 2.1, density: 0.85, cap: 5, grassOnly: true,  group: 'flower' },
+  { sprite: 'dec_flower_02', min: 0, max: 1, radius: 1.9, density: 0.80, cap: 3, grassOnly: true,  group: 'flower' },
   // Pebbles spread wider and thinner — stones lying about an area rather than a
   // bed of them — and don't care what they're lying on.
-  { sprite: 'dec_rock_01',   min: 1, max: 3, radius: 2.8, density: 0.45, grassOnly: false },
+  { sprite: 'dec_rock_01',   min: 1, max: 3, radius: 2.8, density: 0.45, cap: 6, grassOnly: false, group: 'stone' },
 ];
 
 const GRASS_TUFTS = ['ov_grass_01', 'ov_grass_02', 'ov_grass_03'] as const;
@@ -279,13 +290,27 @@ export function generateTerrain(
 
   const scatter: TerrainProp[] = [];
   const taken = new Set<string>();
+  const centres = new Map<string, { x: number; y: number }[]>();
+
   for (const c of SCATTER_CLUSTERS) {
     const n = c.min + Math.floor(r() * (c.max - c.min + 1));
     for (let i = 0; i < n; i++) {
       // The centre is a point, not a square, so a patch isn't forced to sit
       // symmetrically around one — it can lie between squares and come out lopsided.
-      const cx = r() * width;
-      const cy = r() * height;
+      const placed = centres.get(c.group) ?? [];
+      let cx = 0, cy = 0, room = false;
+      for (let attempt = 0; attempt < 24 && !room; attempt++) {
+        cx = r() * width;
+        cy = r() * height;
+        room = placed.every(p => Math.hypot(p.x - cx, p.y - cy) >= PATCH_GAP);
+      }
+      if (!room) continue;      // nowhere clear of the others; the board just gets fewer
+      placed.push({ x: cx, y: cy });
+      centres.set(c.group, placed);
+
+      // Roll every square in reach, then keep the `cap` nearest the centre. The
+      // rolls give the patch a ragged edge; the cap keeps it from sprawling.
+      const hits: { x: number; y: number; d: number }[] = [];
       const reach = Math.ceil(c.radius);
       for (let y = Math.floor(cy) - reach; y <= Math.floor(cy) + reach; y++) {
         for (let x = Math.floor(cx) - reach; x <= Math.floor(cx) + reach; x++) {
@@ -295,9 +320,13 @@ export function generateTerrain(
           const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
           if (d > c.radius) continue;
           if (r() >= c.density * (1 - d / c.radius)) continue;
-          taken.add(k);
-          scatter.push({ x, y, s: c.sprite, f: r() < 0.5 });
+          hits.push({ x, y, d });
         }
+      }
+      hits.sort((a, b) => a.d - b.d);
+      for (const h of hits.slice(0, c.cap)) {
+        taken.add(`${h.x},${h.y}`);
+        scatter.push({ x: h.x, y: h.y, s: c.sprite, f: r() < 0.5 });
       }
     }
   }

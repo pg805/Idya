@@ -60,9 +60,15 @@ Also in this pass:
 - **Flowers and pebbles grow in patches.** Independent per-square rolls gave a
   uniform dusting that read as noise; scatter is now a few clusters with a
   falloff, one species each. Flowers cluster tight and only on grass, pebbles
-  spread wider and thinner. Same overall density (~11 props a board), but the
-  mean distance to the nearest prop of the same kind drops from ~2.5 squares to
-  ~1.4. Trees stay uniformly random — where cover is matters to the fight.
+  spread wider and thinner. Mean distance to the nearest prop of the same kind
+  drops from ~2.5 squares to ~1.4. Trees stay uniformly random — where cover is
+  matters to the fight.
+- Flower patches are **capped** (5 roses, 3 sunflowers) rather than thinned —
+  thinning would undo the clustering — and same-group centres keep 4.5 squares
+  apart so two patches can't merge into one mass. Roses and sunflowers share a
+  group, since a rose patch beside a sunflower patch reads just as loud as two
+  rose patches. A board gets at most one patch of each and often none: ~2.2
+  flowers a board, a quarter of boards with none at all.
 - **No grid layer at all** — square lines and coordinate labels are gone. The
   board is a place, not a spreadsheet; the move and target highlights are still
   per-square, so nothing about reading a square was lost with them.

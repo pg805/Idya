@@ -182,6 +182,22 @@ pebbles spread wider and thinner and don't care what they lie on. A cluster's
 centre is a *point*, not a square, so a patch can sit between squares and come
 out lopsided instead of ringed neatly around one.
 
+Two things keep flowers from taking over, and both matter more than the density
+number:
+
+- **Patches are capped, not thinned** — 5 props for roses, 3 for sunflowers.
+  Thinning a patch to reduce flowers would undo the clustering and put us back at
+  an even sprinkle; capping keeps a patch reading as a patch and just makes it a
+  smaller one.
+- **Same-group centres stay `PATCH_GAP` (4.5 squares) apart.** Two patches side
+  by side merge into one big mass, which is exactly what clustering was meant to
+  avoid. Roses and sunflowers share the `flower` group, because a rose patch next
+  to a sunflower patch reads just as loud as two rose patches. If no clear centre
+  turns up in 24 tries the board simply gets one patch fewer.
+
+A board gets at most one patch of each flower and often none: ~2.2 flowers a
+board, half of boards with no roses, a quarter with no flowers at all.
+
 Trees are deliberately **not** clustered. Where cover is matters to how a fight
 plays, so it stays uniformly random — this is the one place the look gives way
 to the rules.
