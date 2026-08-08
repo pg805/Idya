@@ -70,6 +70,14 @@ Also in this pass:
   way a unit's ring does. Under a tree the tint is lost, but a buff or hazard you
   can't see is a trap — so the two parts that say "something is here" and "here's
   what" come back on top. Stopgap until trees become custom tiles.
+- **Combat tokens are set in the artist's own pixel font.** The four `fnt_*.png`
+  sheets are compiled into a real webfont (`tools/build-font.py`,
+  `npm run font:build`) rather than drawing every string onto a canvas, which
+  would have taken the UI's words out of the DOM. The spacing rule — advance =
+  ink width + 1px, space = 4px — was derived by reproducing
+  `fnt_specimen_tight.png` pixel-for-pixel, and `--verify` re-renders the
+  specimen's own pangrams through the built font to confirm it still matches
+  (currently 1776/1776 and 980/980 pixels).
 - **Tokens lost their filled disc.** The token is in the same pixel-art register
   as the map now, so a coloured circle behind it read as a UI chip sitting on the
   scene; the unit stands on the ground instead. The team-coloured ring stays.

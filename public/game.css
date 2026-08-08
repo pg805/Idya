@@ -1,5 +1,17 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The Asset Library's bitmap font, turned into real glyphs by tools/build-font.py
+   (`npm run font:build`). Its em is 8px and every outline sits on a whole pixel,
+   so it only stays crisp at whole multiples of 8px — use 8/16/24, never a rem
+   value, and never `font-weight: bold`, which browsers fake by smearing. */
+@font-face {
+  font-family: 'Idya Pixel';
+  src: url('/fonts/idya-pixel.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
 /* Square size drives how the 32px tile art lands on screen. terrain.js now sizes
    its canvases to the board's exact device-pixel footprint, so nothing is ever
    rescaled twice — but the art still looks best when a square works out to a
@@ -279,7 +291,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #board.has-terrain .combatant.team-a,
 #board.has-terrain .combatant.team-b { background: transparent; }
 #board.has-terrain .combatant {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.7);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.9);
 }
 
 /* 2×2 tokens span cells plus the gaps between them — with terrain the gap is 0. */
@@ -295,7 +307,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   box-shadow: inset 0 0 0 2px rgba(226, 99, 132, 0.55), inset 0 0 12px rgba(226, 99, 132, 0.3);
 }
 
-/* Combatant tokens */
+/* Combatant tokens — set in the map's own font, at 2x its native 8px em. */
 .combatant {
   position: relative;
   z-index: 4;           /* tokens render above tiles + tile marks */
@@ -306,8 +318,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 0.85rem;
+  font-family: 'Idya Pixel', 'Segoe UI', sans-serif;
+  font-weight: normal;
+  font-size: 16px;
   border: 2px solid transparent;
   transition: transform 0.15s, box-shadow 0.15s;
   cursor: pointer;
@@ -319,7 +332,15 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   box-shadow: 0 0 0 3px #ffe060, 0 0 12px #ffe06088;
   transform: scale(1.08);
 }
-.combatant-name { font-size: 0.55rem; font-weight: normal; opacity: 0.8; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+.combatant-name {
+  font-family: 'Idya Pixel', 'Segoe UI', sans-serif;
+  font-size: 8px;          /* the font's native size — 1 glyph pixel = 1 px */
+  font-weight: normal;
+  opacity: 0.85;
+  /* A hard 1px offset, not a blur: a soft shadow under a pixel font reads as
+     the glyphs being out of focus. */
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.9);
+}
 
 /* Multi-square unit: one token spanning a `--span`×`--span` block of cells
    (cells + the 3px grid gaps between them). Pinned to the anchor cell's top-left
@@ -331,7 +352,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   width:  calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
   height: calc(var(--cell-size) * var(--span) + (var(--span) - 1) * 3px);
   border-radius: 50%;
-  font-size: 1rem;
+  font-size: 24px;      /* 3x the pixel font's 8px em (see @font-face) */
   z-index: 6;
 }
 
@@ -734,7 +755,7 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   #combat-log { height: 240px; }
   #action-panel { height: auto; }
   .action-list { flex-direction: column; }
-  .combatant { font-size: 0.7rem; border-width: 1px; }
+  .combatant { font-size: 8px; border-width: 1px; }   /* 1x the pixel em */
   .combatant-name { display: none; }
   #combatant-list { width: 100%; flex-basis: auto; flex-direction: row; flex-wrap: wrap; }
   .combatant-card { height: auto; min-width: 0; flex: 1 1 48%; padding: 8px 10px; }

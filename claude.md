@@ -45,7 +45,8 @@ database/
 └── recipes/             # Crafting recipe YAML
 
 public/
-└── tiles/               # Exported pixel-art tilesets (npm run tiles:sync)
+├── tiles/               # Exported pixel-art tilesets (npm run tiles:sync)
+└── fonts/               # Idya Pixel webfont, built from the art (npm run font:build)
 
 docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG.md         # Detailed dev changelog
@@ -101,6 +102,11 @@ The canopy is above the tokens because a unit under a tree is genuinely behind t
 
 Shadows are **baked** — each pixel replaced with the palette entry one step darker, ported from `bake-shadows.lua` with `PALETTE`/`SHADE` copied verbatim — and the size is chosen from the sprite standing there (`SHADOW_FOR`), so the pass comes last.
 
+### The Idya Pixel font
+The artist's bitmap font (four 8x8-cell `fnt_*.png` sheets in the Asset Library) is compiled into a real webfont by `tools/build-font.py` (`npm run font:build`, needs pillow + fonttools) and served from `public/fonts/`. Combat tokens use it. Two rules: its em is **8px**, so only use whole multiples (8/16/24) — a rem value lands off the pixel grid and blurs — and **never `font-weight: bold`**, which browsers fake by smearing.
+
+Metrics aren't guessed: advance = ink width + 1px, space = 4px, derived by reproducing `fnt_specimen_tight.png` pixel-for-pixel. `--verify` re-runs that check against the built font, and it should stay at 100%.
+
 Canvases are sized to the board's exact device-pixel footprint so nothing is rescaled twice. Generated server-side (`src/combat/terrain.ts`, lazily via `Board.terrain`), painted by `public/terrain.js`. **Full detail, including the mistakes already made and why: `docs/terrain.md`** — read it before changing the layering, the grid, or the scale. Art source of truth is the Asset Library (`G:\Pixel Art\Asset Library`) and its `build-tilesets.lua`; `npm run tiles:sync` copies the exported sheets into `public/tiles/`.
 
 ## Important Classes
@@ -119,6 +125,7 @@ npm run build          # Compile TypeScript
 npm run simulate       # Monte-Carlo weapon-balance sim
 npm run lint           # Fix linting issues (WARNING: reformats the whole repo)
 npm run tiles:sync     # Copy exported tilesets from the Asset Library
+npm run font:build     # Rebuild the Idya Pixel webfont from the fnt_*.png sheets
 node lib/tools/test_tiles.js     # Spatial combat smoke tests
 node lib/tools/cost_report.js N  # Budget report for level N
 ```
