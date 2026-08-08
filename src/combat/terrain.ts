@@ -163,11 +163,13 @@ interface ScatterCluster {
   group: string;              // patches in the same group stay PATCH_GAP apart
 }
 
-// Two patches landing beside each other merge into one big mass, which is the
-// thing clustering was meant to avoid — so same-group centres keep their
-// distance. Flowers share a group: a rose patch next to a sunflower patch reads
-// just as loud as two rose patches.
-const PATCH_GAP = 4.5;   // squares between the centres of same-group patches
+// Same-group centres keep a little distance so two patches don't merge into one
+// mass. Deliberately a light rule, not an exclusion zone: the real guard against
+// a flowerbed is `max: 1` below — a board can't have two rose patches at all —
+// and patches brushing each other now and then looks natural. Roughly one
+// patch-radius, so edges can touch but centres can't coincide. Flowers share a
+// group: a rose patch beside a sunflower patch reads as loud as two rose patches.
+const PATCH_GAP = 3.0;   // squares between the centres of same-group patches
 
 const SCATTER_CLUSTERS: ScatterCluster[] = [
   // Flowers are the loudest thing on the ground, so a board gets at most one

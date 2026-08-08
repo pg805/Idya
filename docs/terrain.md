@@ -189,11 +189,18 @@ number:
   Thinning a patch to reduce flowers would undo the clustering and put us back at
   an even sprinkle; capping keeps a patch reading as a patch and just makes it a
   smaller one.
-- **Same-group centres stay `PATCH_GAP` (4.5 squares) apart.** Two patches side
-  by side merge into one big mass, which is exactly what clustering was meant to
-  avoid. Roses and sunflowers share the `flower` group, because a rose patch next
-  to a sunflower patch reads just as loud as two rose patches. If no clear centre
-  turns up in 24 tries the board simply gets one patch fewer.
+- **At most one patch of each flower per board.** This is the real guard, and
+  worth being clear about: the failure it prevents isn't two flowers next to each
+  other, it's *two rose patches plus two sunflower patches*, which reads as a
+  flowerbed. That case is now impossible by construction.
+- **Same-group centres keep `PATCH_GAP` (3 squares, roughly one patch-radius)
+  apart** so two patches can't sit on top of each other. Deliberately a light
+  rule rather than an exclusion zone — patches brushing now and then looks
+  natural, and measurement says a wider gap barely changes anything anyway
+  (going from 4.5 to 2.0 moves rose-touching-sunflower from 0.0% of boards to
+  1.2%, because so few boards have both kinds at all). Roses and sunflowers share
+  the `flower` group. If no clear centre turns up in 24 tries the board simply
+  gets one patch fewer.
 
 A board gets at most one patch of each flower and often none: ~2.2 flowers a
 board, half of boards with no roses, a quarter with no flowers at all.

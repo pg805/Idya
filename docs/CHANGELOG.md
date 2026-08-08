@@ -64,11 +64,12 @@ Also in this pass:
   drops from ~2.5 squares to ~1.4. Trees stay uniformly random — where cover is
   matters to the fight.
 - Flower patches are **capped** (5 roses, 3 sunflowers) rather than thinned —
-  thinning would undo the clustering — and same-group centres keep 4.5 squares
-  apart so two patches can't merge into one mass. Roses and sunflowers share a
-  group, since a rose patch beside a sunflower patch reads just as loud as two
-  rose patches. A board gets at most one patch of each and often none: ~2.2
-  flowers a board, a quarter of boards with none at all.
+  thinning would undo the clustering — and a board gets **at most one patch of
+  each kind**, which is what actually prevents a flowerbed: two rose patches are
+  impossible by construction. Same-group centres also keep a light 3 squares
+  apart, enough that patches can't sit on top of each other while still letting
+  them brush occasionally (~0.3% of boards). ~2.2 flowers a board, ~29% with none
+  at all.
 - **No grid layer at all** — square lines and coordinate labels are gone. The
   board is a place, not a spreadsheet; the move and target highlights are still
   per-square, so nothing about reading a square was lost with them.
