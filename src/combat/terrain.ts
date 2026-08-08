@@ -145,13 +145,33 @@ const BUSHES = ['dec_bush_01', 'dec_bush_02', 'dec_bush_03', 'dec_bush_04'] as c
 //
 // The dec_grass_* blades, because the ov_grass_* tufts already do that job on
 // the overlay layer and two kinds of loose greenery just muddies it.
-const GRASS_SCATTER = ['dec_flower_01', 'dec_flower_02', 'dec_rock_01'] as const;
-const DIRT_SCATTER  = ['dec_rock_01'] as const;
+// Scatter comes in PATCHES, not an even sprinkle. Rolling each square
+// independently gives a uniform dusting that reads as noise; a few clusters with
+// a falloff reads as a place where things grow. One species per cluster — a
+// patch of roses, a stretch of loose stones — because a mixed handful reads as
+// random again.
+//
+// Trees are deliberately NOT clustered: where cover is matters to how a fight
+// plays, so it stays uniformly random.
+interface ScatterCluster {
+  sprite: string;
+  min: number; max: number;   // clusters of this kind per board
+  radius: number;             // squares; density falls linearly to 0 here
+  density: number;            // chance at the centre
+  grassOnly: boolean;
+}
+
+const SCATTER_CLUSTERS: ScatterCluster[] = [
+  { sprite: 'dec_flower_01', min: 1, max: 2, radius: 2.1, density: 0.85, grassOnly: true },
+  { sprite: 'dec_flower_02', min: 1, max: 2, radius: 1.9, density: 0.80, grassOnly: true },
+  // Pebbles spread wider and thinner — stones lying about an area rather than a
+  // bed of them — and don't care what they're lying on.
+  { sprite: 'dec_rock_01',   min: 1, max: 3, radius: 2.8, density: 0.45, grassOnly: false },
+];
 
 const GRASS_TUFTS = ['ov_grass_01', 'ov_grass_02', 'ov_grass_03'] as const;
 
-const SCATTER_CHANCE = 0.10;   // walkable squares that get a small prop
-const TUFT_CHANCE    = 0.30;   // grass squares that get a tuft overlay
+const TUFT_CHANCE = 0.30;      // grass squares that get a tuft overlay
 
 // A tree is drawn taller than the square it blocks — the trunk base sits on the
 // blocked square and the rest leans up into the squares above.
@@ -226,25 +246,58 @@ export function generateTerrain(
     for (let i = 1; i < p.stack.length; i++) underProp.add(`${p.x},${p.y - i}`);
   }
 
+  // A square's own look comes from its four corners; for deciding what belongs
+  // on it, "is this grassy" is the majority of those four.
+  const grassy: boolean[][] = [];
+  for (let y = 0; y < height; y++) {
+    const row: boolean[] = [];
+    for (let x = 0; x < width; x++) {
+      const n = (corners[y][x] === 'g' ? 1 : 0) + (corners[y][x + 1] === 'g' ? 1 : 0)
+              + (corners[y + 1][x] === 'g' ? 1 : 0) + (corners[y + 1][x + 1] === 'g' ? 1 : 0);
+      row.push(n >= 3);
+    }
+    grassy.push(row);
+  }
+
+  // Tufts stay an even sprinkle — they're ground texture, not objects, and the
+  // whole point of them is to break up flat colour everywhere.
   const overlay: TerrainProp[] = [];
-  const scatter: TerrainProp[] = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // A square's own look comes from its four corners; for deciding what to
-      // scatter on it, "is this grassy" is the majority of those four.
-      const grassCorners = (corners[y][x] === 'g' ? 1 : 0) + (corners[y][x + 1] === 'g' ? 1 : 0)
-                         + (corners[y + 1][x] === 'g' ? 1 : 0) + (corners[y + 1][x + 1] === 'g' ? 1 : 0);
-      const isGrass = grassCorners >= 3;
-      if (isGrass && r() < TUFT_CHANCE) {
+      if (grassy[y][x] && r() < TUFT_CHANCE) {
         overlay.push({ x, y, s: pick(r, GRASS_TUFTS), f: r() < 0.5 });
       }
-      // Props only go on squares a unit can stand on — an obstacle square has
-      // its own dressing and stacking two props there would read as one prop —
-      // and not under the part of a tree that leans over from below.
-      const k = `${x},${y}`;
-      if (blocked.has(k) || underProp.has(k)) continue;
-      if (r() < SCATTER_CHANCE) {
-        scatter.push({ x, y, s: pick(r, isGrass ? GRASS_SCATTER : DIRT_SCATTER), f: r() < 0.5 });
+    }
+  }
+
+  // Props only go on squares a unit can stand on — an obstacle square has its
+  // own dressing and stacking two props there would read as one prop — and not
+  // under the part of a tree that leans over from below.
+  const free = (x: number, y: number) =>
+    x >= 0 && x < width && y >= 0 && y < height
+    && !blocked.has(`${x},${y}`) && !underProp.has(`${x},${y}`);
+
+  const scatter: TerrainProp[] = [];
+  const taken = new Set<string>();
+  for (const c of SCATTER_CLUSTERS) {
+    const n = c.min + Math.floor(r() * (c.max - c.min + 1));
+    for (let i = 0; i < n; i++) {
+      // The centre is a point, not a square, so a patch isn't forced to sit
+      // symmetrically around one — it can lie between squares and come out lopsided.
+      const cx = r() * width;
+      const cy = r() * height;
+      const reach = Math.ceil(c.radius);
+      for (let y = Math.floor(cy) - reach; y <= Math.floor(cy) + reach; y++) {
+        for (let x = Math.floor(cx) - reach; x <= Math.floor(cx) + reach; x++) {
+          const k = `${x},${y}`;
+          if (taken.has(k) || !free(x, y)) continue;
+          if (c.grassOnly && !grassy[y][x]) continue;
+          const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+          if (d > c.radius) continue;
+          if (r() >= c.density * (1 - d / c.radius)) continue;
+          taken.add(k);
+          scatter.push({ x, y, s: c.sprite, f: r() < 0.5 });
+        }
       }
     }
   }

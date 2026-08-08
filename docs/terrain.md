@@ -173,6 +173,22 @@ Scatter is therefore small ground clutter only: **flowers and pebbles**. The
 the overlay layer. `dec_rock_02` (the big boulder) is parked; `dec_rock_01` is
 the pebbles.
 
+**Scatter comes in patches, not an even sprinkle.** Rolling each square
+independently gives a uniform dusting that reads as noise; a few clusters with a
+linear falloff read as a place where things grow. One species per cluster — a
+patch of roses, a stretch of loose stones — because a mixed handful reads as
+random again. Flowers cluster tight (radius ~2, dense) and only on grass;
+pebbles spread wider and thinner and don't care what they lie on. A cluster's
+centre is a *point*, not a square, so a patch can sit between squares and come
+out lopsided instead of ringed neatly around one.
+
+Trees are deliberately **not** clustered. Where cover is matters to how a fight
+plays, so it stays uniformly random — this is the one place the look gives way
+to the rules.
+
+Tufts also stay an even sprinkle: they're ground texture rather than objects, and
+breaking up flat colour everywhere is the whole job.
+
 A **destroyed** obstacle loses its canopy and becomes rubble (a stump for a
 tree). That's picked client-side from live obstacle state, so the terrain data
 itself never has to be regenerated mid-battle.

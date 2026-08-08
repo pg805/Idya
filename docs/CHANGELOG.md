@@ -57,6 +57,12 @@ Also in this pass:
 - `--cell-size` 48px, 64px at >=1400px viewport. 64 lands on a whole multiple of
   32 device pixels at 1x and 2x, so pixels come out even.
 - Scatter no longer lands under the part of a tree that leans over from below.
+- **Flowers and pebbles grow in patches.** Independent per-square rolls gave a
+  uniform dusting that read as noise; scatter is now a few clusters with a
+  falloff, one species each. Flowers cluster tight and only on grass, pebbles
+  spread wider and thinner. Same overall density (~11 props a board), but the
+  mean distance to the nearest prop of the same kind drops from ~2.5 squares to
+  ~1.4. Trees stay uniformly random — where cover is matters to the fight.
 - **No grid layer at all** — square lines and coordinate labels are gone. The
   board is a place, not a spreadsheet; the move and target highlights are still
   per-square, so nothing about reading a square was lost with them.
