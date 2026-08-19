@@ -1,0 +1,168 @@
+/* Landing page — the front door.
+ *
+ * Colours come from the art palettes (mac-asset-library-64 / mac-actor-64) so
+ * the first thing anyone sees belongs to the same world as the sprites. Where a
+ * value isn't a literal palette entry it's a step in the dusk/water hue family,
+ * because the palettes have no closely-spaced neutral ramp for UI chrome — see
+ * the note in docs/world.md. Palette names are in the comments; keep them.
+ */
+@font-face {
+  font-family: 'Idya Pixel';
+  src: url('/fonts/idya-pixel.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --l-void:     #000003;  /* actor  Neutral      */
+  --l-deep:     #131a2e;  /* between void and water 5 */
+  --l-base:     #1d2b53;  /* terrain water 5     */
+  --l-surface:  #343345;  /* terrain dusk 3      */
+  --l-raised:   #3b3b58;  /* terrain dusk 2      */
+  --l-line:     #3e484f;  /* terrain steel 4     */
+
+  --l-text:     #ffffff;  /* terrain neutral 1   */
+  --l-muted:    #8f9aa2;  /* terrain steel 1     */
+  --l-faint:    #686868;  /* terrain neutral 3   */
+
+  --l-gold:     #f2cb4d;  /* terrain pop gold    */
+  --l-ember:    #ce5f23;  /* terrain pop orange  */
+  --l-water:    #4775ba;  /* terrain water 3     */
+  --l-sky:      #a7c9e7;  /* terrain water 1     */
+  --l-moss:     #467a5e;  /* terrain bluegreen 1 */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--l-deep);
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(71, 117, 186, 0.28), transparent 60%),
+    linear-gradient(180deg, var(--l-base) 0%, var(--l-deep) 45%, var(--l-void) 100%);
+  color: var(--l-text);
+  font-family: 'Idya Pixel', ui-monospace, monospace;
+  /* The webfont's em is 8px — only whole multiples stay on the pixel grid, and
+     bold is faked by smearing. Both rules are load-bearing, not preference. */
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-main {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 32px;
+}
+
+.landing-brand { text-align: center; }
+
+.landing-title {
+  margin: 0;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--l-gold);
+  letter-spacing: 2px;
+}
+
+.landing-tagline {
+  margin: 16px 0 0;
+  font-size: 16px;
+  color: var(--l-sky);
+}
+
+.landing-blurb {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: var(--l-muted);
+}
+
+.landing-card {
+  background: var(--l-surface);
+  border: 2px solid var(--l-line);
+  padding: 24px;
+}
+
+.landing-card h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  color: var(--l-gold);
+  letter-spacing: 1px;
+}
+
+.landing-card p { margin: 0 0 16px; font-size: 16px; color: var(--l-muted); }
+.landing-card p:last-child { margin-bottom: 0; }
+
+.landing-steps {
+  margin: 0;
+  padding-left: 24px;
+  font-size: 16px;
+  color: var(--l-muted);
+}
+.landing-steps li { margin-bottom: 8px; }
+.landing-steps li:last-child { margin-bottom: 0; }
+.landing-steps code {
+  font-family: inherit;
+  color: var(--l-sky);
+  background: var(--l-deep);
+  padding: 0 8px;
+}
+
+.landing-btn {
+  display: inline-block;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--l-text);
+  background: var(--l-water);
+  border: 2px solid var(--l-sky);
+  padding: 8px 24px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.landing-btn:hover { background: var(--l-sky); color: var(--l-base); }
+
+.landing-btn.secondary { background: transparent; border-color: var(--l-line); color: var(--l-muted); }
+.landing-btn.secondary:hover { border-color: var(--l-muted); color: var(--l-text); background: transparent; }
+
+.landing-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+
+/* Shown when arriving from an expired or cleared session. */
+.landing-notice {
+  border: 2px solid var(--l-ember);
+  background: var(--l-surface);
+  padding: 16px;
+  font-size: 16px;
+  color: var(--l-text);
+}
+.landing-notice[hidden] { display: none; }
+
+.landing-soon {
+  font-size: 16px;
+  color: var(--l-faint);
+  border-top: 2px solid var(--l-line);
+  padding-top: 16px;
+}
+
+.landing-foot {
+  text-align: center;
+  padding: 24px;
+  font-size: 16px;
+  color: var(--l-faint);
+}
+.landing-foot a { color: var(--l-moss); }
+
+@media (max-width: 480px) {
+  .landing-title { font-size: 32px; }
+  .landing-main { padding: 32px 16px 24px; }
+}

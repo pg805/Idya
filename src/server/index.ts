@@ -590,7 +590,9 @@ app.use((req: Request, res: Response, next) => {
   next();
 });
 
-app.use(express.static(join(__dirname, '../../public')));
+// index:false so `/` doesn't auto-serve public/index.html — that file is the
+// combat shell, not a front door. `/` is routed to the landing page below.
+app.use(express.static(join(__dirname, '../../public'), { index: false }));
 app.use(express.json());
 
 // --- Dev: AI replay generator (powers the dev replay view) ---
@@ -681,7 +683,7 @@ const APP_VERSION = (() => {
   } catch (_) { return 'dev'; }
 })();
 
-function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html'): void {
+function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html' | 'landing.html'): void {
   const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
   // that already have a query string). HTML itself is sent no-cache so the
@@ -690,6 +692,12 @@ function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html'): void
   res.setHeader('Cache-Control', 'no-cache');
   res.type('html').send(stamped);
 }
+
+// The front door. Deliberately unauthenticated — it's where an expired session
+// lands, and where sign-in will live once it isn't Discord-only.
+app.get('/', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'landing.html');
+});
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
   sendVersionedHtml(res, 'index.html');
@@ -2036,6 +2044,32 @@ app.post('/api/auth/claim', (req: Request, res: Response) => {
     'SameSite=Lax',
     `Max-Age=${maxAge}`,
   ];
+  if (secure) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+  res.json({ ok: true });
+});
+
+// Who the caller is. Used by the landing page to decide between "sign in" and
+// "welcome back", so it answers 200 either way rather than 401.
+app.get('/api/auth/me', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account) { res.json({ authenticated: false }); return; }
+  let characterName: string | null = null;
+  try {
+    const chars = await charRepo.list(account);
+    characterName = chars[0]?.name ?? null;
+  } catch (_) { /* a DB hiccup shouldn't make a signed-in user look signed out */ }
+  res.json({ authenticated: true, characterName });
+});
+
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  const token = parseCookies(req.headers.cookie)['idya_session'];
+  // Best-effort: with stateless signed tokens this only holds until restart, so
+  // a leaked token stays valid until it expires. Real revocation arrives with
+  // the Session table (docs/world.md §1).
+  if (token) sessionStore.revoke(token);
+  const secure = process.env.NODE_ENV === 'production';
+  const parts = ['idya_session=', 'HttpOnly', 'Path=/', 'SameSite=Lax', 'Max-Age=0'];
   if (secure) parts.push('Secure');
   res.setHeader('Set-Cookie', parts.join('; '));
   res.json({ ok: true });

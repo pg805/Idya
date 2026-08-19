@@ -82,6 +82,9 @@ function renderLayout() {
               <input id="settings-quick" type="checkbox" class="layout-settings-toggle">
             </div>
             <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
+            <div class="layout-settings-row">
+              <button type="button" class="layout-signout-btn">Sign out</button>
+            </div>
           </div>
         </div>
       </div>
@@ -94,6 +97,8 @@ function renderLayout() {
     </header>`;
 
   wireSettingsPopover();
+  document.querySelector('.layout-signout-btn')
+    ?.addEventListener('click', () => window.idyaLogout?.());
 }
 
 async function wireSettingsPopover() {

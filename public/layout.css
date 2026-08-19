@@ -142,6 +142,24 @@
   line-height: 1.4;
   margin: 0;
 }
+/* Sits below the toggles, separated — it leaves the app rather than changing
+   a preference, so it shouldn't read as another setting. */
+.layout-signout-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.layout-signout-btn:hover {
+  color: var(--warn-bright);
+  border-color: var(--warn);
+}
 
 .layout-prof-row {
   display: flex;
