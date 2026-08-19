@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign up — Legacy of Apolis</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/landing.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <main class="landing-main">
+
+    <div class="landing-brand">
+      <h1 class="landing-title small"><a href="/">LEGACY OF APOLIS</a></h1>
+    </div>
+
+    <section class="landing-card">
+      <h2>Create an account</h2>
+
+      <form id="signup-form">
+        <label class="landing-label" for="email">Email</label>
+        <input class="landing-input block" id="email" name="email" type="email"
+               autocomplete="email" required spellcheck="false">
+
+        <label class="landing-label" for="password">Password</label>
+        <input class="landing-input block" id="password" name="password" type="password"
+               autocomplete="new-password" required minlength="10">
+        <p class="landing-hint">
+          At least 10 characters. A few words you'll remember beats a short scramble.
+        </p>
+
+        <p class="landing-error" id="form-error" hidden></p>
+
+        <div class="landing-actions">
+          <button class="landing-btn" type="submit" id="submit-btn">Create account</button>
+          <a class="landing-btn secondary" href="/signin">I already have one</a>
+        </div>
+      </form>
+
+      <!-- No mail provider is configured yet, so there is genuinely no reset
+           path. Saying so up front beats discovering it while locked out. -->
+      <p class="landing-soon">
+        There's no password reset yet — if you lose it, you'll need the GM to help.
+        Keep it somewhere safe.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="landing-foot">
+    <a href="/app/about">About</a> · <a href="/app/lore">Lore</a> · <a href="/app/reference">Reference</a>
+  </footer>
+
+  <script src="/auth.js"></script>
+  <script>
+    (async function () {
+      const me = await idyaWhoAmI();
+      if (me?.authenticated) { location.replace('/app'); return; }
+
+      const form  = document.getElementById('signup-form');
+      const btn   = document.getElementById('submit-btn');
+      const error = document.getElementById('form-error');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        error.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Creating…';
+
+        const result = await idyaPost('/api/auth/signup', {
+          email:    document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        });
+
+        if (result.ok) {
+          // Brand new account, so there's never a character yet.
+          location.href = '/app/create';
+          return;
+        }
+        error.textContent = result.error || 'Something went wrong. Try again.';
+        error.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+      });
+    })();
+  </script>
+</body>
+</html>

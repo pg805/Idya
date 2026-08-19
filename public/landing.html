@@ -12,9 +12,8 @@
   <main class="landing-main">
 
     <!-- ============================================================
-         COPY: this whole block is yours to rewrite. It's the first
-         thing a stranger reads. Everything below the brand block is
-         mechanism and can stay as-is.
+         COPY: this block is yours to rewrite. It's the first thing a
+         stranger reads. Everything below it is mechanism.
          ============================================================ -->
     <div class="landing-brand">
       <h1 class="landing-title">LEGACY OF APOLIS</h1>
@@ -26,10 +25,11 @@
       Your session ended. Sign in again to pick up where you left off.
     </div>
 
-    <!-- One action, whichever it is. Filled in below once we know the state. -->
-    <div class="landing-actions" id="landing-actions" hidden>
-      <a class="landing-btn" id="primary-btn" href="/signin">Sign in</a>
-      <button class="landing-btn secondary" type="button" id="logout-btn" hidden>Sign out</button>
+    <!-- This page is for signed-out visitors. A live session redirects to
+         /app before any of this renders. -->
+    <div class="landing-actions centered" id="landing-actions" hidden>
+      <a class="landing-btn" href="/signin">Sign in</a>
+      <a class="landing-btn secondary" href="/signup">Sign up</a>
     </div>
 
   </main>
@@ -50,27 +50,9 @@
         history.replaceState(null, '', location.pathname);
       }
 
-      // Three states, one button:
-      //   signed out            -> sign in (which is also sign up, for now)
-      //   signed in, no char    -> finish signing up
-      //   signed in, has a char -> resume
-      const me  = await idyaWhoAmI();
-      const btn = document.getElementById('primary-btn');
-
-      if (!me?.authenticated) {
-        btn.textContent = 'Sign in';
-        btn.href = '/signin';
-      } else if (!me.characterName) {
-        btn.textContent = 'Create your character';
-        btn.href = '/app/create';
-      } else {
-        btn.textContent = `Continue as ${me.characterName}`;
-        btn.href = '/app';
-      }
-
-      const logout = document.getElementById('logout-btn');
-      logout.hidden = !me?.authenticated;
-      logout.addEventListener('click', () => idyaLogout());
+      // If you're signed in, you don't want a landing page — you want the world.
+      const me = await idyaWhoAmI();
+      if (me?.authenticated) { location.replace('/app'); return; }
 
       document.getElementById('landing-actions').hidden = false;
     })();

@@ -44,6 +44,65 @@ export class GrandfatheredDirectory implements IdentityDirectory {
   }
 }
 
-/** Convenience for the one provider that works today. */
+/**
+ * The real directory, backed by the Identity table.
+ *
+ * Discord accounts predate the table, so a Discord identity that isn't in it yet
+ * still resolves to itself (the account id *is* the snowflake for those users)
+ * and gets written back on the way past. That backfills the table from live
+ * traffic instead of a bulk UPDATE, so no migration has to touch existing rows.
+ * Once every active player has signed in once, the fallback is dead code.
+ */
+export class PrismaIdentityDirectory implements IdentityDirectory {
+  constructor(private readonly db: PrismaLike) {}
+
+  async resolve(identity: Identity): Promise<AccountId | null> {
+    const row = await this.db.identity.findUnique({
+      where: { provider_provider_user_id: {
+        provider: identity.provider, provider_user_id: identity.providerUserId,
+      } },
+    });
+    if (row) return row.account_id;
+
+    if (identity.provider !== 'discord') return null;
+
+    // Grandfathered: only claim it if that account actually exists, so a
+    // made-up snowflake doesn't mint an identity for a nonexistent user.
+    const user = await this.db.user.findUnique({ where: { discord_id: identity.providerUserId } });
+    if (!user) return null;
+    await this.link(identity, identity.providerUserId);
+    return identity.providerUserId;
+  }
+
+  async link(identity: Identity, account: AccountId): Promise<void> {
+    await this.db.identity.upsert({
+      where: { provider_provider_user_id: {
+        provider: identity.provider, provider_user_id: identity.providerUserId,
+      } },
+      update: {},
+      create: {
+        provider: identity.provider,
+        provider_user_id: identity.providerUserId,
+        account_id: account,
+      },
+    });
+  }
+}
+
+/** The slice of the Prisma client this needs — keeps the import out of here. */
+interface PrismaLike {
+  identity: {
+    findUnique(args: unknown): Promise<{ account_id: string } | null>;
+    upsert(args: unknown): Promise<unknown>;
+  };
+  user: {
+    findUnique(args: unknown): Promise<unknown | null>;
+  };
+}
+
+/** Convenience constructors for the providers in play. */
 export const discordIdentity = (providerUserId: string): Identity =>
   ({ provider: 'discord' as Provider, providerUserId });
+
+export const emailIdentity = (email: string): Identity =>
+  ({ provider: 'email' as Provider, providerUserId: email.toLowerCase() });

@@ -3,6 +3,7 @@
 // injects (DATABASE_URL) still wins — this only fills in what's missing.
 import 'dotenv/config';
 import fs from 'fs';
+import { randomUUID } from 'node:crypto';
 import express, { type Request, type Response } from 'express';
 import { createServer } from 'http';
 import { Server, type Socket } from 'socket.io';
@@ -23,7 +24,8 @@ import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
 import { createSessionStore } from '../auth/session_store.js';
-import { GrandfatheredDirectory, discordIdentity } from '../auth/identity_directory.js';
+import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth/identity_directory.js';
+import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import Weapon from '../weapon/weapon.js';
 import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -79,7 +81,7 @@ type Nationality = typeof VALID_NATIONALITIES[number];
 // Auth lives in src/auth/ so the backing store is swappable (docs/world.md §1).
 // Today an AccountId still equals the Discord id it was created from; resolve
 // logins through the directory rather than assuming that.
-const identityDirectory = new GrandfatheredDirectory();
+const identityDirectory = new PrismaIdentityDirectory(prisma);
 const sessionStore      = createSessionStore();
 
 // ---- Trade sessions ----
@@ -685,7 +687,7 @@ const APP_VERSION = (() => {
 
 function sendVersionedHtml(
   res: Response,
-  file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html',
+  file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html' | 'signup.html',
 ): void {
   const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
@@ -706,6 +708,10 @@ app.get('/', (_req: Request, res: Response) => {
 // arrive; today it explains the Discord route and takes a pasted link.
 app.get('/signin', (_req: Request, res: Response) => {
   sendVersionedHtml(res, 'signin.html');
+});
+
+app.get('/signup', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'signup.html');
 });
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
@@ -2069,6 +2075,80 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
     characterName = chars[0]?.name ?? null;
   } catch (_) { /* a DB hiccup shouldn't make a signed-in user look signed out */ }
   res.json({ authenticated: true, characterName });
+});
+
+// ---- Email sign-up / sign-in ----
+//
+// The first way into the game that doesn't go through Discord (docs/world.md §1).
+// Password reset is NOT possible yet: it needs an email provider, and none is
+// configured. Until one is, a locked-out player needs the GM, or a linked
+// Discord identity as a second way in.
+
+function setSessionCookie(res: Response, token: string): void {
+  const parts = [
+    `idya_session=${encodeURIComponent(token)}`,
+    'HttpOnly', 'Path=/', 'SameSite=Lax', `Max-Age=${30 * 24 * 60 * 60}`,
+  ];
+  if (process.env.NODE_ENV === 'production') parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+app.post('/api/auth/signup', async (req: Request, res: Response) => {
+  const { email: rawEmail, password } = req.body as { email?: unknown; password?: unknown };
+  const email = normalizeEmail(rawEmail);
+  if (!email) { res.status(400).json({ error: "That doesn't look like an email address." }); return; }
+  const pwProblem = passwordProblem(password as string);
+  if (pwProblem) { res.status(400).json({ error: pwProblem }); return; }
+
+  const existing = await prisma.emailCredential.findUnique({ where: { email } });
+  if (existing) {
+    res.status(409).json({ error: 'That email already has an account. Try signing in.' });
+    return;
+  }
+
+  // A fresh opaque account id. It lands in User.discord_id because that column
+  // is still the primary key — the name is historical, the value is not a
+  // Discord id. Renaming it is a separate additive step (docs/world.md §1).
+  const accountId = randomUUID();
+  const password_hash = await hashPassword(password as string);
+
+  try {
+    await prisma.$transaction([
+      prisma.user.create({ data: { discord_id: accountId } }),
+      prisma.emailCredential.create({ data: { account_id: accountId, email, password_hash } }),
+      prisma.identity.create({
+        data: { provider: 'email', provider_user_id: email, account_id: accountId },
+      }),
+    ]);
+  } catch (err) {
+    // Unique violation = someone signed up with the same address in between.
+    console.error('signup failed', err);
+    res.status(409).json({ error: 'That email already has an account. Try signing in.' });
+    return;
+  }
+
+  setSessionCookie(res, sessionStore.issue(accountId));
+  res.json({ ok: true, hasCharacter: false });
+});
+
+app.post('/api/auth/signin', async (req: Request, res: Response) => {
+  const { email: rawEmail, password } = req.body as { email?: unknown; password?: unknown };
+  const email = normalizeEmail(rawEmail);
+
+  const cred = email ? await prisma.emailCredential.findUnique({ where: { email } }) : null;
+  // Same message and roughly the same work either way, so the response doesn't
+  // reveal which addresses have accounts.
+  const ok = cred ? await verifyPassword(String(password ?? ''), cred.password_hash) : false;
+  if (!cred || !ok) {
+    res.status(401).json({ error: 'Wrong email or password.' });
+    return;
+  }
+
+  await identityDirectory.link(emailIdentity(email as string), cred.account_id);
+  setSessionCookie(res, sessionStore.issue(cred.account_id));
+
+  const chars = await charRepo.list(cred.account_id);
+  res.json({ ok: true, hasCharacter: chars.length > 0 });
 });
 
 app.post('/api/auth/logout', (req: Request, res: Response) => {

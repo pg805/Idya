@@ -54,10 +54,11 @@ body {
   flex-direction: column;
 }
 
+/* Wide enough for the 64px wordmark on one line; cards stay narrow below. */
 .landing-main {
   flex: 1;
   width: 100%;
-  max-width: 640px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 48px 24px 32px;
   display: flex;
@@ -68,14 +69,15 @@ body {
 
 .landing-brand { text-align: center; }
 
-/* 32px = 4x the font's 8px em. Whole multiples only, or it lands off the
+/* 64px = 8x the font's 8px em. Whole multiples only, or it lands off the
    pixel grid and blurs — so this steps down rather than scaling fluidly. */
 .landing-title {
   margin: 0;
-  font-size: 32px;
+  font-size: 64px;
   line-height: 1;
   color: var(--l-gold);
   letter-spacing: 2px;
+  white-space: nowrap;
 }
 
 .landing-title.small { font-size: 24px; }
@@ -83,7 +85,7 @@ body {
 
 .landing-tagline {
   margin: 16px 0 0;
-  font-size: 16px;
+  font-size: 32px;   /* 4x the 8px em */
   color: var(--l-sky);
 }
 
@@ -94,6 +96,9 @@ body {
 }
 
 .landing-card {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
   background: var(--l-surface);
   border: 2px solid var(--l-line);
   padding: 24px;
@@ -142,7 +147,7 @@ body {
 
 .landing-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .landing-actions[hidden] { display: none; }
-.landing-brand + .landing-actions { justify-content: center; }
+.landing-actions.centered { justify-content: center; }
 
 .landing-input {
   flex: 1;
@@ -155,6 +160,20 @@ body {
   padding: 8px;
 }
 .landing-input:focus { outline: none; border-color: var(--l-sky); }
+.landing-input.block { display: block; width: 100%; margin-bottom: 16px; }
+
+.landing-label {
+  display: block;
+  font-size: 16px;
+  color: var(--l-muted);
+  margin-bottom: 8px;
+}
+
+.landing-hint {
+  margin: -8px 0 16px;
+  font-size: 16px;
+  color: var(--l-faint);
+}
 
 .landing-error {
   margin: 16px 0 0;
@@ -189,6 +208,11 @@ body {
 }
 .landing-foot a { color: var(--l-moss); }
 
+/* Step down in whole multiples of the 8px em — never scale fluidly. */
+@media (max-width: 900px) {
+  .landing-title { font-size: 32px; }
+  .landing-tagline { font-size: 16px; }
+}
 @media (max-width: 480px) {
   .landing-title { font-size: 16px; }
   .landing-title.small { font-size: 16px; }

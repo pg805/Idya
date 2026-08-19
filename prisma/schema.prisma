@@ -7,6 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// An external login mapped onto an account. The account id is User.discord_id —
+// historically the Discord snowflake, now just an opaque id (a uuid for accounts
+// created any other way). Renaming that column is a separate, additive step;
+// see docs/world.md §1. Discord users are backfilled here lazily on first login.
+model Identity {
+  provider          String   // 'discord' | 'email' | 'google'
+  provider_user_id  String   // the id that provider knows them by
+  account_id        String
+  created_at        DateTime @default(now())
+
+  @@id([provider, provider_user_id])
+  @@index([account_id])
+}
+
+// Email + password sign-in. Separate from Identity because only this provider
+// stores a secret; the others delegate. One per account.
+model EmailCredential {
+  account_id     String   @id
+  email          String   @unique   // stored lowercased
+  password_hash  String             // scrypt: salt:hash, both hex
+  created_at     DateTime @default(now())
+}
+
 model User {
   discord_id         String      @id
   korel              Int         @default(0)

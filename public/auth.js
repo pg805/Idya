@@ -17,6 +17,24 @@ async function claimAuthFromUrl() {
   history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
 }
 
+// POST JSON and normalise the outcome to { ok, error?, ...body }, so callers
+// can show the server's message instead of a generic failure.
+async function idyaPost(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    let data = {};
+    try { data = await res.json(); } catch (_) {}
+    return res.ok ? { ok: true, ...data } : { ok: false, error: data.error };
+  } catch (_) {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
 // Exchange a token for a session cookie. Returns whether it was accepted, so
 // the sign-in page can tell the user their link expired instead of failing mute.
 async function idyaClaimToken(token) {
@@ -60,8 +78,9 @@ async function idyaLogout() {
 // fetch once here covers all of them without touching a single view file.
 (function interceptUnauthorized() {
   const original = window.fetch;
-  // Endpoints where a 401 is a normal answer rather than an expired session.
-  const EXPECTS_401 = ['/api/auth/claim', '/api/auth/me'];
+  // Endpoints where a 401 is a normal answer rather than an expired session —
+  // a wrong password must show an error, not bounce you to the landing page.
+  const EXPECTS_401 = ['/api/auth/claim', '/api/auth/me', '/api/auth/signin', '/api/auth/signup'];
 
   window.fetch = async function (...args) {
     const res = await original.apply(this, args);

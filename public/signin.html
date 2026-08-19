@@ -30,23 +30,30 @@
     </section>
 
     <section class="landing-card" id="signin-card" hidden>
-      <h2>Sign in or sign up</h2>
+      <h2>Sign in</h2>
 
-      <!-- Discord is currently the only provider, so signing up and signing in
-           are the same door — offering them as two choices would be a lie.
-           They separate when Google and email land (docs/world.md §1): those
-           become buttons above this block, and this drops to one option among
-           several rather than being the whole page. -->
-      <p>New or returning, it's the same door for now — accounts are handed out through Discord.</p>
-      <ol class="landing-steps">
-        <li>Open the Discord server.</li>
-        <li>Run <code>/profile</code> in any channel.</li>
-        <li>Follow the private link it replies with.</li>
-      </ol>
+      <form id="signin-form">
+        <label class="landing-label" for="email">Email</label>
+        <input class="landing-input block" id="email" name="email" type="email"
+               autocomplete="email" required spellcheck="false">
 
-      <p class="landing-soon">
-        Signing in with Google or an email address is coming, and won't need Discord.
-      </p>
+        <label class="landing-label" for="password">Password</label>
+        <input class="landing-input block" id="password" name="password" type="password"
+               autocomplete="current-password" required>
+
+        <p class="landing-error" id="form-error" hidden></p>
+
+        <div class="landing-actions">
+          <button class="landing-btn" type="submit" id="submit-btn">Sign in</button>
+          <a class="landing-btn secondary" href="/signup">Create an account</a>
+        </div>
+      </form>
+
+      <!-- Discord predates email sign-in and still works, so it stays as a
+           second route rather than being removed (docs/world.md §1). -->
+      <div class="landing-soon">
+        <p>Signed up through Discord? Run <code>/profile</code> there for a link.</p>
+      </div>
     </section>
 
     <!-- Pasting a link that already has ?auth= works, but so does pasting just
@@ -94,6 +101,30 @@
 
       document.getElementById('signin-card').hidden = false;
       document.getElementById('token-card').hidden  = false;
+
+      const form  = document.getElementById('signin-form');
+      const btn   = document.getElementById('submit-btn');
+      const error = document.getElementById('form-error');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        error.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Signing in…';
+
+        const result = await idyaPost('/api/auth/signin', {
+          email:    document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        });
+
+        if (result.ok) {
+          location.href = result.hasCharacter ? '/app' : '/app/create';
+          return;
+        }
+        error.textContent = result.error || 'Something went wrong. Try again.';
+        error.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      });
 
       document.getElementById('token-form').addEventListener('submit', async (e) => {
         e.preventDefault();
