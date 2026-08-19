@@ -17,8 +17,8 @@
          mechanism and can stay as-is.
          ============================================================ -->
     <div class="landing-brand">
-      <h1 class="landing-title">LEGACY<br>OF APOLIS</h1>
-      <p class="landing-tagline">A living world.</p>
+      <h1 class="landing-title">LEGACY OF APOLIS</h1>
+      <p class="landing-tagline">A living world</p>
     </div>
 
     <!-- Shown when someone lands here after their session ended. -->
@@ -26,14 +26,11 @@
       Your session ended. Sign in again to pick up where you left off.
     </div>
 
-    <!-- Signed in: straight through. Signed out: to the sign-in page. -->
+    <!-- One action, whichever it is. Filled in below once we know the state. -->
     <div class="landing-actions" id="landing-actions" hidden>
-      <a class="landing-btn" id="enter-btn" href="/app" hidden>Enter</a>
-      <a class="landing-btn" id="signin-btn" href="/signin" hidden>Sign in</a>
+      <a class="landing-btn" id="primary-btn" href="/signin">Sign in</a>
       <button class="landing-btn secondary" type="button" id="logout-btn" hidden>Sign out</button>
     </div>
-
-    <p class="landing-blurb" id="signed-in-line" hidden></p>
 
   </main>
 
@@ -53,21 +50,29 @@
         history.replaceState(null, '', location.pathname);
       }
 
-      const me = await idyaWhoAmI();
-      const signedIn = !!me?.authenticated;
+      // Three states, one button:
+      //   signed out            -> sign in (which is also sign up, for now)
+      //   signed in, no char    -> finish signing up
+      //   signed in, has a char -> resume
+      const me  = await idyaWhoAmI();
+      const btn = document.getElementById('primary-btn');
 
-      document.getElementById('enter-btn').hidden   = !signedIn;
-      document.getElementById('logout-btn').hidden  = !signedIn;
-      document.getElementById('signin-btn').hidden  = signedIn;
-      document.getElementById('landing-actions').hidden = false;
-
-      if (signedIn && me.characterName) {
-        const line = document.getElementById('signed-in-line');
-        line.textContent = `Signed in as ${me.characterName}.`;
-        line.hidden = false;
+      if (!me?.authenticated) {
+        btn.textContent = 'Sign in';
+        btn.href = '/signin';
+      } else if (!me.characterName) {
+        btn.textContent = 'Create your character';
+        btn.href = '/app/create';
+      } else {
+        btn.textContent = `Continue as ${me.characterName}`;
+        btn.href = '/app';
       }
 
-      document.getElementById('logout-btn').addEventListener('click', () => idyaLogout());
+      const logout = document.getElementById('logout-btn');
+      logout.hidden = !me?.authenticated;
+      logout.addEventListener('click', () => idyaLogout());
+
+      document.getElementById('landing-actions').hidden = false;
     })();
   </script>
 </body>

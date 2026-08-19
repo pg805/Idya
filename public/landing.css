@@ -68,9 +68,11 @@ body {
 
 .landing-brand { text-align: center; }
 
+/* 32px = 4x the font's 8px em. Whole multiples only, or it lands off the
+   pixel grid and blurs — so this steps down rather than scaling fluidly. */
 .landing-title {
   margin: 0;
-  font-size: 48px;
+  font-size: 32px;
   line-height: 1;
   color: var(--l-gold);
   letter-spacing: 2px;
@@ -188,6 +190,7 @@ body {
 .landing-foot a { color: var(--l-moss); }
 
 @media (max-width: 480px) {
-  .landing-title { font-size: 32px; }
+  .landing-title { font-size: 16px; }
+  .landing-title.small { font-size: 16px; }
   .landing-main { padding: 32px 16px 24px; }
 }
