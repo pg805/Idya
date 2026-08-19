@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose a new password — Legacy of Apolis</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/landing.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <main class="landing-main">
+
+    <div class="landing-brand">
+      <h1 class="landing-title small"><a href="/">LEGACY OF APOLIS</a></h1>
+    </div>
+
+    <section class="landing-card" id="form-card" hidden>
+      <h2>Choose a new password</h2>
+
+      <form id="reset-form">
+        <label class="landing-label" for="password">New password</label>
+        <input class="landing-input block" id="password" name="password" type="password"
+               autocomplete="new-password" required minlength="8">
+        <p class="landing-hint">
+          At least 8 characters. A few words you'll remember beats a short scramble.
+        </p>
+
+        <p class="landing-error" id="form-error" hidden></p>
+
+        <div class="landing-actions">
+          <button class="landing-btn" type="submit" id="submit-btn">Set password</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="landing-card" id="bad-card" hidden>
+      <h2>That link didn't work</h2>
+      <p id="bad-message">Reset links work once and expire after an hour.</p>
+      <div class="landing-actions">
+        <a class="landing-btn" href="/forgot">Send a new link</a>
+        <a class="landing-btn secondary" href="/signin">Back to sign in</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="landing-foot">
+    <a href="/app/about">About</a> · <a href="/app/lore">Lore</a> · <a href="/app/reference">Reference</a>
+  </footer>
+
+  <script src="/auth.js"></script>
+  <script>
+    (function () {
+      const token = new URLSearchParams(location.search).get('token');
+      if (!token) {
+        document.getElementById('bad-card').hidden = false;
+        return;
+      }
+      document.getElementById('form-card').hidden = false;
+
+      const btn   = document.getElementById('submit-btn');
+      const error = document.getElementById('form-error');
+
+      document.getElementById('reset-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        error.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        const result = await idyaPost('/api/auth/reset', {
+          token,
+          password: document.getElementById('password').value,
+        });
+
+        if (result.ok) {
+          // The reset signs you in — proving inbox control is proof enough.
+          location.href = result.hasCharacter ? '/app' : '/app/create';
+          return;
+        }
+        // An expired or spent token isn't a form error; it needs a new link.
+        if (/expired|been used|not valid/i.test(result.error || '')) {
+          document.getElementById('form-card').hidden = true;
+          document.getElementById('bad-message').textContent = result.error;
+          document.getElementById('bad-card').hidden = false;
+          return;
+        }
+        error.textContent = result.error || 'Something went wrong. Try again.';
+        error.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Set password';
+      });
+    })();
+  </script>
+</body>
+</html>

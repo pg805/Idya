@@ -30,6 +30,19 @@ model EmailCredential {
   created_at     DateTime @default(now())
 }
 
+// A pending password reset. token_hash is a SHA-256 of the token that went out
+// in the email — the token itself is never stored, so a database leak can't be
+// used to reset anyone's password. Single use, and short-lived.
+model PasswordReset {
+  token_hash  String    @id
+  account_id  String
+  expires_at  DateTime
+  used_at     DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([account_id])
+}
+
 model User {
   discord_id         String      @id
   korel              Int         @default(0)

@@ -27,6 +27,8 @@ import { createSessionStore } from '../auth/session_store.js';
 import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth/identity_directory.js';
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
+import { createMailer } from '../auth/mailer.js';
+import { newResetToken, hashResetToken, resetEmail, RESET_TTL_MS } from '../auth/reset_token.js';
 import Weapon from '../weapon/weapon.js';
 import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -688,7 +690,8 @@ const APP_VERSION = (() => {
 
 function sendVersionedHtml(
   res: Response,
-  file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html' | 'signup.html',
+  file: 'index.html' | 'app.html' | 'landing.html'
+      | 'signin.html' | 'signup.html' | 'forgot.html' | 'reset.html',
 ): void {
   const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
@@ -713,6 +716,14 @@ app.get('/signin', (_req: Request, res: Response) => {
 
 app.get('/signup', (_req: Request, res: Response) => {
   sendVersionedHtml(res, 'signup.html');
+});
+
+app.get('/forgot', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'forgot.html');
+});
+
+app.get('/reset', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'reset.html');
 });
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
@@ -2089,6 +2100,8 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
 // and per-address for signup so one person can't mint accounts in bulk.
 const signinLimiter = new RateLimiter(10, 15 * 60_000); // 10 tries / 15 min
 const signupLimiter = new RateLimiter(5, 60 * 60_000);  // 5 accounts / hour
+const forgotLimiter = new RateLimiter(5, 60 * 60_000);  // 5 reset mails / hour
+const mailer = createMailer();
 
 function setSessionCookie(res: Response, token: string): void {
   const parts = [
@@ -2174,6 +2187,78 @@ app.post('/api/auth/signin', async (req: Request, res: Response) => {
   setSessionCookie(res, sessionStore.issue(cred.account_id));
 
   const chars = await charRepo.list(cred.account_id);
+  res.json({ ok: true, hasCharacter: chars.length > 0 });
+});
+
+app.post('/api/auth/forgot', async (req: Request, res: Response) => {
+  const ip = clientIp(req.headers as Record<string, unknown>, req.socket.remoteAddress);
+  const email = normalizeEmail((req.body as { email?: unknown }).email);
+
+  // Always the same answer, whether or not the address has an account — this
+  // endpoint is unauthenticated, so a differing response would let anyone test
+  // which emails are registered.
+  const vague = { ok: true };
+
+  if (!email) { res.json(vague); return; }
+  if (!forgotLimiter.check(`${ip}|${email}`).allowed) { res.json(vague); return; }
+
+  const cred = await prisma.emailCredential.findUnique({ where: { email } });
+  if (!cred) { res.json(vague); return; }
+
+  const { token, tokenHash } = newResetToken();
+  await prisma.passwordReset.create({
+    data: {
+      token_hash: tokenHash,
+      account_id: cred.account_id,
+      expires_at: new Date(Date.now() + RESET_TTL_MS),
+    },
+  });
+
+  const base = process.env.HOST_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  const link = `${base}/reset?token=${encodeURIComponent(token)}`;
+  const mail = resetEmail(link);
+  const sent = await mailer.send({ to: email, ...mail });
+  // Log the failure but keep the response vague — the user can't act on the
+  // difference, and saying "we couldn't send" would confirm the account exists.
+  if (!sent.ok) console.error(`reset email failed: ${sent.error}`);
+
+  res.json(vague);
+});
+
+app.post('/api/auth/reset', async (req: Request, res: Response) => {
+  const { token, password } = req.body as { token?: unknown; password?: unknown };
+  if (typeof token !== 'string' || !token) {
+    res.status(400).json({ error: 'That reset link is not valid.' });
+    return;
+  }
+
+  const row = await prisma.passwordReset.findUnique({ where: { token_hash: hashResetToken(token) } });
+  if (!row || row.used_at || row.expires_at < new Date()) {
+    res.status(400).json({ error: 'That reset link has expired or been used. Request a new one.' });
+    return;
+  }
+
+  const cred = await prisma.emailCredential.findUnique({ where: { account_id: row.account_id } });
+  const problem = passwordProblem(password, cred?.email);
+  if (problem) { res.status(400).json({ error: problem }); return; }
+
+  const password_hash = await hashPassword(password as string);
+  await prisma.$transaction([
+    prisma.emailCredential.update({
+      where: { account_id: row.account_id },
+      data: { password_hash },
+    }),
+    // Spend this token and kill any others outstanding for the account, so an
+    // older reset mail still sitting in an inbox can't be replayed.
+    prisma.passwordReset.updateMany({
+      where: { account_id: row.account_id, used_at: null },
+      data: { used_at: new Date() },
+    }),
+  ]);
+
+  // A reset is a sign-in: they proved control of the inbox.
+  setSessionCookie(res, sessionStore.issue(row.account_id));
+  const chars = await charRepo.list(row.account_id);
   res.json({ ok: true, hasCharacter: chars.length > 0 });
 });
 

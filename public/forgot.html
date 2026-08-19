@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset password — Legacy of Apolis</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/landing.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <main class="landing-main">
+
+    <div class="landing-brand">
+      <h1 class="landing-title small"><a href="/">LEGACY OF APOLIS</a></h1>
+    </div>
+
+    <section class="landing-card" id="form-card">
+      <h2>Reset your password</h2>
+      <p>Enter your email and we'll send you a link.</p>
+
+      <form id="forgot-form">
+        <label class="landing-label" for="email">Email</label>
+        <input class="landing-input block" id="email" name="email" type="email"
+               autocomplete="email" required spellcheck="false">
+
+        <div class="landing-actions">
+          <button class="landing-btn" type="submit" id="submit-btn">Send link</button>
+          <a class="landing-btn secondary" href="/signin">Back to sign in</a>
+        </div>
+      </form>
+    </section>
+
+    <!-- Deliberately identical whether or not the address has an account, so
+         this page can't be used to test which emails are registered. -->
+    <section class="landing-card" id="sent-card" hidden>
+      <h2>Check your email</h2>
+      <p>If that address has an account, a reset link is on its way. It works once and expires in an hour.</p>
+      <p class="landing-soon">Nothing arriving? Check spam, then try again in a few minutes.</p>
+      <div class="landing-actions">
+        <a class="landing-btn" href="/signin">Back to sign in</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="landing-foot">
+    <a href="/app/about">About</a> · <a href="/app/lore">Lore</a> · <a href="/app/reference">Reference</a>
+  </footer>
+
+  <script src="/auth.js"></script>
+  <script>
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      await idyaPost('/api/auth/forgot', { email: document.getElementById('email').value });
+      // Same outcome either way — the server never says whether it matched.
+      document.getElementById('form-card').hidden = true;
+      document.getElementById('sent-card').hidden = false;
+    });
+  </script>
+</body>
+</html>

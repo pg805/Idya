@@ -80,7 +80,8 @@ async function idyaLogout() {
   const original = window.fetch;
   // Endpoints where a 401 is a normal answer rather than an expired session —
   // a wrong password must show an error, not bounce you to the landing page.
-  const EXPECTS_401 = ['/api/auth/claim', '/api/auth/me', '/api/auth/signin', '/api/auth/signup'];
+  const EXPECTS_401 = ['/api/auth/claim', '/api/auth/me', '/api/auth/signin', '/api/auth/signup',
+                      '/api/auth/forgot', '/api/auth/reset'];
 
   window.fetch = async function (...args) {
     const res = await original.apply(this, args);
