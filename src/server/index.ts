@@ -26,6 +26,7 @@ import worldConfig from './world_config.js';
 import { createSessionStore } from '../auth/session_store.js';
 import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth/identity_directory.js';
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
+import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import Weapon from '../weapon/weapon.js';
 import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -2084,6 +2085,11 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
 // configured. Until one is, a locked-out player needs the GM, or a linked
 // Discord identity as a second way in.
 
+// Per-address+email so one household on a shared IP can't lock each other out,
+// and per-address for signup so one person can't mint accounts in bulk.
+const signinLimiter = new RateLimiter(10, 15 * 60_000); // 10 tries / 15 min
+const signupLimiter = new RateLimiter(5, 60 * 60_000);  // 5 accounts / hour
+
 function setSessionCookie(res: Response, token: string): void {
   const parts = [
     `idya_session=${encodeURIComponent(token)}`,
@@ -2094,10 +2100,17 @@ function setSessionCookie(res: Response, token: string): void {
 }
 
 app.post('/api/auth/signup', async (req: Request, res: Response) => {
+  const ip = clientIp(req.headers as Record<string, unknown>, req.socket.remoteAddress);
+  const gate = signupLimiter.check(ip);
+  if (!gate.allowed) {
+    res.status(429).json({ error: `Too many accounts from here. Try again in ${gate.retryAfter}s.` });
+    return;
+  }
+
   const { email: rawEmail, password } = req.body as { email?: unknown; password?: unknown };
   const email = normalizeEmail(rawEmail);
   if (!email) { res.status(400).json({ error: "That doesn't look like an email address." }); return; }
-  const pwProblem = passwordProblem(password as string);
+  const pwProblem = passwordProblem(password, email);
   if (pwProblem) { res.status(400).json({ error: pwProblem }); return; }
 
   const existing = await prisma.emailCredential.findUnique({ where: { email } });
@@ -2135,6 +2148,14 @@ app.post('/api/auth/signin', async (req: Request, res: Response) => {
   const { email: rawEmail, password } = req.body as { email?: unknown; password?: unknown };
   const email = normalizeEmail(rawEmail);
 
+  const ip = clientIp(req.headers as Record<string, unknown>, req.socket.remoteAddress);
+  const key = `${ip}|${email ?? ''}`;
+  const gate = signinLimiter.check(key);
+  if (!gate.allowed) {
+    res.status(429).json({ error: `Too many attempts. Try again in ${gate.retryAfter}s.` });
+    return;
+  }
+
   const cred = email ? await prisma.emailCredential.findUnique({ where: { email } }) : null;
   // Same message and roughly the same work either way, so the response doesn't
   // reveal which addresses have accounts.
@@ -2144,6 +2165,7 @@ app.post('/api/auth/signin', async (req: Request, res: Response) => {
     return;
   }
 
+  signinLimiter.reset(key); // a good login clears the count
   await identityDirectory.link(emailIdentity(email as string), cred.account_id);
   setSessionCookie(res, sessionStore.issue(cred.account_id));
 
