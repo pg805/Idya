@@ -1,3 +1,7 @@
+// Must be first: populates process.env from .env before any module reads it.
+// dotenv does NOT override variables that are already set, so anything PM2
+// injects (DATABASE_URL) still wins — this only fills in what's missing.
+import 'dotenv/config';
 import fs from 'fs';
 import express, { type Request, type Response } from 'express';
 import { createServer } from 'http';
@@ -18,6 +22,8 @@ import { Prisma } from '@prisma/client';
 import RewardService from '../economy/reward_service.js';
 import type { LootTable } from '../economy/reward_service.js';
 import worldConfig from './world_config.js';
+import { createSessionStore } from '../auth/session_store.js';
+import { GrandfatheredDirectory, discordIdentity } from '../auth/identity_directory.js';
 import Weapon from '../weapon/weapon.js';
 import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -70,9 +76,11 @@ const charRepo = new CharacterRepository();
 const VALID_NATIONALITIES = ['Chae', 'Ketulvu'] as const;
 type Nationality = typeof VALID_NATIONALITIES[number];
 
-interface AuthToken { discordUserId: string; }
-const authTokens = new Map<string, AuthToken>(); // token → user
-const userTokens = new Map<string, string>();    // discordUserId → token (reuse across visits)
+// Auth lives in src/auth/ so the backing store is swappable (docs/world.md §1).
+// Today an AccountId still equals the Discord id it was created from; resolve
+// logins through the directory rather than assuming that.
+const identityDirectory = new GrandfatheredDirectory();
+const sessionStore      = createSessionStore();
 
 // ---- Trade sessions ----
 
@@ -123,8 +131,8 @@ async function createTradeSession(
   if (initiatorChars.length === 0) return { ok: false, error: "You don't have a character yet." };
   if (targetChars.length === 0)    return { ok: false, error: "That player doesn't have a character yet." };
   const tradeId        = Math.random().toString(36).slice(2, 9);
-  const initiatorToken = getOrCreateToken(initiatorDiscordId);
-  const targetToken    = getOrCreateToken(targetDiscordId);
+  const initiatorToken = await getOrCreateToken(initiatorDiscordId);
+  const targetToken    = await getOrCreateToken(targetDiscordId);
   tradeSessions.set(tradeId, {
     tradeId,
     status: 'waiting',
@@ -140,14 +148,18 @@ async function createTradeSession(
   };
 }
 
-function getOrCreateToken(discordId: string): string {
-  let token = userTokens.get(discordId);
-  if (!token) {
-    token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    authTokens.set(token, { discordUserId: discordId });
-    userTokens.set(discordId, token);
-  }
-  return token;
+/**
+ * A web-session token for the account behind a Discord user.
+ *
+ * Every caller is a Discord command handing out a deep link, so resolution goes
+ * through the identity directory rather than treating the Discord id as the
+ * account id — that assumption is the thing being retired (docs/world.md §1).
+ */
+async function getOrCreateToken(discordId: string): Promise<string> {
+  const account = await identityDirectory.resolve(discordIdentity(discordId));
+  // The grandfathered directory only fails for non-Discord providers, but a
+  // real table can miss, so don't strand the caller without a link.
+  return sessionStore.issue(account ?? discordId);
 }
 
 // ---- Telegraph ---- (computeTelegraph lives in combat/telegraph.ts, shared with the replay)
@@ -2001,23 +2013,17 @@ function parseCookies(header: string | undefined): Record<string, string> {
 
 function resolveAuth(req: Request): string | null {
   const cookieToken = parseCookies(req.headers.cookie)['idya_session'];
-  if (cookieToken && authTokens.has(cookieToken)) {
-    return authTokens.get(cookieToken)?.discordUserId ?? null;
-  }
-  return null;
+  return cookieToken ? sessionStore.resolve(cookieToken) : null;
 }
 
 function resolveSocketAuth(socket: Socket): string | null {
   const cookieToken = parseCookies(socket.handshake.headers.cookie)['idya_session'];
-  if (cookieToken && authTokens.has(cookieToken)) {
-    return authTokens.get(cookieToken)?.discordUserId ?? null;
-  }
-  return null;
+  return cookieToken ? sessionStore.resolve(cookieToken) : null;
 }
 
 app.post('/api/auth/claim', (req: Request, res: Response) => {
   const { token } = req.body as { token?: string };
-  if (!token || !authTokens.has(token)) {
+  if (!token || sessionStore.resolve(token) === null) {
     res.status(401).json({ error: 'Invalid token' });
     return;
   }
@@ -4082,6 +4088,7 @@ const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Test session: http://localhost:${PORT}/battle/test`);
+  console.log(`Auth: ${sessionStore.description}`);
   void clampUnlockQuantities();
   void backfillTrophies();
 });
@@ -4573,7 +4580,7 @@ if (discordToken) {
         await interaction.reply({ content: "You can only hunt in the forest.", flags: MessageFlags.Ephemeral });
         return;
       }
-      const token = getOrCreateToken(interaction.user.id);
+      const token = await getOrCreateToken(interaction.user.id);
       await interaction.reply({
         content: `Sulkupa Forest awaits. ${HOST}/app/hunt?auth=${token}`,
         flags: MessageFlags.Ephemeral,
@@ -4591,7 +4598,7 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      const token = getOrCreateToken(interaction.user.id);
+      const token = await getOrCreateToken(interaction.user.id);
       const link  = `${HOST}/app/create?auth=${token}`;
       await interaction.reply({
         ...buildWelcomeEmbed(`<@${interaction.user.id}>`, { link }),
@@ -4606,7 +4613,7 @@ if (discordToken) {
         await interaction.reply({ content: 'You already have a character! Use `/profile` to view it.', flags: MessageFlags.Ephemeral });
         return;
       }
-      const token = getOrCreateToken(interaction.user.id);
+      const token = await getOrCreateToken(interaction.user.id);
       await interaction.reply({
         content: `Register at the census log: ${HOST}/app/create?auth=${token}`,
         flags: MessageFlags.Ephemeral,
@@ -4946,12 +4953,7 @@ if (discordToken) {
       return;
     }
 
-    let token = userTokens.get(interaction.user.id);
-    if (!token) {
-      token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      authTokens.set(token, { discordUserId: interaction.user.id });
-      userTokens.set(interaction.user.id, token);
-    }
+    const token = await getOrCreateToken(interaction.user.id);
 
     const config = loadShop(shopKey, SHOP_DIR);
     await interaction.reply({
@@ -4971,12 +4973,7 @@ if (discordToken) {
       return;
     }
 
-    let token = userTokens.get(interaction.user.id);
-    if (!token) {
-      token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      authTokens.set(token, { discordUserId: interaction.user.id });
-      userTokens.set(interaction.user.id, token);
-    }
+    const token = await getOrCreateToken(interaction.user.id);
 
     await interaction.reply({
       content: `${HOST}/app/crafting?auth=${token}`,
