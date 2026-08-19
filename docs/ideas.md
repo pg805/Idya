@@ -3,7 +3,9 @@
 A running backlog of feature/content ideas — unsorted, unprioritized, and not
 commitments. Capture place for "wouldn't it be cool if…". Combat-specific design
 detail lives in [`battle-ideas.md`](battle-ideas.md); pre-alpha must-dos live in
-[`alpha_checklist.md`](alpha_checklist.md).
+[`alpha_checklist.md`](alpha_checklist.md). The 0.3.0 world/social frame — the
+persistent map, web identity, GM sessions — is planned in
+[`world.md`](world.md), which is where several of the ideas below now live.
 
 ## Combat & visuals
 

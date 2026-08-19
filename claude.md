@@ -52,6 +52,7 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG.md         # Detailed dev changelog
 ├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
 ├── PRD.md               # Vision / product requirements
+├── world.md             # 0.3.0 frame: persistent world map, web identity, GM sessions
 ├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
 ├── terrain.md           # Painted terrain: the six layers + dual-grid autotiling
