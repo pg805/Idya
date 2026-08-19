@@ -88,7 +88,7 @@ window.addEventListener('popstate', () => {
 
 (async function init() {
   await claimAuthFromUrl();
-  await mountLayout({ title: 'Idya' });
+  await mountLayout({ title: 'Legacy of Apolis' });
   // Tutorial resilience: if /api/layout handed back a tutorial session,
   // hop straight into it. Don't loop if the user is already on /battle.
   const layoutData = window.getLayoutData?.();

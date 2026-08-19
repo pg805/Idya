@@ -683,7 +683,10 @@ const APP_VERSION = (() => {
   } catch (_) { return 'dev'; }
 })();
 
-function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html' | 'landing.html'): void {
+function sendVersionedHtml(
+  res: Response,
+  file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html',
+): void {
   const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
   // that already have a query string). HTML itself is sent no-cache so the
@@ -697,6 +700,12 @@ function sendVersionedHtml(res: Response, file: 'index.html' | 'app.html' | 'lan
 // lands, and where sign-in will live once it isn't Discord-only.
 app.get('/', (_req: Request, res: Response) => {
   sendVersionedHtml(res, 'landing.html');
+});
+
+// Sign-in is its own page so the providers have somewhere to live when they
+// arrive; today it explains the Discord route and takes a pasted link.
+app.get('/signin', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'signin.html');
 });
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {

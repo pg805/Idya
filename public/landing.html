@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Idya</title>
+  <title>Legacy of Apolis</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="stylesheet" href="/landing.css">
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
@@ -11,13 +11,14 @@
 <body>
   <main class="landing-main">
 
+    <!-- ============================================================
+         COPY: this whole block is yours to rewrite. It's the first
+         thing a stranger reads. Everything below the brand block is
+         mechanism and can stay as-is.
+         ============================================================ -->
     <div class="landing-brand">
-      <h1 class="landing-title">IDYA</h1>
-      <!-- COPY STUB: rewrite. This is the first thing a stranger reads. -->
-      <p class="landing-tagline">A place to build a town, and fight for it.</p>
-      <p class="landing-blurb">
-        Craft, trade, farm and fight alongside other players in a shared world.
-      </p>
+      <h1 class="landing-title">LEGACY<br>OF APOLIS</h1>
+      <p class="landing-tagline">A living world.</p>
     </div>
 
     <!-- Shown when someone lands here after their session ended. -->
@@ -25,30 +26,14 @@
       Your session ended. Sign in again to pick up where you left off.
     </div>
 
-    <!-- Shown instead of the sign-in card when a valid session already exists. -->
-    <section class="landing-card" id="signed-in-card" hidden>
-      <h2>Welcome back</h2>
-      <p id="signed-in-line">You're signed in.</p>
-      <div class="landing-actions">
-        <a class="landing-btn" href="/app">Enter Idya</a>
-        <button class="landing-btn secondary" type="button" id="logout-btn">Sign out</button>
-      </div>
-    </section>
+    <!-- Signed in: straight through. Signed out: to the sign-in page. -->
+    <div class="landing-actions" id="landing-actions" hidden>
+      <a class="landing-btn" id="enter-btn" href="/app" hidden>Enter</a>
+      <a class="landing-btn" id="signin-btn" href="/signin" hidden>Sign in</a>
+      <button class="landing-btn secondary" type="button" id="logout-btn" hidden>Sign out</button>
+    </div>
 
-    <section class="landing-card" id="sign-in-card" hidden>
-      <h2>Sign in</h2>
-      <!-- Until OAuth lands, Discord slash commands are the only way to mint a
-           session (see docs/world.md §1). This becomes a real button then. -->
-      <p>Idya accounts are still handed out through Discord.</p>
-      <ol class="landing-steps">
-        <li>Open the Idya Discord server.</li>
-        <li>Run <code>/profile</code> in any channel.</li>
-        <li>Follow the private link it replies with.</li>
-      </ol>
-      <p class="landing-soon">
-        Signing in with Google or an email address is coming — it won't need Discord.
-      </p>
-    </section>
+    <p class="landing-blurb" id="signed-in-line" hidden></p>
 
   </main>
 
@@ -69,19 +54,20 @@
       }
 
       const me = await idyaWhoAmI();
-      const signedIn = document.getElementById('signed-in-card');
-      const signIn   = document.getElementById('sign-in-card');
+      const signedIn = !!me?.authenticated;
 
-      if (me?.authenticated) {
-        if (me.characterName) {
-          document.getElementById('signed-in-line').textContent = `Signed in as ${me.characterName}.`;
-        }
-        signedIn.hidden = false;
-      } else {
-        signIn.hidden = false;
+      document.getElementById('enter-btn').hidden   = !signedIn;
+      document.getElementById('logout-btn').hidden  = !signedIn;
+      document.getElementById('signin-btn').hidden  = signedIn;
+      document.getElementById('landing-actions').hidden = false;
+
+      if (signedIn && me.characterName) {
+        const line = document.getElementById('signed-in-line');
+        line.textContent = `Signed in as ${me.characterName}.`;
+        line.hidden = false;
       }
 
-      document.getElementById('logout-btn')?.addEventListener('click', () => idyaLogout());
+      document.getElementById('logout-btn').addEventListener('click', () => idyaLogout());
     })();
   </script>
 </body>

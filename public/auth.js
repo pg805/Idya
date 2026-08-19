@@ -17,6 +17,22 @@ async function claimAuthFromUrl() {
   history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
 }
 
+// Exchange a token for a session cookie. Returns whether it was accepted, so
+// the sign-in page can tell the user their link expired instead of failing mute.
+async function idyaClaimToken(token) {
+  try {
+    const res = await fetch('/api/auth/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ token }),
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
 // Who the server thinks we are. Null on network failure, so callers can tell
 // "definitely signed out" (authenticated: false) from "couldn't ask".
 async function idyaWhoAmI() {

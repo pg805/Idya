@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in — Legacy of Apolis</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/landing.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <main class="landing-main">
+
+    <div class="landing-brand">
+      <h1 class="landing-title small"><a href="/">LEGACY<br>OF APOLIS</a></h1>
+    </div>
+
+    <div class="landing-notice" id="expired-notice" hidden>
+      Your session ended. Sign in again to pick up where you left off.
+    </div>
+
+    <!-- Already signed in — don't make them do it twice. -->
+    <section class="landing-card" id="already-card" hidden>
+      <h2>Already signed in</h2>
+      <p id="already-line">You have an active session.</p>
+      <div class="landing-actions">
+        <a class="landing-btn" href="/app">Enter</a>
+        <button class="landing-btn secondary" type="button" id="logout-btn">Sign out</button>
+      </div>
+    </section>
+
+    <section class="landing-card" id="signin-card" hidden>
+      <h2>Sign in</h2>
+
+      <!-- Discord is currently the only provider. When Google and email land
+           (docs/world.md §1) they become buttons above this block, and this
+           drops to a secondary option rather than the whole page. -->
+      <p>Accounts are handed out through Discord for now.</p>
+      <ol class="landing-steps">
+        <li>Open the Discord server.</li>
+        <li>Run <code>/profile</code> in any channel.</li>
+        <li>Follow the private link it replies with.</li>
+      </ol>
+
+      <p class="landing-soon">
+        Signing in with Google or an email address is coming, and won't need Discord.
+      </p>
+    </section>
+
+    <!-- Pasting a link that already has ?auth= works, but so does pasting just
+         the token — people copy the tail of the URL more often than the URL. -->
+    <section class="landing-card" id="token-card" hidden>
+      <h2>Have a link already?</h2>
+      <p>Paste the sign-in link Discord sent you, or just the token from it.</p>
+      <form class="landing-actions" id="token-form">
+        <input class="landing-input" id="token-input" type="text"
+               placeholder="link or token" autocomplete="off" spellcheck="false">
+        <button class="landing-btn" type="submit">Sign in</button>
+      </form>
+      <p class="landing-error" id="token-error" hidden>
+        That link didn't work. It may have expired — run <code>/profile</code> again for a fresh one.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="landing-foot">
+    <a href="/app/about">About</a> · <a href="/app/lore">Lore</a> · <a href="/app/reference">Reference</a>
+  </footer>
+
+  <script src="/auth.js"></script>
+  <script>
+    (async function () {
+      // A Discord link may point straight here; claim it and go.
+      await claimAuthFromUrl();
+
+      const params = new URLSearchParams(location.search);
+      if (params.get('expired') === '1') {
+        document.getElementById('expired-notice').hidden = false;
+        history.replaceState(null, '', location.pathname);
+      }
+
+      const me = await idyaWhoAmI();
+      if (me?.authenticated) {
+        if (me.characterName) {
+          document.getElementById('already-line').textContent = `Signed in as ${me.characterName}.`;
+        }
+        document.getElementById('already-card').hidden = false;
+        document.getElementById('logout-btn').addEventListener('click', () => idyaLogout());
+        return;
+      }
+
+      document.getElementById('signin-card').hidden = false;
+      document.getElementById('token-card').hidden  = false;
+
+      document.getElementById('token-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const raw = document.getElementById('token-input').value.trim();
+        if (!raw) return;
+        // Accept a full URL or a bare token.
+        let token = raw;
+        try {
+          const fromUrl = new URL(raw, location.origin).searchParams.get('auth');
+          if (fromUrl) token = fromUrl;
+        } catch (_) { /* not a URL; treat as a bare token */ }
+
+        const err = document.getElementById('token-error');
+        err.hidden = true;
+        const ok = await idyaClaimToken(token);
+        if (ok) location.href = '/app';
+        else err.hidden = false;
+      });
+    })();
+  </script>
+</body>
+</html>

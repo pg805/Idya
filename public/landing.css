@@ -76,6 +76,9 @@ body {
   letter-spacing: 2px;
 }
 
+.landing-title.small { font-size: 24px; }
+.landing-title a { color: inherit; text-decoration: none; }
+
 .landing-tagline {
   margin: 16px 0 0;
   font-size: 16px;
@@ -136,6 +139,28 @@ body {
 .landing-btn.secondary:hover { border-color: var(--l-muted); color: var(--l-text); background: transparent; }
 
 .landing-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.landing-actions[hidden] { display: none; }
+.landing-brand + .landing-actions { justify-content: center; }
+
+.landing-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--l-text);
+  background: var(--l-deep);
+  border: 2px solid var(--l-line);
+  padding: 8px;
+}
+.landing-input:focus { outline: none; border-color: var(--l-sky); }
+
+.landing-error {
+  margin: 16px 0 0;
+  font-size: 16px;
+  color: var(--l-ember);
+}
+.landing-error[hidden] { display: none; }
+.landing-error code { font-family: inherit; color: var(--l-sky); }
 
 /* Shown when arriving from an expired or cleared session. */
 .landing-notice {
