@@ -2135,7 +2135,11 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
     ]);
   } catch (err) {
     // Unique violation = someone signed up with the same address in between.
-    console.error('signup failed', err);
+    // Log the code only. A Prisma error can carry the row it failed on, and
+    // that row holds the password hash — no part of a credential belongs in
+    // a log file that gets shipped around.
+    const code = (err as { code?: string })?.code ?? 'unknown';
+    console.error(`signup failed for an existing address (prisma ${code})`);
     res.status(409).json({ error: 'That email already has an account. Try signing in.' });
     return;
   }
