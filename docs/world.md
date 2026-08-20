@@ -174,6 +174,15 @@ that turns out to be wrong.
 - [ ] **Persist the rate limiter.** In-memory, so it resets on every deploy.
 - [ ] `/api/layout` reports `authenticated: false` for a signed-in account with no
       character. Cosmetic, but it conflates two different states.
+- [ ] **Sweep spent and expired tokens.** `PasswordReset` and `EmailVerification`
+      rows are never deleted. They're inert once expired — and only hashes, so
+      they're not a leak — but the tables grow forever. A daily delete of anything
+      used or expired is enough.
+- [ ] **Decide what verification actually gates.** Nothing today. If it should gate
+      something, the line worth drawing is *things that affect other people or
+      create durable value* — trading, shops, market, quest deposits — rather than
+      playing itself. Gating the character sheet would make the game look broken to
+      someone who just made a character, which is the opposite of what's wanted.
 
 ### 2. Chat
 
