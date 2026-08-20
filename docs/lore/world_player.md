@@ -39,13 +39,14 @@ sidaev better than nearly anything. Rare on the old continent, common on Apolis.
 **The war.** The Chaevul Empire is currently at war with a country on the old
 continent.
 
-# Groups and people
+# Gods
+
+**Vidali.** God of life.
+
+# Groups
 
 **The Crown.** The Chae emperor. He is funding the expedition, and the mine is
 held in his name.
-
-**Fendalok.** The padev of Sulku'it. Some Chae blood, some Ketulvu blood, a
-commission from the crown, and a membership in the Keat Company.
 
 **The Keat Company.** A merchant house of ships and ledgers, running the
 expedition on the crown's coin.
@@ -54,7 +55,5 @@ expedition on the crown's coin.
 
 **The Scathlan States.** Allies of the Chaevul, fighting the same war. Part of
 the expedition.
-
-**Vidali.** God of life.
 
 **The Vidil Church.** The church of Vidali. Part of the expedition.

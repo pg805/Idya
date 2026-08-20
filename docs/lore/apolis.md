@@ -202,6 +202,11 @@ That shape drives everything about it:
   player; agendas belong in play, delivered by the GM and by other characters. A
   document that hands out both leaves nothing to find.
 - **Common knowledge only.** See "On hidden information" below.
+- **No characters.** Fendalok is a player character who happens to belong to the
+  GM, and player characters are met rather than looked up. The glossary carries
+  the world: places, peoples, gods, terminology, and organizations. Who is
+  currently standing in Sulku'it is not reference material, and it would go stale
+  the moment anyone else arrived.
 
 **Tone: state what a thing is and stop.** No asides to the reader, no knowing
 implications, no lines that nudge toward an action. "Ask them yourself" and "some
@@ -255,6 +260,11 @@ Things named but not yet defined.
   fact that the Chaevul once lived there is common knowledge, or is bound up in
   the same story they keep to themselves, has not been decided. The doc currently
   says neither.
+- **Apolis the god.** The continent carries the name, so the name is obviously
+  public, but whether anyone outside the Chaevul knows it belongs to a god has
+  not been settled. The glossary defines Apolis as a continent and stops. The
+  Gods section currently lists only Vidali, which will look conspicuous once
+  somebody asks.
 - **A proper pass on `world_player.md`.** It is currently the minimum that is
   safely public. What a player should actually arrive knowing wants deciding as a
   whole rather than by subtraction.
