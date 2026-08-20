@@ -55,6 +55,6 @@ expedition on the crown's coin.
 **The Scathlan States.** Allies of the Chaevul, fighting the same war. Part of
 the expedition.
 
-**The Vidil Church.** The church of Vidali. Part of the expedition.
-
 **Vidali.** God of life.
+
+**The Vidil Church.** The church of Vidali. Part of the expedition.
