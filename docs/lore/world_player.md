@@ -1,6 +1,4 @@
-# The World
-
-## Two continents
+# Two continents
 
 There are two continents anyone knows about.
 
@@ -9,7 +7,7 @@ where the war that everyone is quietly preparing for will be fought.
 
 The other is the Apolis continent. That is where you are.
 
-## The continent is not new
+# The continent is not new
 
 Chaevul feet stood here long before yours did. Apolis was part of an empire that
 spanned both continents, and in those days the Chaevul worshipped the god the
@@ -28,7 +26,7 @@ ancestors.
 Generations later, the stories have had time to grow. To the Chaevul, Apolis is
 not a warning. It is an inheritance somebody is holding for them.
 
-## The Chaevul and the Ketulvu
+# The Chaevul and the Ketulvu
 
 The Chaevul conquered the Ketulvu a long time ago, and then something unexpected
 happened to the conquerors: they were absorbed.
@@ -40,7 +38,7 @@ society, and every generation blurs that line a little further.
 
 The Chae emperor is the crown, and the crown is in charge.
 
-## Talamite
+# Talamite
 
 You are here for a metal.
 
@@ -51,7 +49,7 @@ almost anything else you can pour into a mold.
 On the old continent, talamite mines are rare. Here they are common. That single
 fact is the reason for the ships, the tents, and you.
 
-## The expedition
+# The expedition
 
 The Chae emperor is paying for this, and he is paying through the Keat Company, a
 merchant house with a fleet and a long memory. The crown wants talamite because
@@ -63,13 +61,13 @@ argued over by somebody.
 Several groups joined the expedition. All of them will tell you they came to make
 sure it succeeds. Most of them came to make sure it succeeds *for them*.
 
-### The Keat Company
+# The Keat Company
 
 Merchants, and honest about it. They are content to let the crown hold the title
 so long as the Company runs the operation. They came for the money and they do
 not pretend otherwise, which makes them easier to deal with than most.
 
-### The Kolem Thetholven
+# The Kolem Thetholven
 
 Scientists and arcanists. They want talamite for what it does, not what it is
 worth. A mine like this one means instruments that carry sidaev, in quantities
@@ -79,7 +77,7 @@ They will cooperate with the crown. They also want more control than they have,
 for a reason they will state plainly if you ask: they do not want all of it
 turned into weapons.
 
-### The Scathlan States
+# The Scathlan States
 
 Allies of the Chaevul, fighting the same war against the same enemy. They want
 the metal for themselves.
@@ -87,7 +85,7 @@ the metal for themselves.
 Some of the Scathlan here are exactly what they appear to be, and they work hard.
 Others are listening. Nobody will tell you which is which.
 
-### The Vidil Church
+# The Vidil Church
 
 The Church says it has no interest in wealth. What it says it wants is for the
 resources to be held by the Church, so that they can be shared out fairly.
@@ -96,7 +94,7 @@ Whether that is faith or ambition depends on which servant of the Church you put
 the question to. It is worth noting that the crown has spent his rule pushing
 against them, and they have not forgotten it.
 
-## Where you come in
+# Where you come in
 
 There is a field with a few tents in it, and a promise of a mine underneath.
 
