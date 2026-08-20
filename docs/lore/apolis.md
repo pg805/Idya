@@ -193,6 +193,13 @@ not tell a player why they are here, and does not tell them what to want.
 Motivation belongs to the player. Goals belong in play, delivered by the GM and by
 other characters. A document that hands out both leaves nothing to find.
 
+**Tone is explanatory. State what a thing is and stop.** No asides to the reader,
+no knowing implications, no lines that nudge toward an action. "Ask them
+yourself" and "some of their people are laborers and some are not" are both the
+wrong register, however tempting: the first gives an instruction, the second
+winks. If something is true and public, say it plainly. If it is not public, it
+belongs in play instead.
+
 ### On hidden information
 
 The Chae and the Ketulvu believe different things about this continent, and it is
