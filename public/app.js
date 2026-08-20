@@ -21,6 +21,7 @@ function routeFromPath(path) {
   if (path === '/reference')            return { viewName: 'reference', params: {} };
   if (path === '/about')                return { viewName: 'about',     params: {} };
   if (path === '/account')              return { viewName: 'account',   params: {} };
+  if (path === '/chat')                 return { viewName: 'chat',      params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/create')               return { viewName: 'create',  params: {} };

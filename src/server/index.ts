@@ -27,6 +27,8 @@ import { createSessionStore } from '../auth/session_store.js';
 import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth/identity_directory.js';
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
+import { TOWN, chunkKey, placeAt, listPlaces, isKnownPlace, parseChunk, type Chunk } from '../chat/places.js';
+import { messageProblem, saveMessage } from '../chat/chat_service.js';
 import { createMailer } from '../auth/mailer.js';
 import {
   newResetToken, hashResetToken, resetEmail, verificationEmail,
@@ -3953,8 +3955,128 @@ app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
 
 // ---- Socket.io ----
 
+// ---- Chat ----
+//
+// One room per chunk. You hear what is said where you are standing and nothing
+// else: no global channel, no guild channel (docs/world.md §2). Presence is
+// in-memory because the world map will own real positions soon enough, and a
+// column here would only have to be removed again.
+
+interface ChatPresence { accountId: string; characterName: string; chunk: Chunk; }
+const chatPresence = new Map<string, ChatPresence>(); // socket.id -> who and where
+const chatLimiter = new RateLimiter(20, 30_000);      // 20 messages / 30s per account
+
+const chatRoom = (c: Chunk): string => `chat:${chunkKey(c)}`;
+
+function whoIsHere(chunk: Chunk): string[] {
+  const names = new Set<string>();
+  for (const p of chatPresence.values()) {
+    if (p.chunk.x === chunk.x && p.chunk.y === chunk.y) names.add(p.characterName);
+  }
+  return [...names].sort();
+}
+
+function broadcastPresence(chunk: Chunk): void {
+  io.to(chatRoom(chunk)).emit('chat:presence', {
+    chunk,
+    place: placeAt(chunk),
+    here: whoIsHere(chunk),
+  });
+}
+
+function enterChunk(socket: Socket, presence: ChatPresence, next: Chunk): void {
+  const previous = presence.chunk;
+  socket.leave(chatRoom(previous));
+  presence.chunk = next;
+  socket.join(chatRoom(next));
+
+  socket.emit('chat:place', { chunk: next, place: placeAt(next) });
+  // Both rooms need to know: one lost somebody, one gained somebody.
+  broadcastPresence(previous);
+  broadcastPresence(next);
+}
+
 io.on('connection', (socket: Socket) => {
   console.log('client connected:', socket.id);
+
+  socket.on('chat:join', async () => {
+    const accountId = resolveSocketAuth(socket);
+    if (!accountId) { socket.emit('chat:error', { message: 'Sign in to talk.' }); return; }
+
+    const chars = await charRepo.list(accountId);
+    if (chars.length === 0) {
+      socket.emit('chat:error', { message: 'Make a character first.' });
+      return;
+    }
+
+    const presence: ChatPresence = {
+      accountId,
+      characterName: chars[0].name,
+      chunk: { ...TOWN },
+    };
+    chatPresence.set(socket.id, presence);
+    socket.join(chatRoom(presence.chunk));
+
+    socket.emit('chat:joined', {
+      characterName: presence.characterName,
+      chunk: presence.chunk,
+      place: placeAt(presence.chunk),
+      places: listPlaces(),
+    });
+    broadcastPresence(presence.chunk);
+  });
+
+  socket.on('chat:move', (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return;
+    const next = parseChunk(raw);
+    if (!next || !isKnownPlace(next)) {
+      socket.emit('chat:error', { message: "There's nothing that way yet." });
+      return;
+    }
+    if (next.x === presence.chunk.x && next.y === presence.chunk.y) return;
+    enterChunk(socket, presence, next);
+  });
+
+  socket.on('chat:send', async (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) { socket.emit('chat:error', { message: 'Sign in to talk.' }); return; }
+
+    const body = (raw as { body?: unknown })?.body;
+    const problem = messageProblem(body);
+    if (problem) { socket.emit('chat:error', { message: problem }); return; }
+
+    if (!chatLimiter.check(presence.accountId).allowed) {
+      socket.emit('chat:error', { message: 'Slow down a moment.' });
+      return;
+    }
+
+    // Re-read the character each time so a rename shows up without reconnecting.
+    const chars = await charRepo.list(presence.accountId);
+    const character = chars[0];
+    if (character) presence.characterName = character.name;
+
+    try {
+      const line = await saveMessage({
+        chunk: presence.chunk,
+        accountId: presence.accountId,
+        characterId: character?.id ?? null,
+        characterName: presence.characterName,
+        body: body as string,
+      });
+      io.to(chatRoom(presence.chunk)).emit('chat:message', line);
+    } catch (err) {
+      console.error('chat save failed', (err as { code?: string })?.code ?? err);
+      socket.emit('chat:error', { message: "That didn't send. Try again." });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return;
+    chatPresence.delete(socket.id);
+    broadcastPresence(presence.chunk);
+  });
 
   socket.on('join_session', (sessionId: string) => {
     const session = sessions.get(sessionId);
