@@ -467,6 +467,16 @@ once.
 Forces stay deliberately thin at the start and **grow through play**: what they
 turn out to want gets decided at the table, not in advance. Sessions add to them.
 
+> **✅ Written.** Five forces — the Crown, the Keat Company, the Kolem Thetholven,
+> the Scathlan States, and the Vidil Church — along with the continent's history,
+> talamite, and the expedition itself. Full version in **`docs/lore/apolis.md`**
+> (designer-facing, includes what players shouldn't know); the player-facing cut
+> is `docs/lore/world_player.md`, served at `/api/info/lore`.
+>
+> This also answers the "why the mine" TODO in the first-session section above:
+> the crown wants talamite for a war, and four other factions want the mine for
+> their own reasons. The pre-0.3.0 setting is archived in `archive/lore/`.
+
 **Character creation becomes an application.**
 
 - **Choose** a relationship to one or more forces from the authored list — backing

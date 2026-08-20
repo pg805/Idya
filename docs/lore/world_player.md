@@ -1,91 +1,111 @@
 # The World
 
-The **Chaevul Empire** has conquered the region, suppressing older cultures and asserting its own political and philosophical dominance. The empire's reach is long but uneven — the further from the capital, the thinner the control.
+## Two continents
 
-**Sulku'it** is a small town on the outskirts of the empire, inhabited primarily by the **Ketulvu** people. It sits near a forest dense with creatures that carry valuable properties — materials, rare drops, and things the wider world has started to take notice of.
+There are two continents anyone knows about.
 
-The town has become an outpost for those looking to make a name for themselves. People arrive from across the empire — Chae and Ketulvu alike — drawn by opportunity and the chance at something better. Most come with nothing. That's the point. Sulku'it is the kind of place where that's allowed to be enough.
+The old continent is where the Chaevul Empire sits, where the cities are, and
+where the war that everyone is quietly preparing for will be fought.
 
----
+The other is the Apolis continent. That is where you are.
 
-# The Chaevul Empire
+## The continent is not new
 
-The empire is ruled by **Emperor Gustavus**. His face is stamped on every korel coin — the most common way most subjects encounter him in their daily lives.
+Chaevul feet stood here long before yours did. Apolis was part of an empire that
+spanned both continents, and in those days the Chaevul worshipped the god the
+place is named for.
 
-The empire spans many peoples. Two of them meet in Sulku'it: the **Chae**, the empire's dominant culture — orderly, methodical, given to study and the systematizing of the world — and the **Ketulvu**, the people who lived in these lands before the conquest. Ketulvu traditions predate the empire by centuries and have not been erased, only forced to share space with it.
+Then they grew clever. They built things that worked without prayer, and the old
+worship fell out of practice, and Apolis was not given what Apolis was owed.
 
----
+The god's answer was to fill the continent with beasts and with magical things
+that had no business walking around. The Chaevul left.
 
-# Sidaev
+That is why the wildlife here is worth hunting. Everything strange you will pull
+out of a carcass or a riverbed traces back to a god losing his temper at your
+ancestors.
 
-**Sidaev** is a force woven through the living world — present in creatures, plants, and people in varying concentrations. Its nature is contested.
+Generations later, the stories have had time to grow. To the Chaevul, Apolis is
+not a warning. It is an inheritance somebody is holding for them.
 
-The **Ketulvu** regard Sidaev as a gift from their god **Dae**. It is sacred, personal, and alive. To study it is to know something of Dae's intention; to wield it is an act of reverence.
+## The Chaevul and the Ketulvu
 
-The **Chae** treat Sidaev as a natural force, adjacent to physics or mathematics — a discipline to be understood, measured, and applied. To them it is neither gift nor miracle, simply a property of the world that rewards study.
+The Chaevul conquered the Ketulvu a long time ago, and then something unexpected
+happened to the conquerors: they were absorbed.
 
-Both traditions produce practitioners. The tension between them is cultural and philosophical, not always hostile — but it runs deep.
+The Chaevul still rule, and they rule on the strength of what they can build. But
+they keep Ketulvu traditions, mark Ketulvu occasions, and live in a Ketulvu way.
+They are less a separate people ruling another than the ruling class of a single
+society, and every generation blurs that line a little further.
 
----
+The Chae emperor is the crown, and the crown is in charge.
 
-# The Gods
+## Talamite
 
-The Ketulvu pantheon is wide and older than the empire. A few names a newcomer to Sulku'it is likely to hear:
+You are here for a metal.
 
-- **Dae** — the source of Sidaev. Honored in every act of crafting, enchanting, and healing that draws on the living force.
-- **Vidali** — the god of life. Patroness of growth, healing, and what endures.
-- **Nokorna** — the god of death. Counterweight to Vidali. The Ketulvu do not regard Nokorna as evil; only as necessary.
+Talamite is useful on its own, but that is not why it is precious. Its worth is
+in what it becomes: it takes to alloying, and it carries sidaev better than
+almost anything else you can pour into a mold.
 
-The Chae have their own gods, but in the conquered territories most Chae have either set them aside or kept them private. The empire does not officially mandate worship — only loyalty.
+On the old continent, talamite mines are rare. Here they are common. That single
+fact is the reason for the ships, the tents, and you.
 
----
+## The expedition
 
-# Sulku'it
+The Chae emperor is paying for this, and he is paying through the Keat Company, a
+merchant house with a fleet and a long memory. The crown wants talamite because
+the crown is going to war.
 
-A small Ketulvu town on the empire's frontier, kept alive by its proximity to a Sidaev-rich forest. The town runs on a handful of trades — lumber, smithing, baking, enchanting — and the steady current of newcomers chasing the forest's promise.
+**The crown owns this mine in name.** Every other word in that sentence is being
+argued over by somebody.
 
-The town square is the gathering point. The temple, the shops, and the homes of the people who keep it all running are within a few minutes' walk of each other.
+Several groups joined the expedition. All of them will tell you they came to make
+sure it succeeds. Most of them came to make sure it succeeds *for them*.
 
----
+### The Keat Company
 
-# The People of Sulku'it
+Merchants, and honest about it. They are content to let the crown hold the title
+so long as the Company runs the operation. They came for the money and they do
+not pretend otherwise, which makes them easier to deal with than most.
 
-## Fendalok — Padev
+### The Kolem Thetholven
 
-The town's leader, called the **Padev** in Ketulvu tradition. Older man, tall, with a chinstrap beard and the practical bearing of someone who's spent decades doing the work himself. Born in Sulku'it and intends to die in it. It's not uncommon to see him with a hammer or shovel due to his hands-on approach to leadership. Married to **Morna**.
+Scientists and arcanists. They want talamite for what it does, not what it is
+worth. A mine like this one means instruments that carry sidaev, in quantities
+they have never had to work with.
 
-## Morna — Baker
+They will cooperate with the crown. They also want more control than they have,
+for a reason they will state plainly if you ask: they do not want all of it
+turned into weapons.
 
-Married to **Fendalok**. Runs the bakery on the main square. The town's quiet center — present, capable, the person who steps in when Fendalok's pulled in too many directions. She is steady in a way the town has come to depend on.
+### The Scathlan States
 
-## Dolan — General Store
+Allies of the Chaevul, fighting the same war against the same enemy. They want
+the metal for themselves.
 
-Runs the general store. If you didn't catch that Dolan is a military man from his bearing, he'll make sure you know by way of stories from his younger days or a misplaced curt order. His store carries equipment, supplies, and the occasional curiosity brought in by traveling caravans.
+Some of the Scathlan here are exactly what they appear to be, and they work hard.
+Others are listening. Nobody will tell you which is which.
 
-## Vetha — Lumberjack
+### The Vidil Church
 
-Runs the lumber trade out of her workshop on the edge of town. Inherited the business from Thegan, the old lumberjack who took her on as an apprentice when she was young. Took on **Dagwen** as her apprentice. Married to **Fakel**.
+The Church says it has no interest in wealth. What it says it wants is for the
+resources to be held by the Church, so that they can be shared out fairly.
 
-## Fakel — Guard
+Whether that is faith or ambition depends on which servant of the Church you put
+the question to. It is worth noting that the crown has spent his rule pushing
+against them, and they have not forgotten it.
 
-A Chae soldier stationed in Sulku'it for guard duty. Twenty years on, he is married to **Vetha** and has made a life here. He keeps the peace with a light hand. Most of the town has come to accept him; some still see only the uniform.
+## Where you come in
 
-## Kethalis — Blacksmith
+There is a field with a few tents in it, and a promise of a mine underneath.
 
-Boisterous, social, the kind of presence a town builds an evening around. Inherited the smithy from his mentor Tovanas and has run it since. The smithy is welcoming despite the heat — his doing. Married to **Lithona**; father of **Dagwen**.
+Everything else that this place becomes, the roads and the farms and the
+storefronts and whatever gets built after that, is not here yet. Somebody has to
+put it there.
 
-## Lithona — Temple Keeper
+The expedition's padev is Fendalok, who has some Chae blood and some Ketulvu
+blood, a commission from the crown, a membership in the Keat Company, and orders
+to turn this field into a working mine.
 
-Born with stark white hair, taken into temple life young. Tends the temple and the traditions of the gods. Will help anyone who comes through her door — healing, listening, advice. Married to **Kethalis**; mother of **Dagwen**.
-
-## Lomis — Enchanter
-
-A young Ketulvu enchanter with a deep affinity for Sidaev. Discovered his talent as a child when he accidentally turned his hair orange — he's kept it that way ever since. His shop is half workshop, half library. He works late, reads constantly, and lights up when a caravan brings a new tome.
-
-## Dagwen — Apprentice Lumberjack
-
-Son of **Kethalis** and **Lithona**. Fourteen, energetic. Apprenticed to **Vetha**.
-
-## Nisra — Aspiring Guard
-
-Daughter of **Vetha** and **Fakel**. Sixteen. Quiet, watchful, and increasingly drawn to the kind of work her father does — though that's a complicated thing to want in Sulku'it.
+He cannot do it alone. That is the job.

@@ -62,9 +62,9 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── reference.md         # Served at /api/info/reference (Reference info page)
 ├── about.md             # Served at /api/info/about (About info page)
 └── lore/
-    ├── world.md         # Designer-facing world doc — NOT served
+    ├── apolis.md        # Designer-facing world doc — NOT served (0.3.0 setting)
     ├── world_player.md  # Served at /api/info/lore (Lore info page)
-    └── names.md         # Name pool
+    └── voice.md         # House writing style — no em dashes, ever
 ```
 
 ### Which markdown files are player-facing?
