@@ -31,9 +31,26 @@ is why the place is so thick with magic now.
 The Chaevul left. Over the generations since, they have mythologized the place
 they lost, and their goal is to go back and reclaim their birthright.
 
-**That is the Chaevul view, and only theirs.** The Ketulvu have no ancestral
-claim to Apolis and no god's grudge attached to it. To them the continent is
-exactly what it appears to be: somewhere new.
+**That is the Chaevul view, and only theirs.** The Ketulvu do not carry this
+mythology, and the Chaevul are not especially sharing it.
+
+To the Ketulvu, Apolis is an economic and political opening. Not a way to get out
+from under the Chae, but a way to make money and build a new life. They see the
+magic saturating the place as valuable, and they want it. That is the summary of
+the Ketulvu position, and individuals will vary.
+
+### What each side knows
+
+The two peoples do not have the same picture of where they are standing, and this
+asymmetry is the point rather than an oversight.
+
+- A **Chae** character grew up on the reclamation story. Apolis is an inheritance,
+  Apolis is a god who struck at their ancestors, and coming back means something.
+- A **Ketulvu** character did not grow up on any of that. The continent is new
+  ground with valuable things on it.
+
+**This does not go in the player doc as secret knowledge.** See the note under
+"What players get" below.
 
 ## The Chaevul and the Ketulvu
 
@@ -164,6 +181,38 @@ Establishing the mine is his job. Finding the sword is why he took it.
 means is undecided.
 
 **Players do not know any of this.** It stays out of `world_player.md`.
+
+---
+
+## What players get
+
+`world_player.md` is a **reference, not a briefing**. Terminology, who the groups
+are, and how they relate. It deliberately does not contain anyone's goals, does
+not tell a player why they are here, and does not tell them what to want.
+
+Motivation belongs to the player. Goals belong in play, delivered by the GM and by
+other characters. A document that hands out both leaves nothing to find.
+
+### On hidden information
+
+The Chae and the Ketulvu believe different things about this continent, and it is
+tempting to serve different lore to each. Two reasons not to build that:
+
+1. **It does not stay hidden.** Two players compare pages in chat within ten
+   minutes of reading them. A gated document buys almost no secrecy and costs
+   double the writing.
+2. **Secrecy is not what is wanted here.** The goal is that a Chae and a Ketulvu
+   character have *different relationships to the same ground*, and that is
+   achieved by attribution rather than concealment.
+
+So the player doc says who believes a thing, not that a thing is true. "The
+Chaevul say the god struck the continent" reads as personal history to one player
+and as somebody else's folklore to another, from identical text. The difference
+lands without a permissions system.
+
+Genuine asymmetry belongs in two places instead: the **character creation copy**,
+where picking an origin can describe what your people think, and **play**, where
+a Chae character can simply decline to explain the story to a Ketulvu one.
 
 ---
 

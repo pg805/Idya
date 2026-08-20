@@ -1,117 +1,65 @@
-# Two continents
+# Where you are
 
-There are two continents anyone knows about.
+Two continents are known.
 
-The old continent is where the Chaevul Empire sits, where the cities are, and
-where the war is being fought.
+The old continent holds the Chaevul Empire, its cities, and the war it is
+currently fighting.
 
-The other is the Apolis continent. That is where you are.
+The Apolis continent is the other one. It is thick with magical creatures and
+with materials that behave in ways materials should not. You are on it.
 
-# The continent is not new
+Somewhere on its coast is a field with a few tents in it, an expedition camped
+around a seam of ore, and not much else yet. The scout who found the place named
+it **Sulku'it**, and the forest beside it **Sulkupa**.
 
-Chaevul feet stood here long before yours did. Apolis was part of an empire that
-spanned both continents, and in those days the Chaevul worshipped the god the
-place is named for.
+# The peoples
 
-Then they grew clever. They built things that worked without prayer, and the old
-worship fell out of practice, and Apolis was not given what Apolis was owed.
+**The Chaevul** rule the empire. They lived on Apolis once, long ago, and left.
+They say the god Apolis filled the continent with beasts because they stopped
+giving him his due, and they have told that story to each other for generations.
+A Chae will tell you coming back here means something.
 
-The god's answer was to fill the continent with beasts and with magical things
-that had no business walking around. That is why the wildlife here is worth
-hunting, and why so much of what you will pull out of a carcass or a riverbed is
-stranger than it has any right to be.
+**The Ketulvu** were not part of any of that. Apolis is new ground to them, and
+what is on it is worth money.
 
-The Chaevul left. Generations later, the stories have had time to grow. To a
-Chaevul, Apolis is not a warning. It is an inheritance somebody else is holding.
+The two live as one society now, unevenly. The Chaevul lead, on the strength of
+what they can build. They also keep Ketulvu traditions, mark Ketulvu occasions,
+and live in a Ketulvu way, and each generation blurs the line further.
 
-To a Ketulvu, it is a place nobody they are descended from has ever stood.
+**Chae** is what you call a person of Chaevul descent.
 
-# The Chaevul and the Ketulvu
+# Words you will hear
 
-While Apolis was being overrun, a small group of Chaevul got out and found the
-Ketulvu tribes.
+**Sidaev.** The force that runs through living things, in different
+concentrations. Some materials carry it better than others.
 
-What they carried with them was enough to take charge quickly. What they did not
-have was numbers, and you cannot make a people into your own likeness when you
-are outnumbered by them.
+**Talamite.** A metal. Useful by itself, more useful alloyed, and it conducts
+sidaev better than nearly anything. Rare on the old continent. Common here.
 
-So the Chaevul lead, and they lead on the strength of what they can build. But
-they keep Ketulvu traditions, mark Ketulvu occasions, and live in a Ketulvu way.
-They are less a separate people ruling another than the ruling class of a single
-society, and every generation blurs that line a little further.
+**Korel.** Money.
 
-The Chae emperor is the crown, and the crown is in charge. Below him, whoever
-runs a place is its padev, which is the Ketulvu word for it and the one everybody
-uses.
+**Padev.** The Ketulvu word for whoever runs a place, near enough to a mayor.
+Both peoples use it.
 
-# Talamite
+# Who is here
 
-You are here for a metal.
+**The Crown.** The Chae emperor. He is paying for the expedition and holds the
+mine in his name.
 
-Talamite is useful on its own, but that is not why it is precious. Its worth is
-in what it becomes: it takes to alloying, and it carries sidaev better than
-almost anything else you can pour into a mold.
+**The Keat Company.** The merchant house running the expedition on the crown's
+coin. Ships, ledgers, and a long memory.
 
-On the old continent, talamite mines are rare. Here they are common.
+**The Kolem Thetholven.** Scientists and arcanists. They came for what talamite
+does, not what it sells for.
 
-# The expedition
+**The Scathlan States.** Allies of the Chaevul in the war. Some of their people
+here are laborers and some are not.
 
-The Chae emperor is paying for this, and he is paying through the Keat Company, a
-merchant house with a fleet and a long memory. The crown wants talamite for the
-war it is fighting.
+**The Vidil Church.** Named for Vidali, god of life. The Church holds that
+resources are best held by the Church.
 
-**The crown owns this mine in name.** The crown also intends to own it in rather
-more than name, and is not the only party with a view on the matter.
+**Fendalok.** The padev of Sulku'it. Some Chae blood, some Ketulvu blood, a
+commission from the crown, and a membership in the Keat Company.
 
-Several groups joined the expedition. All of them will tell you they came to make
-sure it succeeds. Most of them came to make sure it succeeds *for them*.
-
-# The Keat Company
-
-Merchants, and honest about it. They are content to let the crown hold the title
-so long as the Company runs the operation. They came for the money and they do
-not pretend otherwise, which makes them easier to deal with than most.
-
-# The Kolem Thetholven
-
-Scientists and arcanists. They want talamite for what it does, not what it is
-worth. A mine like this one means instruments that carry sidaev, in quantities
-they have never had to work with.
-
-They will cooperate with the crown. They also want more control than they have,
-for a reason they will state plainly if you ask: they do not want all of it
-turned into weapons.
-
-# The Scathlan States
-
-Allies of the Chaevul, fighting the same war against the same enemy. They want
-the metal for themselves.
-
-Some of the Scathlan here are exactly what they appear to be, and they work hard.
-Others are listening. Nobody will tell you which is which.
-
-# The Vidil Church
-
-Named for Vidali, god of life. The Church says it has no interest in wealth. What
-it says it wants is for the resources to be held by the Church, so that they can
-be shared out fairly.
-
-Whether that is faith or ambition depends on which servant of the Church you put
-the question to. It is worth noting that the crown has spent his rule pushing
-against them, and they have not forgotten it.
-
-# Where you come in
-
-There is a field with a few tents in it, and a promise of a mine underneath. The
-scout who found the place called it Sulku'it, and the forest beside it Sulkupa,
-and those are the names now.
-
-Everything else this place becomes, the roads and the farms and the storefronts
-and whatever gets built after that, is not here yet. Somebody has to put it
-there.
-
-The padev is Fendalok, who has some Chae blood and some Ketulvu blood, a
-commission from the crown, a membership in the Keat Company, and orders to turn
-this field into a working mine.
-
-He cannot do it alone. That is the job.
+All five of the groups above will tell you they are here to see the mine
+succeed. Beyond that, ask them yourself.
