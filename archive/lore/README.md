@@ -12,8 +12,14 @@ found a mine on the Apolis continent, built around a group of players with
 competing backers. Different premise, different place, different scale.
 
 Some vocabulary survived the move because it was always good: the Chaevul and
-the Ketulvu, the Chae, sidaev, korel. What did not survive is the geography, the
-town, the cast, and the framing.
+the Ketulvu, the Chae, sidaev, korel. **Sulku'it survived as a name**, but not as
+a place: it now refers to the expedition site on Apolis, which is a field with
+tents rather than an established town. What did not survive is the geography, the
+cast, and the framing.
+
+Sulkupa Forest is still referenced in live content (`public/views/hunt.js`, the
+Hunt page). Whether it carries over to Apolis alongside the town's name is an
+open question, not a decision.
 
 ## What is here
 

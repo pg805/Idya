@@ -35,7 +35,8 @@ alive.
 
 ### The first session
 
-A near-empty field with a few tents. The GM lays out the goal for the area —
+A near-empty field with a few tents, called **Sulku'it**. The GM lays out the
+goal for the area —
 *build a mine* — and what that needs: infrastructure, farms, resources taken from
 the wildlife and the land. Quests go out. Players talk about how to accomplish
 them with the systems that exist, and propose the ones that don't.

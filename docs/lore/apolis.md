@@ -79,6 +79,10 @@ Several other factions joined the expedition. Officially they are there to make
 sure it succeeds. In practice each is also there to take as much control of the
 mine as it can get.
 
+The site itself is called **Sulku'it**. Right now that name refers to a field
+with a few tents in it. What else it comes to mean is the thing the players
+build.
+
 ---
 
 ## The forces
@@ -187,3 +191,6 @@ Things named but not yet defined. Each is a small writing job, not a blocker.
   intentional, but it has not been stated, so it is not written down here.
 - **The Sword of Apolis.** Whether it is real, what "worthy" means, and whether
   it is findable at all.
+- **Sulkupa Forest.** The old setting's hunting ground, still named in live
+  content on the Hunt page. Sulku'it carried over; whether the forest did has not
+  been said.

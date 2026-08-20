@@ -96,7 +96,8 @@ against them, and they have not forgotten it.
 
 # Where you come in
 
-There is a field with a few tents in it, and a promise of a mine underneath.
+There is a field with a few tents in it, and a promise of a mine underneath. The
+place is called Sulku'it, which at the moment is a generous word for it.
 
 Everything else that this place becomes, the roads and the farms and the
 storefronts and whatever gets built after that, is not here yet. Somebody has to
