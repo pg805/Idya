@@ -143,6 +143,38 @@ The plan, in order:
 buildings, chat, farm plots, applications, guilds, and shops will all reference it
 too. The migration only gets bigger.
 
+#### Built so far
+
+Email sign-up, sign-in, sign-out, password reset, and email verification all work,
+plus linking an email to an existing Discord account. Pages: `/`, `/signin`,
+`/signup`, `/forgot`, `/reset`, `/verify`, and `/app/account`.
+
+Sessions are stateless signed tokens (`IDYA_SESSION_SECRET`), so they survive a
+deploy. Mail goes through Resend; **the verified sending domain is `slowb.rodeo`,
+not the `idya.` subdomain**, so `MAIL_FROM` must stay on the apex.
+
+**Verification does not gate play — deliberately.** People sign up in front of the
+GM during a session, and sending someone off to find their inbox before they can
+start is the worst possible first five minutes. What being unverified costs is
+account recovery, and the banner says exactly that. One line changes it later if
+that turns out to be wrong.
+
+#### Still to do
+
+- [ ] **Link Discord to an email account** — the reverse direction. Someone who
+      signed up by email can't attach Discord, so the bot's links don't work for them.
+- [ ] **Revocable sessions.** Signed tokens stay valid until they expire (30 days),
+      so sign-out is best-effort and a leaked token can't be killed. Needs the
+      `Session` table.
+- [ ] **The `account_id` rename.** New email accounts have uuids sitting in a column
+      called `discord_id`. It works and it's commented, but it's a trap for anyone
+      reading the schema cold. Additive migration, compiler-verified.
+- [ ] **Change password while signed in** — currently only via the email reset loop.
+- [ ] **Google OAuth**, the third provider.
+- [ ] **Persist the rate limiter.** In-memory, so it resets on every deploy.
+- [ ] `/api/layout` reports `authenticated: false` for a signed-in account with no
+      character. Cosmetic, but it conflates two different states.
+
 ### 2. Chat
 
 **All chat is in character, and all chat is location-based.** There is no global

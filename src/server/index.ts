@@ -28,7 +28,10 @@ import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { createMailer } from '../auth/mailer.js';
-import { newResetToken, hashResetToken, resetEmail, RESET_TTL_MS } from '../auth/reset_token.js';
+import {
+  newResetToken, hashResetToken, resetEmail, verificationEmail,
+  RESET_TTL_MS, VERIFY_TTL_MS,
+} from '../auth/reset_token.js';
 import Weapon from '../weapon/weapon.js';
 import { hpBudgetRatio } from '../tools/budget.js';
 import { CombatSession, CombatantMeta, Combatant } from '../combat/combat_session.js';
@@ -690,8 +693,8 @@ const APP_VERSION = (() => {
 
 function sendVersionedHtml(
   res: Response,
-  file: 'index.html' | 'app.html' | 'landing.html'
-      | 'signin.html' | 'signup.html' | 'forgot.html' | 'reset.html',
+  file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html'
+      | 'signup.html' | 'forgot.html' | 'reset.html' | 'verify.html',
 ): void {
   const raw = fs.readFileSync(join(__dirname, '../../public', file), 'utf8');
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
@@ -724,6 +727,10 @@ app.get('/forgot', (_req: Request, res: Response) => {
 
 app.get('/reset', (_req: Request, res: Response) => {
   sendVersionedHtml(res, 'reset.html');
+});
+
+app.get('/verify', (_req: Request, res: Response) => {
+  sendVersionedHtml(res, 'verify.html');
 });
 
 app.get('/battle/:sessionId', (_req: Request, res: Response) => {
@@ -2101,7 +2108,32 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
 const signinLimiter = new RateLimiter(10, 15 * 60_000); // 10 tries / 15 min
 const signupLimiter = new RateLimiter(5, 60 * 60_000);  // 5 accounts / hour
 const forgotLimiter = new RateLimiter(5, 60 * 60_000);  // 5 reset mails / hour
+const verifyLimiter = new RateLimiter(5, 60 * 60_000);  // 5 verify mails / hour
 const mailer = createMailer();
+
+function publicBase(): string {
+  return process.env.HOST_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+}
+
+/**
+ * Mint a verification token and mail the link. Silent on failure by design —
+ * every caller has already done the thing the user asked for (signed up, linked
+ * an address), and none of them should fail because mail is down.
+ */
+async function sendVerificationEmail(accountId: string, email: string): Promise<void> {
+  const { token, tokenHash } = newResetToken();
+  await prisma.emailVerification.create({
+    data: {
+      token_hash: tokenHash,
+      account_id: accountId,
+      email,
+      expires_at: new Date(Date.now() + VERIFY_TTL_MS),
+    },
+  });
+  const link = `${publicBase()}/verify?token=${encodeURIComponent(token)}`;
+  const sent = await mailer.send({ to: email, ...verificationEmail(link) });
+  if (!sent.ok) console.error(`verification email failed: ${sent.error}`);
+}
 
 function setSessionCookie(res: Response, token: string): void {
   const parts = [
@@ -2157,8 +2189,118 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
     return;
   }
 
+  await sendVerificationEmail(accountId, email);
   setSessionCookie(res, sessionStore.issue(accountId));
   res.json({ ok: true, hasCharacter: false });
+});
+
+// Confirms an address. Unauthenticated on purpose — the link gets opened in
+// whatever browser the mail app hands it to, which often isn't the signed-in one.
+app.post('/api/auth/verify', async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: unknown };
+  if (typeof token !== 'string' || !token) {
+    res.status(400).json({ error: 'That confirmation link is not valid.' });
+    return;
+  }
+
+  const row = await prisma.emailVerification.findUnique({
+    where: { token_hash: hashResetToken(token) },
+  });
+  if (!row || row.used_at || row.expires_at < new Date()) {
+    res.status(400).json({ error: 'That confirmation link has expired or been used.' });
+    return;
+  }
+
+  const cred = await prisma.emailCredential.findUnique({ where: { account_id: row.account_id } });
+  // Only confirm if the address still matches the one the link was issued for.
+  if (!cred || cred.email !== row.email) {
+    res.status(400).json({ error: 'That address is no longer on this account.' });
+    return;
+  }
+  if (cred.verified_at) { res.json({ ok: true, alreadyVerified: true }); return; }
+
+  await prisma.$transaction([
+    prisma.emailCredential.update({
+      where: { account_id: row.account_id },
+      data: { verified_at: new Date() },
+    }),
+    prisma.emailVerification.updateMany({
+      where: { account_id: row.account_id, used_at: null },
+      data: { used_at: new Date() },
+    }),
+  ]);
+
+  res.json({ ok: true });
+});
+
+// Re-send to the signed-in account's own address. Requires a session, so it
+// can't be used to spray mail at an address someone doesn't control.
+app.post('/api/auth/resend-verification', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!verifyLimiter.check(account).allowed) {
+    res.status(429).json({ error: 'Too many emails sent. Try again later.' });
+    return;
+  }
+  const cred = await prisma.emailCredential.findUnique({ where: { account_id: account } });
+  if (!cred) { res.status(400).json({ error: 'This account has no email address.' }); return; }
+  if (cred.verified_at) { res.json({ ok: true, alreadyVerified: true }); return; }
+
+  await sendVerificationEmail(account, cred.email);
+  res.json({ ok: true });
+});
+
+/**
+ * Attach an email + password to an account that signed in another way.
+ *
+ * This is what gets existing Discord players off the bot: after this they can
+ * sign in either way. Only adds — it never detaches Discord, so nobody can lock
+ * themselves out by linking a typo'd address.
+ */
+app.post('/api/auth/link-email', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+  const existing = await prisma.emailCredential.findUnique({ where: { account_id: account } });
+  if (existing) {
+    res.status(409).json({ error: 'This account already has an email address.' });
+    return;
+  }
+
+  const { email: rawEmail, password } = req.body as { email?: unknown; password?: unknown };
+  const email = normalizeEmail(rawEmail);
+  if (!email) { res.status(400).json({ error: "That doesn't look like an email address." }); return; }
+  const problem = passwordProblem(password, email);
+  if (problem) { res.status(400).json({ error: problem }); return; }
+
+  const taken = await prisma.emailCredential.findUnique({ where: { email } });
+  if (taken) { res.status(409).json({ error: 'That email is already on another account.' }); return; }
+
+  const password_hash = await hashPassword(password as string);
+  await prisma.$transaction([
+    prisma.emailCredential.create({ data: { account_id: account, email, password_hash } }),
+    prisma.identity.create({
+      data: { provider: 'email', provider_user_id: email, account_id: account },
+    }),
+  ]);
+
+  await sendVerificationEmail(account, email);
+  res.json({ ok: true });
+});
+
+// What the account page needs: which sign-in methods exist, and whether the
+// address is confirmed.
+app.get('/api/auth/methods', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const [cred, identities] = await Promise.all([
+    prisma.emailCredential.findUnique({ where: { account_id: account } }),
+    prisma.identity.findMany({ where: { account_id: account } }),
+  ]);
+  res.json({
+    email: cred ? { address: cred.email, verified: cred.verified_at !== null } : null,
+    discord: identities.some(i => i.provider === 'discord'),
+  });
 });
 
 app.post('/api/auth/signin', async (req: Request, res: Response) => {

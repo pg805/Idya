@@ -1,0 +1,88 @@
+/* Account view — sign-in methods. Uses the app's own tokens (not the landing
+   page palette) so it sits inside the SPA chrome consistently. */
+
+.account-view { max-width: 560px; }
+
+.account-heading {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: var(--gold);
+}
+
+.account-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.account-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+
+.account-value { margin: 0 0 4px; color: var(--text); font-size: 0.9rem; }
+.account-ok    { margin: 0; color: var(--teal-bright); font-size: 0.82rem; }
+.account-warn  { margin: 0 0 12px; color: var(--warn-bright); font-size: 0.82rem; line-height: 1.5; }
+.account-help  { margin: 0 0 12px; color: var(--text-faint); font-size: 0.82rem; line-height: 1.5; }
+.account-msg   { margin: 8px 0 0; color: var(--text-2); font-size: 0.82rem; }
+.account-msg[hidden] { display: none; }
+
+.account-error { margin: 0 0 12px; color: var(--warn-bright); font-size: 0.82rem; }
+.account-error[hidden] { display: none; }
+
+.account-form { display: block; }
+
+.account-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.account-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+.account-input:focus { outline: none; border-color: var(--gold-dim); }
+
+.account-btn {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.account-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-bright); }
+.account-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Header banner nagging an unconfirmed address. Sits above the app content
+   rather than in the header itself, so it never shifts the combat layout. */
+.verify-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-dim);
+  border-radius: 3px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.verify-banner a { color: var(--warn-bright); }
+.verify-banner[hidden] { display: none; }

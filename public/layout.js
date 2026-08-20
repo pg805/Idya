@@ -99,6 +99,42 @@ function renderLayout() {
   wireSettingsPopover();
   document.querySelector('.layout-signout-btn')
     ?.addEventListener('click', () => window.idyaLogout?.());
+  renderVerifyBanner();
+}
+
+/**
+ * Nag about an unconfirmed address, without blocking anything.
+ *
+ * Deliberately a banner rather than a gate: signing up happens in front of the
+ * GM during a session, and making someone go find their inbox before they can
+ * play is the worst possible first five minutes. What being unverified costs
+ * you is account recovery, and the banner says so.
+ */
+async function renderVerifyBanner() {
+  const content = document.getElementById('app-content');
+  if (!content || !layoutData?.authenticated) return;
+
+  let methods;
+  try {
+    const res = await fetch('/api/auth/methods', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    methods = await res.json();
+  } catch (_) { return; }
+
+  const existing = document.querySelector('.verify-banner');
+  if (!methods.email || methods.email.verified) { existing?.remove(); return; }
+  if (existing) return;
+
+  const el = document.createElement('div');
+  el.className = 'verify-banner';
+  el.innerHTML =
+    `<span>Confirm your email so you can recover your account.</span>` +
+    `<a href="/app/account" data-path="/account">Confirm now</a>`;
+  el.querySelector('a')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.navigate?.('/account');
+  });
+  content.parentNode.insertBefore(el, content);
 }
 
 async function wireSettingsPopover() {

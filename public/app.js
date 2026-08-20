@@ -20,6 +20,7 @@ function routeFromPath(path) {
   if (path === '/lore')                 return { viewName: 'lore',    params: {} };
   if (path === '/reference')            return { viewName: 'reference', params: {} };
   if (path === '/about')                return { viewName: 'about',     params: {} };
+  if (path === '/account')              return { viewName: 'account',   params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/create')               return { viewName: 'create',  params: {} };
@@ -63,6 +64,10 @@ async function navigate(viewPath, { push = true } = {}) {
   content.innerHTML = '';
   await view.mount(content, params);
 }
+
+// Exposed so shared chrome (the verify banner in layout.js) can route without
+// a full page load.
+window.navigate = navigate;
 
 for (const link of navLinks) {
   link.addEventListener('click', (e) => {

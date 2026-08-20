@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm email — Legacy of Apolis</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/landing.css">
+  <script>if (location.port === '3000') document.title += ' — Dev';</script>
+</head>
+<body>
+  <main class="landing-main">
+
+    <div class="landing-brand">
+      <h1 class="landing-title small"><a href="/">LEGACY OF APOLIS</a></h1>
+    </div>
+
+    <section class="landing-card" id="working-card">
+      <h2>Confirming…</h2>
+      <p>One moment.</p>
+    </section>
+
+    <section class="landing-card" id="done-card" hidden>
+      <h2>Email confirmed</h2>
+      <p>You can recover your account with this address if you ever lose your password.</p>
+      <div class="landing-actions">
+        <a class="landing-btn" href="/app">Continue</a>
+      </div>
+    </section>
+
+    <section class="landing-card" id="bad-card" hidden>
+      <h2>That link didn't work</h2>
+      <p id="bad-message">Confirmation links work once and expire after 7 days.</p>
+      <!-- Re-sending needs a session, since it mails the signed-in account's own
+           address. Signed out, the honest next step is to sign in first. -->
+      <div class="landing-actions">
+        <a class="landing-btn" href="/app/account">Send a new link</a>
+        <a class="landing-btn secondary" href="/signin">Sign in</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="landing-foot">
+    <a href="/app/about">About</a> · <a href="/app/lore">Lore</a> · <a href="/app/reference">Reference</a>
+  </footer>
+
+  <script src="/auth.js"></script>
+  <script>
+    (async function () {
+      const token = new URLSearchParams(location.search).get('token');
+      const working = document.getElementById('working-card');
+      const done    = document.getElementById('done-card');
+      const bad     = document.getElementById('bad-card');
+
+      const fail = (msg) => {
+        working.hidden = true;
+        if (msg) document.getElementById('bad-message').textContent = msg;
+        bad.hidden = false;
+      };
+
+      if (!token) { fail('This link is missing its confirmation code.'); return; }
+
+      const result = await idyaPost('/api/auth/verify', { token });
+      working.hidden = true;
+      if (result.ok) done.hidden = false;
+      else fail(result.error);
+    })();
+  </script>
+</body>
+</html>

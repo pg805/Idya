@@ -24,10 +24,29 @@ model Identity {
 // Email + password sign-in. Separate from Identity because only this provider
 // stores a secret; the others delegate. One per account.
 model EmailCredential {
-  account_id     String   @id
-  email          String   @unique   // stored lowercased
-  password_hash  String             // scrypt: salt:hash, both hex
-  created_at     DateTime @default(now())
+  account_id     String    @id
+  email          String    @unique   // stored lowercased
+  password_hash  String              // scrypt: salt:hash, both hex
+  // Null until they click the link. Deliberately does NOT gate play — see
+  // docs/world.md §1. It gates trusting the address, not the account.
+  verified_at    DateTime?
+  created_at     DateTime  @default(now())
+}
+
+// Same shape and reasoning as PasswordReset: only a SHA-256 of the emailed
+// token is stored, single use, short-lived. Separate table rather than a
+// `purpose` column on PasswordReset so neither flow can consume the other's
+// token by accident. `email` is recorded so verifying proves control of *that*
+// address, even if the credential's address changed in the meantime.
+model EmailVerification {
+  token_hash  String    @id
+  account_id  String
+  email       String
+  expires_at  DateTime
+  used_at     DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([account_id])
 }
 
 // A pending password reset. token_hash is a SHA-256 of the token that went out
