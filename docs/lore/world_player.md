@@ -15,13 +15,7 @@ beside it **Sulkupa**.
 
 # The peoples
 
-**The Chaevul** rule the empire. They lived on Apolis once, long ago, and left.
-They say the god Apolis filled the continent with beasts because they stopped
-giving him his due, and they have told that story to each other for generations.
-To a Chae, returning here means something.
-
-**The Ketulvu** were not part of any of that. Apolis is new ground to them, and
-what is on it is worth money.
+**The Chaevul** rule the empire. **The Ketulvu** are the people they rule.
 
 The two live as one society now. The Chaevul lead, on the strength of what they
 can build. They also keep Ketulvu traditions, mark Ketulvu occasions, and live in
@@ -35,9 +29,9 @@ a Ketulvu way, and each generation blurs the line further.
 concentrations. Some materials carry it better than others.
 
 **Talamite.** A metal. Useful by itself, more useful alloyed, and it conducts
-sidaev better than nearly anything. Rare on the old continent. Common here.
+sidaev better than nearly anything. Rare on the old continent. Common on Apolis.
 
-**Korel.** Money.
+**Korel.** The currency of the Chaevul Empire.
 
 **Padev.** The Ketulvu word for whoever runs a place, near enough to a mayor.
 Both peoples use it.

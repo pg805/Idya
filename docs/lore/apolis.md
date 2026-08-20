@@ -202,24 +202,29 @@ belongs in play instead.
 
 ### On hidden information
 
-The Chae and the Ketulvu believe different things about this continent, and it is
-tempting to serve different lore to each. Two reasons not to build that:
+There are two different things here, and conflating them produced a mistake worth
+recording.
 
-1. **It does not stay hidden.** Two players compare pages in chat within ten
-   minutes of reading them. A gated document buys almost no secrecy and costs
-   double the writing.
-2. **Secrecy is not what is wanted here.** The goal is that a Chae and a Ketulvu
-   character have *different relationships to the same ground*, and that is
-   achieved by attribution rather than concealment.
+**Shared facts read differently by origin.** Everybody knows the Chaevul rule and
+the Ketulvu are ruled. What that *feels* like differs. Attribution handles this
+fine: say who holds a view rather than asserting it, and the same text lands
+differently on different readers. No permissions system needed, and gating it
+would be pointless anyway, since two players compare pages in chat within ten
+minutes.
 
-So the player doc says who believes a thing, not that a thing is true. "The
-Chaevul say the god struck the continent" reads as personal history to one player
-and as somebody else's folklore to another, from identical text. The difference
-lands without a permissions system.
+**Facts one group withholds.** The Chae origin story is this kind. It is true, it
+has been mythologized over generations, and **the Chaevul do not tell it to
+non-Chae**. A Ketulvu character has not heard it.
 
-Genuine asymmetry belongs in two places instead: the **character creation copy**,
-where picking an origin can describe what your people think, and **play**, where
-a Chae character can simply decline to explain the story to a Ketulvu one.
+An earlier draft put the myth in the player doc under attribution, on the theory
+that naming who believes it was enough. It is not. Attributing a withheld story
+still publishes it, and a Ketulvu player who reads it now knows something their
+character does not. It has been removed.
+
+So the rule is: **the player doc carries only what is common knowledge.**
+Anything one group keeps to itself lives here, in character creation copy for the
+origin that holds it, or in play. A Chae character declining to explain the story
+to a Ketulvu one is better content than any gated page.
 
 ---
 
@@ -237,3 +242,11 @@ Things named but not yet defined.
 - **Whether the legend of the sword is public.** Fendalok grew up hearing the
   stories, so it is not secret to him. Whether players should meet it in
   `world_player.md` is a separate call.
+- **Whether the Chaevul presence on Apolis is public at all.** The origin myth is
+  withheld, so the player doc no longer mentions it. Whether the plain historical
+  fact that the Chaevul once lived there is common knowledge, or is bound up in
+  the same story they keep to themselves, has not been decided. The doc currently
+  says neither.
+- **A proper pass on `world_player.md`.** It is currently the minimum that is
+  safely public. What a player should actually arrive knowing wants deciding as a
+  whole rather than by subtraction.
