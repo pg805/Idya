@@ -186,19 +186,27 @@ means is undecided.
 
 ## What players get
 
-`world_player.md` is a **reference, not a briefing**. Terminology, who the groups
-are, and how they relate. It deliberately does not contain anyone's goals, does
-not tell a player why they are here, and does not tell them what to want.
+`world_player.md` is a **glossary**. It is written to be consulted when somebody
+does not know what a word means, not read start to finish.
 
-Motivation belongs to the player. Goals belong in play, delivered by the GM and by
-other characters. A document that hands out both leaves nothing to find.
+That shape drives everything about it:
 
-**Tone is explanatory. State what a thing is and stop.** No asides to the reader,
-no knowing implications, no lines that nudge toward an action. "Ask them
-yourself" and "some of their people are laborers and some are not" are both the
-wrong register, however tempting: the first gives an instruction, the second
-winks. If something is true and public, say it plainly. If it is not public, it
-belongs in play instead.
+- **Entries, alphabetical within each group.** Places, Peoples, Terms, Groups and
+  people. Somebody looking up "padev" should find it without reading anything
+  else.
+- **Every entry stands alone.** No entry assumes you have read the one above it,
+  because in a lookup document you have not.
+- **No narrative.** There is no opening that sets a scene and no closing that
+  tells the player what the job is. It is not a briefing.
+- **No goals.** Not the factions' and not the player's. Motivation belongs to the
+  player; agendas belong in play, delivered by the GM and by other characters. A
+  document that hands out both leaves nothing to find.
+- **Common knowledge only.** See "On hidden information" below.
+
+**Tone: state what a thing is and stop.** No asides to the reader, no knowing
+implications, no lines that nudge toward an action. "Ask them yourself" and "some
+of their people are laborers and some are not" are both the wrong register: the
+first gives an instruction, the second winks.
 
 ### On hidden information
 
