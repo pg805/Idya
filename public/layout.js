@@ -73,17 +73,12 @@ function renderLayout() {
           <button class="layout-settings-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
           <div class="layout-settings-pop" hidden>
             <div class="layout-settings-row">
-              <label for="settings-ping" class="layout-settings-label">Ping on action</label>
-              <input id="settings-ping" type="checkbox" class="layout-settings-toggle">
-            </div>
-            <p class="layout-settings-help">When on, Discord posts that mention you (battles, shops, crafts) ping you. Off uses your character name instead.</p>
-            <div class="layout-settings-row">
               <label for="settings-quick" class="layout-settings-label">Quick actions</label>
               <input id="settings-quick" type="checkbox" class="layout-settings-toggle">
             </div>
             <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
             <div class="layout-settings-row">
-              <button type="button" class="layout-signout-btn">Sign out</button>
+              <a class="layout-settings-link" href="/app/account">Account and settings</a>
             </div>
           </div>
         </div>
@@ -97,8 +92,6 @@ function renderLayout() {
     </header>`;
 
   wireSettingsPopover();
-  document.querySelector('.layout-signout-btn')
-    ?.addEventListener('click', () => window.idyaLogout?.());
   renderVerifyBanner();
 }
 
@@ -173,21 +166,18 @@ function snoozeVerifyBanner() {
   } catch (_) { /* nothing to do; it just shows again */ }
 }
 
+/**
+ * The header popover.
+ *
+ * Deliberately thin. Everything that isn't needed mid-fight lives on the
+ * account page instead; this keeps the one combat preference, because the
+ * battle screen renders this same header and leaving a fight to change how
+ * actions commit would be absurd.
+ */
 async function wireSettingsPopover() {
   const btn = document.querySelector('.layout-settings-btn');
   const pop = document.querySelector('.layout-settings-pop');
-  const toggle = document.getElementById('settings-ping');
-  if (!btn || !pop || !toggle) return;
-
-  // Pre-populate from server. If the fetch fails the toggle stays at the
-  // checked=false default, which matches the column default.
-  try {
-    const res = await fetch('/api/settings');
-    if (res.ok) {
-      const data = await res.json();
-      toggle.checked = !!data.ping_on_action;
-    }
-  } catch (_) {}
+  if (!btn || !pop) return;
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -196,15 +186,6 @@ async function wireSettingsPopover() {
   document.addEventListener('click', (e) => {
     if (pop.hidden) return;
     if (!pop.contains(e.target) && e.target !== btn) pop.hidden = true;
-  });
-
-  toggle.addEventListener('change', async () => {
-    const ping_on_action = toggle.checked;
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ping_on_action }),
-    }).catch(() => {});
   });
 
   // Quick actions — a client-side (per-device) combat preference read by game.js.

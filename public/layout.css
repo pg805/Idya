@@ -142,24 +142,7 @@
   line-height: 1.4;
   margin: 0;
 }
-/* Sits below the toggles, separated — it leaves the app rather than changing
-   a preference, so it shouldn't read as another setting. */
-.layout-signout-btn {
-  width: 100%;
-  margin-top: 4px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--text-2);
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  cursor: pointer;
-}
-.layout-signout-btn:hover {
-  color: var(--warn-bright);
-  border-color: var(--warn);
-}
+/* Sign out moved to the account page. */
 
 .layout-prof-row {
   display: flex;
@@ -323,3 +306,17 @@
 }
 .qty-all:hover:not(:disabled) { background: var(--buy-bg); color: var(--buy-bright); border-color: var(--buy); }
 .qty-all:disabled { opacity: 0.3; cursor: default; }
+
+/* Popover link through to the full settings page. */
+.layout-settings-link {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+.layout-settings-link:hover { color: var(--gold-bright); border-color: var(--gold-dim); }

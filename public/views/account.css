@@ -128,3 +128,13 @@
 @media (max-width: 720px) {
   .verify-banner { margin: 8px 8px 0; padding: 10px 12px; }
 }
+
+.account-pref {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.account-pref-label { font-size: 0.85rem; color: var(--text-2); }
+.account-toggle { width: 16px; height: 16px; cursor: pointer; }
