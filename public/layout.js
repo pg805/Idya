@@ -111,8 +111,10 @@ function renderLayout() {
  * you is account recovery, and the banner says so.
  */
 async function renderVerifyBanner() {
-  const content = document.getElementById('app-content');
-  if (!content || !layoutData?.authenticated) return;
+  // Sits above #app-shell, not inside it. The shell is a flex row holding the
+  // sidebar and the content, so anything appended there becomes a third column.
+  const shell = document.getElementById('app-shell');
+  if (!shell || !layoutData?.authenticated) return;
 
   let methods;
   try {
@@ -134,7 +136,7 @@ async function renderVerifyBanner() {
     e.preventDefault();
     window.navigate?.('/account');
   });
-  content.parentNode.insertBefore(el, content);
+  shell.parentNode.insertBefore(el, shell);
 }
 
 async function wireSettingsPopover() {

@@ -69,20 +69,20 @@
 .account-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-bright); }
 .account-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* Header banner nagging an unconfirmed address. Sits above the app content
-   rather than in the header itself, so it never shifts the combat layout. */
+/* Nags about an unconfirmed address. A full-width strip between the header and
+   the app shell, so it never becomes a column beside the sidebar and never
+   shifts the combat layout. Quiet on purpose: it is a reminder, not an error. */
 .verify-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-dim);
-  border-radius: 3px;
-  font-size: 0.82rem;
+  padding: 6px 16px;
+  background: var(--gold-bg);
+  border-bottom: 1px solid var(--gold-dim);
+  font-size: 0.78rem;
   color: var(--text-2);
 }
-.verify-banner a { color: var(--warn-bright); }
+.verify-banner a { color: var(--gold-bright); }
 .verify-banner[hidden] { display: none; }
