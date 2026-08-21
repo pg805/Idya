@@ -22,6 +22,7 @@ function routeFromPath(path) {
   if (path === '/about')                return { viewName: 'about',     params: {} };
   if (path === '/settings')             return { viewName: 'settings',  params: {} };
   if (path === '/chat')                 return { viewName: 'chat',      params: {} };
+  if (path === '/map')                  return { viewName: 'map',       params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/create')               return { viewName: 'create',  params: {} };

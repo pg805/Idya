@@ -27,6 +27,12 @@ export interface ChunkView {
   size: number;
   place: Place;
   terrain: TerrainData;
+  /**
+   * Board-shaped, because the renderer dresses obstacles from live state rather
+   * than from the baked terrain: a destroyed one loses its canopy and becomes
+   * rubble. This is where a felled tree stops being a tree.
+   */
+  obstacles: Obstacle[];
   diffs: WorldDiff[];
   exits: Array<Chunk & { name: string }>;
 }
@@ -75,17 +81,30 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     where: { chunk_x: chunk.x, chunk_y: chunk.y },
   });
 
+  const diffs: WorldDiff[] = rows.map(r => ({
+    x: r.tile_x,
+    y: r.tile_y,
+    kind: r.kind,
+    data: (r.data ?? {}) as Record<string, unknown>,
+  }));
+
+  // A 'cleared' diff is somebody having removed what was there. The obstacle
+  // still generates, because the ground is derived and can't be edited; what's
+  // stored is that it no longer stands.
+  const cleared = new Set(
+    diffs.filter(d => d.kind === 'cleared').map(d => `${d.x},${d.y}`),
+  );
+
   return {
     chunk,
     size: CHUNK_SIZE,
     place,
     terrain,
-    diffs: rows.map(r => ({
-      x: r.tile_x,
-      y: r.tile_y,
-      kind: r.kind,
-      data: (r.data ?? {}) as Record<string, unknown>,
+    obstacles: obstacles.map(o => ({
+      ...o,
+      state: cleared.has(`${o.pos.x},${o.pos.y}`) ? 'destroyed' : o.state,
     })),
+    diffs,
     exits: exitsFrom(chunk),
   };
 }
