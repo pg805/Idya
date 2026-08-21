@@ -69,20 +69,62 @@
 .account-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-bright); }
 .account-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* Nags about an unconfirmed address. A full-width strip between the header and
-   the app shell, so it never becomes a column beside the sidebar and never
-   shifts the combat layout. Quiet on purpose: it is a reminder, not an error. */
+/* Nags about an unconfirmed address. Sits between the header and the app shell,
+   never inside it: the shell is a flex row, so a child there becomes a column
+   beside the sidebar. Dismissible, and snoozed rather than silenced. */
 .verify-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 16px;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 16px 0;
+  padding: 12px 16px;
   background: var(--gold-bg);
-  border-bottom: 1px solid var(--gold-dim);
-  font-size: 0.78rem;
-  color: var(--text-2);
+  border: 1px solid var(--gold-dim);
+  border-left: 3px solid var(--gold);
+  border-radius: 3px;
 }
-.verify-banner a { color: var(--gold-bright); }
-.verify-banner[hidden] { display: none; }
+
+.verify-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.verify-banner-text strong { font-size: 0.85rem; color: var(--gold-bright); font-weight: normal; }
+.verify-banner-text span   { font-size: 0.78rem; color: var(--text-faint); line-height: 1.4; }
+
+.verify-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.verify-banner-btn {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  color: var(--gold-bright);
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.verify-banner-btn:hover { border-color: var(--gold); background: var(--bg-hover); }
+
+.verify-banner-close {
+  padding: 0 6px;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.verify-banner-close:hover { color: var(--text); }
+
+@media (max-width: 720px) {
+  .verify-banner { margin: 8px 8px 0; padding: 10px 12px; }
+}

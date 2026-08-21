@@ -126,17 +126,51 @@ async function renderVerifyBanner() {
   const existing = document.querySelector('.verify-banner');
   if (!methods.email || methods.email.verified) { existing?.remove(); return; }
   if (existing) return;
+  if (verifyBannerSnoozed()) return;
 
   const el = document.createElement('div');
   el.className = 'verify-banner';
-  el.innerHTML =
-    `<span>Confirm your email so you can recover your account.</span>` +
-    `<a href="/app/account" data-path="/account">Confirm now</a>`;
-  el.querySelector('a')?.addEventListener('click', (e) => {
+  el.innerHTML = `
+    <div class="verify-banner-text">
+      <strong>Confirm your email address.</strong>
+      <span>Until you do, there's no way to get back into your account if you lose your password.</span>
+    </div>
+    <div class="verify-banner-actions">
+      <a class="verify-banner-btn" href="/app/account" data-path="/account">Confirm now</a>
+      <button class="verify-banner-close" type="button" aria-label="Dismiss">&times;</button>
+    </div>`;
+
+  el.querySelector('a').addEventListener('click', (e) => {
     e.preventDefault();
     window.navigate?.('/account');
   });
+  el.querySelector('.verify-banner-close').addEventListener('click', () => {
+    snoozeVerifyBanner();
+    el.remove();
+  });
+
   shell.parentNode.insertBefore(el, shell);
+}
+
+// Dismissing snoozes rather than silences. This is the only prompt to confirm
+// an address, and an account nobody can recover is a worse outcome than a
+// banner somebody sees again tomorrow.
+const VERIFY_SNOOZE_KEY = 'idya_verify_snoozed_until';
+const VERIFY_SNOOZE_MS = 24 * 60 * 60 * 1000;
+
+function verifyBannerSnoozed() {
+  try {
+    const until = Number(localStorage.getItem(VERIFY_SNOOZE_KEY) || 0);
+    return Number.isFinite(until) && Date.now() < until;
+  } catch (_) {
+    return false; // private mode, no storage: show it.
+  }
+}
+
+function snoozeVerifyBanner() {
+  try {
+    localStorage.setItem(VERIFY_SNOOZE_KEY, String(Date.now() + VERIFY_SNOOZE_MS));
+  } catch (_) { /* nothing to do; it just shows again */ }
 }
 
 async function wireSettingsPopover() {
