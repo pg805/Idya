@@ -1,0 +1,100 @@
+/* Settings view — sign-in methods and preferences. Uses the app's own tokens (not the landing
+   page palette) so it sits inside the SPA chrome consistently. */
+
+/* #app-content supplies no padding; every view brings its own, and centres
+   itself. Without this the page sits flush against the sidebar and the header. */
+.settings-view {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The cards space themselves through the flex gap above. */
+.settings-card { margin-bottom: 0; }
+
+/* Leaves the app rather than changing a setting, so it stands apart. */
+.settings-btn.signout { align-self: flex-start; }
+.settings-btn.signout:hover:not(:disabled) {
+  color: var(--warn-bright);
+  border-color: var(--warn);
+}
+
+.settings-heading {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: var(--gold);
+}
+
+.settings-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.settings-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+
+.settings-value { margin: 0 0 4px; color: var(--text); font-size: 0.9rem; }
+.settings-ok    { margin: 0; color: var(--teal-bright); font-size: 0.82rem; }
+.settings-warn  { margin: 0 0 12px; color: var(--warn-bright); font-size: 0.82rem; line-height: 1.5; }
+.settings-help  { margin: 0 0 12px; color: var(--text-faint); font-size: 0.82rem; line-height: 1.5; }
+.settings-msg   { margin: 8px 0 0; color: var(--text-2); font-size: 0.82rem; }
+.settings-msg[hidden] { display: none; }
+
+.settings-error { margin: 0 0 12px; color: var(--warn-bright); font-size: 0.82rem; }
+.settings-error[hidden] { display: none; }
+
+.settings-form { display: block; }
+
+.settings-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.settings-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+.settings-input:focus { outline: none; border-color: var(--gold-dim); }
+
+.settings-btn {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.settings-btn:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-bright); }
+.settings-btn:disabled { opacity: 0.5; cursor: default; }
+
+.settings-pref {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.settings-pref-label { font-size: 0.85rem; color: var(--text-2); }
+.settings-toggle { width: 16px; height: 16px; cursor: pointer; }

@@ -1,4 +1,4 @@
-// Account view — how you sign in, and your settings.
+// Settings view — how you sign in, and your preferences.
 //
 // This is the settings page. The header popover keeps only the one preference
 // that has to be reachable mid-combat (quick actions) and otherwise points here.
@@ -7,7 +7,7 @@
 // email and password here and can sign in either way afterwards. Linking never
 // detaches Discord, so a typo can't lock anyone out.
 window.Views = window.Views || {};
-window.Views.account = (function () {
+window.Views.settings = (function () {
 
   const QUICK_KEY = 'idya.battle_quick';
 
@@ -39,72 +39,69 @@ window.Views.account = (function () {
     const email = methods.email;
 
     root.innerHTML = `
-      <div class="account-view">
-        <h2 class="account-heading">Account and settings</h2>
+      <div class="settings-view">
+        <h2 class="settings-heading">Settings</h2>
 
-        <section class="account-card">
+        <section class="settings-card">
           <h3>Email</h3>
           ${email ? `
-            <p class="account-value">${esc(email.address)}</p>
+            <p class="settings-value">${esc(email.address)}</p>
             ${email.verified
-              ? '<p class="account-ok">Confirmed</p>'
-              : `<p class="account-warn">Not confirmed yet. Until you confirm it, there's no way
+              ? '<p class="settings-ok">Confirmed</p>'
+              : `<p class="settings-warn">Not confirmed yet. Until you confirm it, there's no way
                  back into your account if you lose your password.</p>
-                 <button class="account-btn" id="resend-btn" type="button">Send the link again</button>
-                 <p class="account-msg" id="resend-msg" hidden></p>`}
+                 <button class="settings-btn" id="resend-btn" type="button">Send the link again</button>
+                 <p class="settings-msg" id="resend-msg" hidden></p>`}
           ` : `
-            <p class="account-help">
+            <p class="settings-help">
               Add an email and password so you can sign in without Discord.
               This doesn't remove Discord, you'll be able to use either.
             </p>
-            <form id="link-form" class="account-form">
-              <label class="account-label" for="link-email">Email</label>
-              <input class="account-input" id="link-email" type="email" required
+            <form id="link-form" class="settings-form">
+              <label class="settings-label" for="link-email">Email</label>
+              <input class="settings-input" id="link-email" type="email" required
                      autocomplete="email" spellcheck="false">
 
-              <label class="account-label" for="link-password">Password</label>
-              <input class="account-input" id="link-password" type="password" required
+              <label class="settings-label" for="link-password">Password</label>
+              <input class="settings-input" id="link-password" type="password" required
                      minlength="8" autocomplete="new-password">
-              <p class="account-help">At least 8 characters.</p>
+              <p class="settings-help">At least 8 characters.</p>
 
-              <p class="account-error" id="link-error" hidden></p>
-              <button class="account-btn" type="submit" id="link-btn">Add email</button>
+              <p class="settings-error" id="link-error" hidden></p>
+              <button class="settings-btn" type="submit" id="link-btn">Add email</button>
             </form>
           `}
         </section>
 
-        <section class="account-card">
+        <section class="settings-card">
           <h3>Discord</h3>
-          <p class="${methods.discord ? 'account-ok' : 'account-help'}">
+          <p class="${methods.discord ? 'settings-ok' : 'settings-help'}">
             ${methods.discord ? 'Linked' : 'Not linked'}
           </p>
         </section>
 
-        <section class="account-card">
+        <section class="settings-card">
           <h3>Preferences</h3>
 
-          <div class="account-pref">
-            <label class="account-pref-label" for="pref-ping">Ping me on Discord</label>
-            <input id="pref-ping" class="account-toggle" type="checkbox" ${pingOn ? 'checked' : ''}>
+          <div class="settings-pref">
+            <label class="settings-pref-label" for="pref-ping">Ping me on Discord</label>
+            <input id="pref-ping" class="settings-toggle" type="checkbox" ${pingOn ? 'checked' : ''}>
           </div>
-          <p class="account-help">
+          <p class="settings-help">
             When on, Discord posts that mention you use a ping instead of your character name.
           </p>
 
-          <div class="account-pref">
-            <label class="account-pref-label" for="pref-quick">Quick actions in combat</label>
-            <input id="pref-quick" class="account-toggle" type="checkbox" ${quickOn ? 'checked' : ''}>
+          <div class="settings-pref">
+            <label class="settings-pref-label" for="pref-quick">Quick actions in combat</label>
+            <input id="pref-quick" class="settings-toggle" type="checkbox" ${quickOn ? 'checked' : ''}>
           </div>
-          <p class="account-help">
+          <p class="settings-help">
             When on, actions fire the moment you pick them. Off lets you review and confirm first.
             This one is per device.
           </p>
         </section>
 
-        <section class="account-card">
-          <h3>Session</h3>
-          <button class="account-btn" id="signout-btn" type="button">Sign out</button>
-        </section>
+        <button class="settings-btn signout" id="signout-btn" type="button">Sign out</button>
       </div>`;
 
     root.querySelector('#pref-ping')?.addEventListener('change', async (e) => {

@@ -78,7 +78,7 @@ function renderLayout() {
             </div>
             <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
             <div class="layout-settings-row">
-              <a class="layout-settings-link" href="/app/account">Account and settings</a>
+              <a class="layout-settings-link" href="/app/settings">All settings</a>
             </div>
           </div>
         </div>
@@ -129,13 +129,13 @@ async function renderVerifyBanner() {
       <span>Until you do, there's no way to get back into your account if you lose your password.</span>
     </div>
     <div class="verify-banner-actions">
-      <a class="verify-banner-btn" href="/app/account" data-path="/account">Confirm now</a>
+      <a class="verify-banner-btn" href="/app/settings" data-path="/settings">Confirm now</a>
       <button class="verify-banner-close" type="button" aria-label="Dismiss">&times;</button>
     </div>`;
 
   el.querySelector('a').addEventListener('click', (e) => {
     e.preventDefault();
-    window.navigate?.('/account');
+    window.navigate?.('/settings');
   });
   el.querySelector('.verify-banner-close').addEventListener('click', () => {
     snoozeVerifyBanner();
@@ -170,7 +170,7 @@ function snoozeVerifyBanner() {
  * The header popover.
  *
  * Deliberately thin. Everything that isn't needed mid-fight lives on the
- * account page instead; this keeps the one combat preference, because the
+ * settings page instead; this keeps the one combat preference, because the
  * battle screen renders this same header and leaving a fight to change how
  * actions commit would be absurd.
  */
