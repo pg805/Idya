@@ -1,5 +1,5 @@
 import prisma from '../database/prisma.js';
-import { Chunk } from './places.js';
+import type { Chunk } from '../world/chunk.js';
 
 /**
  * Persistence and validation for in-character chat.

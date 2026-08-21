@@ -27,7 +27,9 @@ import { createSessionStore } from '../auth/session_store.js';
 import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth/identity_directory.js';
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
-import { TOWN, chunkKey, placeAt, listPlaces, isKnownPlace, parseChunk, type Chunk } from '../chat/places.js';
+import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
+import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
+import { loadChunk } from '../world/world_service.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
 import { createMailer } from '../auth/mailer.js';
 import {
@@ -2083,6 +2085,27 @@ app.post('/api/auth/claim', (req: Request, res: Response) => {
   if (secure) parts.push('Secure');
   res.setHeader('Set-Cookie', parts.join('; '));
   res.json({ ok: true });
+});
+
+// ---- World ----
+//
+// A chunk's ground is derived from its coordinate rather than stored, so this
+// is cheap to call and always answers the same thing for the same place
+// (docs/world.md §3). Only player diffs come from the database.
+app.get('/api/world/chunk', async (req: Request, res: Response) => {
+  if (!resolveAuth(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const chunk = parseChunk({ x: Number(req.query.x), y: Number(req.query.y) });
+  if (!chunk) { res.status(400).json({ error: 'Bad coordinates.' }); return; }
+
+  const view = await loadChunk(chunk);
+  if (!view) { res.status(404).json({ error: "There's nothing there yet." }); return; }
+  res.json(view);
+});
+
+/** Everywhere a player can currently go. */
+app.get('/api/world/places', (req: Request, res: Response) => {
+  if (!resolveAuth(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  res.json({ places: listPlaces(), town: TOWN });
 });
 
 // Who the caller is. Used by the landing page to decide between "sign in" and

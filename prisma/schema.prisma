@@ -85,6 +85,31 @@ model ChatMessage {
   @@index([account_id])
 }
 
+// A change somebody made to the world, stored sparsely over generated terrain.
+//
+// The wilderness itself is never stored: a chunk's ground is derived from
+// hash(worldSeed, x, y), so the same coordinate always generates the same place
+// (docs/world.md §3). Only differences live here. A felled tree is one row; the
+// forest around it is one row of nothing.
+//
+// kind says what happened to the tile. `data` carries whatever that kind needs
+// (which sprite replaced it, who did it, what was built), deliberately loose
+// while the vocabulary of world changes is still being discovered.
+model WorldTile {
+  chunk_x     Int
+  chunk_y     Int
+  tile_x      Int
+  tile_y      Int
+  kind        String   // 'cleared' | 'built' | ...
+  data        Json     @default("{}")
+  account_id  String?  // who changed it, when a player did
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@id([chunk_x, chunk_y, tile_x, tile_y])
+  @@index([chunk_x, chunk_y])
+}
+
 model User {
   discord_id         String      @id
   korel              Int         @default(0)
