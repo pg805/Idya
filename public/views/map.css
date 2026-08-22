@@ -68,10 +68,81 @@
 #map-ground { z-index: 0; }
 #map-canopy { z-index: 2; }
 
-.map-scale { margin: 0; font-size: 0.7rem; color: var(--text-vdim); text-align: center; }
+
 
 .map-note { margin: 0; font-size: 0.8rem; color: var(--text-faint); }
 
 @media (max-width: 720px) {
   .map-view { padding: 16px 12px 24px; }
 }
+
+/* Tokens sit between the canvases: on the ground, under the leaves. */
+.map-tokens {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.map-token {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Linear, because a walk is a series of even steps rather than one gesture
+     that eases; per-tile easing makes it look like limping. */
+  transition: transform linear;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.map-token-sprite,
+.map-token-blank {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.map-token-blank {
+  background: var(--buy-dim);
+  border: 1px solid var(--buy);
+  border-radius: 50%;
+}
+
+.map-token.me .map-token-sprite,
+.map-token.me .map-token-blank {
+  /* Your own token gets a ring, so you can find yourself in a crowd. */
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.map-token-name {
+  position: absolute;
+  bottom: 100%;
+  white-space: nowrap;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  color: var(--text);
+  background: rgba(8, 18, 27, 0.75);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.map-stage { cursor: pointer; }
+
+.map-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.7rem;
+  color: var(--text-vdim);
+}
+.map-here { color: var(--text-faint); }
+
+.map-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--warn-bright);
+  text-align: center;
+}
+.map-error[hidden] { display: none; }

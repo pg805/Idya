@@ -133,6 +133,15 @@ model Character {
   max_health          Int
   equipped_weapon_id  String?
 
+  // Where this character is standing. Chunk coordinate plus a tile within it
+  // (docs/world.md §3). Defaults put everyone in Sulku'it near the middle;
+  // the spawn is nudged to a free square on arrival if the stored one is
+  // blocked, so a terrain change can't strand somebody inside a tree.
+  chunk_x             Int      @default(0)
+  chunk_y             Int      @default(0)
+  tile_x              Int      @default(12)
+  tile_y              Int      @default(12)
+
   user                User                  @relation(fields: [discord_id], references: [discord_id])
   equipped_weapon     CharacterWeapon?      @relation("EquippedWeapon", fields: [equipped_weapon_id], references: [id])
   inventory           InventoryItem[]

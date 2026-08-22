@@ -30,6 +30,8 @@ import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
 import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
 import { loadChunk } from '../world/world_service.js';
+import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
+import { parseTilePos, type TilePos } from '../world/chunk.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
 import { createMailer } from '../auth/mailer.js';
 import {
@@ -3985,9 +3987,20 @@ app.post('/api/quests/:id/deposit', async (req: Request, res: Response) => {
 // in-memory because the world map will own real positions soon enough, and a
 // column here would only have to be removed again.
 
-interface ChatPresence { accountId: string; characterName: string; chunk: Chunk; }
-const chatPresence = new Map<string, ChatPresence>(); // socket.id -> who and where
-const chatLimiter = new RateLimiter(20, 30_000);      // 20 messages / 30s per account
+// One presence record per socket, shared by chat and the map. They ask the same
+// question — who is in this chunk — so running two of these would only mean two
+// answers that could disagree.
+interface WorldPresence {
+  accountId: string;
+  characterId: string | null;
+  characterName: string;
+  sprite: string | null;
+  chunk: Chunk;
+  tile: TilePos;
+}
+const chatPresence = new Map<string, WorldPresence>(); // socket.id -> who and where
+const chatLimiter = new RateLimiter(20, 30_000);       // 20 messages / 30s per account
+const moveLimiter = new RateLimiter(60, 10_000);       // 60 moves / 10s per account
 
 const chatRoom = (c: Chunk): string => `chat:${chunkKey(c)}`;
 
@@ -3999,6 +4012,38 @@ function whoIsHere(chunk: Chunk): string[] {
   return [...names].sort();
 }
 
+/** Everyone standing in a chunk, with positions, for the map to draw. */
+function occupantsOf(chunk: Chunk): Array<{
+  id: string; name: string; sprite: string | null; tile: TilePos;
+}> {
+  const out = [];
+  for (const [socketId, p] of chatPresence) {
+    if (p.chunk.x !== chunk.x || p.chunk.y !== chunk.y) continue;
+    // Keyed by socket, not character: the same character open in two tabs is
+    // two connections, and dropping one shouldn't erase the other's token.
+    out.push({ id: socketId, name: p.characterName, sprite: p.sprite, tile: p.tile });
+  }
+  return out;
+}
+
+function broadcastOccupants(chunk: Chunk): void {
+  io.to(chatRoom(chunk)).emit('world:here', { chunk, occupants: occupantsOf(chunk) });
+}
+
+/** Obstacle set for a chunk, so movement can be checked against it. */
+async function blockedIn(chunk: Chunk): Promise<Set<string> | null> {
+  const view = await loadChunk(chunk);
+  return view ? blockedBy(view.obstacles) : null;
+}
+
+async function persistPosition(characterId: string | null, chunk: Chunk, tile: TilePos) {
+  if (!characterId) return;
+  await prisma.character.update({
+    where: { id: characterId },
+    data: { chunk_x: chunk.x, chunk_y: chunk.y, tile_x: tile.x, tile_y: tile.y },
+  }).catch(() => { /* a lost position is not worth failing a move over */ });
+}
+
 function broadcastPresence(chunk: Chunk): void {
   io.to(chatRoom(chunk)).emit('chat:presence', {
     chunk,
@@ -4007,7 +4052,7 @@ function broadcastPresence(chunk: Chunk): void {
   });
 }
 
-function enterChunk(socket: Socket, presence: ChatPresence, next: Chunk): void {
+function enterChunk(socket: Socket, presence: WorldPresence, next: Chunk): void {
   const previous = presence.chunk;
   socket.leave(chatRoom(previous));
   presence.chunk = next;
@@ -4022,24 +4067,55 @@ function enterChunk(socket: Socket, presence: ChatPresence, next: Chunk): void {
 io.on('connection', (socket: Socket) => {
   console.log('client connected:', socket.id);
 
-  socket.on('chat:join', async () => {
+  /**
+   * Put this socket into the world at its character's stored position.
+   *
+   * Shared by chat and the map: both need to know where you are, and a second
+   * copy of this would be a second answer that could disagree with the first.
+   */
+  async function joinWorld(): Promise<WorldPresence | null> {
+    const existing = chatPresence.get(socket.id);
+    if (existing) return existing;
+
     const accountId = resolveSocketAuth(socket);
-    if (!accountId) { socket.emit('chat:error', { message: 'Sign in to talk.' }); return; }
+    if (!accountId) return null;
 
     const chars = await charRepo.list(accountId);
-    if (chars.length === 0) {
-      socket.emit('chat:error', { message: 'Make a character first.' });
-      return;
-    }
+    const character = chars[0];
+    if (!character) return null;
 
-    const presence: ChatPresence = {
+    const chunk: Chunk = isKnownPlace({ x: character.chunk_x, y: character.chunk_y })
+      ? { x: character.chunk_x, y: character.chunk_y }
+      : { ...TOWN };   // a place that no longer exists shouldn't strand anyone
+
+    const blocked = (await blockedIn(chunk)) ?? new Set<string>();
+    const tile = nearestFree({ x: character.tile_x, y: character.tile_y }, blocked);
+
+    const presence: WorldPresence = {
       accountId,
-      characterName: chars[0].name,
-      chunk: { ...TOWN },
+      characterId: character.id,
+      characterName: character.name,
+      sprite: character.sprite_token ?? null,
+      chunk,
+      tile,
     };
     chatPresence.set(socket.id, presence);
-    socket.join(chatRoom(presence.chunk));
+    socket.join(chatRoom(chunk));
 
+    // Only write back if the spawn actually had to move.
+    if (tile.x !== character.tile_x || tile.y !== character.tile_y
+        || chunk.x !== character.chunk_x || chunk.y !== character.chunk_y) {
+      await persistPosition(character.id, chunk, tile);
+    }
+    return presence;
+  }
+
+  socket.on('chat:join', async () => {
+    const presence = await joinWorld();
+    if (!presence) {
+      socket.emit('chat:error', { message: 'Sign in and make a character first.' });
+      return;
+    }
     socket.emit('chat:joined', {
       characterName: presence.characterName,
       chunk: presence.chunk,
@@ -4047,6 +4123,90 @@ io.on('connection', (socket: Socket) => {
       places: listPlaces(),
     });
     broadcastPresence(presence.chunk);
+    broadcastOccupants(presence.chunk);
+  });
+
+  // ---- Map ----
+
+  socket.on('world:join', async () => {
+    const presence = await joinWorld();
+    if (!presence) {
+      socket.emit('world:error', { message: 'Sign in and make a character first.' });
+      return;
+    }
+    socket.emit('world:you', {
+      id: socket.id,
+      name: presence.characterName,
+      sprite: presence.sprite,
+      chunk: presence.chunk,
+      tile: presence.tile,
+    });
+    broadcastOccupants(presence.chunk);
+  });
+
+  socket.on('world:walk', async (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) { socket.emit('world:error', { message: 'Not in the world yet.' }); return; }
+    if (!moveLimiter.check(presence.accountId).allowed) return;
+
+    const to = parseTilePos(raw);
+    if (!to) return;
+
+    const blocked = await blockedIn(presence.chunk);
+    if (!blocked) return;
+    if (!isPassable(to, blocked)) {
+      socket.emit('world:error', { message: "You can't stand there." });
+      return;
+    }
+
+    const path = findPath(presence.tile, to, blocked);
+    if (!path) { socket.emit('world:error', { message: "You can't get there." }); return; }
+    if (path.length === 0) return;
+
+    presence.tile = path[path.length - 1];
+    await persistPosition(presence.characterId, presence.chunk, presence.tile);
+
+    // The whole path goes out, not just the destination, so everyone watching
+    // sees the same walk rather than a jump.
+    io.to(chatRoom(presence.chunk)).emit('world:walked', {
+      id: socket.id,
+      path,
+    });
+  });
+
+  socket.on('world:travel', async (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return;
+    const next = parseChunk(raw);
+    if (!next || !isKnownPlace(next)) {
+      socket.emit('world:error', { message: "There's nothing that way yet." });
+      return;
+    }
+    if (next.x === presence.chunk.x && next.y === presence.chunk.y) return;
+
+    const previous = presence.chunk;
+    const blocked = (await blockedIn(next)) ?? new Set<string>();
+    const tile = nearestFree(presence.tile, blocked);
+
+    socket.leave(chatRoom(previous));
+    presence.chunk = next;
+    presence.tile = tile;
+    socket.join(chatRoom(next));
+    await persistPosition(presence.characterId, next, tile);
+
+    socket.emit('world:you', {
+      id: socket.id,
+      name: presence.characterName,
+      sprite: presence.sprite,
+      chunk: next,
+      tile,
+    });
+    socket.emit('chat:place', { chunk: next, place: placeAt(next) });
+
+    for (const c of [previous, next]) {
+      broadcastPresence(c);
+      broadcastOccupants(c);
+    }
   });
 
   socket.on('chat:move', (raw: unknown) => {
@@ -4059,6 +4219,7 @@ io.on('connection', (socket: Socket) => {
     }
     if (next.x === presence.chunk.x && next.y === presence.chunk.y) return;
     enterChunk(socket, presence, next);
+    broadcastOccupants(next);
   });
 
   socket.on('chat:send', async (raw: unknown) => {
@@ -4099,6 +4260,7 @@ io.on('connection', (socket: Socket) => {
     if (!presence) return;
     chatPresence.delete(socket.id);
     broadcastPresence(presence.chunk);
+    broadcastOccupants(presence.chunk);
   });
 
   socket.on('join_session', (sessionId: string) => {
