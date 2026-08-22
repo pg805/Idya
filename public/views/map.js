@@ -29,6 +29,12 @@ window.Views.map = (function () {
   // you go diagonally, so the last one pressed must not replace the first.
   const heldKeys = new Map();    // key -> { dx, dy }
   let stepTimer = null;
+  // Two keys meant as one diagonal never land in the same event. Waiting this
+  // long before the FIRST step lets the second arrive and be counted, which is
+  // the difference between going diagonally and going straight and then
+  // diagonally. Short enough not to read as input lag next to a 130ms step.
+  const DIAGONAL_GRACE_MS = 55;
+  let graceTimer = null;
   let onKeyDown = null;
   let onKeyUp = null;
   let onBlur = null;
@@ -266,8 +272,17 @@ window.Views.map = (function () {
     const wasIdle = heldKeys.size === 0;
     heldKeys.set(key, dir);
     // Adding a second direction changes where the next step goes, but it must
-    // not restart the clock, or tapping into a diagonal stutters.
+    // not restart the clock, or easing into a diagonal stutters.
     if (!wasIdle) return;
+
+    clearTimeout(graceTimer);
+    graceTimer = setTimeout(() => {
+      graceTimer = null;
+      startStepping();
+    }, DIAGONAL_GRACE_MS);
+  }
+
+  function startStepping() {
     stepHeld();
     clearInterval(stepTimer);
     // Paced to the animation, so holding a key walks at the same speed as
@@ -276,12 +291,18 @@ window.Views.map = (function () {
   }
 
   function releaseHold(key) {
+    // A tap shorter than the grace window would otherwise be swallowed: the
+    // first step hasn't fired yet and the key is already going up. Take it now,
+    // while the direction is still held.
+    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; stepHeld(); }
     heldKeys.delete(key);
     if (heldKeys.size === 0) endHold();
   }
 
   function endHold() {
     heldKeys.clear();
+    clearTimeout(graceTimer);
+    graceTimer = null;
     clearInterval(stepTimer);
     stepTimer = null;
   }
