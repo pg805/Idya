@@ -32,6 +32,16 @@ window.Views.map = (function () {
   let onBlur = null;
   const world = document.getElementById('world-root');
 
+  const ZOOM_KEY = 'idya.map_zoom';
+  let zoom = (() => {
+    try {
+      const raw = localStorage.getItem(ZOOM_KEY);
+      if (raw === 'fit') return 'fit';
+      const n = Number(raw);
+      return n === 1 || n === 2 || n === 3 ? n : 2;   // 2x by default: readable
+    } catch (_) { return 2; }
+  })();
+
   const KEYS = {
     ArrowUp: { dx: 0, dy: -1 }, ArrowRight: { dx: 1, dy: 0 },
     ArrowDown: { dx: 0, dy: 1 }, ArrowLeft: { dx: -1, dy: 0 },
@@ -49,18 +59,61 @@ window.Views.map = (function () {
    * Whole numbers only. A fractional cell would put the 32px source art on
    * half-pixel boundaries and the whole thing would shimmer.
    */
-  function cellSizeFor(stage) {
+  /**
+   * Tile size in CSS pixels.
+   *
+   * Measured from the viewport the board sits in, which flex has already sized;
+   * an earlier version derived it from the stage's own height, which made the
+   * map shrink a little on every repaint.
+   *
+   * Whole numbers only. A fractional cell puts the 32px source art on half-pixel
+   * boundaries and the whole thing shimmers.
+   */
+  function cellSizeFor() {
     const size = view?.size || 24;
-    const wrap = stage.parentElement;
+    if (zoom !== 'fit') return TILE_SRC * zoom;
+    const wrap = root?.querySelector('.map-stage-wrap');
     const width = wrap?.clientWidth || 768;
-    // Whatever vertical room is left once the header, exits and footer have
-    // taken theirs. Without this the map overflows on a short window and the
-    // bottom rows are simply unreachable.
-    const used = (root?.querySelector('.map-view')?.clientHeight || 0)
-               - (stage.clientHeight || 0);
-    const height = Math.max(200, (world?.clientHeight || window.innerHeight) - used - 24);
+    const height = wrap?.clientHeight || 768;
     const fit = Math.floor(Math.min(width, height) / size);
     return Math.max(8, Math.min(TILE_SRC, fit));
+  }
+
+  /**
+   * Scroll the board so you stay in the middle of the viewport.
+   *
+   * At anything past 1x a 24x24 chunk is wider than the window, so the choice
+   * is between seeing all of it small and seeing part of it properly. This is
+   * the second: the view follows you, and stops at the edges rather than
+   * showing empty space past them. A board that fits is simply centred.
+   */
+  function updateCamera(animate) {
+    const wrap = root?.querySelector('.map-stage-wrap');
+    const stage = root?.querySelector('#map-stage');
+    if (!wrap || !stage || !view) return;
+
+    const boardPx = cell * view.size;
+    const me = occupants.get(meId);
+    const axis = (viewportPx, focusTile) => {
+      if (boardPx <= viewportPx) return (viewportPx - boardPx) / 2;   // centre it
+      if (!me) return 0;
+      const wanted = focusTile * cell + cell / 2 - viewportPx / 2;
+      return -Math.max(0, Math.min(wanted, boardPx - viewportPx));
+    };
+
+    stage.style.transitionDuration = animate ? `${STEP_MS}ms` : '0ms';
+    stage.style.transform =
+      `translate(${axis(wrap.clientWidth, me?.tile.x ?? 0)}px, ` +
+      `${axis(wrap.clientHeight, me?.tile.y ?? 0)}px)`;
+  }
+
+  function setZoom(next) {
+    zoom = next;
+    try { localStorage.setItem(ZOOM_KEY, String(next)); } catch (_) {}
+    paint();
+    for (const btn of root?.querySelectorAll('.map-zoom-btn') ?? []) {
+      btn.classList.toggle('active', btn.dataset.zoom === String(next));
+    }
   }
 
   function paint() {
@@ -68,7 +121,7 @@ window.Views.map = (function () {
     const stage = root.querySelector('#map-stage');
     if (!stage) return;
 
-    cell = cellSizeFor(stage);
+    cell = cellSizeFor();
     const px = cell * view.size;
     stage.style.width = `${px}px`;
     stage.style.height = `${px}px`;
@@ -92,6 +145,7 @@ window.Views.map = (function () {
     // Tokens are sized and repositioned in the same units the canvases just
     // used, so a resize moves everyone with the ground under them.
     for (const [id, o] of occupants) placeToken(id, o.tile, false);
+    updateCamera(false);
   }
 
   // ---- people ----
@@ -134,6 +188,8 @@ window.Views.map = (function () {
     entry.el.style.width = `${cell}px`;
     entry.el.style.height = `${cell}px`;
     entry.el.style.transform = `translate(${tile.x * cell}px, ${tile.y * cell}px)`;
+    // The view rides along with you, at the same pace as the step.
+    if (id === meId) updateCamera(animate);
   }
 
   /**
@@ -385,10 +441,23 @@ window.Views.map = (function () {
         <div id="map-body"></div>
         <div class="map-foot">
           <span class="map-here" id="map-here"></span>
+          <span class="map-zoom">
+            <button class="map-zoom-btn" type="button" data-zoom="fit">Fit</button>
+            <button class="map-zoom-btn" type="button" data-zoom="2">2x</button>
+            <button class="map-zoom-btn" type="button" data-zoom="3">3x</button>
+          </span>
           <span class="map-scale" id="map-scale"></span>
         </div>
         <p class="map-error" id="map-error" hidden></p>
       </div>`;
+
+    for (const btn of root.querySelectorAll('.map-zoom-btn')) {
+      btn.classList.toggle('active', btn.dataset.zoom === String(zoom));
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.zoom;
+        setZoom(v === 'fit' ? 'fit' : Number(v));
+      });
+    }
 
     onResize = () => paint();
     window.addEventListener('resize', onResize);

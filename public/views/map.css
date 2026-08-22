@@ -46,14 +46,22 @@
 }
 .map-exit:hover { color: var(--gold-bright); border-color: var(--gold-dim); }
 
+/* The viewport onto the board. Takes whatever height is left, and clips: past
+   1x the chunk is larger than the window, and the camera pans within this. */
 .map-stage-wrap {
-  /* The chunk is square and fixed-size; centre it rather than stretching it. */
-  display: flex;
-  justify-content: center;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .map-stage {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform linear;
+  will-change: transform;
   background: var(--bg-darkest);
   border: 1px solid var(--border);
   /* Pixel art: never let the browser smooth it. */
@@ -154,3 +162,17 @@
 .map-error[hidden] { display: none; }
 
 .map-hint { margin: 0; font-size: 0.72rem; color: var(--text-vdim); }
+
+.map-zoom { display: inline-flex; gap: 4px; }
+.map-zoom-btn {
+  font: inherit;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 7px;
+  cursor: pointer;
+}
+.map-zoom-btn:hover { color: var(--text-2); border-color: var(--border-strong); }
+.map-zoom-btn.active { color: var(--gold); border-color: var(--gold-dim); }
