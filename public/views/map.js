@@ -25,7 +25,9 @@ window.Views.map = (function () {
   // rather than wherever the token has animated to. Steps have to be pathed from
   // here or a held key would ask to move from a square we have already left.
   let myTile = null;
-  let held = null;               // { dx, dy } while an arrow is down
+  // Every direction key currently down, not just the latest. Holding two is how
+  // you go diagonally, so the last one pressed must not replace the first.
+  const heldKeys = new Map();    // key -> { dx, dy }
   let stepTimer = null;
   let onKeyDown = null;
   let onKeyUp = null;
@@ -237,9 +239,18 @@ window.Views.map = (function () {
 
   // ---- keyboard ----
 
+  /** The combined direction of everything held. Opposites cancel. */
+  function currentDir() {
+    let dx = 0, dy = 0;
+    for (const d of heldKeys.values()) { dx += d.dx; dy += d.dy; }
+    return { dx: Math.sign(dx), dy: Math.sign(dy) };
+  }
+
   function stepHeld() {
-    if (!held || !socket || !myTile || !view) return;
-    const to = { x: myTile.x + held.dx, y: myTile.y + held.dy };
+    if (!heldKeys.size || !socket || !myTile || !view) return;
+    const dir = currentDir();
+    if (dir.dx === 0 && dir.dy === 0) return;   // pressing both ways at once
+    const to = { x: myTile.x + dir.dx, y: myTile.y + dir.dy };
     if (to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size) return;
     // A step, not a walk: pressing right into a tree should stop you against
     // it, not route you around it.
@@ -250,9 +261,13 @@ window.Views.map = (function () {
     myTile = to;
   }
 
-  function beginHold(dir) {
-    if (held && held.dx === dir.dx && held.dy === dir.dy) return;  // key repeat
-    held = dir;
+  function beginHold(key, dir) {
+    if (heldKeys.has(key)) return;                 // OS key repeat
+    const wasIdle = heldKeys.size === 0;
+    heldKeys.set(key, dir);
+    // Adding a second direction changes where the next step goes, but it must
+    // not restart the clock, or tapping into a diagonal stutters.
+    if (!wasIdle) return;
     stepHeld();
     clearInterval(stepTimer);
     // Paced to the animation, so holding a key walks at the same speed as
@@ -260,11 +275,18 @@ window.Views.map = (function () {
     stepTimer = setInterval(stepHeld, STEP_MS);
   }
 
+  function releaseHold(key) {
+    heldKeys.delete(key);
+    if (heldKeys.size === 0) endHold();
+  }
+
   function endHold() {
-    held = null;
+    heldKeys.clear();
     clearInterval(stepTimer);
     stepTimer = null;
   }
+
+  const keyName = (e) => (KEYS[e.key] ? e.key : e.key?.toLowerCase?.());
 
   function bindKeys() {
     onKeyDown = (e) => {
@@ -272,17 +294,18 @@ window.Views.map = (function () {
       const tag = e.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const dir = KEYS[e.key] ?? KEYS[e.key?.toLowerCase?.()];
+      const key = keyName(e);
+      const dir = KEYS[key];
       if (!dir) return;
       e.preventDefault();   // arrows would otherwise scroll the page
-      beginHold(dir);
+      beginHold(key, dir);
     };
     onKeyUp = (e) => {
-      const dir = KEYS[e.key] ?? KEYS[e.key?.toLowerCase?.()];
-      if (!dir) return;
-      // Only stop if the released key is the one being held; releasing a
-      // different arrow mid-turn shouldn't halt the current direction.
-      if (held && held.dx === dir.dx && held.dy === dir.dy) endHold();
+      const key = keyName(e);
+      if (!KEYS[key]) return;
+      // Releasing one of two held keys drops back to the other rather than
+      // stopping, so letting go of Up mid-diagonal keeps you going right.
+      releaseHold(key);
     };
     // Losing focus mid-hold would otherwise leave the character walking forever.
     onBlur = () => endHold();

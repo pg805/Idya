@@ -4204,6 +4204,18 @@ io.on('connection', (socket: Socket) => {
     if (!blocked) return;
     if (!isPassable(to, blocked)) { socket.emit('world:blocked', { tile: to }); return; }
 
+    // Same corner rule pathfinding uses: a diagonal needs one of its two
+    // orthogonal neighbours open, so you can't slip between two trees on the
+    // keyboard when a click would refuse to route you through the same gap.
+    if (dx !== 0 && dy !== 0) {
+      const sideA = { x: presence.tile.x + dx, y: presence.tile.y };
+      const sideB = { x: presence.tile.x, y: presence.tile.y + dy };
+      if (!isPassable(sideA, blocked) && !isPassable(sideB, blocked)) {
+        socket.emit('world:blocked', { tile: to });
+        return;
+      }
+    }
+
     const from = presence.tile;
     presence.tile = to;
     await persistPosition(presence.characterId, presence.chunk, to);
