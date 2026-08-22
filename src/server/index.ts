@@ -4165,14 +4165,52 @@ io.on('connection', (socket: Socket) => {
     if (!path) { socket.emit('world:error', { message: "You can't get there." }); return; }
     if (path.length === 0) return;
 
+    const from = presence.tile;
     presence.tile = path[path.length - 1];
     await persistPosition(presence.characterId, presence.chunk, presence.tile);
 
+    // `from` as well as the path: a client whose token has drifted can correct
+    // silently before setting off, instead of animating out of the wrong square.
     // The whole path goes out, not just the destination, so everyone watching
     // sees the same walk rather than a jump.
     io.to(chatRoom(presence.chunk)).emit('world:walked', {
       id: socket.id,
+      from,
       path,
+    });
+  });
+
+  /**
+   * One tile, in one direction, or nothing.
+   *
+   * What arrow keys use. Distinct from world:walk on purpose: walking into a
+   * tree should stop you against it, not route you around it. Pathfinding is
+   * what you asked for when you clicked a distant square; it is not what you
+   * asked for when you pressed right.
+   */
+  socket.on('world:step', async (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return;
+    if (!moveLimiter.check(presence.accountId).allowed) return;
+
+    const to = parseTilePos(raw);
+    if (!to) return;
+    const dx = to.x - presence.tile.x;
+    const dy = to.y - presence.tile.y;
+    if (dx === 0 && dy === 0) return;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) return;   // one square only
+
+    const blocked = await blockedIn(presence.chunk);
+    if (!blocked) return;
+    if (!isPassable(to, blocked)) { socket.emit('world:blocked', { tile: to }); return; }
+
+    const from = presence.tile;
+    presence.tile = to;
+    await persistPosition(presence.characterId, presence.chunk, to);
+    io.to(chatRoom(presence.chunk)).emit('world:walked', {
+      id: socket.id,
+      from,
+      path: [to],
     });
   });
 

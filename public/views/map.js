@@ -241,10 +241,12 @@ window.Views.map = (function () {
     if (!held || !socket || !myTile || !view) return;
     const to = { x: myTile.x + held.dx, y: myTile.y + held.dy };
     if (to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size) return;
-    socket.emit('world:walk', to);
+    // A step, not a walk: pressing right into a tree should stop you against
+    // it, not route you around it.
+    socket.emit('world:step', to);
     // Assume it lands. Holding a key steps faster than a round trip, so waiting
     // for the answer would ask to move from a square we have already left, and
-    // the server would path us somewhere strange. A refusal resyncs below.
+    // the server would path us somewhere strange. A refusal corrects it.
     myTile = to;
   }
 
@@ -422,13 +424,30 @@ window.Views.map = (function () {
       syncOccupants(data.occupants);
     });
 
-    socket.on('world:walked', ({ id, path }) => {
+    socket.on('world:walked', ({ id, from, path }) => {
       if (!path?.length) return;
       // The server accepted it, so that's where we are now even though the
       // token is still catching up.
       if (id === meId) myTile = path[path.length - 1];
       if (!occupants.has(id)) return;
+
+      // The walk begins where the server says it begins. If our token has
+      // drifted from that (a refused step we had already assumed, a missed
+      // update), put it right with no animation first, so the walk itself is
+      // never seen starting from the wrong square.
+      const entry = occupants.get(id);
+      if (from && !walks.has(id) && entry?.tile
+          && (entry.tile.x !== from.x || entry.tile.y !== from.y)) {
+        placeToken(id, from, false);
+      }
       walkToken(id, path);
+    });
+
+    // A step that ran into something. Nothing moves; we just stop pressing.
+    socket.on('world:blocked', () => {
+      endHold();
+      const me = occupants.get(meId);
+      if (me) myTile = me.tile;   // our optimistic guess was wrong
     });
 
     socket.on('world:error', (e) => {
