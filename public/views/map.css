@@ -146,3 +146,5 @@
   text-align: center;
 }
 .map-error[hidden] { display: none; }
+
+.map-hint { margin: 0; font-size: 0.72rem; color: var(--text-vdim); }

@@ -5,7 +5,8 @@
 // is happening on them. The combat board puts the DOM cell grid between the two
 // canvases; here there is no grid, so they simply stack.
 //
-// Read-only for now. Walking around and changing tiles come next.
+// Movement is server-authoritative: a click or a keypress asks to walk, and the
+// server answers with a path that everyone in the chunk is shown.
 window.Views = window.Views || {};
 window.Views.map = (function () {
 
@@ -19,7 +20,23 @@ window.Views.map = (function () {
   let meId = null;
   let cell = TILE_SRC;
   const occupants = new Map();   // socket id -> { name, sprite, tile, el }
-  const walks = new Map();       // socket id -> timer, so a new walk cancels the old
+  const walks = new Map();       // socket id -> in-flight walk, so a new one joins on
+  // Where the SERVER thinks we are, which is the end of the last accepted walk
+  // rather than wherever the token has animated to. Steps have to be pathed from
+  // here or a held key would ask to move from a square we have already left.
+  let myTile = null;
+  let held = null;               // { dx, dy } while an arrow is down
+  let stepTimer = null;
+  let onKeyDown = null;
+  let onKeyUp = null;
+  let onBlur = null;
+
+  const KEYS = {
+    ArrowUp: { dx: 0, dy: -1 }, ArrowRight: { dx: 1, dy: 0 },
+    ArrowDown: { dx: 0, dy: 1 }, ArrowLeft: { dx: -1, dy: 0 },
+    w: { dx: 0, dy: -1 }, d: { dx: 1, dy: 0 },
+    s: { dx: 0, dy: 1 }, a: { dx: -1, dy: 0 },
+  };
 
   function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -109,16 +126,106 @@ window.Views.map = (function () {
     entry.el.style.transform = `translate(${tile.x * cell}px, ${tile.y * cell}px)`;
   }
 
-  /** Walk a token along a path, one tile at a time. */
+  /**
+   * Walk a token along a path, one tile at a time.
+   *
+   * A new path arriving mid-walk is appended to whatever is left of the old
+   * one rather than replacing it. The server moves you the instant it accepts a
+   * walk, so a second click is pathed from where you will END UP, not from where
+   * your token currently is. Replacing outright makes the token snap forward to
+   * the old destination before setting off again; continuing through the
+   * remainder joins the two walks up, because the new path starts adjacent to
+   * exactly the square the old one finished on.
+   */
   function walkToken(id, path) {
-    clearInterval(walks.get(id));
+    const active = walks.get(id);
+    const queue = active ? active.remaining().concat(path) : path.slice();
+    if (active) clearTimeout(active.timer);
+
     let i = 0;
+    const state = {
+      timer: null,
+      remaining: () => queue.slice(i),
+    };
+    walks.set(id, state);
+
     const step = () => {
-      if (i >= path.length) { clearInterval(walks.get(id)); walks.delete(id); return; }
-      placeToken(id, path[i++], true);
+      if (i >= queue.length) { walks.delete(id); return; }
+      placeToken(id, queue[i++], true);
+      // Chained timeouts rather than an interval: an interval drifts against
+      // the CSS transition and the steps start to stutter.
+      state.timer = setTimeout(step, STEP_MS);
     };
     step();
-    if (path.length > 1) walks.set(id, setInterval(step, STEP_MS));
+  }
+
+  function stopWalk(id) {
+    const active = walks.get(id);
+    if (active) clearTimeout(active.timer);
+    walks.delete(id);
+  }
+
+  // ---- keyboard ----
+
+  function stepHeld() {
+    if (!held || !socket || !myTile || !view) return;
+    const to = { x: myTile.x + held.dx, y: myTile.y + held.dy };
+    if (to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size) return;
+    socket.emit('world:walk', to);
+    // Assume it lands. Holding a key steps faster than a round trip, so waiting
+    // for the answer would ask to move from a square we have already left, and
+    // the server would path us somewhere strange. A refusal resyncs below.
+    myTile = to;
+  }
+
+  function beginHold(dir) {
+    if (held && held.dx === dir.dx && held.dy === dir.dy) return;  // key repeat
+    held = dir;
+    stepHeld();
+    clearInterval(stepTimer);
+    // Paced to the animation, so holding a key walks at the same speed as
+    // clicking a distant tile instead of racing ahead of the tokens.
+    stepTimer = setInterval(stepHeld, STEP_MS);
+  }
+
+  function endHold() {
+    held = null;
+    clearInterval(stepTimer);
+    stepTimer = null;
+  }
+
+  function bindKeys() {
+    onKeyDown = (e) => {
+      // Never steal keys from something being typed into.
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const dir = KEYS[e.key] ?? KEYS[e.key?.toLowerCase?.()];
+      if (!dir) return;
+      e.preventDefault();   // arrows would otherwise scroll the page
+      beginHold(dir);
+    };
+    onKeyUp = (e) => {
+      const dir = KEYS[e.key] ?? KEYS[e.key?.toLowerCase?.()];
+      if (!dir) return;
+      // Only stop if the released key is the one being held; releasing a
+      // different arrow mid-turn shouldn't halt the current direction.
+      if (held && held.dx === dir.dx && held.dy === dir.dy) endHold();
+    };
+    // Losing focus mid-hold would otherwise leave the character walking forever.
+    onBlur = () => endHold();
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+  }
+
+  function unbindKeys() {
+    endHold();
+    if (onKeyDown) document.removeEventListener('keydown', onKeyDown);
+    if (onKeyUp) document.removeEventListener('keyup', onKeyUp);
+    if (onBlur) window.removeEventListener('blur', onBlur);
+    onKeyDown = onKeyUp = onBlur = null;
   }
 
   function syncOccupants(list) {
@@ -133,8 +240,7 @@ window.Views.map = (function () {
     }
     for (const [id, entry] of [...occupants]) {
       if (seen.has(id)) continue;
-      clearInterval(walks.get(id));
-      walks.delete(id);
+      stopWalk(id);
       entry.el?.remove();
       occupants.delete(id);
     }
@@ -144,8 +250,7 @@ window.Views.map = (function () {
   }
 
   function clearTokens() {
-    for (const t of walks.values()) clearInterval(t);
-    walks.clear();
+    for (const id of [...walks.keys()]) stopWalk(id);
     for (const o of occupants.values()) o.el?.remove();
     occupants.clear();
   }
@@ -219,6 +324,7 @@ window.Views.map = (function () {
 
     socket.on('world:you', async (me) => {
       meId = me.id;
+      myTile = me.tile;
       // The server decides where you are; the client follows it there.
       if (!view || view.chunk.x !== me.chunk.x || view.chunk.y !== me.chunk.y) {
         clearTokens();
@@ -233,11 +339,18 @@ window.Views.map = (function () {
     });
 
     socket.on('world:walked', ({ id, path }) => {
-      if (!occupants.has(id) || !path?.length) return;
+      if (!path?.length) return;
+      // The server accepted it, so that's where we are now even though the
+      // token is still catching up.
+      if (id === meId) myTile = path[path.length - 1];
+      if (!occupants.has(id)) return;
       walkToken(id, path);
     });
 
     socket.on('world:error', (e) => {
+      // We may have guessed wrong about where we are; ask for the truth.
+      endHold();
+      socket.emit('world:join');
       const note = root?.querySelector('#map-error');
       if (!note) return;
       note.textContent = e.message;
@@ -257,6 +370,7 @@ window.Views.map = (function () {
         </div>
         <p class="map-blurb" id="map-blurb"></p>
 
+        <p class="map-hint">Click a square to walk there, or use the arrow keys.</p>
         <div class="map-exits" id="map-exits"></div>
         <div id="map-body"></div>
         <div class="map-foot">
@@ -268,12 +382,15 @@ window.Views.map = (function () {
 
     onResize = () => paint();
     window.addEventListener('resize', onResize);
+    bindKeys();
     connect();
   }
 
   function unmount() {
     if (onResize) window.removeEventListener('resize', onResize);
     onResize = null;
+    unbindKeys();
+    myTile = null;
     clearTokens();
     if (socket) { socket.disconnect(); socket = null; }
     meId = null;

@@ -4000,7 +4000,9 @@ interface WorldPresence {
 }
 const chatPresence = new Map<string, WorldPresence>(); // socket.id -> who and where
 const chatLimiter = new RateLimiter(20, 30_000);       // 20 messages / 30s per account
-const moveLimiter = new RateLimiter(60, 10_000);       // 60 moves / 10s per account
+// A held arrow key steps every 130ms, so ~8/s is normal play; this is well
+// clear of that and still stops a script from flooding the room.
+const moveLimiter = new RateLimiter(200, 10_000);
 
 const chatRoom = (c: Chunk): string => `chat:${chunkKey(c)}`;
 
