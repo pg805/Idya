@@ -31,6 +31,7 @@ window.Views.map = (function () {
   let onKeyUp = null;
   let onBlur = null;
   const world = document.getElementById('world-root');
+  let lastResync = 0;
 
   const ZOOM_KEY = 'idya.map_zoom';
   let zoom = (() => {
@@ -38,8 +39,8 @@ window.Views.map = (function () {
       const raw = localStorage.getItem(ZOOM_KEY);
       if (raw === 'fit') return 'fit';
       const n = Number(raw);
-      return n === 1 || n === 2 || n === 3 ? n : 2;   // 2x by default: readable
-    } catch (_) { return 2; }
+      return n === 1 || n === 2 || n === 3 ? n : 'fit';
+    } catch (_) { return 'fit'; }
   })();
 
   const KEYS = {
@@ -197,29 +198,30 @@ window.Views.map = (function () {
   /**
    * Walk a token along a path, one tile at a time.
    *
-   * A new path arriving mid-walk is appended to whatever is left of the old
-   * one rather than replacing it. The server moves you the instant it accepts a
-   * walk, so a second click is pathed from where you will END UP, not from where
-   * your token currently is. Replacing outright makes the token snap forward to
-   * the old destination before setting off again; continuing through the
-   * remainder joins the two walks up, because the new path starts adjacent to
-   * exactly the square the old one finished on.
+   * A path arriving while one is already running is APPENDED to it rather than
+   * replacing it, and the existing timer keeps its cadence. Two reasons:
+   *
+   * The server moves you the instant it accepts a walk, so a second click is
+   * pathed from where you will END UP rather than from where your token is.
+   * Replacing outright snaps the token to the old destination before setting
+   * off again; continuing joins the two up, because the new path starts
+   * adjacent to exactly the square the old one finished on.
+   *
+   * And restarting the stepper on each arrival makes a held arrow key stutter:
+   * every message fires a step immediately, so two landing close together are
+   * drawn back to back and the walk lurches. Letting one timer own the pace
+   * keeps every step the same length regardless of when its message arrived.
    */
   function walkToken(id, path) {
     const active = walks.get(id);
-    const queue = active ? active.remaining().concat(path) : path.slice();
-    if (active) clearTimeout(active.timer);
+    if (active) { active.queue.push(...path); return; }
 
-    let i = 0;
-    const state = {
-      timer: null,
-      remaining: () => queue.slice(i),
-    };
+    const state = { queue: path.slice(), i: 0, timer: null };
     walks.set(id, state);
 
     const step = () => {
-      if (i >= queue.length) { walks.delete(id); return; }
-      placeToken(id, queue[i++], true);
+      if (state.i >= state.queue.length) { walks.delete(id); return; }
+      placeToken(id, state.queue[state.i++], true);
       // Chained timeouts rather than an interval: an interval drifts against
       // the CSS transition and the steps start to stutter.
       state.timer = setTimeout(step, STEP_MS);
@@ -300,11 +302,22 @@ window.Views.map = (function () {
     const seen = new Set();
     for (const o of list) {
       seen.add(o.id);
-      const existing = occupants.get(o.id);
+      const isNew = !occupants.has(o.id);
       ensureToken(o.id, o);
-      // Don't yank somebody back to the server's idea of their square while
-      // they're mid-walk; the walk ends there anyway.
-      if (!existing || !walks.has(o.id)) placeToken(o.id, o.tile, false);
+
+      // A presence update is a statement about where people ARE, which during a
+      // walk is the far end of a path the token is still crossing. Applying it
+      // would teleport them to the destination and then the walk would carry on
+      // from the beginning.
+      if (walks.has(o.id)) continue;
+
+      // For our own token the server is echoing a position we already know
+      // about, so only move if it genuinely disagrees; otherwise every update
+      // is a chance to stutter.
+      if (o.id === meId && !isNew && myTile
+          && o.tile.x === myTile.x && o.tile.y === myTile.y) continue;
+
+      placeToken(o.id, o.tile, false);
     }
     for (const [id, entry] of [...occupants]) {
       if (seen.has(id)) continue;
@@ -398,7 +411,10 @@ window.Views.map = (function () {
         clearTokens();
         await load(me.chunk);
       }
-      socket.emit('world:join');   // ask for the occupant list in the new chunk
+      // Deliberately does NOT ask again: the server broadcasts the occupant
+      // list as part of handling world:join, and re-asking from inside the
+      // reply is an infinite round trip that floods world:here and snaps every
+      // token on each one.
     });
 
     socket.on('world:here', (data) => {
@@ -416,9 +432,11 @@ window.Views.map = (function () {
     });
 
     socket.on('world:error', (e) => {
-      // We may have guessed wrong about where we are; ask for the truth.
+      // Our optimistic guess may have been wrong. Stop walking and ask once;
+      // the throttle keeps a wall we're pressed against from becoming a flood.
       endHold();
-      socket.emit('world:join');
+      const now = Date.now();
+      if (now - lastResync > 1000) { lastResync = now; socket.emit('world:join'); }
       const note = root?.querySelector('#map-error');
       if (!note) return;
       note.textContent = e.message;
