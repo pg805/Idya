@@ -1,18 +1,24 @@
 /* Map view — a chunk of the world. */
 
+/* The map is the app now, so this fills the world container rather than sitting
+   in a document. Everything but the board is chrome around it. */
 .map-view {
   width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px 24px 32px;
+  height: 100%;
+  padding: 10px 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+
+.map-view > * { flex-shrink: 0; }
 
 .map-head {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 10px;
 }
 
@@ -26,7 +32,7 @@
 
 .map-blurb { margin: 0; font-size: 0.85rem; color: var(--text-faint); }
 
-.map-exits { display: flex; flex-wrap: wrap; gap: 8px; }
+.map-exits { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 .map-exit {
   font: inherit;
@@ -132,8 +138,8 @@
 
 .map-foot {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 16px;
   font-size: 0.7rem;
   color: var(--text-vdim);
 }

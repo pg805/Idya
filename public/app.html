@@ -34,13 +34,19 @@
   <script>if (location.port === '3000') document.title += ' — Dev';</script>
 </head>
 <body>
-  <button id="mobile-menu-toggle" type="button" aria-label="Menu">
+  <!-- Pause menu. An overlay at every width now, not just on phones: the map is
+       the app, and a permanent sidebar would be a permanent bite out of it. -->
+  <button id="menu-toggle" type="button" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
-  <div id="mobile-menu-backdrop"></div>
+  <div id="menu-backdrop"></div>
 
   <div id="layout-root"></div>
-  <div id="app-shell">
+
+  <!-- The world. Mounted once and never torn down, so opening an interface
+       never costs you your position or your connection. -->
+  <div id="world-root"></div>
+
     <nav id="app-sidebar">
       <div class="nav-group">
         <a class="nav-link" data-path="/character">Character</a>
@@ -58,7 +64,7 @@
       </div>
       <div class="nav-group">
         <p class="nav-label">Town</p>
-        <a class="nav-link" data-path="/map">Map</a>
+        <a class="nav-link" data-path="/map">Back to the world</a>
         <a class="nav-link" data-path="/chat">Chat</a>
         <a class="nav-link" data-path="/town-square">Town Square</a>
         <a class="nav-link" data-path="/shop/general_store">General Store</a>
@@ -86,6 +92,12 @@
       </div>
     </nav>
 
+  <!-- Everything that isn't the world opens over it. -->
+  <div id="panel" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title" id="panel-title"></h2>
+      <button class="panel-close" id="panel-close" type="button" aria-label="Close">&times;</button>
+    </div>
     <main id="app-content"></main>
   </div>
 

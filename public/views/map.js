@@ -30,6 +30,7 @@ window.Views.map = (function () {
   let onKeyDown = null;
   let onKeyUp = null;
   let onBlur = null;
+  const world = document.getElementById('world-root');
 
   const KEYS = {
     ArrowUp: { dx: 0, dy: -1 }, ArrowRight: { dx: 1, dy: 0 },
@@ -48,8 +49,17 @@ window.Views.map = (function () {
    * Whole numbers only. A fractional cell would put the 32px source art on
    * half-pixel boundaries and the whole thing would shimmer.
    */
-  function cellSizeFor(availablePx) {
-    const fit = Math.floor(availablePx / (view?.size || 24));
+  function cellSizeFor(stage) {
+    const size = view?.size || 24;
+    const wrap = stage.parentElement;
+    const width = wrap?.clientWidth || 768;
+    // Whatever vertical room is left once the header, exits and footer have
+    // taken theirs. Without this the map overflows on a short window and the
+    // bottom rows are simply unreachable.
+    const used = (root?.querySelector('.map-view')?.clientHeight || 0)
+               - (stage.clientHeight || 0);
+    const height = Math.max(200, (world?.clientHeight || window.innerHeight) - used - 24);
+    const fit = Math.floor(Math.min(width, height) / size);
     return Math.max(8, Math.min(TILE_SRC, fit));
   }
 
@@ -58,7 +68,7 @@ window.Views.map = (function () {
     const stage = root.querySelector('#map-stage');
     if (!stage) return;
 
-    cell = cellSizeFor(stage.parentElement.clientWidth || 768);
+    cell = cellSizeFor(stage);
     const px = cell * view.size;
     stage.style.width = `${px}px`;
     stage.style.height = `${px}px`;

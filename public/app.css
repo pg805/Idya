@@ -12,23 +12,37 @@ body {
 
 #layout-root { flex-shrink: 0; }
 
-#app-shell {
-  display: flex;
+/* The world fills whatever the header leaves and centres the map in it. */
+#world-root {
   flex: 1;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
+/* Pause menu. Off-canvas at every width: the map is the app, and a permanent
+   column would be a permanent bite out of it. */
 #app-sidebar {
-  width: 200px;
-  min-width: 200px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  padding: 60px 0 16px;
   background: var(--bg-deep);
   border-right: 1px solid var(--border-soft);
-  padding: 16px 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.18s ease;
+  z-index: 100;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
 }
+body.menu-open #app-sidebar { transform: translateX(0); }
 
 .nav-group {
   display: flex;
@@ -66,10 +80,56 @@ body {
   border-left-color: var(--gold);
 }
 
+/* Interfaces open over the world rather than replacing it. Inset rather than
+   full-bleed so the map stays visible around the edges and it still reads as
+   something laid on top of a place you are standing in. */
+#panel {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 88px);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  z-index: 80;
+}
+#panel[hidden] { display: none; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 0.85rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.panel-close {
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.panel-close:hover { color: var(--text); }
+
 #app-content {
   flex: 1;
   overflow-y: auto;
-  background: var(--bg);
   display: flex;
   flex-direction: column;
 }
@@ -85,9 +145,9 @@ body {
   text-align: center;
 }
 
-/* Hamburger / drawer — hidden on desktop, takes over on narrow viewports */
-#mobile-menu-toggle {
-  display: none;
+/* Hamburger — always present now, because the menu always is. */
+#menu-toggle {
+  display: flex;
   position: fixed;
   top: 10px;
   left: 10px;
@@ -102,48 +162,34 @@ body {
   flex-direction: column;
   justify-content: space-between;
 }
-#mobile-menu-toggle span {
+#menu-toggle span {
   display: block;
   height: 2px;
   background: var(--gold);
   border-radius: 1px;
   transition: transform 0.2s, opacity 0.2s;
 }
-body.menu-open #mobile-menu-toggle span:nth-child(1) { transform: translateY(9px) rotate(45deg); }
-body.menu-open #mobile-menu-toggle span:nth-child(2) { opacity: 0; }
-body.menu-open #mobile-menu-toggle span:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
+body.menu-open #menu-toggle span:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+body.menu-open #menu-toggle span:nth-child(2) { opacity: 0; }
+body.menu-open #menu-toggle span:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
 
-#mobile-menu-backdrop {
+#menu-backdrop {
   display: none;
+  /* Only dims once the menu is open; see below. */
   position: fixed;
   inset: 0;
   background: rgba(8, 18, 27, 0.6);
   z-index: 90;
 }
-body.menu-open #mobile-menu-backdrop { display: block; }
+body.menu-open #menu-backdrop { display: block; }
 
 @media (max-width: 640px) {
-  body { height: auto; min-height: 100vh; overflow: visible; }
-  #app-shell { flex-direction: column; }
-  #mobile-menu-toggle { display: flex; }
-
-  #app-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 240px;
-    min-width: 240px;
-    padding-top: 60px;
-    transform: translateX(-100%);
-    transition: transform 0.22s ease;
-    z-index: 100;
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
-  }
-  body.menu-open #app-sidebar { transform: translateX(0); }
-
-  #app-content {
-    width: 100%;
-    overflow-y: visible;
+  #panel {
+    top: 48px;
+    width: 100vw;
+    max-height: calc(100vh - 48px);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 }
