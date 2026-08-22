@@ -46,6 +46,17 @@
 }
 .map-exit:hover { color: var(--gold-bright); border-color: var(--gold-dim); }
 
+/* The board's wrapper is a level below .map-view, so it has to carry the flex
+   growth down: without this the viewport has no flex parent to grow into, and
+   since the stage is absolutely positioned it contributes no height of its own,
+   so the whole thing collapses to nothing and clips itself away. */
+#map-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+}
+
 /* The viewport onto the board. Takes whatever height is left, and clips: past
    1x the chunk is larger than the window, and the camera pans within this. */
 .map-stage-wrap {

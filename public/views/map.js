@@ -73,10 +73,12 @@ window.Views.map = (function () {
     const size = view?.size || 24;
     if (zoom !== 'fit') return TILE_SRC * zoom;
     const wrap = root?.querySelector('.map-stage-wrap');
+    // Before first layout these read 0; fitting to that would pick the floor
+    // and the board would look absent rather than small.
     const width = wrap?.clientWidth || 768;
-    const height = wrap?.clientHeight || 768;
+    const height = wrap?.clientHeight || width;
     const fit = Math.floor(Math.min(width, height) / size);
-    return Math.max(8, Math.min(TILE_SRC, fit));
+    return Math.max(12, Math.min(TILE_SRC, fit));
   }
 
   /**
