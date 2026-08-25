@@ -296,18 +296,43 @@ function treeStack(r: () => number, build: TreeBuild, mids: number): string[] {
 // Forest floor: overwhelmingly trees, with the occasional bush or stump for
 // low cover. An obstacle with no headroom for a tree becomes a stump rather than
 // a bush — bushes are meant to stay rare, not to pile up along the top row.
-function dressObstacle(r: () => number, pos: Pos, takenTops: Set<string>): TerrainObstacleProp {
+/**
+ * Which build a tree uses, given what is already standing in its column.
+ *
+ * A trunk directly behind another trunk is the case worth handling: in the same
+ * column the two line up, and if they are the same build they line up exactly,
+ * so the pair reads as one tree rather than as a wood with depth in it. The two
+ * builds carry their trunks differently, so alternating makes the one behind
+ * show past the one in front and the bunch reads as several trees.
+ *
+ * A preference, not a rule. Left alone, roughly half of these pairs matched.
+ */
+function chooseBuild(r: () => number, pos: Pos, placed: Map<string, number>): TreeBuild {
+  const ahead = placed.get(`${pos.x},${pos.y + 1}`);
+  const behind = placed.get(`${pos.x},${pos.y - 1}`);
+  const neighbour = ahead ?? behind;
+  if (neighbour !== undefined) return TREE_BUILDS[neighbour === 0 ? 1 : 0];
+  return r() < TREE_02_CHANCE ? TREE_BUILDS[1] : TREE_BUILDS[0];
+}
+
+function dressObstacle(
+  r: () => number,
+  pos: Pos,
+  takenTops: Set<string>,
+  placed: Map<string, number>,
+): TerrainObstacleProp {
   // One flip for the whole prop. Tree 02 in particular is asymmetric, so
   // mirroring is most of what stops a wood looking stamped, and mirroring a
   // trunk segment independently of the one below it would split the tree down
   // the middle.
   const at = { x: pos.x, y: pos.y, f: r() < 0.5 };
-  const build = r() < TREE_02_CHANCE ? TREE_BUILDS[1] : TREE_BUILDS[0];
+  const build = chooseBuild(r, pos, placed);
   const roll = r();
 
   if (roll < 0.88) {
     const mids = treeMidCount(r, build, pos.y, pos.x, takenTops);
     takenTops.add(`${pos.x},${pos.y - (mids + 1)}`);
+    placed.set(`${pos.x},${pos.y}`, build === TREE_BUILDS[1] ? 1 : 0);
     return { ...at, stack: treeStack(r, build, mids), rubble: build.stump };
   }
   if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], rubble: 'dec_rock_01' };
@@ -352,7 +377,10 @@ export function generateTerrain(
   // Squares already carrying a canopy, so the next tree can avoid stacking one
   // directly on top of another and vanishing into it.
   const takenTops = new Set<string>();
-  const dressed = obstacles.map(o => dressObstacle(r, o.pos, takenTops));
+  // Which build stands on each square, so a tree can pick the other one when
+  // there is already a trunk directly in front of or behind it.
+  const placedBuilds = new Map<string, number>();
+  const dressed = obstacles.map(o => dressObstacle(r, o.pos, takenTops, placedBuilds));
   const underProp = new Set<string>();
   for (const p of dressed) {
     for (let i = 1; i < p.stack.length; i++) underProp.add(`${p.x},${p.y - i}`);
