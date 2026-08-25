@@ -25,6 +25,13 @@ window.Views.map = (function () {
   // rather than wherever the token has animated to. Steps have to be pathed from
   // here or a held key would ask to move from a square we have already left.
   let myTile = null;
+  // Where the server says we are, and the most recent occupant list for it.
+  // Both are tracked outside the loaded view because travelling has a window
+  // where the server has already moved us but the new stage is still being
+  // fetched, and a list arriving in that window must not be judged against the
+  // place we just left.
+  let myChunk = null;
+  let latestOccupants = null;
   // Every direction key currently down, not just the latest. Holding two is how
   // you go diagonally, so the last one pressed must not replace the first.
   const heldKeys = new Map();    // key -> { dx, dy }
@@ -463,8 +470,9 @@ window.Views.map = (function () {
     }
 
     paint();
-    // The stage is new, so any token that existed before it needs drawing into
-    // it. Covers the list having landed while the fetch above was in flight.
+    // The stage is new. Apply whatever the server last said about this place,
+    // which may have arrived while the fetch above was in flight, then draw.
+    if (latestOccupants) syncOccupants(latestOccupants);
     renderTokens();
   }
 
@@ -476,13 +484,13 @@ window.Views.map = (function () {
     socket.on('world:you', async (me) => {
       meId = me.id;
       myTile = me.tile;
+      const changed = !myChunk || myChunk.x !== me.chunk.x || myChunk.y !== me.chunk.y;
+      myChunk = me.chunk;
+      // Nobody from the last place is here. Drop them now rather than letting
+      // them be redrawn onto the new stage; the list for this place refills it.
+      if (changed) { latestOccupants = null; clearTokens(); }
       // The server decides where you are; the client follows it there.
       if (!view || view.chunk.x !== me.chunk.x || view.chunk.y !== me.chunk.y) {
-        // Deliberately does not drop the records: the occupant list for the new
-        // place may already have arrived while this was fetching, and the
-        // rebuild below replaces the layer those tokens were in. load() draws
-        // them again from what we know.
-        for (const id of [...walks.keys()]) stopWalk(id);
         await load(me.chunk);
       }
       // Deliberately does NOT ask again: the server broadcasts the occupant
@@ -492,8 +500,15 @@ window.Views.map = (function () {
     });
 
     socket.on('world:here', (data) => {
-      if (!view || data.chunk.x !== view.chunk.x || data.chunk.y !== view.chunk.y) return;
-      syncOccupants(data.occupants);
+      // Judged against where the SERVER says we are, not against whatever is
+      // currently drawn. During travel the drawn view is still the old place,
+      // and comparing against it threw away the list for the new one.
+      if (!myChunk || data.chunk.x !== myChunk.x || data.chunk.y !== myChunk.y) return;
+      latestOccupants = data.occupants;
+      // Held until there is a stage to draw on; load() applies it.
+      if (view && view.chunk.x === data.chunk.x && view.chunk.y === data.chunk.y) {
+        syncOccupants(latestOccupants);
+      }
     });
 
     socket.on('world:walked', ({ id, from, path }) => {

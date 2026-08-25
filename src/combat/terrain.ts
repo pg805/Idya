@@ -254,13 +254,35 @@ const TUFT_CHANCE = 0.30;      // grass squares that get a tuft overlay
 // board rather than as a mistake. (An earlier version dodged the clip by giving
 // those squares a short prop instead, which just made the top row look
 // deliberately bald.)
-function treeStack(r: () => number, build: TreeBuild): string[] {
+/**
+ * How many middle segments a tree gets.
+ *
+ * Preferred height first, then the alternative. A canopy drawn onto a square
+ * another canopy already occupies hides it completely, so two trees read as one
+ * shapeless mass of leaves. Landing on a trunk instead is the opposite: the
+ * trunk in front proves there are two trees, which is the whole reason a dense
+ * wood reads as depth rather than as a green blanket.
+ *
+ * So: take a height whose canopy misses other canopies where one is available,
+ * and don't otherwise change how often trees are tall.
+ */
+function treeMidCount(r: () => number, build: TreeBuild, y: number, x: number,
+                      takenTops: Set<string>): number {
+  const most = build.maxMids;
+  const least = build.maxMids > 1 ? build.maxMids - 1 : 0;
+  const preferred = r() < TREE_TALL_CHANCE ? most : least;
+  const other = preferred === most ? least : most;
+
+  for (const mids of [preferred, other]) {
+    // bottom + mids + top, so the top sits this far above the base square.
+    const topY = y - (mids + 1);
+    if (!takenTops.has(`${x},${topY}`)) return mids;
+  }
+  return preferred;   // both taken; nothing better to do than keep the shape
+}
+
+function treeStack(r: () => number, build: TreeBuild, mids: number): string[] {
   const stack = [build.bottom];
-  // At least one middle where the build has room for more than one, so tree 02
-  // reads as the taller kind rather than as tree 01 with a different canopy.
-  const mids = build.maxMids > 1
-    ? (r() < TREE_TALL_CHANCE ? build.maxMids : build.maxMids - 1)
-    : (r() < TREE_TALL_CHANCE ? 1 : 0);
   for (let i = 0; i < mids; i++) stack.push(pick(r, build.mids));
   stack.push(treeTop(r, build));
   return stack;
@@ -274,7 +296,7 @@ function treeStack(r: () => number, build: TreeBuild): string[] {
 // Forest floor: overwhelmingly trees, with the occasional bush or stump for
 // low cover. An obstacle with no headroom for a tree becomes a stump rather than
 // a bush — bushes are meant to stay rare, not to pile up along the top row.
-function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
+function dressObstacle(r: () => number, pos: Pos, takenTops: Set<string>): TerrainObstacleProp {
   // One flip for the whole prop. Tree 02 in particular is asymmetric, so
   // mirroring is most of what stops a wood looking stamped, and mirroring a
   // trunk segment independently of the one below it would split the tree down
@@ -283,7 +305,11 @@ function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
   const build = r() < TREE_02_CHANCE ? TREE_BUILDS[1] : TREE_BUILDS[0];
   const roll = r();
 
-  if (roll < 0.88) return { ...at, stack: treeStack(r, build), rubble: build.stump };
+  if (roll < 0.88) {
+    const mids = treeMidCount(r, build, pos.y, pos.x, takenTops);
+    takenTops.add(`${pos.x},${pos.y - (mids + 1)}`);
+    return { ...at, stack: treeStack(r, build, mids), rubble: build.stump };
+  }
   if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], rubble: 'dec_rock_01' };
   return { ...at, stack: [build.stump], rubble: 'dec_rock_01' };
 }
@@ -323,7 +349,10 @@ export function generateTerrain(
   // squares than the one it blocks: its trunk and canopy are drawn over the open
   // squares above it. Scatter has to know about those or it puts a flower where a
   // trunk will land on top of it.
-  const dressed = obstacles.map(o => dressObstacle(r, o.pos));
+  // Squares already carrying a canopy, so the next tree can avoid stacking one
+  // directly on top of another and vanishing into it.
+  const takenTops = new Set<string>();
+  const dressed = obstacles.map(o => dressObstacle(r, o.pos, takenTops));
   const underProp = new Set<string>();
   for (const p of dressed) {
     for (let i = 1; i < p.stack.length; i++) underProp.add(`${p.x},${p.y - i}`);
