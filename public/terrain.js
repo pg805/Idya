@@ -23,30 +23,69 @@
   // name -> [sheet, col, row]. 't' = tileset_terrain, 'd' = tileset_decor.
   // The material rows are handled by AUTOTILE below (it needs the whole 6-shape
   // set), so only the standalone terrain entries are named here.
+  // Regenerated from build-tilesets.lua in the Asset Library, which is the
+  // source of truth for where every sprite sits. The sheet gets reorganised as
+  // it grows, so hand-editing coordinates here goes wrong quietly: a stale entry
+  // still draws, it just draws the wrong tile.
+  //
+  // Buildings (bld_) are deliberately absent. They are 2x2 and 1x2, and this
+  // table only describes single cells.
   const ATLAS = {
+    // shadows
     shadow_sm: ['t', 0, 8], shadow_md: ['t', 1, 8],
     shadow_lg: ['t', 2, 8], shadow_xl: ['t', 3, 8],
 
-    dec_log_left: ['d', 0, 0], dec_log_center: ['d', 1, 0], dec_log_right: ['d', 2, 0],
-    dec_well_01: ['d', 3, 0],
-    dec_tree_01_top_01: ['d', 4, 0], dec_tree_01_top_02: ['d', 5, 0],
+    // tree 01
+    dec_tree_01_top_01: ['d', 0, 0], dec_tree_01_top_02: ['d', 1, 0],
+    dec_tree_01_top_03: ['d', 2, 0], dec_tree_01_top_04: ['d', 3, 0],
+    dec_tree_01_top_05: ['d', 4, 0], dec_tree_01_top_06: ['d', 5, 0],
+    dec_tree_01_middle_01: ['d', 0, 1], dec_tree_01_top_07: ['d', 1, 1],
+    dec_tree_01_middle_02: ['d', 2, 1], dec_tree_01_stump: ['d', 3, 1],
+    dec_tree_01_bottom: ['d', 0, 2],
 
-    dec_bush_01: ['d', 0, 1], dec_bush_02: ['d', 1, 1],
-    dec_bush_03: ['d', 2, 1], dec_bush_04: ['d', 3, 1],
-    dec_tree_01_middle_01: ['d', 4, 1], dec_tree_01_middle_02: ['d', 5, 1],
+    // tree 02
+    dec_tree_02_top_01: ['d', 0, 3], dec_tree_02_top_03: ['d', 1, 3],
+    dec_tree_02_top_04: ['d', 2, 3], dec_tree_02_top_05: ['d', 3, 3],
+    dec_tree_02_top_06: ['d', 4, 3], dec_tree_02_top_07: ['d', 5, 3],
+    dec_tree_02_middle_03: ['d', 0, 4], dec_tree_02_middle_02: ['d', 0, 5],
+    dec_tree_02_middle_01: ['d', 0, 6], dec_tree_02_bottom: ['d', 0, 7],
+    dec_tree_02_stump: ['d', 1, 7],
 
-    dec_flower_01: ['d', 0, 2], dec_flower_02: ['d', 1, 2],
-    dec_grass_01: ['d', 2, 2], dec_grass_02: ['d', 3, 2],
-    dec_tree_01_bottom: ['d', 4, 2], dec_barrel_01: ['d', 5, 2],
+    // plants
+    dec_bush_01: ['d', 4, 1], dec_bush_02: ['d', 5, 1],
+    dec_bush_03: ['d', 1, 2], dec_bush_04: ['d', 2, 2],
+    dec_flower_01: ['d', 3, 2], dec_flower_02: ['d', 4, 2],
+    dec_reed_01: ['d', 5, 2],
 
-    dec_reed_01: ['d', 0, 3], dec_rock_01: ['d', 1, 3], dec_rock_02: ['d', 2, 3],
-    dec_crab_01: ['d', 3, 3], dec_fire_01: ['d', 4, 3], dec_fire_02: ['d', 5, 3],
+    // scatter
+    dec_rock_01: ['d', 1, 4], dec_rock_02: ['d', 2, 4],
+    dec_shell_01: ['d', 3, 4], dec_crab_01: ['d', 4, 4],
 
-    dec_shell_01: ['d', 0, 4], dec_tree_01_stump: ['d', 1, 4],
-    ov_grass_01: ['d', 2, 4], ov_grass_02: ['d', 3, 4], ov_grass_03: ['d', 4, 4],
-    ov_foam_01: ['d', 5, 4], ov_foam_02: ['d', 0, 5], ov_road_grooves_01: ['d', 1, 5],
+    // camp
+    dec_log_left: ['d', 2, 5], dec_log_center: ['d', 3, 5],
+    dec_log_right: ['d', 4, 5], dec_well_01: ['d', 5, 5],
+    dec_fire_01: ['d', 1, 6], dec_fire_02: ['d', 2, 6],
 
-    obj_chest_01: ['d', 1, 7],
+    // containers
+    dec_barrel_01: ['d', 5, 4], obj_chest_01: ['d', 1, 5],
+
+    // overlays
+    ov_grass_01: ['d', 3, 6], ov_grass_02: ['d', 4, 6],
+    ov_grass_03: ['d', 5, 6], ov_foam_01: ['d', 2, 7],
+    ov_foam_02: ['d', 3, 7], ov_road_grooves_01: ['d', 4, 7],
+
+    // fences
+    dec_fence_post: ['d', 5, 7], dec_fence_end: ['d', 0, 8],
+    dec_fence_straight: ['d', 1, 8], dec_fence_turn: ['d', 2, 8],
+    dec_fence_t_junction: ['d', 3, 8], dec_fence_cross: ['d', 4, 8],
+    dec_fence_gate: ['d', 5, 8],
+
+    // crops
+    dec_crop_grain_sprout_01: ['d', 0, 9], dec_crop_grain_growth_01: ['d', 1, 9],
+    dec_crop_grain_harvest_01: ['d', 2, 9], dec_crop_root_sprout_01: ['d', 3, 9],
+    dec_crop_root_growth_01: ['d', 4, 9], dec_crop_root_harvest_01: ['d', 5, 9],
+    dec_crop_legume_sprout_01: ['d', 0, 10], dec_crop_legume_growth_01: ['d', 1, 10],
+    dec_crop_legume_harvest_01: ['d', 2, 10],
   };
 
   // ---- shadows ----
@@ -58,6 +97,8 @@
   const SHADOW_FOR = {
     dec_tree_01_bottom: 'shadow_xl',
     dec_tree_01_stump:  'shadow_xl',
+    dec_tree_02_bottom: 'shadow_xl',
+    dec_tree_02_stump:  'shadow_xl',
     dec_bush_01: 'shadow_lg', dec_bush_02: 'shadow_lg',
     dec_bush_03: 'shadow_lg', dec_bush_04: 'shadow_lg',
     dec_flower_02: 'shadow_md',   // sunflowers

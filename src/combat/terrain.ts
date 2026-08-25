@@ -121,17 +121,77 @@ function makeNoise(r: () => number, w: number, h: number): (x: number, y: number
 }
 
 // ---- props --------------------------------------------------------------
-const TREE_BOTTOM = 'dec_tree_01_bottom';
-const TREE_STUMP  = 'dec_tree_01_stump';
 
-// The two tops and the two middles are interchangeable parts, not two fixed tree
-// builds — any top sits on any middle. Top 01 is the leafy canopy and carries
-// most trees; top 02 (the capped bare trunk) is the occasional dead one.
-const TREE_TOP_MAIN = 'dec_tree_01_top_01';
-const TREE_TOP_ALT  = 'dec_tree_01_top_02';
-const TREE_MIDS = ['dec_tree_01_middle_01', 'dec_tree_01_middle_02'] as const;
-const TREE_TOP_ALT_CHANCE = 0.10;
-const TREE_TALL_CHANCE    = 0.55;   // 3 squares tall vs 2, where there's headroom
+/**
+ * The two tree builds.
+ *
+ * Every piece within a build is interchangeable: any top sits on any middle,
+ * and the middles repeat. So a build is a parts bin rather than a fixed
+ * assembly, and the only real difference between the two is silhouette.
+ *
+ * Tops come in three flavours, which is what the odds below are about:
+ *   greens   the plain canopies. Tree 01 has two, and its 02 is a different
+ *            SHAPE rather than a different colour, which is why tree 02 has no
+ *            top_02 at all.
+ *   colours  index swaps of the foliage greens over the same drawing.
+ *   rainbow  top_07 on both, all five triples in diagonal stripes.
+ */
+interface TreeBuild {
+  bottom: string;
+  stump: string;
+  mids: readonly string[];
+  greens: readonly string[];
+  colours: readonly string[];
+  rainbow: string;
+  /** How many middle segments this build can stack, given the headroom. */
+  maxMids: number;
+}
+
+const TREE_BUILDS: readonly TreeBuild[] = [
+  {
+    bottom: 'dec_tree_01_bottom',
+    stump:  'dec_tree_01_stump',
+    mids:   ['dec_tree_01_middle_01', 'dec_tree_01_middle_02'],
+    greens: ['dec_tree_01_top_01', 'dec_tree_01_top_02'],
+    colours: ['dec_tree_01_top_03', 'dec_tree_01_top_04',
+              'dec_tree_01_top_05', 'dec_tree_01_top_06'],
+    rainbow: 'dec_tree_01_top_07',
+    maxMids: 1,
+  },
+  {
+    bottom: 'dec_tree_02_bottom',
+    stump:  'dec_tree_02_stump',
+    mids:   ['dec_tree_02_middle_01', 'dec_tree_02_middle_02', 'dec_tree_02_middle_03'],
+    greens: ['dec_tree_02_top_01'],
+    colours: ['dec_tree_02_top_03', 'dec_tree_02_top_04',
+              'dec_tree_02_top_05', 'dec_tree_02_top_06'],
+    rainbow: 'dec_tree_02_top_07',
+    // Drawn as the taller tree, and its middles are made to repeat.
+    maxMids: 2,
+  },
+] as const;
+
+// The two builds are equally likely. Neither is the default and the other the
+// variant; they are two kinds of tree in the same wood.
+const TREE_02_CHANCE = 0.5;
+
+// Chosen by CATEGORY rather than by sprite, so the balance holds no matter how
+// many tops end up in each: tree 02 has one green to tree 01's two, and picking
+// uniformly across all tops would quietly make it the greener tree.
+//
+// Colour beats plain green, and the rainbow is the thing you notice once in a
+// while rather than a fifth colourway.
+const TREE_TOP_COLOUR_CHANCE  = 0.65;
+const TREE_TOP_RAINBOW_CHANCE = 0.05;   // the remainder is green
+
+const TREE_TALL_CHANCE = 0.55;   // one more segment, where there is headroom
+
+function treeTop(r: () => number, build: TreeBuild): string {
+  const roll = r();
+  if (roll < TREE_TOP_RAINBOW_CHANCE) return build.rainbow;
+  if (roll < TREE_TOP_RAINBOW_CHANCE + TREE_TOP_COLOUR_CHANCE) return pick(r, build.colours);
+  return pick(r, build.greens);
+}
 
 const BUSHES = ['dec_bush_01', 'dec_bush_02', 'dec_bush_03', 'dec_bush_04'] as const;
 
@@ -194,11 +254,16 @@ const TUFT_CHANCE = 0.30;      // grass squares that get a tuft overlay
 // board rather than as a mistake. (An earlier version dodged the clip by giving
 // those squares a short prop instead, which just made the top row look
 // deliberately bald.)
-function treeStack(r: () => number): string[] {
-  const top = r() < TREE_TOP_ALT_CHANCE ? TREE_TOP_ALT : TREE_TOP_MAIN;
-  return r() < TREE_TALL_CHANCE
-    ? [TREE_BOTTOM, pick(r, TREE_MIDS), top]
-    : [TREE_BOTTOM, top];
+function treeStack(r: () => number, build: TreeBuild): string[] {
+  const stack = [build.bottom];
+  // At least one middle where the build has room for more than one, so tree 02
+  // reads as the taller kind rather than as tree 01 with a different canopy.
+  const mids = build.maxMids > 1
+    ? (r() < TREE_TALL_CHANCE ? build.maxMids : build.maxMids - 1)
+    : (r() < TREE_TALL_CHANCE ? 1 : 0);
+  for (let i = 0; i < mids; i++) stack.push(pick(r, build.mids));
+  stack.push(treeTop(r, build));
+  return stack;
 }
 
 // Shadows are NOT chosen here. Each shadow sprite is drawn to fit a particular
@@ -210,12 +275,17 @@ function treeStack(r: () => number): string[] {
 // low cover. An obstacle with no headroom for a tree becomes a stump rather than
 // a bush — bushes are meant to stay rare, not to pile up along the top row.
 function dressObstacle(r: () => number, pos: Pos): TerrainObstacleProp {
+  // One flip for the whole prop. Tree 02 in particular is asymmetric, so
+  // mirroring is most of what stops a wood looking stamped, and mirroring a
+  // trunk segment independently of the one below it would split the tree down
+  // the middle.
   const at = { x: pos.x, y: pos.y, f: r() < 0.5 };
+  const build = r() < TREE_02_CHANCE ? TREE_BUILDS[1] : TREE_BUILDS[0];
   const roll = r();
 
-  if (roll < 0.88) return { ...at, stack: treeStack(r), rubble: TREE_STUMP };
+  if (roll < 0.88) return { ...at, stack: treeStack(r, build), rubble: build.stump };
   if (roll < 0.95) return { ...at, stack: [pick(r, BUSHES)], rubble: 'dec_rock_01' };
-  return { ...at, stack: [TREE_STUMP], rubble: 'dec_rock_01' };
+  return { ...at, stack: [build.stump], rubble: 'dec_rock_01' };
 }
 
 // Build the cosmetic layers for a board of the given size and obstacle set.
