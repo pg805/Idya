@@ -165,11 +165,24 @@ window.Views.map = (function () {
     return root?.querySelector('#map-tokens') ?? null;
   }
 
+  /**
+   * Record who somebody is, and give them a token if there's somewhere to put
+   * one yet.
+   *
+   * The record is kept whether or not the DOM is ready. Travelling rebuilds the
+   * stage, and the server's occupant list can easily arrive while that rebuild
+   * is still awaiting its fetch; holding the data separately means the tokens
+   * can simply be drawn again afterwards instead of being lost with the layer
+   * that was replaced underneath them.
+   */
   function ensureToken(id, o) {
-    const layer = tokenLayer();
-    if (!layer) return null;
     let entry = occupants.get(id);
-    if (entry?.el?.isConnected) { Object.assign(entry, o); return entry; }
+    if (entry) Object.assign(entry, o);
+    else { entry = { ...o, el: null }; occupants.set(id, entry); }
+
+    const layer = tokenLayer();
+    if (!layer) return entry;                       // drawn later, by renderTokens
+    if (entry.el?.isConnected) return entry;
 
     const el = document.createElement('div');
     el.className = 'map-token' + (id === meId ? ' me' : '');
@@ -180,10 +193,17 @@ window.Views.map = (function () {
       `<span class="map-token-name"></span>`;
     el.querySelector('.map-token-name').textContent = o.name;
     layer.appendChild(el);
-
-    entry = { ...o, el };
-    occupants.set(id, entry);
+    entry.el = el;
     return entry;
+  }
+
+  /** Draw everyone we know about into the current layer. Safe to call twice. */
+  function renderTokens() {
+    if (!tokenLayer()) return;
+    for (const [id, o] of occupants) {
+      ensureToken(id, o);
+      if (!walks.has(id)) placeToken(id, o.tile, false);
+    }
   }
 
   function spriteUrl(token) {
@@ -349,7 +369,8 @@ window.Views.map = (function () {
     for (const o of list) {
       seen.add(o.id);
       const isNew = !occupants.has(o.id);
-      ensureToken(o.id, o);
+      const entry = ensureToken(o.id, o);
+      if (!entry?.el) continue;    // no stage yet; renderTokens will place it
 
       // A presence update is a statement about where people ARE, which during a
       // walk is the far end of a path the token is still crossing. Applying it
@@ -442,6 +463,9 @@ window.Views.map = (function () {
     }
 
     paint();
+    // The stage is new, so any token that existed before it needs drawing into
+    // it. Covers the list having landed while the fetch above was in flight.
+    renderTokens();
   }
 
   function connect() {
@@ -454,7 +478,11 @@ window.Views.map = (function () {
       myTile = me.tile;
       // The server decides where you are; the client follows it there.
       if (!view || view.chunk.x !== me.chunk.x || view.chunk.y !== me.chunk.y) {
-        clearTokens();
+        // Deliberately does not drop the records: the occupant list for the new
+        // place may already have arrived while this was fetching, and the
+        // rebuild below replaces the layer those tokens were in. load() draws
+        // them again from what we know.
+        for (const id of [...walks.keys()]) stopWalk(id);
         await load(me.chunk);
       }
       // Deliberately does NOT ask again: the server broadcasts the occupant

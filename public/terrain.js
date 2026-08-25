@@ -460,8 +460,22 @@
     // 6. above decor, on its own canvas above the tokens.
     const top = prepare(canvases.canopy, g, cellPx);
     const covered = new Set();
-    // Sorted by row so a nearer tree overlaps a farther one, not the reverse.
-    for (const p of [...props].sort((a, b) => a.y - b.y)) {
+    // Row first, so a nearer tree overlaps a farther one rather than the
+    // reverse. Within a row the order used to fall to whatever sequence the
+    // obstacles were scattered in, which is arbitrary and reads as such where
+    // two canopies meet.
+    //
+    // Ties now go to the taller tree, drawn FIRST and so behind. Height already
+    // varies per tree and the two builds differ in it, so neighbours separate
+    // by themselves without either build being permanently in front: a tall
+    // tree 02 sits behind its neighbour, a short one in front of the same tree.
+    // x last, only so the result is stable rather than dependent on input
+    // order.
+    const depth = (p) => [p.y, -p.stack.length, p.x];
+    for (const p of [...props].sort((a, b) => {
+      const A = depth(a), B = depth(b);
+      return (A[0] - B[0]) || (A[1] - B[1]) || (A[2] - B[2]);
+    })) {
       for (let i = 1; i < p.stack.length; i++) {
         blitNamed(top, p.stack[i], g.rect(p.x, p.y - i), p.f);
         covered.add(`${p.x},${p.y - i}`);
