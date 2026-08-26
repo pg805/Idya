@@ -30,6 +30,10 @@
   --box:       #858585;   /* palette 2, neutral 2 */
   --box-inset: #3d3d3d;   /* palette 4, neutral 4 */
   --box-width: 2px;       /* one art pixel at 2x */
+  /* The ground has to be darker than the raised button on it (dusk 3), and
+     black is the only palette entry that is. #131a2e used to sit here, mixed
+     by eye rather than taken from the palette. */
+  --ground:    #000000;   /* palette 5, neutral 5 / black */
 }
 
 .chat-view {
@@ -114,7 +118,7 @@
   font-family: inherit;
   font-size: 16px;
   color: #ffffff;                     /* terrain neutral 1 */
-  background: #131a2e;
+  background: var(--ground);
   border: var(--box-width) solid var(--box-inset);
   border-radius: 0;                   /* pixel art has no rounded corners */
   padding: 4px 8px;
@@ -135,10 +139,33 @@
 .chat-send:hover { color: #f2cb4d; border-color: #f2cb4d; }
 .chat-send:active { background: #1d2b53; }      /* terrain water 5 */
 
-/* The browser's own scrollbar is the most obviously un-drawn thing in a pixel
-   interface, so it gets squared off and put in the palette until there is art
-   for it. */
-.chat-log::-webkit-scrollbar { width: 8px; }
-.chat-log::-webkit-scrollbar-track { background: #131a2e; }
-.chat-log::-webkit-scrollbar-thumb { background: #3e484f; }
-.chat-log::-webkit-scrollbar-thumb:hover { background: #8f9aa2; }
+/* The scrollbar, drawn rather than fetched. The thumb is the same one-pixel box
+   as everything else, and the grip is a 3x3 cross made from two gradient bars,
+   so there is no asset and nothing to keep in step with the palette by hand.
+
+   14px is not arbitrary. The bar is 7 art pixels: box, gap, three of cross, gap,
+   box. At 16px the leftover space either side of the cross is 1.5 art pixels and
+   the grip sits on a half pixel, which on a 3px cross is plainly visible.
+
+   Horizontal centring is exact. Vertical is not, because the browser sizes the
+   thumb from the content and its height can be odd, which puts the cross half a
+   pixel off. A 1px drift on a scrollbar grip is not worth chasing. */
+.chat-log {
+  scrollbar-width: thin;                /* Firefox, which has no ::-webkit- */
+  scrollbar-color: #686868 transparent;
+}
+
+.chat-log::-webkit-scrollbar { width: 14px; }
+.chat-log::-webkit-scrollbar-track { background: transparent; }
+
+.chat-log::-webkit-scrollbar-thumb {
+  background-color: var(--ground);
+  border: var(--box-width) solid #686868;         /* palette 3, neutral 3 */
+  background-image:
+    linear-gradient(#b6a8af, #b6a8af),            /* palette 6, stone 1 */
+    linear-gradient(#b6a8af, #b6a8af);
+  background-size: 6px 2px, 2px 6px;              /* 3x1 and 1x3 art px */
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.chat-log::-webkit-scrollbar-thumb:hover { border-color: #858585; }
