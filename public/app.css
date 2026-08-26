@@ -32,17 +32,17 @@ body {
 }
 
 #chat-dock {
-  width: 300px;
+  width: 340px;
   flex-shrink: 0;
   min-height: 0;
-  background: var(--bg-deep);
-  border-left: 1px solid var(--border-soft);
+  background: #131a2e;                  /* between water 5 and black */
+  border-left: 2px solid #3e484f;       /* terrain steel 4 */
   display: flex;
   flex-direction: column;
 }
 
 @media (max-width: 900px) {
-  #chat-dock { width: 240px; }
+  #chat-dock { width: 280px; }
 }
 
 /* Below this there is no room for two columns, so the board keeps the width and

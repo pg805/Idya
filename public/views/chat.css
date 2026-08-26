@@ -1,35 +1,52 @@
-/* Chat view. Uses the app's tokens rather than the landing palette. */
+/* Chat, in the game's own type and colours.
+ *
+ * Two rules govern everything here and neither is preference:
+ *
+ * The Idya Pixel em is 8px, so every size is a whole multiple of it. A rem
+ * value, or 14px, lands the glyphs off the pixel grid and they blur. 16px is
+ * the working size; 8px is used only where the text is a label rather than
+ * something to read.
+ *
+ * Never bold. Browsers fake it by smearing the glyphs sideways, which on a
+ * bitmap face is exactly as bad as it sounds. Emphasis comes from colour.
+ *
+ * Colours are palette entries, named in the comments so they stay traceable
+ * back to the art rather than drifting into approximations of it.
+ */
 
 .chat-view {
   display: flex;
   flex-direction: column;
-  /* Fills its dock. The log scrolls inside; nothing else on the page does. */
   height: 100%;
   min-height: 0;
-  padding: 8px 10px;
+  padding: 8px;
+  font-family: 'Idya Pixel', ui-monospace, monospace;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: none;
 }
 
 .chat-bar {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  gap: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3e484f;   /* terrain steel 4 */
   flex-shrink: 0;
 }
 
-/* Where you are, said once. Moving between places is the map's job now. */
+/* Where you are. Moving between places is the map's job. */
 .chat-place {
-  font-size: 0.72rem;
-  color: var(--gold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 16px;
+  color: #f2cb4d;                     /* terrain pop gold */
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-here {
-  font-size: 0.75rem;
-  color: var(--text-faint);
+  font-size: 8px;
+  color: #8f9aa2;                     /* terrain steel 1 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -39,64 +56,70 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 2px;
+  padding: 8px 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
 }
 
 .chat-line {
   margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--text-2);
+  font-size: 16px;
+  color: #d7c6b2;                     /* terrain plaster 1 */
   word-break: break-word;
 }
 
-.chat-time { color: var(--text-vdim); font-size: 0.75rem; }
-.chat-who  { color: var(--gold); }
-.chat-body { color: var(--text-2); }
+.chat-time { color: #686868; }        /* terrain neutral 3 */
+.chat-who  { color: #f2cb4d; }        /* terrain pop gold */
+.chat-body { color: #d7c6b2; }
 
-.chat-line.mine .chat-who { color: var(--gold-bright); }
+.chat-line.mine .chat-who { color: #a7c9e7; }   /* terrain water 1 */
 
-/* Arrivals, departures, and anything the server says to you rather than
-   somebody saying it in the fiction. */
 .chat-system {
-  margin: 4px 0;
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--text-faint);
+  margin: 0;
+  font-size: 16px;
+  color: #686868;
 }
 
 .chat-form {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  border-top: 2px solid #3e484f;
 }
 
 .chat-input {
   flex: 1;
   min-width: 0;
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--text);
-  background: var(--bg-deep);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 16px;
+  color: #ffffff;                     /* terrain neutral 1 */
+  background: #131a2e;
+  border: 2px solid #3e484f;
+  border-radius: 0;                   /* pixel art has no rounded corners */
+  padding: 4px 8px;
 }
-.chat-input:focus { outline: none; border-color: var(--gold-dim); }
+.chat-input:focus { outline: none; border-color: #f2cb4d; }
+.chat-input::placeholder { color: #3d3d3d; }   /* terrain neutral 4 */
 
 .chat-send {
-  font: inherit;
-  font-size: 0.75rem;
-  color: var(--text);
-  background: var(--bg-hover);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 16px;
+  color: #d7c6b2;
+  background: #343345;                /* terrain dusk 3 */
+  border: 2px solid #3e484f;
+  border-radius: 0;
+  padding: 4px 8px;
   cursor: pointer;
 }
-.chat-send:hover { border-color: var(--gold-dim); color: var(--gold-bright); }
+.chat-send:hover { color: #f2cb4d; border-color: #f2cb4d; }
+.chat-send:active { background: #1d2b53; }      /* terrain water 5 */
+
+/* The browser's own scrollbar is the most obviously un-drawn thing in a pixel
+   interface, so it gets squared off and put in the palette until there is art
+   for it. */
+.chat-log::-webkit-scrollbar { width: 8px; }
+.chat-log::-webkit-scrollbar-track { background: #131a2e; }
+.chat-log::-webkit-scrollbar-thumb { background: #3e484f; }
+.chat-log::-webkit-scrollbar-thumb:hover { background: #8f9aa2; }
