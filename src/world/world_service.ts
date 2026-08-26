@@ -89,7 +89,7 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
   if (!place) return null;
 
   const obstacles = obstaclesFor(chunk, place);
-  const terrain = generateTerrain(CHUNK_SIZE, CHUNK_SIZE, obstacles, chunkSeed(chunk));
+  const terrain = generateTerrain(CHUNK_SIZE, CHUNK_SIZE, obstacles, chunkSeed(chunk), place.dirt);
 
   const [rows, objectRows] = await Promise.all([
     prisma.worldTile.findMany({ where: { chunk_x: chunk.x, chunk_y: chunk.y } }),

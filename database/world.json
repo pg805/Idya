@@ -1,7 +1,7 @@
 {
   "shared": {
     "sprite_cdn": "https://raw.githubusercontent.com/pg805/Idya/main/public/sprites",
-    "dev": ["210917143028563969"],
+    "dev": ["210917143028563969", "9a33a1fe-b384-4b67-a7f0-7013329bc996"],
     "npcs": {
       "mayor":         { "name": "Fendalok", "title": "Padev"         },
       "general_store": { "name": "Dolan",    "title": "Shopkeeper"    },

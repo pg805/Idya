@@ -347,6 +347,12 @@ export function generateTerrain(
   height: number,
   obstacles: Obstacle[],
   seed: number,
+  /**
+   * How much of the ground is bare dirt, 0..1. Omitted, a board rolls its own
+   * from the range below, which is what a wild place should do. A place that
+   * has been cleared or worked wants to say so instead.
+   */
+  dirtFraction?: number,
 ): TerrainData {
   const r = rng(seed);
   const noise = makeNoise(r, width, height);
@@ -365,7 +371,10 @@ export function generateTerrain(
   // Cut at the chosen quantile of this board's own values, so the amount of dirt
   // is what we asked for and the noise only decides where it goes.
   const flat = field.flat().slice().sort((a, b) => a - b);
-  const fraction = DIRT_FRACTION_MIN + r() * (DIRT_FRACTION_MAX - DIRT_FRACTION_MIN);
+  const rolled = DIRT_FRACTION_MIN + r() * (DIRT_FRACTION_MAX - DIRT_FRACTION_MIN);
+  // The roll happens either way, so asking for a fraction doesn't shift every
+  // later draw and change the rest of the board's dressing.
+  const fraction = dirtFraction ?? rolled;
   const cut = flat[Math.max(0, Math.floor(flat.length * fraction) - 1)];
 
   const corners: GroundRow[] = field.map(row => row.map(v => (v <= cut ? 'd' : 'g')).join(''));
