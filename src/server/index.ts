@@ -30,7 +30,7 @@ import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
 import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
 import {
-  loadChunk, paintSquare, placeObject, removeTopObject, resetSquare,
+  loadChunk, paintSquare, placeObject, removeTopObject, removeObject, resetSquare, setTile,
 } from '../world/world_service.js';
 import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
@@ -4272,18 +4272,24 @@ io.on('connection', (socket: Socket) => {
     if (!at || typeof sprite !== 'string' || !sprite) return;
 
     const wantsTree = kind === 'tree' || sprite === 'tree';
+    // One tree to a square, and the new one wins. Refusing would mean the only
+    // way to change a tree you don't like is to remove it and place again;
+    // replacing makes the tool the way you edit the wood, generated or not.
+    let clearedGenerated = false;
     if (wantsTree) {
-      // One tree to a square. Two stacked on the same spot is a mess nobody
-      // meant, and it is the easy mistake to make while click-dragging a wood
-      // into place. Counts what grew there as well as what was put there.
       const view = await loadChunk(presence.chunk);
-      const occupied =
-        view?.obstacles.some(o => o.state !== 'destroyed'
-          && o.pos.x === at.x && o.pos.y === at.y)
-        || view?.objects.some(o => o.kind === 'tree' && o.x === at.x && o.y === at.y);
-      if (occupied) {
-        socket.emit('world:error', { message: "There's already a tree there." });
-        return;
+      const grown = view?.obstacles.some(o => o.state !== 'destroyed'
+        && o.pos.x === at.x && o.pos.y === at.y);
+      if (grown) {
+        // The obstacle still generates, so what gets stored is that it no
+        // longer stands. Same mechanism as felling one.
+        await setTile({
+          chunk: presence.chunk, ...at, kind: 'cleared', accountId: presence.accountId,
+        });
+        clearedGenerated = true;
+      }
+      for (const o of view?.objects ?? []) {
+        if (o.kind === 'tree' && o.x === at.x && o.y === at.y) await removeObject(o.id);
       }
     }
 
@@ -4300,7 +4306,13 @@ io.on('connection', (socket: Socket) => {
       data: tree ? { stack: tree.stack, f: tree.f } : (rotation ? { rot: rotation } : undefined),
       ownerAccountId: presence.accountId,
     });
-    io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });
+    // Clearing a generated obstacle changes what the terrain pass draws, which
+    // the object list alone can't express, so that case reloads.
+    if (clearedGenerated) {
+      io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+    } else {
+      io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });
+    }
   });
 
   socket.on('world:remove', async (raw: unknown) => {

@@ -297,6 +297,10 @@ function viewOf(row: {
   };
 }
 
+export async function removeObject(id: string): Promise<void> {
+  await prisma.worldObject.delete({ where: { id } }).catch(() => { /* already gone */ });
+}
+
 /** Remove the most recently placed object on a square, or nothing. */
 export async function removeTopObject(chunk: Chunk, x: number, y: number): Promise<string | null> {
   const row = await prisma.worldObject.findFirst({

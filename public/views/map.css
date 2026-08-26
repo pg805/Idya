@@ -322,3 +322,12 @@ body.gm-open #world-root { padding-left: 208px; }
   border-color: var(--warn-bright);
   background: rgba(226, 99, 132, 0.16);
 }
+
+.gm-key {
+  font-size: 0.58rem;
+  color: var(--text-vdim);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 3px;
+  margin-left: 3px;
+}

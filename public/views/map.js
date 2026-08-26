@@ -346,6 +346,13 @@ window.Views.map = (function () {
       const tag = e.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // Rotate, while a tool is up. Deliberately not one of the movement keys,
+      // and only meaningful when there is something to rotate.
+      if ((e.key === 'r' || e.key === 'R') && tool) {
+        e.preventDefault();
+        rotateStep();
+        return;
+      }
       const key = keyName(e);
       const dir = KEYS[key];
       if (!dir) return;
@@ -569,18 +576,22 @@ window.Views.map = (function () {
 
   // Sprites grouped the way somebody looks for them, rather than as one list of
   // seventy-odd names. Order is the order the tabs appear in.
+  // All first, because most of the time you know the thing when you see it and
+  // narrowing is the exception. Trees last: the tree tool builds those properly,
+  // and these are the loose parts for when you want one particular piece.
   const PALETTE_GROUPS = [
-    ['Trees',      (n) => /^dec_tree_/.test(n)],
+    ['All',        () => true],
     ['Buildings',  (n) => /^bld_/.test(n)],
     ['Camp',       (n) => /^(dec_(log|well|fire|barrel)|obj_chest)/.test(n)],
     ['Plants',     (n) => /^dec_(bush|flower|reed)/.test(n)],
     ['Ground',     (n) => /^(dec_(rock|shell|crab)|ov_)/.test(n)],
     ['Fences',     (n) => /^dec_fence/.test(n)],
     ['Crops',      (n) => /^dec_crop/.test(n)],
+    ['Tree parts', (n) => /^dec_tree_/.test(n)],
   ];
 
   let catalogue = null;
-  let activeGroup = 'Trees';
+  let activeGroup = 'All';
 
   function swatchEl(name) {
     const btn = document.createElement('button');
@@ -599,8 +610,23 @@ window.Views.map = (function () {
   function renderPalette() {
     const grid = gmPanel?.querySelector('#gm-grid');
     if (!grid || !catalogue) return;
-    const group = PALETTE_GROUPS.find(g => g[0] === activeGroup);
-    const names = Object.keys(catalogue.sprites).filter(n => group[1](n)).sort();
+    const all = Object.keys(catalogue.sprites);
+    let names;
+    if (activeGroup === 'All') {
+      // Ordered by the tabs themselves, so All reads as the categories run
+      // together rather than as one alphabetical jumble. Trees sink to the end
+      // with their tab.
+      const seen = new Set();
+      names = [];
+      for (const [label, match] of PALETTE_GROUPS.slice(1)) {
+        void label;
+        for (const n of all.filter(match).sort()) if (!seen.has(n)) { seen.add(n); names.push(n); }
+      }
+      for (const n of all.sort()) if (!seen.has(n)) { seen.add(n); names.push(n); }
+    } else {
+      const group = PALETTE_GROUPS.find(g => g[0] === activeGroup);
+      names = all.filter(group[1]).sort();
+    }
     grid.innerHTML = '';
     for (const name of names) {
       const sw = swatchEl(name);
@@ -638,7 +664,7 @@ window.Views.map = (function () {
         <button class="gm-btn" type="button" data-tool="remove">Remove</button>
       </div>
       <div class="gm-modes">
-        <button class="gm-btn" type="button" id="gm-rotate">Rotate 0&deg;</button>
+        <button class="gm-btn" type="button" id="gm-rotate">Rotate 0&deg; <span class="gm-key">R</span></button>
       </div>
       <div class="gm-modes">
         <button class="gm-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
@@ -687,17 +713,19 @@ window.Views.map = (function () {
         renderPalette();
       });
     }
-    gmPanel.querySelector('#gm-rotate').addEventListener('click', (e) => {
-      rotation = (rotation + 90) % 360;
-      e.currentTarget.innerHTML = `Rotate ${rotation}&deg;`;
-      renderPalette();                       // swatches show the turn too
-      if (tool?.mode === 'place') updateCursor();
-    });
+    gmPanel.querySelector('#gm-rotate').addEventListener('click', rotateStep);
 
     // Sheets may still be loading on first mount; swatches are blank until they
     // are, so draw them again when they arrive.
     window.spritesReady?.(() => renderPalette());
     renderPalette();
+  }
+
+  function rotateStep() {
+    rotation = (rotation + 90) % 360;
+    const btn = gmPanel?.querySelector('#gm-rotate');
+    if (btn) btn.innerHTML = `Rotate ${rotation}&deg; <span class="gm-key">R</span>`;
+    renderPalette();     // the swatches show the turn too
   }
 
   function removeTools() {
