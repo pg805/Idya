@@ -46,7 +46,10 @@
 
   <!-- The world. Mounted once and never torn down, so opening an interface
        never costs you your position or your connection. -->
-  <div id="world-root"></div>
+  <div id="stage-row">
+    <div id="world-root"></div>
+    <aside id="chat-dock"></aside>
+  </div>
 
     <nav id="app-sidebar">
       <div class="nav-group">
@@ -66,7 +69,6 @@
       <div class="nav-group">
         <p class="nav-label">Town</p>
         <a class="nav-link" data-path="/quests">Quests</a>
-        <a class="nav-link" data-path="/chat">Chat</a>
         <a class="nav-link" data-path="/town-square">Town Square</a>
         <a class="nav-link" data-path="/shop/general_store">General Store</a>
         <a class="nav-link" data-path="/shop/blacksmith">Blacksmith</a>
@@ -107,6 +109,7 @@
   <script src="/layout.js"></script>
   <script src="/tour.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/socket.js"></script>
   <script src="/terrain.js"></script>
   <script src="/views/character.js"></script>
   <script src="/views/inventory.js"></script>

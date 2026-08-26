@@ -32,7 +32,6 @@ function routeFromPath(path) {
   if (path === '/reference')            return { viewName: 'reference', params: {} };
   if (path === '/about')                return { viewName: 'about',     params: {} };
   if (path === '/settings')             return { viewName: 'settings',  params: {} };
-  if (path === '/chat')                 return { viewName: 'chat',      params: {} };
   if (path === '/quests')               return { viewName: 'quests',    params: {} };
   if (path === '/hunt')                 return { viewName: 'hunt',    params: {} };
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
@@ -157,8 +156,10 @@ function arrivalPath() {
   if (!layoutData?.authenticated || arrived === '/create') {
     await openPanel('/create');
   } else {
-    // The world is always there, underneath whatever else is open.
+    // The world is always there, underneath whatever else is open, and the chat
+    // beside it. Both mount once and stay: neither is a place you navigate to.
     await window.Views?.map?.mount(world);
+    await window.Views?.chat?.mount(document.getElementById('chat-dock'));
     if (arrived) await openPanel(arrived);
   }
 

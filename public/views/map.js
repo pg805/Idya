@@ -786,8 +786,9 @@ window.Views.map = (function () {
   }
 
   function connect() {
-    socket = io();
+    socket = window.gameSocket();
 
+    if (socket.connected) socket.emit('world:join');
     socket.on('connect', () => socket.emit('world:join'));
 
     socket.on('world:you', async (me) => {
@@ -942,7 +943,8 @@ window.Views.map = (function () {
     removeTools();
     myTile = null;
     clearTokens();
-    if (socket) { socket.disconnect(); socket = null; }
+    // The socket is shared with the chat beside it, so it is not ours to close.
+    socket = null;
     meId = null;
     view = null;
     root = null;

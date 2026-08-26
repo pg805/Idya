@@ -1,9 +1,17 @@
-// Chat view — in character, and scoped to where you are standing.
+// Chat — in character, and scoped to where you are standing.
+//
+// Docked beside the world rather than opened as a screen, and never taken down.
+// A chat you have to go and find gets used by nobody, and the whole point of
+// the place is that people talk in it.
 //
 // There is no global channel and no guild channel by design (docs/world.md §2).
 // You hear what is said in your location, and arriving does not hand you a
 // transcript of what you missed: the log starts when you do. History is kept in
 // the database for the GM and for moderation, not to be replayed here.
+//
+// Where you are is the map's business. Chat used to carry its own place picker,
+// from before anybody could walk; now it just listens for where the character
+// went and follows.
 window.Views = window.Views || {};
 window.Views.chat = (function () {
 
@@ -44,20 +52,11 @@ window.Views.chat = (function () {
     append(root, `<p class="chat-system">${esc(text)}</p>`);
   }
 
-  function renderPlaces(root, places) {
-    const sel = root.querySelector('#chat-place');
-    if (!sel) return;
-    sel.innerHTML = places
-      .map(p => `<option value="${p.x},${p.y}">${esc(p.name)}</option>`)
-      .join('');
-    if (current) sel.value = `${current.x},${current.y}`;
-  }
-
   function mount(root) {
     root.innerHTML = `
       <div class="chat-view">
         <div class="chat-bar">
-          <select id="chat-place" class="chat-select" aria-label="Where you are"></select>
+          <span class="chat-place" id="chat-place"></span>
           <span class="chat-here" id="chat-here"></span>
         </div>
 
@@ -70,23 +69,27 @@ window.Views.chat = (function () {
         </form>
       </div>`;
 
-    socket = io();
+    socket = window.gameSocket();
 
+    if (socket.connected) socket.emit('chat:join');
     socket.on('connect', () => socket.emit('chat:join'));
 
-    socket.on('chat:joined', (data) => {
+    const setPlace = (data, announce) => {
       current = data.chunk;
-      renderPlaces(root, data.places);
+      const label = root.querySelector('#chat-place');
+      if (label) label.textContent = data.place?.name ?? '';
+      if (announce) system(root, `You are in ${data.place?.name ?? 'nowhere in particular'}.`);
+    };
+
+    socket.on('chat:joined', (data) => {
+      setPlace(data, false);
       system(root, `You are in ${data.place?.name ?? 'nowhere in particular'}. ` +
                    `You will hear what is said here while you are present.`);
     });
 
-    socket.on('chat:place', (data) => {
-      current = data.chunk;
-      const sel = root.querySelector('#chat-place');
-      if (sel) sel.value = `${data.chunk.x},${data.chunk.y}`;
-      system(root, `You are in ${data.place?.name ?? 'nowhere in particular'}.`);
-    });
+    // Sent when the character actually moves between places, so the chat goes
+    // where they go without having to be told separately.
+    socket.on('chat:place', (data) => setPlace(data, true));
 
     socket.on('chat:presence', (data) => {
       if (!current || data.chunk.x !== current.x || data.chunk.y !== current.y) return;
@@ -105,11 +108,6 @@ window.Views.chat = (function () {
 
     socket.on('disconnect', () => system(root, 'Disconnected.'));
 
-    root.querySelector('#chat-place').addEventListener('change', (e) => {
-      const [x, y] = e.target.value.split(',').map(Number);
-      socket.emit('chat:move', { x, y });
-    });
-
     root.querySelector('#chat-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const input = root.querySelector('#chat-input');
@@ -122,7 +120,9 @@ window.Views.chat = (function () {
   }
 
   function unmount() {
-    if (socket) { socket.disconnect(); socket = null; }
+    // Nothing to take down: this is part of the screen, and the socket is
+    // shared with the map.
+    socket = null;
     current = null;
   }
 
