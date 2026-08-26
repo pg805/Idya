@@ -292,7 +292,8 @@ function viewOf(row: {
   return {
     id: row.id, x: row.tile_x, y: row.tile_y,
     sprite: row.sprite, kind: row.kind, state: row.state,
-    ...(Array.isArray(d.stack) ? { stack: d.stack as string[], f: !!d.f } : {}),
+    ...(Array.isArray(d.stack) ? { stack: d.stack as string[] } : {}),
+    ...(d.f ? { f: true } : {}),
     ...(typeof d.rot === 'number' && d.rot ? { rot: d.rot } : {}),
   };
 }

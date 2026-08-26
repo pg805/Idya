@@ -51,6 +51,7 @@ window.Views.map = (function () {
   let gmPanel = null;
   let gmToggle = null;
   let rotation = 0;        // quarter turns applied to the next placement
+  let flipped = false;     // mirrored left to right
 
   const ZOOM_KEY = 'idya.map_zoom';
   let zoom = (() => {
@@ -353,6 +354,11 @@ window.Views.map = (function () {
         rotateStep();
         return;
       }
+      if ((e.key === 'f' || e.key === 'F') && tool) {
+        e.preventDefault();
+        flipStep();
+        return;
+      }
       const key = keyName(e);
       const dir = KEYS[key];
       if (!dir) return;
@@ -568,7 +574,7 @@ window.Views.map = (function () {
 
   function applyTool(tile) {
     if (!tool || !socket) return false;
-    if (tool.mode === 'place')  socket.emit('world:place', { tile, sprite: tool.sprite, kind: tool.tree ? 'tree' : 'decor', rot: rotation });
+    if (tool.mode === 'place')  socket.emit('world:place', { tile, sprite: tool.sprite, kind: tool.tree ? 'tree' : 'decor', rot: rotation, f: flipped });
     else if (tool.mode === 'remove') socket.emit('world:remove', tile);
     else socket.emit('world:paint', { tile, material: tool.material });
     return true;
@@ -603,7 +609,7 @@ window.Views.map = (function () {
     btn.appendChild(canvas);
     // Drawn by the renderer rather than cropped by CSS, so a swatch is exactly
     // what placing it puts on the board, buildings included.
-    window.drawSprite?.(canvas, name, 2, rotation);
+    window.drawSprite?.(canvas, name, 2, rotation, flipped);
     return btn;
   }
 
@@ -665,6 +671,7 @@ window.Views.map = (function () {
       </div>
       <div class="gm-modes">
         <button class="gm-btn" type="button" id="gm-rotate">Rotate 0&deg; <span class="gm-key">R</span></button>
+        <button class="gm-btn" type="button" id="gm-flip">Flip <span class="gm-key">F</span></button>
       </div>
       <div class="gm-modes">
         <button class="gm-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
@@ -714,6 +721,7 @@ window.Views.map = (function () {
       });
     }
     gmPanel.querySelector('#gm-rotate').addEventListener('click', rotateStep);
+    gmPanel.querySelector('#gm-flip').addEventListener('click', flipStep);
 
     // Sheets may still be loading on first mount; swatches are blank until they
     // are, so draw them again when they arrive.
@@ -726,6 +734,12 @@ window.Views.map = (function () {
     const btn = gmPanel?.querySelector('#gm-rotate');
     if (btn) btn.innerHTML = `Rotate ${rotation}&deg; <span class="gm-key">R</span>`;
     renderPalette();     // the swatches show the turn too
+  }
+
+  function flipStep() {
+    flipped = !flipped;
+    gmPanel?.querySelector('#gm-flip')?.classList.toggle('active', flipped);
+    renderPalette();     // the swatches show the mirror too
   }
 
   function removeTools() {

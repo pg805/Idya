@@ -271,20 +271,40 @@
    * Placing anchored at the top would have you clicking empty sky to put a
    * house down.
    */
-  function blitSprite(ctx, name, g, x, y, rot) {
-    const [w, h] = sizeOf(name);
-    if (w === 1 && h === 1) {
-      const a = ATLAS[name];
-      if (rot && a) { blitRotated(ctx, a[0], a[1], a[2], g.rect(x, y), rot / 90); return; }
-      blitNamed(ctx, name, g.rect(x, y));
-      return;
-    }
+  function blitSprite(ctx, name, g, x, y, rot, flip) {
     const a = ATLAS[name];
     if (!a) return;
+    const [w, h] = sizeOf(name);
+
+    if (w === 1 && h === 1) {
+      if (!rot) { blitNamed(ctx, name, g.rect(x, y), flip); return; }
+      const r = g.rect(x, y);
+      ctx.save();
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.rotate((rot / 90) * Math.PI / 2);
+      // Mirror after turning, so flip always reads as left-to-right on the
+      // sprite itself rather than depending on how far it has been rotated.
+      if (flip) ctx.scale(-1, 1);
+      ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, -r.w / 2, -r.h / 2, r.w, r.h);
+      ctx.restore();
+      return;
+    }
+
+    // Multi-cell: mirroring means reversing the column order AND mirroring each
+    // cell. Doing only one of the two turns a building inside out.
     for (let dy = 0; dy < h; dy++) {
       for (let dx = 0; dx < w; dx++) {
+        const srcX = flip ? (w - 1 - dx) : dx;
         const r = g.rect(x + dx, y - (h - 1) + dy);
-        ctx.drawImage(sheets[a[0]], (a[1] + dx) * TS, (a[2] + dy) * TS, TS, TS, r.x, r.y, r.w, r.h);
+        if (!flip) {
+          ctx.drawImage(sheets[a[0]], (a[1] + srcX) * TS, (a[2] + dy) * TS, TS, TS, r.x, r.y, r.w, r.h);
+          continue;
+        }
+        ctx.save();
+        ctx.translate(r.x + r.w, r.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(sheets[a[0]], (a[1] + srcX) * TS, (a[2] + dy) * TS, TS, TS, 0, 0, r.w, r.h);
+        ctx.restore();
       }
     }
   }
@@ -515,7 +535,7 @@
     const flat = placed
       .filter(o => !(Array.isArray(o.stack) && o.stack.length))
       .sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    for (const o of flat) blitSprite(ctx, o.sprite, g, o.x, o.y, o.rot);
+    for (const o of flat) blitSprite(ctx, o.sprite, g, o.x, o.y, o.rot, o.f);
 
     // No square lines and no coordinates: the board is a place, not a
     // spreadsheet. What you can do with a square is shown when it matters — the
@@ -608,7 +628,7 @@
    * so a swatch cannot drift from what placing it actually puts down, and a
    * multi-cell building shows whole rather than as its top-left corner.
    */
-  window.drawSprite = (canvas, name, scale = 2, rot = 0) => {
+  window.drawSprite = (canvas, name, scale = 2, rot = 0, flip = false) => {
     const a = ATLAS[name];
     if (!a || !ready) return false;
     const [w, h] = sizeOf(name);
@@ -616,21 +636,24 @@
     canvas.height = h * TS * scale;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    if (rot && w === 1 && h === 1) {
-      const s = TS * scale;
+    const cell = TS * scale;
+    if (w === 1 && h === 1) {
       ctx.save();
-      ctx.translate(s / 2, s / 2);
-      ctx.rotate((rot / 90) * Math.PI / 2);
-      ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, -s / 2, -s / 2, s, s);
+      ctx.translate(cell / 2, cell / 2);
+      if (rot) ctx.rotate((rot / 90) * Math.PI / 2);
+      if (flip) ctx.scale(-1, 1);
+      ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, -cell / 2, -cell / 2, cell, cell);
       ctx.restore();
       return true;
     }
     for (let dy = 0; dy < h; dy++) {
       for (let dx = 0; dx < w; dx++) {
-        ctx.drawImage(
-          sheets[a[0]], (a[1] + dx) * TS, (a[2] + dy) * TS, TS, TS,
-          dx * TS * scale, dy * TS * scale, TS * scale, TS * scale,
-        );
+        const srcX = flip ? (w - 1 - dx) : dx;
+        ctx.save();
+        if (flip) { ctx.translate((dx + 1) * cell, dy * cell); ctx.scale(-1, 1); }
+        else ctx.translate(dx * cell, dy * cell);
+        ctx.drawImage(sheets[a[0]], (a[1] + srcX) * TS, (a[2] + dy) * TS, TS, TS, 0, 0, cell, cell);
+        ctx.restore();
       }
     }
     return true;

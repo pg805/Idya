@@ -4267,8 +4267,8 @@ io.on('connection', (socket: Socket) => {
   socket.on('world:place', async (raw: unknown) => {
     const presence = await requireGm();
     if (!presence) return;
-    const { tile, sprite, kind, rot } = (raw ?? {}) as
-      { tile?: unknown; sprite?: unknown; kind?: unknown; rot?: unknown };
+    const { tile, sprite, kind, rot, f } = (raw ?? {}) as
+      { tile?: unknown; sprite?: unknown; kind?: unknown; rot?: unknown; f?: unknown };
     const at = parseTilePos(tile);
     if (!at || typeof sprite !== 'string' || !sprite) return;
 
@@ -4355,12 +4355,17 @@ io.on('connection', (socket: Socket) => {
     // that grew there: a trunk with a canopy above it, not a flat decal.
     const tree = wantsTree ? makeTree(Math.random) : null;
     const rotation = [0, 90, 180, 270].includes(rot as number) ? (rot as number) : 0;
+    const flipped = f === true;
 
     const object = await placeObject({
       chunk: presence.chunk, ...at,
       sprite: tree ? tree.stack[0] : sprite,
       kind: wantsTree ? 'tree' : (typeof kind === 'string' && kind ? kind : 'decor'),
-      data: tree ? { stack: tree.stack, f: tree.f } : (rotation ? { rot: rotation } : undefined),
+      // A tree flips as one prop, so the tool's own roll wins there; a loose
+      // sprite takes whatever the palette was showing.
+      data: tree
+        ? { stack: tree.stack, f: tree.f }
+        : ((rotation || flipped) ? { rot: rotation, f: flipped } : undefined),
       ownerAccountId: presence.accountId,
     });
     // Clearing a generated obstacle changes what the terrain pass draws, which
