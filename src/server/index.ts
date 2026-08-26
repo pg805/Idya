@@ -51,6 +51,7 @@ import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { makeTree } from '../combat/terrain.js';
 import { labourFor, toolNeededFor, isStump } from '../world/labour.js';
+import { logEvent, logMovement, forgetMovement } from '../infrastructure/event_log.js';
 import {
   createQuest, recordProgress, questsFor, allQuests, completeQuest as finishQuest,
   cancelQuest, expireOverdue, OBJECTIVES, type Objective, type Scope, type Reward,
@@ -2157,6 +2158,10 @@ app.post('/api/quests', async (req: Request, res: Response) => {
 
   const quests = await allQuests();
   const quest = quests.find(q => q.id === id);
+  await logEvent({
+    accountId: account, type: 'quest_issued',
+    payload: { id, title, objective, scope: b.scope ?? 'group', target: b.targetCount, hours },
+  });
   // Everyone hears about it, wherever they are standing.
   io.emit('quest:issued', { quest });
   res.json({ ok: true, id });
@@ -2169,6 +2174,10 @@ app.post('/api/quests/:id/complete', async (req: Request, res: Response) => {
   const characterId = req.body?.characterId ? String(req.body.characterId) : undefined;
   const quest = await finishQuest(String(req.params.id), characterId);
   if (!quest) { res.status(400).json({ error: "That quest isn't open." }); return; }
+  await logEvent({
+    accountId: account, characterId: characterId ?? null, type: 'quest_completed',
+    payload: { id: quest.id, title: quest.title, by: 'gm' },
+  });
   io.emit('quest:completed', { quest });
   res.json({ ok: true, quest });
 });
@@ -4194,6 +4203,10 @@ io.on('connection', (socket: Socket) => {
     };
     chatPresence.set(socket.id, presence);
     socket.join(chatRoom(chunk));
+    await logEvent({
+      accountId, characterId: character.id, type: 'entered_world',
+      at: { chunk, tile }, payload: { character: character.name },
+    });
 
     // Only write back if the spawn actually had to move.
     if (tile.x !== character.tile_x || tile.y !== character.tile_y
@@ -4259,6 +4272,10 @@ io.on('connection', (socket: Socket) => {
     const from = presence.tile;
     presence.tile = path[path.length - 1];
     await persistPosition(presence.characterId, presence.chunk, presence.tile);
+    void logMovement({
+      accountId: presence.accountId, characterId: presence.characterId,
+      chunk: presence.chunk, tile: presence.tile,
+    });
 
     // `from` as well as the path: a client whose token has drifted can correct
     // silently before setting off, instead of animating out of the wrong square.
@@ -4310,6 +4327,10 @@ io.on('connection', (socket: Socket) => {
     const from = presence.tile;
     presence.tile = to;
     await persistPosition(presence.characterId, presence.chunk, to);
+    void logMovement({
+      accountId: presence.accountId, characterId: presence.characterId,
+      chunk: presence.chunk, tile: to,
+    });
     io.to(chatRoom(presence.chunk)).emit('world:walked', {
       id: socket.id,
       from,
@@ -4348,6 +4369,11 @@ io.on('connection', (socket: Socket) => {
     // Ground is autotiled from corners shared with the neighbours, so one square
     // changes the look of the ring around it. Cheaper and more honest to have
     // everyone reload the chunk than to try to patch it in place.
+    await logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: 'ground_painted', at: { chunk: presence.chunk, tile: at },
+      payload: { material },
+    });
     io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
   });
 
@@ -4455,6 +4481,12 @@ io.on('connection', (socket: Socket) => {
         : ((rotation || flipped) ? { rot: rotation, f: flipped } : undefined),
       ownerAccountId: presence.accountId,
     });
+    await logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: 'object_placed', at: { chunk: presence.chunk, tile: at },
+      payload: { sprite: object.sprite, kind: object.kind, replaced, rot: rotation, f: flipped },
+    });
+
     // Clearing a generated obstacle changes what the terrain pass draws, which
     // the object list alone can't express, so that case reloads.
     if (clearedGenerated) {
@@ -4473,7 +4505,13 @@ io.on('connection', (socket: Socket) => {
     const at = parseTilePos(raw);
     if (!at) return;
     const id = await removeTopObject(presence.chunk, at.x, at.y);
-    if (id) io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+    if (id) {
+      await logEvent({
+        accountId: presence.accountId, characterId: presence.characterId,
+        type: 'object_removed', at: { chunk: presence.chunk, tile: at }, payload: { id },
+      });
+      io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+    }
   });
 
   /**
@@ -4549,6 +4587,13 @@ io.on('connection', (socket: Socket) => {
       chunk: presence.chunk, tile: at, job, by: presence.characterName,
     });
 
+    await logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: job === 'chop' ? 'tree_felled' : 'stump_cleared',
+      at: { chunk: presence.chunk, tile: at },
+      payload: { tool: weapon, was: stack },
+    });
+
     // The work counts towards whatever is asking for it. Nothing here needs to
     // know which quest that is, or whether one existed when the axe swung.
     if (presence.characterId) {
@@ -4578,6 +4623,11 @@ io.on('connection', (socket: Socket) => {
     presence.tile = tile;
     socket.join(chatRoom(next));
     await persistPosition(presence.characterId, next, tile);
+    await logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: 'travelled', at: { chunk: next, tile },
+      payload: { from: previous },
+    });
 
     socket.emit('world:you', {
       id: socket.id,
@@ -4644,6 +4694,11 @@ io.on('connection', (socket: Socket) => {
     const presence = chatPresence.get(socket.id);
     if (!presence) return;
     chatPresence.delete(socket.id);
+    forgetMovement(presence.accountId);
+    void logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: 'left_world', at: { chunk: presence.chunk, tile: presence.tile },
+    });
     broadcastPresence(presence.chunk);
     broadcastOccupants(presence.chunk);
   });

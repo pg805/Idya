@@ -357,12 +357,31 @@ model BattleRoundLog {
   rounds    Json
 }
 
+// One append-only record of everything that happens. Already carried crafting,
+// upgrades and the orchard; the world writes here too rather than to a second
+// log, because "what did this person do" and "what happened here" are the same
+// question asked two ways.
+//
+// The spatial columns are nullable and only set by things that happen somewhere.
+// They are columns rather than payload keys so a square can actually be queried:
+// finding every event at a tile by digging through JSON would work until it
+// mattered.
 model EventLog {
-  id         String   @id @default(uuid())
-  discord_id String
-  event_type String
-  payload    Json?
-  created_at DateTime @default(now())
+  id           String   @id @default(uuid())
+  discord_id   String                     // the account; name is historical
+  character_id String?
+  event_type   String
+  chunk_x      Int?
+  chunk_y      Int?
+  tile_x       Int?
+  tile_y       Int?
+  payload      Json?
+  created_at   DateTime @default(now())
+
+  @@index([created_at])
+  @@index([discord_id, created_at])
+  @@index([chunk_x, chunk_y, created_at])
+  @@index([event_type, created_at])
 }
 
 model ShopItemState {

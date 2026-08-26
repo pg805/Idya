@@ -1,4 +1,5 @@
 import prisma from '../database/prisma.js';
+import { logEvent } from '../infrastructure/event_log.js';
 
 /**
  * The quest board: work the GM hands out, and what happens when it gets done.
@@ -160,7 +161,16 @@ export async function completeQuest(questId: string, byCharacterId?: string): Pr
     ? (byCharacterId ? [byCharacterId] : [])
     : quest.progress.filter(p => p.count > 0).map(p => p.character_id);
 
-  for (const characterId of winners) await payReward(characterId, quest.reward as Reward);
+  for (const characterId of winners) {
+    await payReward(characterId, quest.reward as Reward);
+    const c = await prisma.character.findUnique({ where: { id: characterId } });
+    if (c) {
+      await logEvent({
+        accountId: c.discord_id, characterId, type: 'quest_rewarded',
+        payload: { quest: quest.id, title: quest.title, reward: quest.reward },
+      });
+    }
+  }
 
   // A solo quest handed to several people is several jobs, so it only closes
   // once nobody is left who could still finish theirs.
