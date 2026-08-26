@@ -85,29 +85,56 @@ model ChatMessage {
   @@index([account_id])
 }
 
-// A change somebody made to the world, stored sparsely over generated terrain.
+// A change somebody made to the ground.
 //
 // The wilderness itself is never stored: a chunk's ground is derived from
 // hash(worldSeed, x, y), so the same coordinate always generates the same place
-// (docs/world.md §3). Only differences live here. A felled tree is one row; the
-// forest around it is one row of nothing.
+// (docs/world.md §3). Only differences live here.
 //
-// kind says what happened to the tile. `data` carries whatever that kind needs
-// (which sprite replaced it, who did it, what was built), deliberately loose
-// while the vocabulary of world changes is still being discovered.
+// `kind` is part of the key because the same coordinate means different things
+// to different layers: 'corner' addresses the CORNER lattice, which is where
+// ground material actually lives and is one wider and taller than the board,
+// while 'cleared' addresses a square whose obstacle has been felled. Without
+// kind in the key those two would collide on the same numbers.
 model WorldTile {
   chunk_x     Int
   chunk_y     Int
   tile_x      Int
   tile_y      Int
-  kind        String   // 'cleared' | 'built' | ...
+  kind        String   // 'corner' | 'cleared'
   data        Json     @default("{}")
   account_id  String?  // who changed it, when a player did
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  @@id([chunk_x, chunk_y, tile_x, tile_y])
+  @@id([chunk_x, chunk_y, tile_x, tile_y, kind])
   @@index([chunk_x, chunk_y])
+}
+
+// Something standing on the world: a fire, a barrel, a tent, a building.
+//
+// Deliberately NOT part of the authored art. The town is built by placing these
+// at runtime rather than by redrawing a map, so a building can appear the moment
+// somebody buys one (docs/world.md §3, §8). Its own table rather than a layer on
+// WorldTile because more than one thing can share a square with the ground under
+// it, and because an object carries state and an owner that ground never does.
+model WorldObject {
+  id          String   @id @default(uuid())
+  chunk_x     Int
+  chunk_y     Int
+  tile_x      Int
+  tile_y      Int
+  // Atlas name of what to draw, e.g. dec_fire_01. Swapping this is how a thing
+  // changes appearance: an unlit fire becomes a lit one.
+  sprite      String
+  kind        String   @default("decor")   // 'decor' | 'fire' | 'building' | ...
+  state       String?
+  data        Json     @default("{}")
+  owner_account_id String?
+  created_at  DateTime @default(now())
+
+  @@index([chunk_x, chunk_y])
+  @@index([owner_account_id])
 }
 
 model User {

@@ -29,7 +29,9 @@ import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '.
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
 import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
-import { loadChunk } from '../world/world_service.js';
+import {
+  loadChunk, paintSquare, placeObject, removeTopObject, resetSquare,
+} from '../world/world_service.js';
 import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
@@ -4224,6 +4226,65 @@ io.on('connection', (socket: Socket) => {
       from,
       path: [to],
     });
+  });
+
+  // ---- editing the world ----
+  //
+  // GM-only for now. The town is built by placing things rather than by
+  // redrawing a map (docs/world.md §3), and this is the tool that does it.
+  // Every edit is broadcast, so anyone standing in the chunk watches it happen
+  // rather than finding it on their next visit.
+
+  async function requireGm(): Promise<WorldPresence | null> {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return null;
+    if (!isDev(presence.accountId)) {
+      socket.emit('world:error', { message: 'Not yours to change.' });
+      return null;
+    }
+    return presence;
+  }
+
+  socket.on('world:paint', async (raw: unknown) => {
+    const presence = await requireGm();
+    if (!presence) return;
+    const { tile, material } = (raw ?? {}) as { tile?: unknown; material?: unknown };
+    const at = parseTilePos(tile);
+    if (!at) return;
+    if (material === 'reset') {
+      await resetSquare(presence.chunk, at.x, at.y);
+    } else if (material === 'g' || material === 'd') {
+      await paintSquare({ chunk: presence.chunk, ...at, material, accountId: presence.accountId });
+    } else return;
+    // Ground is autotiled from corners shared with the neighbours, so one square
+    // changes the look of the ring around it. Cheaper and more honest to have
+    // everyone reload the chunk than to try to patch it in place.
+    io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+  });
+
+  socket.on('world:place', async (raw: unknown) => {
+    const presence = await requireGm();
+    if (!presence) return;
+    const { tile, sprite, kind } = (raw ?? {}) as
+      { tile?: unknown; sprite?: unknown; kind?: unknown };
+    const at = parseTilePos(tile);
+    if (!at || typeof sprite !== 'string' || !sprite) return;
+
+    const object = await placeObject({
+      chunk: presence.chunk, ...at, sprite,
+      kind: typeof kind === 'string' && kind ? kind : 'decor',
+      ownerAccountId: presence.accountId,
+    });
+    io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });
+  });
+
+  socket.on('world:remove', async (raw: unknown) => {
+    const presence = await requireGm();
+    if (!presence) return;
+    const at = parseTilePos(raw);
+    if (!at) return;
+    const id = await removeTopObject(presence.chunk, at.x, at.y);
+    if (id) io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
   });
 
   socket.on('world:travel', async (raw: unknown) => {

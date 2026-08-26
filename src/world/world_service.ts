@@ -22,6 +22,19 @@ export interface WorldDiff {
   data: Record<string, unknown>;
 }
 
+export interface WorldObjectView {
+  id: string;
+  x: number;
+  y: number;
+  sprite: string;
+  kind: string;
+  state: string | null;
+}
+
+/** Ground materials that can be painted. The generator only uses these two. */
+export const MATERIALS = ['g', 'd'] as const;
+export type Material = typeof MATERIALS[number];
+
 export interface ChunkView {
   chunk: Chunk;
   size: number;
@@ -33,6 +46,7 @@ export interface ChunkView {
    * rubble. This is where a felled tree stops being a tree.
    */
   obstacles: Obstacle[];
+  objects: WorldObjectView[];
   diffs: WorldDiff[];
   exits: Array<Chunk & { name: string }>;
 }
@@ -77,9 +91,13 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
   const obstacles = obstaclesFor(chunk, place);
   const terrain = generateTerrain(CHUNK_SIZE, CHUNK_SIZE, obstacles, chunkSeed(chunk));
 
-  const rows = await prisma.worldTile.findMany({
-    where: { chunk_x: chunk.x, chunk_y: chunk.y },
-  });
+  const [rows, objectRows] = await Promise.all([
+    prisma.worldTile.findMany({ where: { chunk_x: chunk.x, chunk_y: chunk.y } }),
+    prisma.worldObject.findMany({
+      where: { chunk_x: chunk.x, chunk_y: chunk.y },
+      orderBy: { created_at: 'asc' },
+    }),
+  ]);
 
   const diffs: WorldDiff[] = rows.map(r => ({
     x: r.tile_x,
@@ -95,6 +113,19 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     diffs.filter(d => d.kind === 'cleared').map(d => `${d.x},${d.y}`),
   );
 
+  // Ground edits land on the CORNER lattice, not on squares, because that is
+  // where material lives: a square's look comes from its four corners, so
+  // digging one square rounds into its neighbours rather than cutting a hard
+  // 32px hole. The lattice is one wider and taller than the board.
+  for (const d of diffs) {
+    if (d.kind !== 'corner') continue;
+    const m = d.data.material;
+    if (m !== 'g' && m !== 'd') continue;
+    const row = terrain.corners[d.y];
+    if (row === undefined || d.x < 0 || d.x >= row.length) continue;
+    terrain.corners[d.y] = row.slice(0, d.x) + m + row.slice(d.x + 1);
+  }
+
   return {
     chunk,
     size: CHUNK_SIZE,
@@ -103,6 +134,10 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     obstacles: obstacles.map(o => ({
       ...o,
       state: cleared.has(`${o.pos.x},${o.pos.y}`) ? 'destroyed' : o.state,
+    })),
+    objects: objectRows.map(o => ({
+      id: o.id, x: o.tile_x, y: o.tile_y,
+      sprite: o.sprite, kind: o.kind, state: o.state,
     })),
     diffs,
     exits: exitsFrom(chunk),
@@ -118,28 +153,96 @@ export async function setTile(args: {
   data?: Record<string, unknown>;
   accountId?: string | null;
 }): Promise<void> {
+  // kind is part of the key: the same numbers address a square for 'cleared'
+  // and a corner for 'corner', so a change to one must not overwrite the other.
   const where = {
-    chunk_x_chunk_y_tile_x_tile_y: {
-      chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: args.x, tile_y: args.y,
+    chunk_x_chunk_y_tile_x_tile_y_kind: {
+      chunk_x: args.chunk.x, chunk_y: args.chunk.y,
+      tile_x: args.x, tile_y: args.y, kind: args.kind,
     },
   };
-  const data = {
-    kind: args.kind,
-    data: (args.data ?? {}) as object,
-    account_id: args.accountId ?? null,
-  };
+  const data = { data: (args.data ?? {}) as object, account_id: args.accountId ?? null };
   await prisma.worldTile.upsert({
     where,
     update: data,
     create: {
-      chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: args.x, tile_y: args.y, ...data,
+      chunk_x: args.chunk.x, chunk_y: args.chunk.y,
+      tile_x: args.x, tile_y: args.y, kind: args.kind, ...data,
     },
   });
 }
 
 /** Undo a change, so the tile reverts to whatever the generator says. */
-export async function clearTile(chunk: Chunk, x: number, y: number): Promise<void> {
+export async function clearTile(chunk: Chunk, x: number, y: number, kind?: string): Promise<void> {
   await prisma.worldTile.deleteMany({
-    where: { chunk_x: chunk.x, chunk_y: chunk.y, tile_x: x, tile_y: y },
+    where: { chunk_x: chunk.x, chunk_y: chunk.y, tile_x: x, tile_y: y, ...(kind ? { kind } : {}) },
   });
+}
+
+/** Put a square's ground back to whatever the generator says. */
+export async function resetSquare(chunk: Chunk, x: number, y: number): Promise<void> {
+  await prisma.worldTile.deleteMany({
+    where: {
+      chunk_x: chunk.x, chunk_y: chunk.y, kind: 'corner',
+      tile_x: { in: [x, x + 1] }, tile_y: { in: [y, y + 1] },
+    },
+  });
+}
+
+// ---- editing ----
+
+/**
+ * Paint one SQUARE's material by setting its four corners.
+ *
+ * Corners are shared with the neighbouring squares, so painting one square
+ * bleeds into the four around it. That is the intended behaviour rather than a
+ * limitation: it is what makes a dug patch a rounded hollow instead of a
+ * 32-pixel hole punched in the grass.
+ */
+export async function paintSquare(args: {
+  chunk: Chunk; x: number; y: number; material: Material; accountId?: string | null;
+}): Promise<void> {
+  const corners = [
+    { x: args.x,     y: args.y },
+    { x: args.x + 1, y: args.y },
+    { x: args.x,     y: args.y + 1 },
+    { x: args.x + 1, y: args.y + 1 },
+  ];
+  await Promise.all(corners.map(c => prisma.worldTile.upsert({
+    where: {
+      chunk_x_chunk_y_tile_x_tile_y_kind: {
+        chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: c.x, tile_y: c.y, kind: 'corner',
+      },
+    },
+    update: { data: { material: args.material }, account_id: args.accountId ?? null },
+    create: {
+      chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: c.x, tile_y: c.y,
+      kind: 'corner', data: { material: args.material }, account_id: args.accountId ?? null,
+    },
+  })));
+}
+
+export async function placeObject(args: {
+  chunk: Chunk; x: number; y: number; sprite: string;
+  kind?: string; state?: string | null; ownerAccountId?: string | null;
+}): Promise<WorldObjectView> {
+  const row = await prisma.worldObject.create({
+    data: {
+      chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: args.x, tile_y: args.y,
+      sprite: args.sprite, kind: args.kind ?? 'decor', state: args.state ?? null,
+      owner_account_id: args.ownerAccountId ?? null,
+    },
+  });
+  return { id: row.id, x: row.tile_x, y: row.tile_y, sprite: row.sprite, kind: row.kind, state: row.state };
+}
+
+/** Remove the most recently placed object on a square, or nothing. */
+export async function removeTopObject(chunk: Chunk, x: number, y: number): Promise<string | null> {
+  const row = await prisma.worldObject.findFirst({
+    where: { chunk_x: chunk.x, chunk_y: chunk.y, tile_x: x, tile_y: y },
+    orderBy: { created_at: 'desc' },
+  });
+  if (!row) return null;
+  await prisma.worldObject.delete({ where: { id: row.id } });
+  return row.id;
 }

@@ -446,11 +446,19 @@
       const sprite = SHADOW_FOR[p.stack[0]];
       if (sprite) shadows.push({ x: p.x, y: p.y, sprite });
     }
+    for (const o of board.objects || []) {
+      const sprite = SHADOW_FOR[o.sprite];
+      if (sprite) shadows.push({ x: o.x, y: o.y, sprite });
+    }
     bakeShadows(ctx, canvases.ground, shadows, g);
 
-    // 5. decor — scatter, then the part of each prop that stands on its square.
+    // 5. decor — scatter, then the part of each prop that stands on its square,
+    // then anything placed. Placed objects go last so a fire dropped on a patch
+    // of flowers sits on top of them rather than under.
     for (const s of terrain.scatter) blitNamed(ctx, s.s, g.rect(s.x, s.y), s.f);
     for (const p of props) blitNamed(ctx, p.stack[0], g.rect(p.x, p.y), p.f);
+    const objects = [...(board.objects || [])].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    for (const o of objects) blitNamed(ctx, o.sprite, g.rect(o.x, o.y), false);
 
     // No square lines and no coordinates: the board is a place, not a
     // spreadsheet. What you can do with a square is shown when it matters — the
@@ -523,4 +531,7 @@
   }
 
   window.paintTerrain = paintTerrain;
+  // Everything the renderer can draw, for the place tool's palette. Names only:
+  // the caller has no business knowing where on a sheet a sprite lives.
+  window.spriteNames = () => Object.keys(ATLAS).filter(n => !n.startsWith('shadow_'));
 })();

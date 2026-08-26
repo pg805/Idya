@@ -47,6 +47,7 @@ window.Views.map = (function () {
   let onBlur = null;
   const world = document.getElementById('world-root');
   let lastResync = 0;
+  let selectedSprite = 'dec_fire_01';
 
   const ZOOM_KEY = 'idya.map_zoom';
   let zoom = (() => {
@@ -151,7 +152,7 @@ window.Views.map = (function () {
 
     const painted = paintTerrain(
       canvases,
-      { terrain: view.terrain, obstacles: view.obstacles },
+      { terrain: view.terrain, obstacles: view.obstacles, objects: view.objects },
       cell,
       { onReady: () => paint() },   // sheets may still be loading on first paint
     );
@@ -448,6 +449,7 @@ window.Views.map = (function () {
         y: Math.floor((e.clientY - r.top) / cell),
       };
       if (tile.x < 0 || tile.y < 0 || tile.x >= view.size || tile.y >= view.size) return;
+      if (applyTool(tile)) return;
       socket.emit('world:walk', tile);
     });
 
@@ -474,6 +476,87 @@ window.Views.map = (function () {
     // which may have arrived while the fetch above was in flight, then draw.
     if (latestOccupants) syncOccupants(latestOccupants);
     renderTokens();
+  }
+
+  // ---- GM place tool ----
+  //
+  // Off by default and only offered to a GM. While it is on, clicking a square
+  // edits the world instead of walking there, which is why the cursor and the
+  // border change: a mode you can forget you are in is a mode that loses work.
+  let tool = null;        // null | { mode: 'place'|'remove'|'paint', sprite?, material? }
+
+  function isGm() { return !!window.getLayoutData?.()?.is_dev; }
+
+  function setTool(next) {
+    tool = next;
+    root?.querySelector('#map-stage')?.classList.toggle('editing', !!tool);
+    for (const b of root?.querySelectorAll('.map-tool-btn') ?? []) {
+      b.classList.toggle('active', !!tool && b.dataset.tool === tool.mode
+        && (b.dataset.material ?? null) === (tool.material ?? null));
+    }
+    const pal = root?.querySelector('#map-palette');
+    if (pal) pal.hidden = tool?.mode !== 'place';
+    const hint = root?.querySelector('#map-hint');
+    if (hint) {
+      hint.textContent = tool
+        ? (tool.mode === 'place' ? `Click a square to place ${tool.sprite}.`
+          : tool.mode === 'remove' ? 'Click a square to remove what is on it.'
+          : tool.material === 'reset' ? 'Click a square to put its ground back.'
+          : `Click a square to paint ${tool.material === 'd' ? 'dirt' : 'grass'}.`)
+        : 'Click a square to walk there, or use the arrow keys.';
+    }
+  }
+
+  function applyTool(tile) {
+    if (!tool || !socket) return false;
+    if (tool.mode === 'place')  socket.emit('world:place',  { tile, sprite: tool.sprite });
+    else if (tool.mode === 'remove') socket.emit('world:remove', tile);
+    else socket.emit('world:paint', { tile, material: tool.material });
+    return true;
+  }
+
+  function renderTools(host) {
+    if (!isGm()) return;
+    const sprites = (window.spriteNames?.() ?? []).sort();
+    host.innerHTML = `
+      <div class="map-tools">
+        <button class="map-tool-btn" type="button" data-tool="off">Walk</button>
+        <button class="map-tool-btn" type="button" data-tool="place">Place</button>
+        <button class="map-tool-btn" type="button" data-tool="remove">Remove</button>
+        <button class="map-tool-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
+        <button class="map-tool-btn" type="button" data-tool="paint" data-material="g">Grass</button>
+        <button class="map-tool-btn" type="button" data-tool="paint" data-material="reset">Reset ground</button>
+      </div>
+      <div class="map-palette" id="map-palette" hidden>
+        <input class="map-palette-filter" id="map-palette-filter" type="text"
+               placeholder="filter sprites" autocomplete="off" spellcheck="false">
+        <div class="map-palette-grid" id="map-palette-grid">
+          ${sprites.map(n => `<button class="map-swatch" type="button" data-sprite="${n}" title="${n}">${n.replace(/^(dec_|ov_|obj_|bld_)/, '')}</button>`).join('')}
+        </div>
+      </div>`;
+
+    for (const b of host.querySelectorAll('.map-tool-btn')) {
+      b.addEventListener('click', () => {
+        const mode = b.dataset.tool;
+        if (mode === 'off') return setTool(null);
+        if (mode === 'paint') return setTool({ mode, material: b.dataset.material });
+        if (mode === 'remove') return setTool({ mode });
+        setTool({ mode: 'place', sprite: selectedSprite });
+      });
+    }
+    for (const sw of host.querySelectorAll('.map-swatch')) {
+      sw.addEventListener('click', () => {
+        selectedSprite = sw.dataset.sprite;
+        for (const o of host.querySelectorAll('.map-swatch')) o.classList.toggle('active', o === sw);
+        setTool({ mode: 'place', sprite: selectedSprite });
+      });
+    }
+    host.querySelector('#map-palette-filter')?.addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      for (const sw of host.querySelectorAll('.map-swatch')) {
+        sw.hidden = q ? !sw.dataset.sprite.includes(q) : false;
+      }
+    });
   }
 
   function connect() {
@@ -537,6 +620,26 @@ window.Views.map = (function () {
       if (me) myTile = me.tile;   // our optimistic guess was wrong
     });
 
+    // An edit landed. Ground is autotiled from shared corners, so a paint
+    // changes the ring around the square too and the chunk is refetched;
+    // objects are self-contained and can just be added or dropped.
+    socket.on('world:changed', async (d) => {
+      if (!myChunk || d.chunk.x !== myChunk.x || d.chunk.y !== myChunk.y) return;
+      await load(myChunk);
+    });
+
+    socket.on('world:placed', (d) => {
+      if (!view || d.chunk.x !== view.chunk.x || d.chunk.y !== view.chunk.y) return;
+      view.objects.push(d.object);
+      paint();
+    });
+
+    socket.on('world:removed', (d) => {
+      if (!view || d.chunk.x !== view.chunk.x || d.chunk.y !== view.chunk.y) return;
+      view.objects = view.objects.filter(o => o.id !== d.id);
+      paint();
+    });
+
     socket.on('world:error', (e) => {
       // Our optimistic guess may have been wrong. Stop walking and ask once;
       // the throttle keeps a wall we're pressed against from becoming a flood.
@@ -562,7 +665,8 @@ window.Views.map = (function () {
         </div>
         <p class="map-blurb" id="map-blurb"></p>
 
-        <p class="map-hint">Click a square to walk there, or use the arrow keys.</p>
+        <p class="map-hint" id="map-hint">Click a square to walk there, or use the arrow keys.</p>
+        <div id="map-toolbar"></div>
         <div class="map-exits" id="map-exits"></div>
         <div id="map-body"></div>
         <div class="map-foot">
@@ -584,6 +688,8 @@ window.Views.map = (function () {
         setZoom(v === 'fit' ? 'fit' : Number(v));
       });
     }
+
+    renderTools(root.querySelector('#map-toolbar'));
 
     onResize = () => paint();
     window.addEventListener('resize', onResize);

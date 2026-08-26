@@ -187,3 +187,60 @@
 }
 .map-zoom-btn:hover { color: var(--text-2); border-color: var(--border-strong); }
 .map-zoom-btn.active { color: var(--gold); border-color: var(--gold-dim); }
+
+/* GM place tool. Only rendered for a GM. */
+.map-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+
+.map-tool-btn {
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.map-tool-btn:hover { color: var(--text-2); border-color: var(--border-strong); }
+.map-tool-btn.active { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-bg); }
+
+.map-palette { margin-top: 6px; width: 100%; max-width: 640px; }
+.map-palette[hidden] { display: none; }
+
+.map-palette-filter {
+  width: 100%;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 3px 6px;
+  margin-bottom: 4px;
+}
+.map-palette-filter:focus { outline: none; border-color: var(--gold-dim); }
+
+.map-palette-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.map-swatch {
+  font: inherit;
+  font-size: 0.62rem;
+  color: var(--text-faint);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.map-swatch:hover { color: var(--text-2); }
+.map-swatch.active { color: var(--gold-bright); border-color: var(--gold-dim); }
+.map-swatch[hidden] { display: none; }
+
+/* Editing is a mode, and a mode you can forget you are in loses work. */
+.map-stage.editing { cursor: crosshair; outline: 2px solid var(--gold-dim); outline-offset: 2px; }
