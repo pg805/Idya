@@ -584,17 +584,44 @@
 
   window.paintTerrain = paintTerrain;
 
-  // What the place tool needs to draw its own palette: where each sprite lives
-  // on which sheet, how many cells it spans, and where the sheets are. Handing
-  // over the coordinates means a swatch can be the sprite itself rather than
-  // its name, which is the difference between choosing and guessing.
+  // What the place tool needs to build its own palette. Names and footprints
+  // only: an earlier version handed over sheet coordinates so a swatch could be
+  // a CSS crop, which meant the palette doing its own arithmetic against a
+  // sheet whose size it did not know. Drawing is this file's job, so it draws.
   window.spriteCatalogue = () => ({
-    sheets: { t: '/tiles/tileset_terrain.png', d: '/tiles/tileset_decor.png' },
-    tile: TS,
     sprites: Object.fromEntries(
       Object.keys(ATLAS)
         .filter(n => !n.startsWith('shadow_'))
-        .map(n => [n, { at: ATLAS[n], size: sizeOf(n) }]),
+        .map(n => [n, { size: sizeOf(n) }]),
     ),
   });
+
+  /**
+   * Draw one sprite into a canvas at `scale`, sized to fit it.
+   *
+   * Goes through the same sheets and the same cell arithmetic the board uses,
+   * so a swatch cannot drift from what placing it actually puts down, and a
+   * multi-cell building shows whole rather than as its top-left corner.
+   */
+  window.drawSprite = (canvas, name, scale = 2) => {
+    const a = ATLAS[name];
+    if (!a || !ready) return false;
+    const [w, h] = sizeOf(name);
+    canvas.width = w * TS * scale;
+    canvas.height = h * TS * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        ctx.drawImage(
+          sheets[a[0]], (a[1] + dx) * TS, (a[2] + dy) * TS, TS, TS,
+          dx * TS * scale, dy * TS * scale, TS * scale, TS * scale,
+        );
+      }
+    }
+    return true;
+  };
+
+  /** Run `cb` once the sheets are loaded, or straight away if they already are. */
+  window.spritesReady = (cb) => { if (ready) cb(); else waiting.push(cb); };
 })();

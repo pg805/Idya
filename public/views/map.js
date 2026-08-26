@@ -48,6 +48,8 @@ window.Views.map = (function () {
   const world = document.getElementById('world-root');
   let lastResync = 0;
   let selectedSprite = 'dec_fire_01';
+  let gmPanel = null;
+  let gmToggle = null;
 
   const ZOOM_KEY = 'idya.map_zoom';
   let zoom = (() => {
@@ -490,11 +492,12 @@ window.Views.map = (function () {
   function setTool(next) {
     tool = next;
     root?.querySelector('#map-stage')?.classList.toggle('editing', !!tool);
-    for (const b of root?.querySelectorAll('.map-tool-btn') ?? []) {
-      b.classList.toggle('active', !!tool && b.dataset.tool === tool.mode
+    for (const b of gmPanel?.querySelectorAll('.gm-btn') ?? []) {
+      const mode = tool?.tree ? 'tree' : tool?.mode;
+      b.classList.toggle('active', !!tool && b.dataset.tool === mode
         && (b.dataset.material ?? null) === (tool.material ?? null));
     }
-    const pal = root?.querySelector('#map-palette');
+    const pal = gmPanel?.querySelector('#gm-palette');
     if (pal) pal.hidden = !(tool?.mode === 'place' && !tool.tree);
     const hint = root?.querySelector('#map-hint');
     if (hint) {
@@ -532,65 +535,89 @@ window.Views.map = (function () {
   let catalogue = null;
   let activeGroup = 'Trees';
 
-  /** A swatch showing the sprite itself, cut out of the sheet with CSS. */
-  function swatchHtml(name) {
-    const info = catalogue.sprites[name];
-    if (!info) return '';
-    const [sheet, col, row] = info.at;
-    const [w, h] = info.size;
-    const px = catalogue.tile;
-    // Scaled 2x so a 32px sprite is legible, and a multi-cell one shows whole.
-    const z = 2;
-    return `<button class="map-swatch" type="button" data-sprite="${name}" title="${name}">
-      <span class="map-swatch-img" style="
-        width:${w * px * z}px; height:${h * px * z}px;
-        background-image:url('${catalogue.sheets[sheet]}');
-        background-position:-${col * px * z}px -${row * px * z}px;
-        background-size:${z * 100}%;
-      "></span>
-    </button>`;
+  function swatchEl(name) {
+    const btn = document.createElement('button');
+    btn.className = 'gm-swatch';
+    btn.type = 'button';
+    btn.dataset.sprite = name;
+    btn.title = name;
+    const canvas = document.createElement('canvas');
+    btn.appendChild(canvas);
+    // Drawn by the renderer rather than cropped by CSS, so a swatch is exactly
+    // what placing it puts on the board, buildings included.
+    window.drawSprite?.(canvas, name, 2);
+    return btn;
   }
 
-  function renderPalette(host) {
-    const grid = host.querySelector('#map-palette-grid');
+  function renderPalette() {
+    const grid = gmPanel?.querySelector('#gm-grid');
     if (!grid || !catalogue) return;
     const group = PALETTE_GROUPS.find(g => g[0] === activeGroup);
     const names = Object.keys(catalogue.sprites).filter(n => group[1](n)).sort();
-    grid.innerHTML = names.map(swatchHtml).join('');
-    for (const sw of grid.querySelectorAll('.map-swatch')) {
-      sw.classList.toggle('active', sw.dataset.sprite === selectedSprite);
+    grid.innerHTML = '';
+    for (const name of names) {
+      const sw = swatchEl(name);
+      sw.classList.toggle('active', name === selectedSprite);
       sw.addEventListener('click', () => {
-        selectedSprite = sw.dataset.sprite;
-        for (const o of grid.querySelectorAll('.map-swatch')) o.classList.toggle('active', o === sw);
-        setTool({ mode: 'place', sprite: selectedSprite });
+        selectedSprite = name;
+        for (const o of grid.querySelectorAll('.gm-swatch')) o.classList.toggle('active', o === sw);
+        setTool({ mode: 'place', sprite: name });
       });
+      grid.appendChild(sw);
     }
   }
 
-  function renderTools(host) {
+  /**
+   * The build tool, docked down the left.
+   *
+   * Its own panel rather than a strip under the board: a sprite list wants
+   * height, and a strip gave it a scrolling sliver. Separate from the pause
+   * menu too, because that closes when you pick something and this has to stay
+   * open while you click the map.
+   */
+  function renderTools() {
     if (!isGm()) return;
     catalogue = window.spriteCatalogue?.();
     if (!catalogue) return;
 
-    host.innerHTML = `
-      <div class="map-tools">
-        <button class="map-tool-btn" type="button" data-tool="off">Walk</button>
-        <button class="map-tool-btn" type="button" data-tool="place">Place</button>
-        <button class="map-tool-btn" type="button" data-tool="tree">Tree</button>
-        <button class="map-tool-btn" type="button" data-tool="remove">Remove</button>
-        <button class="map-tool-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
-        <button class="map-tool-btn" type="button" data-tool="paint" data-material="g">Grass</button>
-        <button class="map-tool-btn" type="button" data-tool="paint" data-material="reset">Reset</button>
+    gmPanel = document.createElement('aside');
+    gmPanel.id = 'gm-panel';
+    gmPanel.hidden = true;
+    gmPanel.innerHTML = `
+      <div class="gm-modes">
+        <button class="gm-btn" type="button" data-tool="off">Walk</button>
+        <button class="gm-btn" type="button" data-tool="place">Place</button>
+        <button class="gm-btn" type="button" data-tool="tree">Tree</button>
+        <button class="gm-btn" type="button" data-tool="remove">Remove</button>
       </div>
-      <div class="map-palette" id="map-palette" hidden>
-        <div class="map-palette-tabs" id="map-palette-tabs">
+      <div class="gm-modes">
+        <button class="gm-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
+        <button class="gm-btn" type="button" data-tool="paint" data-material="g">Grass</button>
+        <button class="gm-btn" type="button" data-tool="paint" data-material="reset">Reset</button>
+      </div>
+      <div class="gm-palette" id="gm-palette" hidden>
+        <div class="gm-tabs" id="gm-tabs">
           ${PALETTE_GROUPS.map(([label]) =>
-            `<button class="map-tab" type="button" data-group="${label}">${label}</button>`).join('')}
+            `<button class="gm-tab" type="button" data-group="${label}">${label}</button>`).join('')}
         </div>
-        <div class="map-palette-grid" id="map-palette-grid"></div>
+        <div class="gm-grid" id="gm-grid"></div>
       </div>`;
+    document.body.appendChild(gmPanel);
 
-    for (const b of host.querySelectorAll('.map-tool-btn')) {
+    gmToggle = document.createElement('button');
+    gmToggle.id = 'gm-toggle';
+    gmToggle.type = 'button';
+    gmToggle.textContent = 'Build';
+    gmToggle.addEventListener('click', () => {
+      gmPanel.hidden = !gmPanel.hidden;
+      gmToggle.classList.toggle('active', !gmPanel.hidden);
+      document.body.classList.toggle('gm-open', !gmPanel.hidden);
+      if (gmPanel.hidden) setTool(null);
+      paint();   // the board's room changed
+    });
+    document.body.appendChild(gmToggle);
+
+    for (const b of gmPanel.querySelectorAll('.gm-btn')) {
       b.addEventListener('click', () => {
         const mode = b.dataset.tool;
         if (mode === 'off') return setTool(null);
@@ -602,15 +629,24 @@ window.Views.map = (function () {
         setTool({ mode: 'place', sprite: selectedSprite });
       });
     }
-    for (const tab of host.querySelectorAll('.map-tab')) {
+    for (const tab of gmPanel.querySelectorAll('.gm-tab')) {
       tab.classList.toggle('active', tab.dataset.group === activeGroup);
       tab.addEventListener('click', () => {
         activeGroup = tab.dataset.group;
-        for (const o of host.querySelectorAll('.map-tab')) o.classList.toggle('active', o === tab);
-        renderPalette(host);
+        for (const o of gmPanel.querySelectorAll('.gm-tab')) o.classList.toggle('active', o === tab);
+        renderPalette();
       });
     }
-    renderPalette(host);
+    // Sheets may still be loading on first mount; swatches are blank until they
+    // are, so draw them again when they arrive.
+    window.spritesReady?.(() => renderPalette());
+    renderPalette();
+  }
+
+  function removeTools() {
+    gmPanel?.remove(); gmToggle?.remove();
+    gmPanel = gmToggle = null;
+    document.body.classList.remove('gm-open');
   }
 
   function connect() {
@@ -720,7 +756,6 @@ window.Views.map = (function () {
         <p class="map-blurb" id="map-blurb"></p>
 
         <p class="map-hint" id="map-hint">Click a square to walk there, or use the arrow keys.</p>
-        <div id="map-toolbar"></div>
         <div class="map-exits" id="map-exits"></div>
         <div id="map-body"></div>
         <div class="map-foot">
@@ -743,7 +778,7 @@ window.Views.map = (function () {
       });
     }
 
-    renderTools(root.querySelector('#map-toolbar'));
+    renderTools();
 
     onResize = () => paint();
     window.addEventListener('resize', onResize);
@@ -755,6 +790,7 @@ window.Views.map = (function () {
     if (onResize) window.removeEventListener('resize', onResize);
     onResize = null;
     unbindKeys();
+    removeTools();
     myTile = null;
     clearTokens();
     if (socket) { socket.disconnect(); socket = null; }
