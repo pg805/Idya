@@ -118,12 +118,19 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     data: (r.data ?? {}) as Record<string, unknown>,
   }));
 
-  // A 'cleared' diff is somebody having removed what was there. The obstacle
+  // A 'cleared' diff is somebody having felled what stood there. The obstacle
   // still generates, because the ground is derived and can't be edited; what's
-  // stored is that it no longer stands.
+  // stored is that it no longer stands, and the renderer draws its rubble,
+  // which for a tree is the stump.
   const cleared = new Set(
     diffs.filter(d => d.kind === 'cleared').map(d => `${d.x},${d.y}`),
   );
+  // 'dug' goes further: the stump is out of the ground and the square is bare.
+  // Kept apart from 'cleared' so felling and clearing stay two separate jobs.
+  const dug = new Set(diffs.filter(d => d.kind === 'dug').map(d => `${d.x},${d.y}`));
+  if (dug.size) {
+    terrain.obstacles = terrain.obstacles.filter(p => !dug.has(`${p.x},${p.y}`));
+  }
 
   // Ground edits land on the CORNER lattice, not on squares, because that is
   // where material lives: a square's look comes from its four corners, so
@@ -150,10 +157,12 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     size: CHUNK_SIZE,
     place,
     terrain,
-    obstacles: obstacles.map(o => ({
-      ...o,
-      state: cleared.has(`${o.pos.x},${o.pos.y}`) ? 'destroyed' : o.state,
-    })),
+    obstacles: obstacles
+      .filter(o => !dug.has(`${o.pos.x},${o.pos.y}`))
+      .map(o => ({
+        ...o,
+        state: cleared.has(`${o.pos.x},${o.pos.y}`) ? 'destroyed' : o.state,
+      })),
     objects: objectRows.map(viewOf),
     diffs,
     exits: exitsFrom(chunk),

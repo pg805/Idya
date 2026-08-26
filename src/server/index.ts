@@ -50,6 +50,7 @@ import { buildWeaponInfo, loadEnemy, enemyFootprintSize } from '../combat/enemy_
 import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { makeTree } from '../combat/terrain.js';
+import { labourFor, toolNeededFor, isStump } from '../world/labour.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
@@ -4387,6 +4388,80 @@ io.on('connection', (socket: Socket) => {
     if (!at) return;
     const id = await removeTopObject(presence.chunk, at.x, at.y);
     if (id) io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+  });
+
+  /**
+   * Work the square in front of you: fell a tree, or get a stump out.
+   *
+   * Anything you can reach, meaning the eight squares around you and the one
+   * you are standing on. Not GM-gated: clearing land is what everybody is here
+   * to do.
+   */
+  socket.on('world:act', async (raw: unknown) => {
+    const presence = chatPresence.get(socket.id);
+    if (!presence) return;
+    const at = parseTilePos(raw);
+    if (!at) return;
+    if (Math.max(Math.abs(at.x - presence.tile.x), Math.abs(at.y - presence.tile.y)) > 1) {
+      socket.emit('world:error', { message: "That's out of reach." });
+      return;
+    }
+
+    const view = await loadChunk(presence.chunk);
+    if (!view) return;
+
+    // A tree can be clicked anywhere up its trunk, not only on its base: aiming
+    // at the part you can see is what anybody would do.
+    const destroyed = new Set(view.obstacles
+      .filter(o => o.state === 'destroyed').map(o => `${o.pos.x},${o.pos.y}`));
+    const grown = view.terrain.obstacles.find(p =>
+      p.x === at.x && at.y > p.y - p.stack.length && at.y <= p.y);
+    const placed = view.objects.find(o => {
+      const stack = o.stack ?? [o.sprite];
+      return o.x === at.x && at.y > o.y - stack.length && at.y <= o.y;
+    });
+
+    let stack: string[] | null = null;
+    if (placed) stack = placed.stack ?? [placed.sprite];
+    else if (grown) stack = destroyed.has(`${grown.x},${grown.y}`) ? [grown.rubble] : grown.stack;
+    if (!stack) { socket.emit('world:error', { message: "There's nothing there to work on." }); return; }
+
+    const chars = await charRepo.list(presence.accountId);
+    const weapon = chars[0] ? await charRepo.equippedWeaponKey(chars[0]) : 'branch';
+    const job = labourFor(weapon, stack);
+    if (!job) {
+      const needed = toolNeededFor(stack);
+      socket.emit('world:error', {
+        message: needed ? `You need ${needed} for that.` : "You can't do anything with that.",
+      });
+      return;
+    }
+
+    if (placed) {
+      if (job === 'chop') {
+        // Felling leaves the stump behind, the same as felling a grown tree.
+        const stump = stack.find(isStump)
+          ?? (stack[0].includes('tree_02') ? 'dec_tree_02_stump' : 'dec_tree_01_stump');
+        await editTreePart(placed.id, stack, placed.y, placed.y, stump);
+        await removeObject(placed.id);
+        await placeObject({
+          chunk: presence.chunk, x: placed.x, y: placed.y,
+          sprite: stump, kind: 'stump', ownerAccountId: null,
+        });
+      } else {
+        await removeObject(placed.id);
+      }
+    } else if (grown) {
+      await setTile({
+        chunk: presence.chunk, x: grown.x, y: grown.y,
+        kind: job === 'chop' ? 'cleared' : 'dug', accountId: presence.accountId,
+      });
+    }
+
+    io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+    io.to(chatRoom(presence.chunk)).emit('world:worked', {
+      chunk: presence.chunk, tile: at, job, by: presence.characterName,
+    });
   });
 
   socket.on('world:travel', async (raw: unknown) => {

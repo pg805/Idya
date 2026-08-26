@@ -331,3 +331,11 @@ body.gm-open #world-root { padding-left: 208px; }
   padding: 0 3px;
   margin-left: 3px;
 }
+
+/* Something you could work on, within reach. Distinct from the build cursor so
+   the two never read as the same affordance. */
+.map-cursor.work {
+  border-style: dashed;
+  border-color: var(--teal-bright);
+  background: rgba(136, 196, 162, 0.12);
+}

@@ -468,9 +468,11 @@ window.Views.map = (function () {
     const inBoard = (t) => t.x >= 0 && t.y >= 0 && t.x < view.size && t.y < view.size;
 
     stage.addEventListener('mousemove', (e) => {
-      if (!tool) return updateCursor(null);
       const t = tileAt(e);
-      updateCursor(inBoard(t) ? t : null);
+      if (!inBoard(t)) return updateCursor(null);
+      if (tool) return updateCursor(t);
+      // No tool up: the only thing worth outlining is something you could work.
+      updateCursor(workableAt(t) ? t : null, 'work');
     });
     stage.addEventListener('mouseleave', () => updateCursor(null));
 
@@ -483,6 +485,9 @@ window.Views.map = (function () {
       };
       if (tile.x < 0 || tile.y < 0 || tile.x >= view.size || tile.y >= view.size) return;
       if (applyTool(tile)) return;
+      // Clicking a tree you are standing next to means working it, not trying
+      // to walk into it, which is what that click did before: fail.
+      if (workableAt(tile)) { socket.emit('world:act', tile); return; }
       socket.emit('world:walk', tile);
     });
 
@@ -549,11 +554,11 @@ window.Views.map = (function () {
    * there. A 2x2 building shows its whole footprint, anchored the way it
    * actually lands: on the clicked square, rising into the ones above.
    */
-  function updateCursor(tile) {
+  function updateCursor(tile, mode) {
     const stage = root?.querySelector('#map-stage');
     let el = stage?.querySelector('#map-cursor');
     if (!stage) return;
-    if (!tool || !tile) { el?.remove(); return; }
+    if (!tile || (!tool && mode !== 'work')) { el?.remove(); return; }
 
     if (!el) {
       el = document.createElement('div');
@@ -562,14 +567,49 @@ window.Views.map = (function () {
       stage.appendChild(el);
     }
     let w = 1, h = 1;
-    if (tool.mode === 'place' && !tool.tree) {
+    el.classList.toggle('work', mode === 'work');
+    if (tool?.mode === 'place' && !tool.tree) {
       const info = catalogue?.sprites?.[tool.sprite];
       if (info) [w, h] = info.size;
     }
-    el.classList.toggle('remove', tool.mode === 'remove');
+    el.classList.toggle('remove', tool?.mode === 'remove');
     el.style.width = `${w * cell}px`;
     el.style.height = `${h * cell}px`;
     el.style.transform = `translate(${tile.x * cell}px, ${(tile.y - (h - 1)) * cell}px)`;
+  }
+
+  /**
+   * What is standing on a square, whether it grew there or was placed.
+   * A tree answers for every square up its trunk, so you can aim at the part
+   * you can actually see rather than hunting for its base.
+   */
+  function propAt(tile) {
+    if (!view) return null;
+    const dead = new Set(view.obstacles
+      .filter(o => o.state === 'destroyed').map(o => `${o.pos.x},${o.pos.y}`));
+    for (const o of view.objects) {
+      const stack = o.stack ?? [o.sprite];
+      if (o.x === tile.x && tile.y > o.y - stack.length && tile.y <= o.y) return stack;
+    }
+    for (const p of view.terrain.obstacles) {
+      if (p.x !== tile.x || tile.y <= p.y - p.stack.length || tile.y > p.y) continue;
+      return dead.has(`${p.x},${p.y}`) ? [p.rubble] : p.stack;
+    }
+    return null;
+  }
+
+  const withinReach = (tile) =>
+    myTile && Math.max(Math.abs(tile.x - myTile.x), Math.abs(tile.y - myTile.y)) <= 1;
+
+  /** Something to work on, close enough to work on it. */
+  function workableAt(tile) {
+    if (tool) return false;              // the build tool owns clicks while it is up
+    if (!withinReach(tile)) return false;
+    const stack = propAt(tile);
+    if (!stack) return false;
+    const only = stack.length === 1 ? stack[0] : '';
+    return stack.length > 1
+      || (only.startsWith('dec_tree_'));
   }
 
   function applyTool(tile) {
@@ -827,6 +867,19 @@ window.Views.map = (function () {
       if (!view || d.chunk.x !== view.chunk.x || d.chunk.y !== view.chunk.y) return;
       view.objects = view.objects.filter(o => o.id !== d.id);
       paint();
+    });
+
+    // Somebody worked a square. The chunk reload has already been sent; this is
+    // just so it reads as somebody doing something rather than terrain blinking.
+    socket.on('world:worked', (d) => {
+      const note = root?.querySelector('#map-hint');
+      if (!note) return;
+      note.textContent = d.job === 'chop'
+        ? `${d.by} fells a tree.` : `${d.by} clears a stump.`;
+      clearTimeout(note._t);
+      note._t = setTimeout(() => {
+        note.textContent = 'Click a square to walk there, or use the arrow keys.';
+      }, 3000);
     });
 
     socket.on('world:error', (e) => {
