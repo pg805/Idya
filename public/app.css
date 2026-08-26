@@ -36,7 +36,8 @@ body {
   flex-shrink: 0;
   min-height: 0;
   background: #131a2e;                  /* between water 5 and black */
-  border-left: 2px solid #3e484f;       /* terrain steel 4 */
+  /* No border here. The chat's own box is the line; a border on the dock as
+     well put two edges a few pixels apart and read as a glow. */
   display: flex;
   flex-direction: column;
 }
@@ -52,8 +53,6 @@ body {
   #chat-dock {
     width: 100%;
     height: 180px;
-    border-left: none;
-    border-top: 1px solid var(--border-soft);
   }
 }
 

@@ -19,10 +19,17 @@
    wide, at which point it was a PNG and an HTTP request to draw a line.
    --box is the raised edge (palette index 2), --box-inset the recessed one
    (index 4): the field reads as cut into the panel because its edge is darker
-   than the panel's, not because of a bevel. */
+   than the panel's, not because of a bevel.
+
+   One pixel means one PIXEL OF THE ART, not one CSS px. The 8px font is set at
+   16px, so everything on this screen is drawn at 2x and an art pixel is 2 CSS
+   px wide. A 1px border would be half the width of the thinnest stroke in the
+   type next to it, which is why --box-width is 2. It is the only number to
+   change if the whole interface ever moves to another zoom. */
 :root {
   --box:       #858585;   /* palette 2, neutral 2 */
   --box-inset: #3d3d3d;   /* palette 4, neutral 4 */
+  --box-width: 2px;       /* one art pixel at 2x */
 }
 
 .chat-view {
@@ -31,7 +38,7 @@
   height: 100%;
   min-height: 0;
   padding: 8px;
-  border: 1px solid var(--box);
+  border: var(--box-width) solid var(--box);
   font-family: 'Idya Pixel', ui-monospace, monospace;
   font-size: 16px;
   line-height: 1.5;
@@ -43,7 +50,7 @@
   flex-direction: column;
   gap: 0;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--box);
+  border-bottom: var(--box-width) solid var(--box);
   flex-shrink: 0;
 }
 
@@ -98,7 +105,7 @@
   gap: 8px;
   flex-shrink: 0;
   padding-top: 8px;
-  border-top: 1px solid var(--box);
+  border-top: var(--box-width) solid var(--box);
 }
 
 .chat-input {
@@ -108,7 +115,7 @@
   font-size: 16px;
   color: #ffffff;                     /* terrain neutral 1 */
   background: #131a2e;
-  border: 1px solid var(--box-inset);
+  border: var(--box-width) solid var(--box-inset);
   border-radius: 0;                   /* pixel art has no rounded corners */
   padding: 4px 8px;
 }
@@ -120,7 +127,7 @@
   font-size: 16px;
   color: #d7c6b2;
   background: #343345;                /* terrain dusk 3 */
-  border: 1px solid var(--box);
+  border: var(--box-width) solid var(--box);
   border-radius: 0;
   padding: 4px 8px;
   cursor: pointer;
