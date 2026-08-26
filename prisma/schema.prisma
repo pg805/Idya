@@ -137,6 +137,66 @@ model WorldObject {
   @@index([owner_account_id])
 }
 
+// A job the GM has handed out.
+//
+// Distinct from GlobalQuest, which is the older deposit-for-korel board on the
+// Town Square. This one counts things people DO, and 'deposit' is one of the
+// objectives it can count, so the two fold together when the board moves over.
+//
+// scope decides what the count means. 'solo' gives every assignee their own
+// target and their own reward. 'group' pools everyone into one total, and what
+// each person put in is kept, so a town effort can pay out by contribution
+// rather than to whoever happened to land the last one.
+model Quest {
+  id            String    @id @default(uuid())
+  title         String
+  brief         String    @default("")
+  scope         String    @default("group")   // 'solo' | 'group'
+  // 'chop' | 'dig' | 'kill' | 'deposit' | 'manual'
+  // 'manual' has no counter: the GM marks it done. It is what lets something
+  // that happened at the table become a quest without needing code first.
+  objective     String
+  target_key    String?                       // enemy key, item id; null for chop/dig
+  target_count  Int       @default(1)
+  // { korel: n, items: { id: n }, weapons: [key] }
+  reward        Json      @default("{}")
+  starts_at     DateTime  @default(now())
+  ends_at       DateTime?
+  status        String    @default("active")  // active | complete | expired | cancelled
+  created_by    String?
+  created_at    DateTime  @default(now())
+
+  assignees     QuestAssignee[]
+  progress      QuestProgress[]
+
+  @@index([status])
+}
+
+// Who it is for. No rows at all means it is open to the whole town, which is
+// what makes a group quest a town effort rather than a private errand.
+model QuestAssignee {
+  quest_id      String
+  character_id  String
+  quest         Quest    @relation(fields: [quest_id], references: [id], onDelete: Cascade)
+
+  @@id([quest_id, character_id])
+  @@index([character_id])
+}
+
+// What one character has done towards it. Kept per person even on a group
+// quest, so a shared total still knows who filled it.
+model QuestProgress {
+  quest_id      String
+  character_id  String
+  count         Int       @default(0)
+  rewarded_at   DateTime?
+  updated_at    DateTime  @updatedAt
+  quest         Quest     @relation(fields: [quest_id], references: [id], onDelete: Cascade)
+
+  @@id([quest_id, character_id])
+  @@index([character_id])
+}
+
 model User {
   discord_id         String      @id
   korel              Int         @default(0)

@@ -51,6 +51,10 @@ import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
 import { makeTree } from '../combat/terrain.js';
 import { labourFor, toolNeededFor, isStump } from '../world/labour.js';
+import {
+  createQuest, recordProgress, questsFor, allQuests, completeQuest as finishQuest,
+  cancelQuest, expireOverdue, OBJECTIVES, type Objective, type Scope, type Reward,
+} from '../economy/quest_board.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
@@ -2091,6 +2095,88 @@ app.post('/api/auth/claim', (req: Request, res: Response) => {
   ];
   if (secure) parts.push('Secure');
   res.setHeader('Set-Cookie', parts.join('; '));
+  res.json({ ok: true });
+});
+
+// ---- Quests ----
+
+async function characterIdFor(accountId: string): Promise<string | null> {
+  const chars = await charRepo.list(accountId);
+  return chars[0]?.id ?? null;
+}
+
+app.get('/api/quests', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  // Cheap, and it means a clock that ran out is closed by the time anyone looks.
+  await expireOverdue();
+  const characterId = await characterIdFor(account);
+  const gm = isDev(account);
+  res.json({
+    quests: gm ? await allQuests() : await questsFor(characterId, true),
+    isGm: gm,
+    characterId,
+  });
+});
+
+/** Everyone the GM could hand a quest to. */
+app.get('/api/quests/characters', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account || !isDev(account)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const rows = await prisma.character.findMany({
+    select: { id: true, name: true }, orderBy: { name: 'asc' },
+  });
+  res.json({ characters: rows });
+});
+
+app.post('/api/quests', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account || !isDev(account)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const b = req.body as Record<string, unknown>;
+  const title = String(b.title ?? '').trim();
+  const objective = String(b.objective ?? '') as Objective;
+  if (!title) { res.status(400).json({ error: 'It needs a title.' }); return; }
+  if (!OBJECTIVES.includes(objective)) { res.status(400).json({ error: 'Unknown objective.' }); return; }
+
+  const hours = Number(b.hours ?? 0);
+  const id = await createQuest({
+    title,
+    brief: String(b.brief ?? ''),
+    scope: (b.scope === 'solo' ? 'solo' : 'group') as Scope,
+    objective,
+    targetKey: b.targetKey ? String(b.targetKey) : null,
+    // A manual quest has no counter, so its target is always the single act of
+    // the GM saying it is done.
+    targetCount: objective === 'manual' ? 1 : Math.max(1, Number(b.targetCount ?? 1)),
+    reward: (b.reward ?? {}) as Reward,
+    endsAt: hours > 0 ? new Date(Date.now() + hours * 3600_000) : null,
+    createdBy: account,
+    assignees: Array.isArray(b.assignees) ? b.assignees.map(String) : [],
+  });
+
+  const quests = await allQuests();
+  const quest = quests.find(q => q.id === id);
+  // Everyone hears about it, wherever they are standing.
+  io.emit('quest:issued', { quest });
+  res.json({ ok: true, id });
+});
+
+/** The GM marking something done: the only way a 'manual' quest finishes. */
+app.post('/api/quests/:id/complete', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account || !isDev(account)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const characterId = req.body?.characterId ? String(req.body.characterId) : undefined;
+  const quest = await finishQuest(String(req.params.id), characterId);
+  if (!quest) { res.status(400).json({ error: "That quest isn't open." }); return; }
+  io.emit('quest:completed', { quest });
+  res.json({ ok: true, quest });
+});
+
+app.post('/api/quests/:id/cancel', async (req: Request, res: Response) => {
+  const account = resolveAuth(req);
+  if (!account || !isDev(account)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  await cancelQuest(String(req.params.id));
   res.json({ ok: true });
 });
 
@@ -4462,6 +4548,15 @@ io.on('connection', (socket: Socket) => {
     io.to(chatRoom(presence.chunk)).emit('world:worked', {
       chunk: presence.chunk, tile: at, job, by: presence.characterName,
     });
+
+    // The work counts towards whatever is asking for it. Nothing here needs to
+    // know which quest that is, or whether one existed when the axe swung.
+    if (presence.characterId) {
+      const done = await recordProgress({ characterId: presence.characterId, objective: job });
+      for (const quest of done) {
+        io.to(chatRoom(presence.chunk)).emit('quest:completed', { quest });
+      }
+    }
   });
 
   socket.on('world:travel', async (raw: unknown) => {

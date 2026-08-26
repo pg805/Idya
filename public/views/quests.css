@@ -1,0 +1,112 @@
+/* Quest board. Same view for everyone; the GM just gets a form on top. */
+
+.quests-view {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quests-heading {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.quest-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold-dim);
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+.quest-card.closed { border-left-color: var(--border); opacity: 0.6; }
+
+.quest-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.quest-head h3 { margin: 0; font-size: 0.95rem; color: var(--gold); }
+
+.quest-tag {
+  font-size: 0.62rem;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.quest-tag.done { color: var(--teal-bright); border-color: var(--teal-dim); }
+
+.quest-brief { margin: 6px 0 0; font-size: 0.82rem; color: var(--text-2); line-height: 1.5; }
+.quest-goal  { margin: 8px 0 0; font-size: 0.85rem; color: var(--text); }
+
+.quest-bar {
+  height: 5px;
+  margin-top: 6px;
+  background: var(--bg-darkest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.quest-fill { height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); }
+
+.quest-count { margin: 3px 0 0; font-size: 0.7rem; color: var(--text-faint); }
+.quest-who   { margin: 4px 0 0; font-size: 0.7rem; color: var(--teal-bright); }
+.quest-meta  { margin: 6px 0 0; font-size: 0.7rem; color: var(--text-vdim); }
+.quest-empty { margin: 0; font-size: 0.82rem; color: var(--text-faint); }
+
+.quest-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+.quest-btn {
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.quest-btn:hover { color: var(--gold-bright); border-color: var(--gold-dim); }
+.quest-btn.primary { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-bg); }
+
+/* The GM form, folded away until wanted: the board is the point of the page. */
+.quest-new {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+}
+.quest-new summary { font-size: 0.78rem; color: var(--gold); cursor: pointer; }
+.quest-new form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.quest-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.quest-row > .quest-label { flex: 1 1 140px; }
+
+.quest-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.quest-label[hidden] { display: none; }
+
+.quest-input {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg-darkest);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+.quest-input:focus { outline: none; border-color: var(--gold-dim); }
+.quest-input:disabled { opacity: 0.4; }
+
+.quest-hint  { font-size: 0.65rem; color: var(--text-vdim); }
+.quest-error { margin: 0; font-size: 0.75rem; color: var(--warn-bright); }
+.quest-error[hidden] { display: none; }
