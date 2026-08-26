@@ -27,8 +27,9 @@ const PLACES = new Map<string, Place>([
     blurb: 'An open field, and a seam of ore under it.',
     // An empty field. Nothing is generated here on purpose: the town is built
     // by placing things (docs/world.md §3), so the generator's job is to lay
-    // down ground to build on and then get out of the way.
-    dirt: 0.04,
+    // down ground to build on and then get out of the way. Bare earth is
+    // something you dig, not something you inherit.
+    dirt: 0,
     obstacles: 0,
   }],
   ['1,0', {

@@ -375,7 +375,12 @@ export function generateTerrain(
   // The roll happens either way, so asking for a fraction doesn't shift every
   // later draw and change the rest of the board's dressing.
   const fraction = dirtFraction ?? rolled;
-  const cut = flat[Math.max(0, Math.floor(flat.length * fraction) - 1)];
+  // Zero has to mean none. Taking the quantile at 0 still lands on the lowest
+  // value in the field, and the test below is inclusive, so the single lowest
+  // corner would come out as dirt on a board that asked for no dirt at all.
+  const cut = fraction <= 0
+    ? -Infinity
+    : flat[Math.max(0, Math.floor(flat.length * fraction) - 1)];
 
   const corners: GroundRow[] = field.map(row => row.map(v => (v <= cut ? 'd' : 'g')).join(''));
 
