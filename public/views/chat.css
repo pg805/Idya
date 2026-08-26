@@ -14,12 +14,28 @@
  * back to the art rather than drifting into approximations of it.
  */
 
+/* The frame is nine-slice: a 24x24 PNG cut into nine 8px cells. The corners are
+   drawn once each at 1:1 and never scaled; the edges and centre repeat to fill
+   whatever size the box happens to be. `border-width` picks how thick the drawn
+   frame is, and 8px keeps it at exactly one image pixel per screen pixel.
+
+   `repeat` rather than the default `stretch`, which would smear the edge tiles,
+   or `round`, which rescales them by a fraction to make a whole number fit. Both
+   of those put the art off the pixel grid. The cost of `repeat` is that the last
+   tile can be clipped part way, so edge tiles want to be seamless rather than
+   carrying a motif that reads as cut in half.
+
+   public/ui/panel.png is a PLACEHOLDER, generated to prove the mechanism.
+   Replace the file and the interface takes the new art with no code change. */
 .chat-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   padding: 8px;
+  border: 8px solid transparent;
+  border-image: url('/ui/panel.png') 8 fill repeat;
+  image-rendering: pixelated;
   font-family: 'Idya Pixel', ui-monospace, monospace;
   font-size: 16px;
   line-height: 1.5;
@@ -95,12 +111,15 @@
   font-family: inherit;
   font-size: 16px;
   color: #ffffff;                     /* terrain neutral 1 */
-  background: #131a2e;
-  border: 2px solid #3e484f;
+  background: transparent;
+  /* The sunken variant: the same nine-slice with the bevel the other way up, so
+     the field reads as cut into the panel rather than sitting on it. */
+  border: 8px solid transparent;
+  border-image: url('/ui/inset.png') 8 fill repeat;
   border-radius: 0;                   /* pixel art has no rounded corners */
-  padding: 4px 8px;
+  padding: 0 0 0 4px;
 }
-.chat-input:focus { outline: none; border-color: #f2cb4d; }
+.chat-input:focus { outline: none; }
 .chat-input::placeholder { color: #3d3d3d; }   /* terrain neutral 4 */
 
 .chat-send {
