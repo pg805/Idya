@@ -4272,24 +4272,31 @@ io.on('connection', (socket: Socket) => {
     if (!at || typeof sprite !== 'string' || !sprite) return;
 
     const wantsTree = kind === 'tree' || sprite === 'tree';
-    // One tree to a square, and the new one wins. Refusing would mean the only
-    // way to change a tree you don't like is to remove it and place again;
-    // replacing makes the tool the way you edit the wood, generated or not.
+    const view = await loadChunk(presence.chunk);
+
+    // One object to a square, and the newest wins. Two on the same tile is not
+    // a stack, it is the later one hiding the earlier while the earlier goes on
+    // existing, so "replace" is both what it looks like and what it should be.
+    const replaced: string[] = [];
+    for (const o of view?.objects ?? []) {
+      if (o.x !== at.x || o.y !== at.y) continue;
+      await removeObject(o.id);
+      replaced.push(o.id);
+    }
+
+    // A tree also displaces one that grew there. The obstacle still generates,
+    // so what gets stored is that it no longer stands: the same mechanism as
+    // felling it. Only trees do this; dropping a barrel next to a trunk should
+    // not quietly remove the tree.
     let clearedGenerated = false;
     if (wantsTree) {
-      const view = await loadChunk(presence.chunk);
       const grown = view?.obstacles.some(o => o.state !== 'destroyed'
         && o.pos.x === at.x && o.pos.y === at.y);
       if (grown) {
-        // The obstacle still generates, so what gets stored is that it no
-        // longer stands. Same mechanism as felling one.
         await setTile({
           chunk: presence.chunk, ...at, kind: 'cleared', accountId: presence.accountId,
         });
         clearedGenerated = true;
-      }
-      for (const o of view?.objects ?? []) {
-        if (o.kind === 'tree' && o.x === at.x && o.y === at.y) await removeObject(o.id);
       }
     }
 
@@ -4311,6 +4318,9 @@ io.on('connection', (socket: Socket) => {
     if (clearedGenerated) {
       io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
     } else {
+      for (const id of replaced) {
+        io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+      }
       io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });
     }
   });
