@@ -4284,19 +4284,40 @@ io.on('connection', (socket: Socket) => {
       replaced.push(o.id);
     }
 
-    // A tree also displaces one that grew there. The obstacle still generates,
-    // so what gets stored is that it no longer stands: the same mechanism as
-    // felling it. Only trees do this; dropping a barrel next to a trunk should
-    // not quietly remove the tree.
+    // A tree stands in a COLUMN of squares but is anchored only at its base, so
+    // asking "is there an object on this square" never sees the trunk you are
+    // placing into: that middle belongs to a tree rooted two squares below.
+    // Anything tree-shaped therefore displaces the whole tree covering the
+    // square, not just whatever is anchored on it.
+    //
+    // Only tree parts do this. Dropping a barrel under a canopy should leave
+    // the tree alone.
+    const isTreePart = wantsTree || sprite.startsWith('dec_tree_');
     let clearedGenerated = false;
-    if (wantsTree) {
-      const grown = view?.obstacles.some(o => o.state !== 'destroyed'
-        && o.pos.x === at.x && o.pos.y === at.y);
-      if (grown) {
+    if (isTreePart && view) {
+      const destroyed = new Set(view.obstacles
+        .filter(o => o.state === 'destroyed').map(o => `${o.pos.x},${o.pos.y}`));
+
+      for (const prop of view.terrain.obstacles) {
+        if (destroyed.has(`${prop.x},${prop.y}`)) continue;
+        const covers = prop.stack.some((_, i) => prop.x === at.x && prop.y - i === at.y);
+        if (!covers) continue;
         await setTile({
-          chunk: presence.chunk, ...at, kind: 'cleared', accountId: presence.accountId,
+          chunk: presence.chunk, x: prop.x, y: prop.y,
+          kind: 'cleared', accountId: presence.accountId,
         });
         clearedGenerated = true;
+      }
+
+      // Placed trees stand in a column too, and were only being matched at
+      // their base for the same reason.
+      for (const o of view.objects) {
+        if (!Array.isArray(o.stack) || !o.stack.length) continue;
+        const covers = o.stack.some((_, i) => o.x === at.x && o.y - i === at.y);
+        if (covers && !replaced.includes(o.id)) {
+          await removeObject(o.id);
+          replaced.push(o.id);
+        }
       }
     }
 
