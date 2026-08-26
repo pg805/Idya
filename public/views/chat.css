@@ -14,34 +14,24 @@
  * back to the art rather than drifting into approximations of it.
  */
 
-/* The frame is nine-slice: a 32x32 PNG, the same canvas as every other asset,
-   cut into nine pieces by the slice inset. The corners are drawn once each at
-   1:1 and never scaled; the edges and centre repeat to fill whatever size the
-   box happens to be. `border-width` picks how thick the drawn frame is, and
-   matching it to the slice keeps one image pixel per screen pixel.
+/* Boxes are a single pixel, drawn by the browser rather than by an asset. A
+   nine-slice frame was the plan until the frame turned out to be one pixel
+   wide, at which point it was a PNG and an HTTP request to draw a line.
+   --box is the raised edge (palette index 2), --box-inset the recessed one
+   (index 4): the field reads as cut into the panel because its edge is darker
+   than the panel's, not because of a bevel. */
+:root {
+  --box:       #858585;   /* palette 2, neutral 2 */
+  --box-inset: #3d3d3d;   /* palette 4, neutral 4 */
+}
 
-   The slice inset is a separate knob from the file size. At 8 it gives 8px
-   corners and a 16px edge tile; drop it to 4 for a finer frame with a 24px
-   tile. It has to stay under 16 on a 32px canvas, or there is no strip left
-   between the corners to repeat.
-
-   `repeat` rather than the default `stretch`, which would smear the edge tiles,
-   or `round`, which rescales them by a fraction to make a whole number fit. Both
-   of those put the art off the pixel grid. The cost of `repeat` is that the last
-   tile can be clipped part way, so edge tiles want to be seamless rather than
-   carrying a motif that reads as cut in half.
-
-   public/ui/panel.png is a PLACEHOLDER, generated to prove the mechanism.
-   Replace the file and the interface takes the new art with no code change. */
 .chat-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   padding: 8px;
-  border: 8px solid transparent;
-  border-image: url('/ui/panel.png') 8 fill repeat;
-  image-rendering: pixelated;
+  border: 1px solid var(--box);
   font-family: 'Idya Pixel', ui-monospace, monospace;
   font-size: 16px;
   line-height: 1.5;
@@ -53,7 +43,7 @@
   flex-direction: column;
   gap: 0;
   padding-bottom: 8px;
-  border-bottom: 2px solid #3e484f;   /* terrain steel 4 */
+  border-bottom: 1px solid var(--box);
   flex-shrink: 0;
 }
 
@@ -108,7 +98,7 @@
   gap: 8px;
   flex-shrink: 0;
   padding-top: 8px;
-  border-top: 2px solid #3e484f;
+  border-top: 1px solid var(--box);
 }
 
 .chat-input {
@@ -117,15 +107,12 @@
   font-family: inherit;
   font-size: 16px;
   color: #ffffff;                     /* terrain neutral 1 */
-  background: transparent;
-  /* The sunken variant: the same nine-slice with the bevel the other way up, so
-     the field reads as cut into the panel rather than sitting on it. */
-  border: 8px solid transparent;
-  border-image: url('/ui/inset.png') 8 fill repeat;
+  background: #131a2e;
+  border: 1px solid var(--box-inset);
   border-radius: 0;                   /* pixel art has no rounded corners */
-  padding: 0 0 0 4px;
+  padding: 4px 8px;
 }
-.chat-input:focus { outline: none; }
+.chat-input:focus { outline: none; border-color: #f2cb4d; }
 .chat-input::placeholder { color: #3d3d3d; }   /* terrain neutral 4 */
 
 .chat-send {
@@ -133,7 +120,7 @@
   font-size: 16px;
   color: #d7c6b2;
   background: #343345;                /* terrain dusk 3 */
-  border: 2px solid #3e484f;
+  border: 1px solid var(--box);
   border-radius: 0;
   padding: 4px 8px;
   cursor: pointer;
