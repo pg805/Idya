@@ -5,9 +5,41 @@ decisions that need making before animation starts. Counts and sizes here are
 read off the current code, not estimated — see the inventory at the bottom for
 where each number comes from.
 
-Everything new goes on **mac-asset-library-64**. The shadow bake maps palette
-index → palette index, so an off-palette pixel simply won't shade
-(`docs/terrain.md`, "Shadows are baked").
+Everything new goes on **mac-asset-library-64** or **mac-actor-64** — both
+palettes are fair game, and both are merged into `public/palette.css` (101
+colours after dedupe) by `npm run palette:sync && npm run palette:build`. The
+whole site draws from those and nothing else; `npm run palette:check` fails on
+any colour that is not an entry.
+
+The shadow bake maps palette index → palette index, so an off-palette pixel
+simply won't shade (`docs/terrain.md`, "Shadows are baked").
+
+---
+
+## 0. Scale: the interface is drawn at 2×
+
+**Read this before drawing anything.** The Idya Pixel em is 8px and the
+interface sets it at 16px, so everything on screen is at **2×**: one pixel of
+the art is two CSS pixels.
+
+Three consequences, and every one of them has already caught something:
+
+**To get a canvas size, halve the CSS measurement.** A 16px-wide scrollbar is
+**8 art pixels** of art to draw. Asking for a 16×16 canvas for it would be
+drawing at 4× and it would render soft and oversized.
+
+**Every CSS dimension has to be even.** An odd one is half an art pixel, which
+is not a thing that can exist in the art. The chat box was specified as a 1px
+border, which is exactly half the width of the thinnest stroke in the type
+beside it — that is why it read as an odd hairline instead of a drawn line. It
+is `--box-width: 2px`, one art pixel.
+
+**Centring has to land on an even offset.** A 3px cross inside a 16px bar leaves
+1.5 art pixels either side and sits visibly off-grid. The scrollbar is 14px for
+this reason and no other: 7 art pixels, laid out box / gap / 3 of cross / gap /
+box.
+
+If the interface ever moves to 3×, `--box-width` is the number to change.
 
 ---
 
@@ -131,19 +163,33 @@ Two sizes: **8×8** to sit inline with the 8px font (card badges, log lines) and
 
 ## 4. UI chrome
 
-| Asset | Notes |
-|---|---|
-| Panel frame | 9-slice, for cards / action panel / log |
-| Button | idle, hover, pressed, disabled |
-| HP bar | 9-slice or tiled frame + fill; needs a damage-preview state |
-| Resource bar | same, second colour |
-| Card frame | combatant cards, with a selected state |
-| Divider | replaces `━━━` in the log |
-| Log markers | replaces `▸ ★ ✦ ⤴ ⤵` |
+**Most of this turned out not to need art.** The chat panel was built as the
+trial run, and the frame it wanted was one pixel wide. A one-pixel box is a
+line, and CSS draws lines. So do bevels (two colours), button states (a fill
+swap), and a 3×3 grip (two gradient bars). Four planned assets became none.
 
-This is the largest block by count and the least urgent — the CSS version is
-serviceable. Worth doing after units and tiles, when the board no longer clashes
-with the frame around it.
+The rule that fell out: **draw it only if CSS can't.** A frame, a bevel, a
+state change and a flat mark are all cheaper and sharper as CSS, and they stay
+in step with the palette automatically. Art earns its place when it carries a
+*shape* — a glyph, an icon, a texture.
+
+| Asset | Verdict |
+|---|---|
+| Panel frame | **Not needed.** `border: var(--box-width) solid var(--box)`, palette index 2. |
+| Button | **Not needed.** Same box; idle/hover/pressed/disabled are fill and border colour. |
+| Scrollbar | **Not needed.** Box for the thumb, two gradient bars for the grip. |
+| Divider | **Not needed.** A 2px rule in the palette. |
+| HP bar | Frame is CSS. The **fill texture** is worth drawing if it should read as more than a flat block. |
+| Resource bar | Same, second colour. |
+| Card frame | CSS box; a *selected* state may want a corner mark (8×8 art px). |
+| Log markers | **Worth drawing** — `▸ ★ ✦ ⤴ ⤵` are shapes. 8×8 art px each. |
+| Icons | **Worth drawing** — close ✕, location marker, who's-here. 8×8 art px. |
+
+Sizes above are **art pixels**; see §0 — they render at 2×, so an 8×8 file
+occupies 16 CSS px.
+
+Still the least urgent block. Worth doing after units and tiles, when the board
+no longer clashes with the frame around it.
 
 ---
 
