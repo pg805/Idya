@@ -14,10 +14,16 @@
  * back to the art rather than drifting into approximations of it.
  */
 
-/* The frame is nine-slice: a 24x24 PNG cut into nine 8px cells. The corners are
-   drawn once each at 1:1 and never scaled; the edges and centre repeat to fill
-   whatever size the box happens to be. `border-width` picks how thick the drawn
-   frame is, and 8px keeps it at exactly one image pixel per screen pixel.
+/* The frame is nine-slice: a 32x32 PNG, the same canvas as every other asset,
+   cut into nine pieces by the slice inset. The corners are drawn once each at
+   1:1 and never scaled; the edges and centre repeat to fill whatever size the
+   box happens to be. `border-width` picks how thick the drawn frame is, and
+   matching it to the slice keeps one image pixel per screen pixel.
+
+   The slice inset is a separate knob from the file size. At 8 it gives 8px
+   corners and a 16px edge tile; drop it to 4 for a finer frame with a 24px
+   tile. It has to stay under 16 on a 32px canvas, or there is no strip left
+   between the corners to repeat.
 
    `repeat` rather than the default `stretch`, which would smear the edge tiles,
    or `round`, which rescales them by a fraction to make a whole number fit. Both
