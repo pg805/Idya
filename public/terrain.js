@@ -271,9 +271,14 @@
    * Placing anchored at the top would have you clicking empty sky to put a
    * house down.
    */
-  function blitSprite(ctx, name, g, x, y) {
+  function blitSprite(ctx, name, g, x, y, rot) {
     const [w, h] = sizeOf(name);
-    if (w === 1 && h === 1) { blitNamed(ctx, name, g.rect(x, y)); return; }
+    if (w === 1 && h === 1) {
+      const a = ATLAS[name];
+      if (rot && a) { blitRotated(ctx, a[0], a[1], a[2], g.rect(x, y), rot / 90); return; }
+      blitNamed(ctx, name, g.rect(x, y));
+      return;
+    }
     const a = ATLAS[name];
     if (!a) return;
     for (let dy = 0; dy < h; dy++) {
@@ -510,7 +515,7 @@
     const flat = placed
       .filter(o => !(Array.isArray(o.stack) && o.stack.length))
       .sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    for (const o of flat) blitSprite(ctx, o.sprite, g, o.x, o.y);
+    for (const o of flat) blitSprite(ctx, o.sprite, g, o.x, o.y, o.rot);
 
     // No square lines and no coordinates: the board is a place, not a
     // spreadsheet. What you can do with a square is shown when it matters — the
@@ -603,7 +608,7 @@
    * so a swatch cannot drift from what placing it actually puts down, and a
    * multi-cell building shows whole rather than as its top-left corner.
    */
-  window.drawSprite = (canvas, name, scale = 2) => {
+  window.drawSprite = (canvas, name, scale = 2, rot = 0) => {
     const a = ATLAS[name];
     if (!a || !ready) return false;
     const [w, h] = sizeOf(name);
@@ -611,6 +616,15 @@
     canvas.height = h * TS * scale;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
+    if (rot && w === 1 && h === 1) {
+      const s = TS * scale;
+      ctx.save();
+      ctx.translate(s / 2, s / 2);
+      ctx.rotate((rot / 90) * Math.PI / 2);
+      ctx.drawImage(sheets[a[0]], a[1] * TS, a[2] * TS, TS, TS, -s / 2, -s / 2, s, s);
+      ctx.restore();
+      return true;
+    }
     for (let dy = 0; dy < h; dy++) {
       for (let dx = 0; dx < w; dx++) {
         ctx.drawImage(

@@ -50,6 +50,7 @@ window.Views.map = (function () {
   let selectedSprite = 'dec_fire_01';
   let gmPanel = null;
   let gmToggle = null;
+  let rotation = 0;        // quarter turns applied to the next placement
 
   const ZOOM_KEY = 'idya.map_zoom';
   let zoom = (() => {
@@ -443,6 +444,23 @@ window.Views.map = (function () {
       </div>`;
 
     const stage = body.querySelector('#map-stage');
+
+    const tileAt = (e) => {
+      const r = stage.getBoundingClientRect();
+      return {
+        x: Math.floor((e.clientX - r.left) / cell),
+        y: Math.floor((e.clientY - r.top) / cell),
+      };
+    };
+    const inBoard = (t) => t.x >= 0 && t.y >= 0 && t.x < view.size && t.y < view.size;
+
+    stage.addEventListener('mousemove', (e) => {
+      if (!tool) return updateCursor(null);
+      const t = tileAt(e);
+      updateCursor(inBoard(t) ? t : null);
+    });
+    stage.addEventListener('mouseleave', () => updateCursor(null));
+
     stage.addEventListener('click', (e) => {
       if (!socket || !view) return;
       const r = stage.getBoundingClientRect();
@@ -499,6 +517,7 @@ window.Views.map = (function () {
     }
     const pal = gmPanel?.querySelector('#gm-palette');
     if (pal) pal.hidden = !(tool?.mode === 'place' && !tool.tree);
+    if (!tool) updateCursor(null);
     const hint = root?.querySelector('#map-hint');
     if (hint) {
       hint.textContent = tool
@@ -512,9 +531,37 @@ window.Views.map = (function () {
     }
   }
 
+  /**
+   * The square the tool would act on, outlined at the size of what it would put
+   * there. A 2x2 building shows its whole footprint, anchored the way it
+   * actually lands: on the clicked square, rising into the ones above.
+   */
+  function updateCursor(tile) {
+    const stage = root?.querySelector('#map-stage');
+    let el = stage?.querySelector('#map-cursor');
+    if (!stage) return;
+    if (!tool || !tile) { el?.remove(); return; }
+
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'map-cursor';
+      el.className = 'map-cursor';
+      stage.appendChild(el);
+    }
+    let w = 1, h = 1;
+    if (tool.mode === 'place' && !tool.tree) {
+      const info = catalogue?.sprites?.[tool.sprite];
+      if (info) [w, h] = info.size;
+    }
+    el.classList.toggle('remove', tool.mode === 'remove');
+    el.style.width = `${w * cell}px`;
+    el.style.height = `${h * cell}px`;
+    el.style.transform = `translate(${tile.x * cell}px, ${(tile.y - (h - 1)) * cell}px)`;
+  }
+
   function applyTool(tile) {
     if (!tool || !socket) return false;
-    if (tool.mode === 'place')  socket.emit('world:place', { tile, sprite: tool.sprite, kind: tool.tree ? 'tree' : 'decor' });
+    if (tool.mode === 'place')  socket.emit('world:place', { tile, sprite: tool.sprite, kind: tool.tree ? 'tree' : 'decor', rot: rotation });
     else if (tool.mode === 'remove') socket.emit('world:remove', tile);
     else socket.emit('world:paint', { tile, material: tool.material });
     return true;
@@ -545,7 +592,7 @@ window.Views.map = (function () {
     btn.appendChild(canvas);
     // Drawn by the renderer rather than cropped by CSS, so a swatch is exactly
     // what placing it puts on the board, buildings included.
-    window.drawSprite?.(canvas, name, 2);
+    window.drawSprite?.(canvas, name, 2, rotation);
     return btn;
   }
 
@@ -589,6 +636,9 @@ window.Views.map = (function () {
         <button class="gm-btn" type="button" data-tool="place">Place</button>
         <button class="gm-btn" type="button" data-tool="tree">Tree</button>
         <button class="gm-btn" type="button" data-tool="remove">Remove</button>
+      </div>
+      <div class="gm-modes">
+        <button class="gm-btn" type="button" id="gm-rotate">Rotate 0&deg;</button>
       </div>
       <div class="gm-modes">
         <button class="gm-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
@@ -637,6 +687,13 @@ window.Views.map = (function () {
         renderPalette();
       });
     }
+    gmPanel.querySelector('#gm-rotate').addEventListener('click', (e) => {
+      rotation = (rotation + 90) % 360;
+      e.currentTarget.innerHTML = `Rotate ${rotation}&deg;`;
+      renderPalette();                       // swatches show the turn too
+      if (tool?.mode === 'place') updateCursor();
+    });
+
     // Sheets may still be loading on first mount; swatches are blank until they
     // are, so draw them again when they arrive.
     window.spritesReady?.(() => renderPalette());

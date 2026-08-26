@@ -1,5 +1,7 @@
 import prisma from '../database/prisma.js';
-import { generateTerrain, type TerrainData } from '../combat/terrain.js';
+import {
+  generateTerrain, isGrassy, GRASS_TUFTS, TUFT_CHANCE, type TerrainData,
+} from '../combat/terrain.js';
 import type { Obstacle } from '../combat/board.js';
 import { CHUNK_SIZE, chunkSeed, type Chunk } from './chunk.js';
 import { placeAt, exitsFrom, type Place } from './places.js';
@@ -37,6 +39,8 @@ export interface WorldObjectView {
    */
   stack?: string[];
   f?: boolean;
+  /** Quarter turns clockwise, 0/90/180/270. Single-cell sprites only. */
+  rot?: number;
 }
 
 /** Ground materials that can be painted. The generator only uses these two. */
@@ -134,6 +138,13 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
     terrain.corners[d.y] = row.slice(0, d.x) + m + row.slice(d.x + 1);
   }
 
+  // Tufts belong to grass, so painted ground has to take them with it. A square
+  // turned to dirt loses the ones it had; a square turned back to grass grows
+  // its own, at the same odds the generator uses. Rolled from the chunk seed
+  // and the square, so a repainted patch looks the same on every load rather
+  // than reshuffling itself under anybody standing on it.
+  reconcileTufts(terrain, chunk);
+
   return {
     chunk,
     size: CHUNK_SIZE,
@@ -194,6 +205,36 @@ export async function resetSquare(chunk: Chunk, x: number, y: number): Promise<v
   });
 }
 
+/**
+ * Make the tuft layer agree with the ground beneath it.
+ *
+ * Only touches squares whose grassiness disagrees with what the generator drew,
+ * so an unedited chunk comes out byte-identical to before.
+ */
+function reconcileTufts(terrain: TerrainData, chunk: Chunk): void {
+  const had = new Map(terrain.overlay.map(o => [`${o.x},${o.y}`, o]));
+  const out: typeof terrain.overlay = [];
+
+  for (let y = 0; y < CHUNK_SIZE; y++) {
+    for (let x = 0; x < CHUNK_SIZE; x++) {
+      const grass = isGrassy(terrain.corners, x, y);
+      const existing = had.get(`${x},${y}`);
+      if (!grass) continue;                       // dirt keeps nothing
+      if (existing) { out.push(existing); continue; }
+
+      // Newly grass: roll for a tuft the way the generator would have.
+      let h = (chunkSeed(chunk) ^ Math.imul(x + 1, 0x9e3779b1) ^ Math.imul(y + 1, 0x85ebca77)) >>> 0;
+      h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+      h ^= h >>> 13;
+      const roll = (h >>> 0) / 0x100000000;
+      if (roll >= TUFT_CHANCE) continue;
+      const pickIdx = (h >>> 8) % GRASS_TUFTS.length;
+      out.push({ x, y, s: GRASS_TUFTS[pickIdx], f: ((h >>> 16) & 1) === 1 });
+    }
+  }
+  terrain.overlay = out;
+}
+
 // ---- editing ----
 
 /**
@@ -247,11 +288,12 @@ function viewOf(row: {
   id: string; tile_x: number; tile_y: number; sprite: string;
   kind: string; state: string | null; data: unknown;
 }): WorldObjectView {
-  const d = (row.data ?? {}) as { stack?: unknown; f?: unknown };
+  const d = (row.data ?? {}) as { stack?: unknown; f?: unknown; rot?: unknown };
   return {
     id: row.id, x: row.tile_x, y: row.tile_y,
     sprite: row.sprite, kind: row.kind, state: row.state,
     ...(Array.isArray(d.stack) ? { stack: d.stack as string[], f: !!d.f } : {}),
+    ...(typeof d.rot === 'number' && d.rot ? { rot: d.rot } : {}),
   };
 }
 

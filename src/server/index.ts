@@ -4266,22 +4266,38 @@ io.on('connection', (socket: Socket) => {
   socket.on('world:place', async (raw: unknown) => {
     const presence = await requireGm();
     if (!presence) return;
-    const { tile, sprite, kind } = (raw ?? {}) as
-      { tile?: unknown; sprite?: unknown; kind?: unknown };
+    const { tile, sprite, kind, rot } = (raw ?? {}) as
+      { tile?: unknown; sprite?: unknown; kind?: unknown; rot?: unknown };
     const at = parseTilePos(tile);
     if (!at || typeof sprite !== 'string' || !sprite) return;
+
+    const wantsTree = kind === 'tree' || sprite === 'tree';
+    if (wantsTree) {
+      // One tree to a square. Two stacked on the same spot is a mess nobody
+      // meant, and it is the easy mistake to make while click-dragging a wood
+      // into place. Counts what grew there as well as what was put there.
+      const view = await loadChunk(presence.chunk);
+      const occupied =
+        view?.obstacles.some(o => o.state !== 'destroyed'
+          && o.pos.x === at.x && o.pos.y === at.y)
+        || view?.objects.some(o => o.kind === 'tree' && o.x === at.x && o.y === at.y);
+      if (occupied) {
+        socket.emit('world:error', { message: "There's already a tree there." });
+        return;
+      }
+    }
 
     // A tree is built by the generator's own rules rather than dropped as a
     // single sprite, so one placed by hand is the same kind of thing as one
     // that grew there: a trunk with a canopy above it, not a flat decal.
-    const wantsTree = kind === 'tree' || sprite === 'tree';
     const tree = wantsTree ? makeTree(Math.random) : null;
+    const rotation = [0, 90, 180, 270].includes(rot as number) ? (rot as number) : 0;
 
     const object = await placeObject({
       chunk: presence.chunk, ...at,
       sprite: tree ? tree.stack[0] : sprite,
       kind: wantsTree ? 'tree' : (typeof kind === 'string' && kind ? kind : 'decor'),
-      data: tree ? { stack: tree.stack, f: tree.f } : undefined,
+      data: tree ? { stack: tree.stack, f: tree.f } : (rotation ? { rot: rotation } : undefined),
       ownerAccountId: presence.accountId,
     });
     io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });

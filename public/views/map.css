@@ -305,3 +305,20 @@ body.gm-open #world-root { padding-left: 208px; }
   #gm-panel { width: 168px; }
   body.gm-open #world-root { padding-left: 168px; }
 }
+
+/* The square the tool would act on. Sized to what would land there, so a 2x2
+   building shows its whole footprint before you commit to it. */
+.map-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;               /* above the canopy, or trees would swallow it */
+  pointer-events: none;
+  border: 2px solid var(--gold);
+  background: rgba(242, 203, 77, 0.14);
+  box-sizing: border-box;
+}
+.map-cursor.remove {
+  border-color: var(--warn-bright);
+  background: rgba(226, 99, 132, 0.16);
+}

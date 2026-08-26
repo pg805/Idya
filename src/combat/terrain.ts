@@ -242,9 +242,9 @@ const SCATTER_CLUSTERS: ScatterCluster[] = [
   { sprite: 'dec_rock_01',   min: 1, max: 3, radius: 2.8, density: 0.45, cap: 6, grassOnly: false, group: 'stone' },
 ];
 
-const GRASS_TUFTS = ['ov_grass_01', 'ov_grass_02', 'ov_grass_03'] as const;
+export const GRASS_TUFTS = ['ov_grass_01', 'ov_grass_02', 'ov_grass_03'] as const;
 
-const TUFT_CHANCE = 0.30;      // grass squares that get a tuft overlay
+export const TUFT_CHANCE = 0.30;   // grass squares that get a tuft overlay
 
 // A tree is drawn taller than the square it blocks — the trunk base sits on the
 // blocked square and the rest leans up into the squares above.
@@ -358,6 +358,19 @@ export function makeTree(r: () => number): { stack: string[]; f: boolean } {
   return { stack: treeStack(r, build, mids), f };
 }
 
+/**
+ * Whether a square counts as grass, from the corner lattice.
+ *
+ * A square's look comes from its four corners, so "is this grass" is the
+ * majority of them. Shared with the world service, which has to ask the same
+ * question of ground that was painted after the board was generated.
+ */
+export function isGrassy(corners: GroundRow[], x: number, y: number): boolean {
+  const n = (corners[y]?.[x] === 'g' ? 1 : 0) + (corners[y]?.[x + 1] === 'g' ? 1 : 0)
+          + (corners[y + 1]?.[x] === 'g' ? 1 : 0) + (corners[y + 1]?.[x + 1] === 'g' ? 1 : 0);
+  return n >= 3;
+}
+
 // Build the cosmetic layers for a board of the given size and obstacle set.
 // Deterministic in `seed` — the same seed and obstacles always produce the same
 // dressing.
@@ -420,7 +433,8 @@ export function generateTerrain(
   }
 
   // A square's own look comes from its four corners; for deciding what belongs
-  // on it, "is this grassy" is the majority of those four.
+  // on it, "is this grassy" is the majority of those four. Exported as
+  // isGrassy so ground edited after generation can be judged the same way.
   const grassy: boolean[][] = [];
   for (let y = 0; y < height; y++) {
     const row: boolean[] = [];
