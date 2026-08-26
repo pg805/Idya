@@ -166,7 +166,7 @@
       const own = u.team === 'team-a';
       const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
       const resPct = u.maxResource > 0 ? Math.max(0, (u.resource / u.maxResource) * 100) : 0;
-      const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
+      const hpColor = hpPct > 50 ? '#33b733' : hpPct > 25 ? '#ffa300' : '#f64d18';
       const lvl = own ? data.meta.weaponLevel : data.meta.enemyLevel;
       const card = document.createElement('div');
       card.className = `combatant-card ${own ? 'team-a' : 'team-b'}${u.id === selUnit ? ' dr-sel' : ''}`;
@@ -238,7 +238,7 @@
     const dec = selDec();
     if (!dec) { q('#dr-plan').textContent = ''; q('#dr-cands').innerHTML = ''; q('#dr-heatinfo').textContent = ''; return; }
     const c = dec.chosen;
-    q('#dr-plan').innerHTML = `<b>chosen:</b> <span style="color:#4ad07a">${esc(c.choice)} ${esc(c.action)}</span>` +
+    q('#dr-plan').innerHTML = `<b>chosen:</b> <span style="color:#33b733">${esc(c.choice)} ${esc(c.action)}</span>` +
       `${c.moveTo ? ` · move (${c.moveTo.x},${c.moveTo.y})` : ' · hold'}${c.target ? ` · aim (${c.target.x},${c.target.y})` : ''}`;
 
     const me = t.units.find((u) => u.id === dec.unit);

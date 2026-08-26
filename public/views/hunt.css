@@ -37,7 +37,7 @@
 .hunt-resume { background: var(--gold-dim); color: var(--bg-deep); border-color: var(--gold-dim); }
 .hunt-resume:hover { filter: brightness(1.1); }
 .hunt-forfeit { background: transparent; color: var(--text-faint); }
-.hunt-forfeit:hover { color: #e08070; border-color: #6e3a35; }
+.hunt-forfeit:hover { color: var(--wood-1); border-color: var(--wood-3); }
 
 
 #hunt-body {
@@ -205,7 +205,7 @@
 }
 .hunt-card-actions .hunt-start-dev:hover:not(:disabled) {
   background: var(--gold);
-  color: var(--bg-base);
+  color: var(--c-bg-base);
 }
 
 .hunt-empty {

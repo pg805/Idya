@@ -841,7 +841,7 @@ function renderCombatantList() {
     card.className = `combatant-card ${isOwn ? 'team-a' : 'team-b'}${defeated ? ' defeated' : ''}`;
     const hpPct  = Math.max(0, (c.hp / c.maxHp) * 100);
     const resPct = c.maxResource > 0 ? Math.max(0, (c.resource / c.maxResource) * 100) : 0;
-    const hpColor = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
+    const hpColor = hpPct > 50 ? '#33b733' : hpPct > 25 ? '#ffa300' : '#f64d18';
     const telegraph = !defeated && c.isAI && state.telegraphs?.[c.id];
     const weaponLine = (!c.isAI && c.weaponInfo) ? `<div class="weapon-name">${c.weaponInfo.name}</div>` : '';
     card.innerHTML = `

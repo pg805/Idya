@@ -17,7 +17,7 @@
   const SHOP_ORDER = ['general_store', 'blacksmith', 'lumberjack', 'enchanting_shop', 'temple'];
   const shopRank = (id) => { const i = SHOP_ORDER.indexOf(id); return i === -1 ? SHOP_ORDER.length : i; };
   const CATEGORIES = [{ id: 'commodity', name: 'Commodities' }, { id: 'valuable', name: 'Valuables' }];
-  const COLORS = ['#4fa3ff', '#ffb14f', '#ff5d6c', '#7fdc8f', '#c89bff', '#5fd0d0', '#e89bd0', '#b0c060'];
+  const COLORS = ['#198ae1', '#eaa84b', '#cd4051', '#1ac19a', '#9e84b8', '#1dc2d4', '#ff8cb0', '#b5ba61'];
 
   function isActive(key, value) {
     if (selected[key] === null) return true;
@@ -81,13 +81,13 @@
     const { segs, xAt, yAt } = segments(s.points, (p) => p.sell, t0, t1, lo, hi, W, H, pad);
     const refs = [];
     if (range) {
-      refs.push(`<line x1="0" y1="${yAt(range.max).toFixed(1)}" x2="${W}" y2="${yAt(range.max).toFixed(1)}" stroke="#2a3a55" stroke-dasharray="3 3"/>`);
-      refs.push(`<line x1="0" y1="${yAt(range.min).toFixed(1)}" x2="${W}" y2="${yAt(range.min).toFixed(1)}" stroke="#2a3a55" stroke-dasharray="3 3"/>`);
+      refs.push(`<line x1="0" y1="${yAt(range.max).toFixed(1)}" x2="${W}" y2="${yAt(range.max).toFixed(1)}" stroke="#343345" stroke-dasharray="3 3"/>`);
+      refs.push(`<line x1="0" y1="${yAt(range.min).toFixed(1)}" x2="${W}" y2="${yAt(range.min).toFixed(1)}" stroke="#343345" stroke-dasharray="3 3"/>`);
     }
-    const line = segs.map(pts => `<polyline points="${pts}" fill="none" stroke="#4fa3ff" stroke-width="1.5"/>`).join('');
+    const line = segs.map(pts => `<polyline points="${pts}" fill="none" stroke="#198ae1" stroke-width="1.5"/>`).join('');
     const last = s.points[s.points.length - 1];
     const dot = last.sell != null
-      ? `<circle cx="${xAt(last.t).toFixed(1)}" cy="${yAt(last.sell).toFixed(1)}" r="3" fill="#ffb14f"/>` : '';
+      ? `<circle cx="${xAt(last.t).toFixed(1)}" cy="${yAt(last.sell).toFixed(1)}" r="3" fill="#eaa84b"/>` : '';
     return `<svg class="ph-mini" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${refs.join('')}${line}${dot}</svg>`;
   }
 
@@ -162,14 +162,14 @@
     const xAt = (t) => L + ((t - t0) / xspan) * pw;
     const yAt = (v) => T + (1 - v) * ph; // 0 = floor (bottom), 1 = ceiling (top)
     const parts = [`<svg class="ph-overlay" viewBox="0 0 ${W} ${T + ph + B}">`,
-      `<rect width="${W}" height="${T + ph + B}" fill="#0e1726"/>`];
+      `<rect width="${W}" height="${T + ph + B}" fill="#1a1a1a"/>`];
     // floor / mid / ceiling reference lines
     const refRows = [[0, 'floor'], [0.25, ''], [0.5, 'mid'], [0.75, ''], [1, 'ceiling']];
     for (const [v, label] of refRows) {
       const edge = v === 0 || v === 1;
-      parts.push(`<line x1="${L}" y1="${yAt(v).toFixed(1)}" x2="${L + pw}" y2="${yAt(v).toFixed(1)}" stroke="${edge ? '#3a5070' : '#1d2a40'}" ${edge ? 'stroke-dasharray="4 3"' : ''}/>`);
-      parts.push(`<text x="${L - 6}" y="${(yAt(v) + 4).toFixed(1)}" fill="#6f88ad" font-size="11" text-anchor="end">${Math.round(v * 100)}%</text>`);
-      if (label) parts.push(`<text x="${L + pw + 4}" y="${(yAt(v) + 4).toFixed(1)}" fill="#3a5070" font-size="10">${label}</text>`);
+      parts.push(`<line x1="${L}" y1="${yAt(v).toFixed(1)}" x2="${L + pw}" y2="${yAt(v).toFixed(1)}" stroke="${edge ? '#3b3b58' : '#343345'}" ${edge ? 'stroke-dasharray="4 3"' : ''}/>`);
+      parts.push(`<text x="${L - 6}" y="${(yAt(v) + 4).toFixed(1)}" fill="#7896d1" font-size="11" text-anchor="end">${Math.round(v * 100)}%</text>`);
+      if (label) parts.push(`<text x="${L + pw + 4}" y="${(yAt(v) + 4).toFixed(1)}" fill="#3b3b58" font-size="10">${label}</text>`);
     }
     lines.forEach((ln, i) => {
       const color = COLORS[i % COLORS.length];
@@ -182,11 +182,11 @@
       if (curSeg.length) segs.push(curSeg);
       for (const seg of segs) parts.push(`<polyline points="${seg.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.9"/>`);
       parts.push(`<line x1="${L + pw + 12}" y1="${T + 6 + i * 18}" x2="${L + pw + 30}" y2="${T + 6 + i * 18}" stroke="${color}" stroke-width="3"/>`);
-      parts.push(`<text x="${L + pw + 34}" y="${T + 10 + i * 18}" fill="#cfe0f5" font-size="12">${esc(ln.name)}</text>`);
+      parts.push(`<text x="${L + pw + 34}" y="${T + 10 + i * 18}" fill="#a7c9e7" font-size="12">${esc(ln.name)}</text>`);
     });
     const fmt = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric' });
-    parts.push(`<text x="${L}" y="${T + ph + 22}" fill="#6f88ad" font-size="11">${esc(fmt(t0))}</text>`);
-    parts.push(`<text x="${L + pw}" y="${T + ph + 22}" fill="#6f88ad" font-size="11" text-anchor="end">${esc(fmt(t1))}</text>`);
+    parts.push(`<text x="${L}" y="${T + ph + 22}" fill="#7896d1" font-size="11">${esc(fmt(t0))}</text>`);
+    parts.push(`<text x="${L + pw}" y="${T + ph + 22}" fill="#7896d1" font-size="11" text-anchor="end">${esc(fmt(t1))}</text>`);
     parts.push('</svg>');
     return `<div class="ph-overlay-note">Each line is the price's position within its own expected sell band (0% = floor, 100% = ceiling) — same bounds as the Market page, so items at different price tiers are directly comparable.</div>${parts.join('\n')}`;
   }

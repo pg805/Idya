@@ -17,7 +17,10 @@
     "matrix:save": "npm run build && node ./lib/tools/spatial_sim.js matrix-save 100",
     "price:smoke": "npm run build && node ./lib/tools/price_smoke.js",
     "tiles:sync": "powershell -ExecutionPolicy Bypass -File tools/sync-tilesets.ps1",
-    "font:build": "python tools/build-font.py --verify"
+    "font:build": "python tools/build-font.py --verify",
+    "palette:sync": "python tools/palette.py sync",
+    "palette:build": "python tools/palette.py build",
+    "palette:check": "python tools/palette.py check"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

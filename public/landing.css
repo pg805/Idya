@@ -16,7 +16,7 @@
 
 :root {
   --l-void:     #000003;  /* actor  Neutral      */
-  --l-deep:     #131a2e;  /* between void and water 5 */
+  --l-deep:     var(--dusk-3);  /* between void and water 5 */
   --l-base:     #1d2b53;  /* terrain water 5     */
   --l-surface:  #343345;  /* terrain dusk 3      */
   --l-raised:   #3b3b58;  /* terrain dusk 2      */

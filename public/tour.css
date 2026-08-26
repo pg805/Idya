@@ -13,7 +13,7 @@ body.tour-active { overflow: hidden; }
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(8, 18, 27, 0.55);
+  background: rgba(0, 0, 3, 0.55);
   pointer-events: auto;
 }
 
@@ -21,7 +21,7 @@ body.tour-active { overflow: hidden; }
   position: absolute;
   border: 2px solid var(--gold);
   border-radius: 6px;
-  box-shadow: 0 0 0 9999px transparent, 0 0 18px rgba(230, 175, 46, 0.45);
+  box-shadow: 0 0 0 9999px transparent, 0 0 18px rgba(242, 203, 77, 0.45);
   background: transparent;
   pointer-events: none;
   transition: all 0.25s ease;

@@ -46,13 +46,13 @@
 
 /* Trophy tier theming — bronze / silver / gold borders + name accents.
    stats-card-none is the default look (no tier earned yet). */
-.stats-card-bronze { border-color: #8c5a2e; box-shadow: inset 0 0 0 1px rgba(180, 120, 60, 0.18); }
-.stats-card-silver { border-color: #9098a4; box-shadow: inset 0 0 0 1px rgba(180, 192, 210, 0.20); }
-.stats-card-gold   { border-color: #c69e2a; box-shadow: inset 0 0 0 1px rgba(255, 215, 0,  0.22); }
+.stats-card-bronze { border-color: var(--sprite-gold-32); box-shadow: inset 0 0 0 1px rgba(187, 128, 46, 0.18); }
+.stats-card-silver { border-color: var(--steel-1); box-shadow: inset 0 0 0 1px rgba(167, 201, 231, 0.20); }
+.stats-card-gold   { border-color: var(--sprite-gold-27); box-shadow: inset 0 0 0 1px rgba(250, 236, 36, 0.22); }
 
-.stats-card-bronze .stats-card-name { color: #d28a4a; }
-.stats-card-silver .stats-card-name { color: #c8d2e0; }
-.stats-card-gold   .stats-card-name { color: #f1d35a; }
+.stats-card-bronze .stats-card-name { color: var(--sprite-skin-16); }
+.stats-card-silver .stats-card-name { color: var(--water-1); }
+.stats-card-gold   .stats-card-name { color: var(--sprite-gold-24); }
 
 .stats-tier-badge {
   display: inline-block;
@@ -65,9 +65,9 @@
   vertical-align: 2px;
   font-weight: 600;
 }
-.stats-tier-bronze { color: #d28a4a; }
-.stats-tier-silver { color: #c8d2e0; }
-.stats-tier-gold   { color: #f1d35a; }
+.stats-tier-bronze { color: var(--sprite-skin-16); }
+.stats-tier-silver { color: var(--water-1); }
+.stats-tier-gold   { color: var(--sprite-gold-24); }
 .stats-card-head {
   display: flex;
   justify-content: space-between;

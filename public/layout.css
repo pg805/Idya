@@ -1,55 +1,80 @@
+/* The theme, mapped onto the art palette. Every value here is a palette entry
+ * from public/palette.css, so the interface cannot drift away from the world it
+ * sits next to. `npm run palette:check` fails the moment one does.
+ *
+ * These were mapped BY HAND rather than snapped to the nearest entry, because
+ * nearest-neighbour destroys a ramp. Each of these families is ordered, and what
+ * matters is that the order survives: --bg-hover has to stay lighter than --bg,
+ * --text-faint darker than --text-muted. Snapping each value independently to
+ * its closest colour collapsed seven of the backgrounds into one and flattened
+ * every card, panel and inset onto the same plane.
+ *
+ * Both palettes are in play, the terrain one and the sprite one. The background
+ * ramp needs five steps and the terrain palette has only two below water 5, so
+ * --bg-surface and --bg-deep come from the sprite palette's dark neutrals. That
+ * is the whole reason the sprite palette is loaded at all.
+ *
+ * Checked, not eyeballed: every ramp here is strictly ordered by luminance and
+ * has no repeated value, and no colour's contrast against --bg dropped below
+ * 4.5 that was not already below it. --text-faint and --warn have always been
+ * under that and still are; they were like that before this mapping and fixing
+ * them is a design decision, not a translation.
+ */
 :root {
-  /* Brand palette */
-  --c-bg-base:    #1c3041;   /* Deep Space Blue   — main background */
-  --c-steel:      #88a09e;   /* Cool Steel        — secondary text / borders */
-  --c-gold:       #e6af2e;   /* Sunflower Gold    — titles, currency */
-  --c-teal:       #558b6e;   /* Jungle Teal       — success / positive */
-  --c-amaranth:   #89043d;   /* Dark Amaranth     — danger / negative */
-  --c-white:      #fcfffc;   /* Near-white        — primary text */
+  /* Brand. These barely moved: the palette already had them. */
+  --c-bg-base:    var(--water-5);      /* Deep Space Blue   — main background */
+  --c-steel:      var(--steel-1);      /* Cool Steel        — secondary text / borders */
+  --c-gold:       var(--pop-gold);     /* Sunflower Gold    — titles, currency */
+  --c-teal:       var(--accent-06);    /* Jungle Teal       — success / positive */
+  --c-amaranth:   var(--magenta-3);    /* Dark Amaranth     — danger / negative */
+  --c-white:      var(--neutral-1);    /* Near-white        — primary text */
 
   /* Background shades (lighter → darker) */
-  --bg-hover:     #2a4257;
-  --bg:           #1c3041;   /* base */
-  --bg-surface:   #16263a;   /* panels, cards */
-  --bg-deep:      #0e1a25;   /* sidebar, deep inset */
-  --bg-darkest:   #08121b;   /* shadows / extra deep */
+  --bg-hover:     var(--dusk-3);
+  --bg:           var(--water-5);      /* base */
+  --bg-surface:   var(--sprite-neutral-07);   /* panels, cards */
+  --bg-deep:      var(--sprite-neutral-08);   /* sidebar, deep inset */
+  --bg-darkest:   var(--neutral-5);    /* shadows / extra deep */
 
-  /* Text shades */
-  --text:         #fcfffc;
-  --text-2:       #c8d4d3;
-  --text-muted:   #88a09e;   /* steel */
-  --text-faint:   #5a6e6c;
-  --text-dim:     #3a4848;
-  --text-vdim:    #28323a;
+  /* Text shades (lighter → darker) */
+  --text:         var(--neutral-1);
+  --text-2:       var(--sprite-neutral-02);
+  --text-muted:   var(--steel-1);      /* steel */
+  --text-faint:   var(--steel-3);
+  --text-dim:     var(--steel-4);
+  --text-vdim:    var(--sprite-neutral-06);
 
-  /* Borders */
-  --border:        #2a3e52;
-  --border-soft:   #1f2f3f;
-  --border-strong: #3a536b;
+  /* Borders (strong → soft) */
+  --border:        var(--steel-4);
+  --border-soft:   var(--neutral-4);
+  --border-strong: var(--steel-3);
 
   /* Gold (titles / currency) */
-  --gold:          #e6af2e;
-  --gold-bright:   #f5c14a;
-  --gold-dim:      #8a6b1c;
-  --gold-bg:       #2a2018;
+  --gold:          var(--pop-gold);
+  --gold-bright:   var(--straw-1);
+  --gold-dim:      var(--straw-4);
+  --gold-bg:       var(--wood-5);
 
   /* Teal — sells, gains, positive states */
-  --teal:          #6aa884;
-  --teal-bright:   #88c4a2;
-  --teal-dim:      #3d5e4d;
-  --teal-bg:       #1a2e22;
+  --teal:          var(--sprite-green-39);
+  --teal-bright:   var(--accent-06);
+  --teal-dim:      var(--bluegreen-1);
+  --teal-bg:       var(--bluegreen-5);
 
   /* Amaranth — warnings, errors, can't-afford, destructive */
-  --warn:          #c2425f;
-  --warn-bright:   #e26384;
-  --warn-dim:      #5a1224;
-  --warn-bg:       #2e1820;
+  /* A magenta ramp rather than the vivid accent for "bright": accent 01 is more
+     saturated than magenta 1 but darker than it, so it read as bright and
+     measured as dim, and the ramp ran backwards. */
+  --warn:          var(--magenta-1);
+  --warn-bright:   var(--sprite-red-50);
+  --warn-dim:      var(--magenta-3);
+  --warn-bg:       var(--sprite-brown-23);
 
   /* Buy / cost actions — steel-tinted blue */
-  --buy:           #88b0c8;
-  --buy-bright:    #a8c8dc;
-  --buy-dim:       #3a5870;
-  --buy-bg:        #1a2a3a;
+  --buy:           var(--water-2);
+  --buy-bright:    var(--water-1);
+  --buy-dim:       var(--water-4);
+  --buy-bg:        var(--water-5);
 }
 
 .layout-header {

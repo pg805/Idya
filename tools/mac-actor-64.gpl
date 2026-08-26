@@ -1,0 +1,68 @@
+GIMP Palette
+Name: mac-actor-64
+Columns: 8
+#
+255   0 255	00 Mask
+255 255 255	01 Neutral
+184 184 184	02 Neutral
+163 163 163	03 Neutral
+133 133 133	04 Neutral
+104 104 104	05 Neutral
+ 49  49  49	06 Neutral
+ 26  26  26	07 Neutral
+ 25  24  24	08 Neutral
+  0   0   3	09 Neutral
+  0   0   0	10 Neutral
+255 222 201	11 Skin
+255 204 170	12 Skin
+237 177 131	13 Skin
+235 175 129	14 Skin
+254 102  15	15 Skin
+211 129  74	16 Skin
+182 136 100	17 Skin
+254   2   1	18 Brown / orange
+205  64  81	19 Brown / orange
+158  82  57	20 Brown / orange
+ 91  64  53	21 Brown / orange
+ 80  56  46	22 Brown / orange
+118   8  16	23 Brown / orange
+249 214  92	24 Gold / yellow
+215 198 178	25 Gold / yellow
+255 163   0	26 Gold / yellow
+234 168  75	27 Gold / yellow
+201 166  89	28 Gold / yellow
+187 128  46	29 Gold / yellow
+206  95  35	30 Gold / yellow
+143 120  99	31 Gold / yellow
+135  82  18	32 Gold / yellow
+114  84  40	33 Gold / yellow
+ 95  87  79	34 Gold / yellow
+111  53  20	35 Gold / yellow
+247 234 181	36 Green
+250 236  36	37 Green
+181 186  97	38 Green
+ 51 183  51	39 Green
+  0 135  15	40 Green
+ 74 106  55	41 Green
+ 10  52  16	42 Green
+ 23  41  23	43 Green
+ 24  98 129	44 Blue / cyan
+134 173 221	45 Purple / violet
+158 132 184	46 Purple / violet
+  0  38 255	47 Purple / violet
+ 59  59  88	48 Purple / violet
+ 29  43  83	49 Purple / violet
+255 140 176	50 Red / pink
+182 168 175	51 Red / pink
+175  52 118	52 Red / pink
+126  37  83	53 Red / pink
+255   0  77	54 ACCENT
+246  77  24	55 ACCENT
+246 165  19	56 ACCENT
+239 236  31	57 ACCENT
+ 65 190  40	58 ACCENT
+ 26 193 154	59 ACCENT
+ 29 194 212	60 ACCENT
+ 25 138 225	61 ACCENT
+ 83  75 228	62 ACCENT
+224  60 214	63 ACCENT

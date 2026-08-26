@@ -10,7 +10,7 @@
 }
 
 .ds-empty { color: var(--text-faint); font-style: italic; }
-.ds-error { color: #e07070; padding: 24px; }
+.ds-error { color: var(--magenta-1); padding: 24px; }
 
 .ds-histos {
   display: grid;
@@ -162,9 +162,9 @@
 .ds-sim-lvl     { font-size: 0.65rem; color: var(--text-faint); }
 .ds-sim-hp      { font-size: 0.62rem; color: var(--text-faint); font-weight: 400; }
 .ds-sim-cell    { cursor: help; }
-.ds-sim-good    { background: rgba(80, 180, 100, 0.18); color: #b8e8c2; }
-.ds-sim-mid     { background: rgba(200, 170, 60, 0.18); color: #e6d59a; }
-.ds-sim-bad     { background: rgba(200, 90, 80, 0.18); color: #e8b0a8; }
+.ds-sim-good    { background: rgba(26, 193, 154, 0.18); color: var(--sprite-green-36); }
+.ds-sim-mid     { background: rgba(229, 191, 105, 0.18); color: var(--straw-1); }
+.ds-sim-bad     { background: rgba(205, 64, 81, 0.18); color: var(--sprite-skin-12); }
 .ds-sim-empty   { color: var(--text-faint); }
 
 @media (max-width: 700px) {

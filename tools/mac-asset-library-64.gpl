@@ -1,0 +1,68 @@
+GIMP Palette
+Name: mac-asset-library-64
+Columns: 8
+#
+255   0 255	mask
+255 255 255	neutral 1
+133 133 133	neutral 2
+104 104 104	neutral 3
+ 61  61  61	neutral 4
+  0   0   0	neutral 5 / black
+182 168 175	stone 1
+166 151 159	stone 2
+124 110 117	stone 3
+ 86  75  80	stone 4
+143 154 162	steel 1
+115 125 133	steel 2
+ 88  98 106	steel 3
+ 62  72  79	steel 4
+215 198 178	plaster 1
+174 158 140	plaster 2
+244 228 164	straw 1
+229 191 105	straw 2
+201 166  89	straw 3
+178 146  74	straw 4
+159 133  96	earth 1
+129 105  70	earth 2
+ 99  79  48	earth 3
+174 114  93	wood 1
+145  82  60	wood 2
+115  68  52	wood 3
+ 80  56  46	wood 4
+ 57  44  32	wood 5
+242 203  77	pop gold
+206  95  35	pop orange
+ 78 119  77	grass 1
+ 62 107  62	grass 2
+ 51  91  51	grass 3
+ 30  70  31	grass 4
+ 10  52  16	grass 5
+ 44  98  57	forest 1
+ 26  78  41	forest 2
+  8  59  25	forest 3
+ 70 122  94	bluegreen 1
+ 46 100  72	bluegreen 2
+ 35  81  67	bluegreen 3
+ 18  62  49	bluegreen 4
+  7  46  35	bluegreen 5
+167 201 231	water 1
+120 150 209	water 2
+ 71 117 186	water 3
+ 39  90 154	water 4
+ 29  43  83	water 5
+131 118 156	dusk 1
+ 59  59  88	dusk 2
+ 52  51  69	dusk 3
+205  64  81	magenta 1
+175  52 118	magenta 2
+126  37  83	magenta 3
+255   0  77	accent 01
+246  77  24	accent 02
+246 165  19	accent 03
+239 236  31	accent 04
+ 65 190  40	accent 05
+ 26 193 154	accent 06
+ 29 194 212	accent 07
+ 25 138 225	accent 08
+ 83  75 228	accent 09
+224  60 214	accent 10

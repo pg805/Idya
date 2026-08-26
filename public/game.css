@@ -145,22 +145,22 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    useful hook in devtools for a spatial game — but nothing draws it. */
 
 /* Obstacle — earthy brown, kept off-palette by design (it's terrain) */
-.cell.obstacle { background: #2a1e10; cursor: not-allowed; }
-.cell.obstacle::before { content: '▪'; font-size: 2rem; color: #7a5a3a; }
-.cell.obstacle[data-state="damaged"]::before { color: #c08040; content: '▵'; }
-.cell.obstacle[data-state="destroyed"] { background: #1a1510; }
-.cell.obstacle[data-state="destroyed"]::before { content: '·'; color: #333; }
+.cell.obstacle { background: var(--wood-5); cursor: not-allowed; }
+.cell.obstacle::before { content: '▪'; font-size: 2rem; color: var(--earth-2); }
+.cell.obstacle[data-state="damaged"]::before { color: var(--sprite-gold-29); content: '▵'; }
+.cell.obstacle[data-state="destroyed"] { background: var(--sprite-neutral-08); }
+.cell.obstacle[data-state="destroyed"]::before { content: '·'; color: var(--sprite-neutral-06); }
 
 /* Board-effect tiles (0.2.0). Tint the cell; combatant/marks sit on top. */
-.cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(80,150,230,0.7);  background: rgba(40,90,150,0.28); }
-.cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(220,180,60,0.7);  background: rgba(150,120,30,0.28); }
-.cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(220,70,70,0.7);   background: rgba(150,40,40,0.30); }
-.cell.tile-slow   { box-shadow: inset 0 0 0 2px rgba(150,120,60,0.7);  background: rgba(90,75,35,0.34); }
+.cell.tile-block  { box-shadow: inset 0 0 0 2px rgba(25, 138, 225, 0.7);  background: rgba(39, 90, 154, 0.28); }
+.cell.tile-buff   { box-shadow: inset 0 0 0 2px rgba(242, 203, 77, 0.7);  background: rgba(178, 146, 74, 0.28); }
+.cell.tile-hazard { box-shadow: inset 0 0 0 2px rgba(205, 64, 81, 0.7);   background: rgba(118, 8, 16, 0.30); }
+.cell.tile-slow   { box-shadow: inset 0 0 0 2px rgba(178, 146, 74, 0.7);  background: rgba(99, 79, 48, 0.34); }
 .cell .tile-mark {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center; gap: 1px;
   font-size: 1.05rem; font-weight: bold; line-height: 1;
-  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   opacity: 0.7;                        /* fades the symbol + value together */
   pointer-events: none; z-index: 2;   /* behind the token (z-index 4) */
 }
@@ -171,7 +171,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   cursor: pointer;
   outline-color: var(--buy-dim);
 }
-.cell.reachable:hover { background: #233a4d; outline-color: var(--buy); }
+.cell.reachable:hover { background: var(--buy-bg); outline-color: var(--buy); }
 
 /* Contested reachable tile — a unit holds it but may vacate. Dashed so it reads
    as "you can bet on this square" rather than a guaranteed move. */
@@ -200,12 +200,12 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   outline: 2px solid var(--warn-dim);
   background: var(--warn-bg);
 }
-.cell.target-valid:hover { background: #3d1f2a; outline-color: var(--warn); }
+.cell.target-valid:hover { background: var(--warn-bg); outline-color: var(--warn); }
 .cell.target-selected {
   cursor: crosshair;
   outline: 3px solid var(--warn-bright);
-  background: #3d1f2a;
-  box-shadow: inset 0 0 14px rgba(226, 99, 132, 0.4);
+  background: var(--warn-bg);
+  box-shadow: inset 0 0 14px rgba(255, 140, 176, 0.4);
 }
 
 /* Blink-strike (MoveTo) targets — teal outline signals you'll teleport ONTO
@@ -213,11 +213,11 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    target outline so the relocation is unmistakable. */
 .cell.target-blink {
   outline-color: var(--teal);
-  box-shadow: inset 0 0 10px rgba(56, 189, 178, 0.35);
+  box-shadow: inset 0 0 10px rgba(29, 194, 212, 0.35);
 }
 .cell.target-blink.target-selected {
   outline: 3px solid var(--teal);
-  box-shadow: inset 0 0 14px rgba(56, 189, 178, 0.55);
+  box-shadow: inset 0 0 14px rgba(29, 194, 212, 0.55);
 }
 
 /* ---- Painted terrain ----
@@ -236,7 +236,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
                             ancestor. Without it, #board is position:relative +
                             z-index:auto, which is NOT a stacking context. */
   gap: 0;
-  background: #1b2417;   /* the strip under the padding — dark earth, not UI navy */
+  background: var(--sprite-green-43);   /* the strip under the padding — dark earth, not UI navy */
 }
 /* Two canvases sandwich the grid. The order is load-bearing, so it's spelled out:
 
@@ -274,13 +274,13 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 
 /* Highlights become washes rather than fills, so the ground reads through them.
    Same hues as the opaque versions above — only the alpha changes. */
-#board.has-terrain .cell.reachable        { background: rgba(58, 88, 112, 0.42); }
-#board.has-terrain .cell.reachable:hover  { background: rgba(136, 176, 200, 0.38); }
-#board.has-terrain .cell.move-target      { background: rgba(61, 94, 77, 0.5); }
-#board.has-terrain .cell.path-tile        { background: rgba(61, 94, 77, 0.38); }
-#board.has-terrain .cell.target-valid     { background: rgba(90, 18, 36, 0.4); }
+#board.has-terrain .cell.reachable        { background: rgba(24, 98, 129, 0.42); }
+#board.has-terrain .cell.reachable:hover  { background: rgba(167, 201, 231, 0.38); }
+#board.has-terrain .cell.move-target      { background: rgba(35, 81, 67, 0.5); }
+#board.has-terrain .cell.path-tile        { background: rgba(35, 81, 67, 0.38); }
+#board.has-terrain .cell.target-valid     { background: rgba(126, 37, 83, 0.4); }
 #board.has-terrain .cell.target-valid:hover,
-#board.has-terrain .cell.target-selected  { background: rgba(194, 66, 95, 0.4); }
+#board.has-terrain .cell.target-selected  { background: rgba(205, 64, 81, 0.4); }
 
 /* Tokens stand ON the ground rather than on a coloured disc. The token is the
    same pixel-art register as the map now, so a filled circle behind it reads as
@@ -304,7 +304,7 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
    an inset glow so it layers over tokens/tiles/targetable marks without hiding
    them (it's an overlay, not a base background). */
 .cell.area-footprint {
-  box-shadow: inset 0 0 0 2px rgba(226, 99, 132, 0.55), inset 0 0 12px rgba(226, 99, 132, 0.3);
+  box-shadow: inset 0 0 0 2px rgba(255, 140, 176, 0.55), inset 0 0 12px rgba(255, 140, 176, 0.3);
 }
 
 /* Combatant tokens — set in the map's own font, at 2x its native 8px em. */
@@ -326,10 +326,10 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   cursor: pointer;
   user-select: none;
 }
-.combatant.team-a { background: #1a4a7a; border-color: #4a90d9; color: #d0e8ff; }
-.combatant.team-b { background: #7a1a1a; border-color: #d94a4a; color: #ffd0d0; }
+.combatant.team-a { background: var(--water-4); border-color: var(--accent-08); color: var(--water-1); }
+.combatant.team-b { background: var(--sprite-brown-23); border-color: var(--magenta-1); color: var(--sprite-skin-11); }
 .combatant.selected {
-  box-shadow: 0 0 0 3px #ffe060, 0 0 12px #ffe06088;
+  box-shadow: 0 0 0 3px var(--sprite-gold-24), 0 0 12px var(--sprite-gold-24)88;
   transform: scale(1.08);
 }
 .combatant-name {
@@ -411,8 +411,8 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   align-items: center;
   gap: 8px;
   padding: 9px 22px;
-  background: #2e7d32;
-  border: 1px solid #4caf50;
+  background: var(--grass-2);
+  border: 1px solid var(--sprite-green-39);
   border-radius: 6px;
   color: #fff;
   font-size: 0.95rem;
@@ -420,7 +420,7 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   letter-spacing: 0.04em;
   text-decoration: none;
 }
-.return-big:hover { background: #388e3c; border-color: #66bb6a; }
+.return-big:hover { background: var(--sprite-green-40); border-color: var(--accent-06); }
 .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .action-btn {
   background: var(--buy-bg);
@@ -432,7 +432,7 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s;
 }
-.action-btn:hover { background: #233a4d; border-color: var(--buy); }
+.action-btn:hover { background: var(--buy-bg); border-color: var(--buy); }
 .action-btn.selected { background: var(--teal-bg); border-color: var(--teal); color: var(--teal-bright); }
 .action-btn.unaffordable { opacity: 0.35; cursor: not-allowed; }
 .action-tag {
@@ -591,8 +591,8 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
   height: 162px;
   overflow: hidden;
 }
-.combatant-card.team-a { border-color: #4a90d9; }
-.combatant-card.team-b { border-color: #d94a4a; }
+.combatant-card.team-a { border-color: var(--accent-08); }
+.combatant-card.team-b { border-color: var(--magenta-1); }
 /* A defeated unit's card stays on screen at 0 HP, greyed out. */
 .combatant-card.defeated { opacity: 0.45; filter: grayscale(0.7); }
 .combatant-card h3 { font-size: 0.9rem; margin-bottom: 2px; }
@@ -737,8 +737,8 @@ body.tour-active #action-panel.dim .action-list { opacity: 1; filter: none; }
 
 /* ---- Status ---- */
 #connection-status { font-size: 0.75rem; }
-#connection-status.connected { color: #4caf50; }
-#connection-status.disconnected { color: #d94a4a; }
+#connection-status.connected { color: var(--sprite-green-39); }
+#connection-status.disconnected { color: var(--magenta-1); }
 
 /* ---- Mobile (portrait phones) ----
    Stack main-layout vertically and shrink board cells so a 7-wide board

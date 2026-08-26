@@ -107,7 +107,7 @@
                 <p class="meta-label">Output</p>
                 <div class="output-line">
                   <span>${esc(r.name)}</span>
-                  ${r.output.quantity && r.output.quantity > 1 ? `<span style="color:#445">×${r.output.quantity}</span>` : ''}
+                  ${r.output.quantity && r.output.quantity > 1 ? `<span style="color:#343345">×${r.output.quantity}</span>` : ''}
                 </div>
               </div>
             </div>

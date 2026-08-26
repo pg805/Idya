@@ -148,7 +148,7 @@
   font-size: 0.6rem;
   line-height: 1.2;
   color: var(--text);
-  background: rgba(8, 18, 27, 0.75);
+  background: rgba(0, 0, 3, 0.75);
   padding: 0 3px;
   border-radius: 2px;
 }
@@ -320,7 +320,7 @@ body.gm-open #world-root { padding-left: 208px; }
 }
 .map-cursor.remove {
   border-color: var(--warn-bright);
-  background: rgba(226, 99, 132, 0.16);
+  background: rgba(255, 140, 176, 0.16);
 }
 
 .gm-key {
@@ -337,5 +337,5 @@ body.gm-open #world-root { padding-left: 208px; }
 .map-cursor.work {
   border-style: dashed;
   border-color: var(--teal-bright);
-  background: rgba(136, 196, 162, 0.12);
+  background: rgba(26, 193, 154, 0.12);
 }

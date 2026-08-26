@@ -398,10 +398,10 @@
   // tree. Matches .combatant's border colours in game.css.
   // Board-effect tile outlines, same hues as the .cell.tile-* rules in game.css.
   const TILE_OUTLINE = {
-    block:  'rgba(80, 150, 230, 0.9)',
-    buff:   'rgba(220, 180, 60, 0.9)',
-    hazard: 'rgba(220, 70, 70, 0.9)',
-    slow:   'rgba(150, 120, 60, 0.9)',
+    block:  'rgba(25, 138, 225, 0.9)',
+    buff:   'rgba(242, 203, 77, 0.9)',
+    hazard: 'rgba(205, 64, 81, 0.9)',
+    slow:   'rgba(178, 146, 74, 0.9)',
   };
 
   // A board-effect tile's outline and label, redrawn above the canopy. The cell's
@@ -444,7 +444,7 @@
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
     ctx.lineWidth = lw;
-    ctx.strokeStyle = isSelected ? '#ffe060' : isOwn ? '#4a90d9' : '#d94a4a';
+    ctx.strokeStyle = isSelected ? '#f9d65c' : isOwn ? '#198ae1' : '#cd4051';
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   }
 
