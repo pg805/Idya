@@ -30,7 +30,8 @@ import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
 import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
 import {
-  loadChunk, paintSquare, placeObject, removeTopObject, removeObject, resetSquare, setTile,
+  loadChunk, paintSquare, placeObject, removeTopObject, removeObject,
+  editTreePart, resetSquare, setTile,
 } from '../world/world_service.js';
 import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
@@ -4285,38 +4286,66 @@ io.on('connection', (socket: Socket) => {
     }
 
     // A tree stands in a COLUMN of squares but is anchored only at its base, so
-    // asking "is there an object on this square" never sees the trunk you are
-    // placing into: that middle belongs to a tree rooted two squares below.
-    // Anything tree-shaped therefore displaces the whole tree covering the
-    // square, not just whatever is anchored on it.
+    // asking "is anything on this square" never sees the trunk you are placing
+    // into: that middle belongs to a tree rooted a square or two below.
     //
-    // Only tree parts do this. Dropping a barrel under a canopy should leave
-    // the tree alone.
-    const isTreePart = wantsTree || sprite.startsWith('dec_tree_');
+    // What happens then depends on what is being placed. A single PART edits
+    // the tree in place, because swapping a middle should change that middle
+    // and leave the tree standing. A whole tree from the tree tool replaces the
+    // one that is there, because that is what asking for a new tree means.
+    const isPart = !wantsTree && sprite.startsWith('dec_tree_');
     let clearedGenerated = false;
-    if (isTreePart && view) {
+
+    if (view && (wantsTree || isPart)) {
       const destroyed = new Set(view.obstacles
         .filter(o => o.state === 'destroyed').map(o => `${o.pos.x},${o.pos.y}`));
+      const covering = view.terrain.obstacles.find(prop =>
+        !destroyed.has(`${prop.x},${prop.y}`)
+        && prop.x === at.x && at.y > prop.y - prop.stack.length && at.y <= prop.y);
+      const placedTree = view.objects.find(o =>
+        Array.isArray(o.stack) && o.stack.length
+        && o.x === at.x && at.y > o.y - o.stack.length && at.y <= o.y);
 
-      for (const prop of view.terrain.obstacles) {
-        if (destroyed.has(`${prop.x},${prop.y}`)) continue;
-        const covers = prop.stack.some((_, i) => prop.x === at.x && prop.y - i === at.y);
-        if (!covers) continue;
-        await setTile({
-          chunk: presence.chunk, x: prop.x, y: prop.y,
-          kind: 'cleared', accountId: presence.accountId,
-        });
-        clearedGenerated = true;
+      if (isPart && placedTree) {
+        const edited = await editTreePart(
+          placedTree.id, placedTree.stack!, placedTree.y, at.y, sprite);
+        if (edited) {
+          io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id: edited.id });
+          io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object: edited });
+          return;
+        }
       }
 
-      // Placed trees stand in a column too, and were only being matched at
-      // their base for the same reason.
-      for (const o of view.objects) {
-        if (!Array.isArray(o.stack) || !o.stack.length) continue;
-        const covers = o.stack.some((_, i) => o.x === at.x && o.y - i === at.y);
-        if (covers && !replaced.includes(o.id)) {
-          await removeObject(o.id);
-          replaced.push(o.id);
+      if (isPart && covering) {
+        // A grown tree can't be edited in place, because it isn't stored at all.
+        // Promote it to a placed object carrying the same stack, retire the
+        // generated one, and edit that. From here on it is an ordinary tree.
+        const promoted = await placeObject({
+          chunk: presence.chunk, x: covering.x, y: covering.y,
+          sprite: covering.stack[0], kind: 'tree',
+          data: { stack: covering.stack, f: covering.f },
+          ownerAccountId: presence.accountId,
+        });
+        await setTile({
+          chunk: presence.chunk, x: covering.x, y: covering.y,
+          kind: 'cleared', accountId: presence.accountId,
+        });
+        await editTreePart(promoted.id, covering.stack, covering.y, at.y, sprite);
+        io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+        return;
+      }
+
+      if (wantsTree) {
+        if (covering) {
+          await setTile({
+            chunk: presence.chunk, x: covering.x, y: covering.y,
+            kind: 'cleared', accountId: presence.accountId,
+          });
+          clearedGenerated = true;
+        }
+        if (placedTree && !replaced.includes(placedTree.id)) {
+          await removeObject(placedTree.id);
+          replaced.push(placedTree.id);
         }
       }
     }

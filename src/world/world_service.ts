@@ -297,6 +297,38 @@ function viewOf(row: {
   };
 }
 
+/**
+ * Swap one sprite inside a standing tree, or add one directly above its top.
+ *
+ * A tree is a column of sprites kept on a single row, so editing one part is a
+ * change to that row rather than a new object: placing a middle over a middle
+ * should change that middle and leave the tree standing.
+ *
+ * Returns the updated object, or null if the square isn't part of this tree and
+ * isn't the square immediately above it.
+ */
+export async function editTreePart(
+  id: string, stack: string[], anchorY: number, y: number, sprite: string,
+): Promise<WorldObjectView | null> {
+  const index = anchorY - y;              // 0 is the base, upward from there
+  if (index < 0 || index > stack.length) return null;
+
+  const next = stack.slice();
+  if (index === stack.length) next.push(sprite);   // one above the top: grow it
+  else next[index] = sprite;
+
+  const row = await prisma.worldObject.findUnique({ where: { id } });
+  if (!row) return null;
+  const data = (row.data ?? {}) as Record<string, unknown>;
+  const updated = await prisma.worldObject.update({
+    where: { id },
+    // sprite mirrors the base of the stack, which is what a one-cell reader
+    // (a shadow lookup, a listing) sees.
+    data: { sprite: next[0], data: { ...data, stack: next } },
+  });
+  return viewOf(updated);
+}
+
 export async function removeObject(id: string): Promise<void> {
   await prisma.worldObject.delete({ where: { id } }).catch(() => { /* already gone */ });
 }
