@@ -339,6 +339,25 @@ function dressObstacle(
   return { ...at, stack: [build.stump], rubble: 'dec_rock_01' };
 }
 
+/**
+ * One tree, dressed the way the generator dresses them.
+ *
+ * Exported so a tree placed by hand is built by the same rules as a tree that
+ * grew there: same two builds, same top odds, same heights, same whole-prop
+ * flip. A placed tree that skipped this would read as a different kind of
+ * object standing among the trees rather than as one of them.
+ */
+export function makeTree(r: () => number): { stack: string[]; f: boolean } {
+  const f = r() < 0.5;
+  const build = r() < TREE_02_CHANCE ? TREE_BUILDS[1] : TREE_BUILDS[0];
+  // No neighbours to consider: a hand-placed tree is positioned deliberately,
+  // so the canopy-avoidance that keeps scattered trees apart would be second
+  // guessing a decision somebody already made.
+  const most = build.maxMids, least = build.maxMids > 1 ? build.maxMids - 1 : 0;
+  const mids = r() < TREE_TALL_CHANCE ? most : least;
+  return { stack: treeStack(r, build, mids), f };
+}
+
 // Build the cosmetic layers for a board of the given size and obstacle set.
 // Deterministic in `seed` — the same seed and obstacles always produce the same
 // dressing.

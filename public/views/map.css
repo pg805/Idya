@@ -204,43 +204,60 @@
 .map-tool-btn:hover { color: var(--text-2); border-color: var(--border-strong); }
 .map-tool-btn.active { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-bg); }
 
-.map-palette { margin-top: 6px; width: 100%; max-width: 640px; }
+.map-palette { margin-top: 6px; width: 100%; max-width: 680px; }
 .map-palette[hidden] { display: none; }
 
-.map-palette-filter {
-  width: 100%;
-  font: inherit;
-  font-size: 0.72rem;
-  color: var(--text);
-  background: var(--bg-deep);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  padding: 3px 6px;
+.map-palette-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
   margin-bottom: 4px;
 }
-.map-palette-filter:focus { outline: none; border-color: var(--gold-dim); }
+
+.map-tab {
+  font: inherit;
+  font-size: 0.66rem;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.map-tab:hover { color: var(--text-2); }
+.map-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
 .map-palette-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
-  max-height: 110px;
+  align-items: flex-end;   /* tall sprites hang from a common baseline */
+  gap: 4px;
+  max-height: 148px;
   overflow-y: auto;
+  padding: 4px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
 }
 
 .map-swatch {
-  font: inherit;
-  font-size: 0.62rem;
-  color: var(--text-faint);
-  background: var(--bg-deep);
-  border: 1px solid var(--border-soft);
+  padding: 2px;
+  background: none;
+  border: 1px solid transparent;
   border-radius: 2px;
-  padding: 2px 6px;
   cursor: pointer;
+  line-height: 0;
 }
-.map-swatch:hover { color: var(--text-2); }
-.map-swatch.active { color: var(--gold-bright); border-color: var(--gold-dim); }
-.map-swatch[hidden] { display: none; }
+.map-swatch:hover { border-color: var(--border-strong); }
+.map-swatch.active { border-color: var(--gold); background: var(--gold-bg); }
+
+/* The sprite itself, cut out of the sheet. Nearest-neighbour, since it is the
+   same pixel art the board draws. */
+.map-swatch-img {
+  display: block;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+}
 
 /* Editing is a mode, and a mode you can forget you are in loses work. */
 .map-stage.editing { cursor: crosshair; outline: 2px solid var(--gold-dim); outline-offset: 2px; }

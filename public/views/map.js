@@ -495,11 +495,13 @@ window.Views.map = (function () {
         && (b.dataset.material ?? null) === (tool.material ?? null));
     }
     const pal = root?.querySelector('#map-palette');
-    if (pal) pal.hidden = tool?.mode !== 'place';
+    if (pal) pal.hidden = !(tool?.mode === 'place' && !tool.tree);
     const hint = root?.querySelector('#map-hint');
     if (hint) {
       hint.textContent = tool
-        ? (tool.mode === 'place' ? `Click a square to place ${tool.sprite}.`
+        ? (tool.mode === 'place' ? (tool.tree
+            ? 'Click a square to grow a tree there.'
+            : `Click a square to place ${tool.sprite}.`)
           : tool.mode === 'remove' ? 'Click a square to remove what is on it.'
           : tool.material === 'reset' ? 'Click a square to put its ground back.'
           : `Click a square to paint ${tool.material === 'd' ? 'dirt' : 'grass'}.`)
@@ -509,30 +511,83 @@ window.Views.map = (function () {
 
   function applyTool(tile) {
     if (!tool || !socket) return false;
-    if (tool.mode === 'place')  socket.emit('world:place',  { tile, sprite: tool.sprite });
+    if (tool.mode === 'place')  socket.emit('world:place', { tile, sprite: tool.sprite, kind: tool.tree ? 'tree' : 'decor' });
     else if (tool.mode === 'remove') socket.emit('world:remove', tile);
     else socket.emit('world:paint', { tile, material: tool.material });
     return true;
   }
 
+  // Sprites grouped the way somebody looks for them, rather than as one list of
+  // seventy-odd names. Order is the order the tabs appear in.
+  const PALETTE_GROUPS = [
+    ['Trees',      (n) => /^dec_tree_/.test(n)],
+    ['Buildings',  (n) => /^bld_/.test(n)],
+    ['Camp',       (n) => /^(dec_(log|well|fire|barrel)|obj_chest)/.test(n)],
+    ['Plants',     (n) => /^dec_(bush|flower|reed)/.test(n)],
+    ['Ground',     (n) => /^(dec_(rock|shell|crab)|ov_)/.test(n)],
+    ['Fences',     (n) => /^dec_fence/.test(n)],
+    ['Crops',      (n) => /^dec_crop/.test(n)],
+  ];
+
+  let catalogue = null;
+  let activeGroup = 'Trees';
+
+  /** A swatch showing the sprite itself, cut out of the sheet with CSS. */
+  function swatchHtml(name) {
+    const info = catalogue.sprites[name];
+    if (!info) return '';
+    const [sheet, col, row] = info.at;
+    const [w, h] = info.size;
+    const px = catalogue.tile;
+    // Scaled 2x so a 32px sprite is legible, and a multi-cell one shows whole.
+    const z = 2;
+    return `<button class="map-swatch" type="button" data-sprite="${name}" title="${name}">
+      <span class="map-swatch-img" style="
+        width:${w * px * z}px; height:${h * px * z}px;
+        background-image:url('${catalogue.sheets[sheet]}');
+        background-position:-${col * px * z}px -${row * px * z}px;
+        background-size:${z * 100}%;
+      "></span>
+    </button>`;
+  }
+
+  function renderPalette(host) {
+    const grid = host.querySelector('#map-palette-grid');
+    if (!grid || !catalogue) return;
+    const group = PALETTE_GROUPS.find(g => g[0] === activeGroup);
+    const names = Object.keys(catalogue.sprites).filter(n => group[1](n)).sort();
+    grid.innerHTML = names.map(swatchHtml).join('');
+    for (const sw of grid.querySelectorAll('.map-swatch')) {
+      sw.classList.toggle('active', sw.dataset.sprite === selectedSprite);
+      sw.addEventListener('click', () => {
+        selectedSprite = sw.dataset.sprite;
+        for (const o of grid.querySelectorAll('.map-swatch')) o.classList.toggle('active', o === sw);
+        setTool({ mode: 'place', sprite: selectedSprite });
+      });
+    }
+  }
+
   function renderTools(host) {
     if (!isGm()) return;
-    const sprites = (window.spriteNames?.() ?? []).sort();
+    catalogue = window.spriteCatalogue?.();
+    if (!catalogue) return;
+
     host.innerHTML = `
       <div class="map-tools">
         <button class="map-tool-btn" type="button" data-tool="off">Walk</button>
         <button class="map-tool-btn" type="button" data-tool="place">Place</button>
+        <button class="map-tool-btn" type="button" data-tool="tree">Tree</button>
         <button class="map-tool-btn" type="button" data-tool="remove">Remove</button>
         <button class="map-tool-btn" type="button" data-tool="paint" data-material="d">Dirt</button>
         <button class="map-tool-btn" type="button" data-tool="paint" data-material="g">Grass</button>
-        <button class="map-tool-btn" type="button" data-tool="paint" data-material="reset">Reset ground</button>
+        <button class="map-tool-btn" type="button" data-tool="paint" data-material="reset">Reset</button>
       </div>
       <div class="map-palette" id="map-palette" hidden>
-        <input class="map-palette-filter" id="map-palette-filter" type="text"
-               placeholder="filter sprites" autocomplete="off" spellcheck="false">
-        <div class="map-palette-grid" id="map-palette-grid">
-          ${sprites.map(n => `<button class="map-swatch" type="button" data-sprite="${n}" title="${n}">${n.replace(/^(dec_|ov_|obj_|bld_)/, '')}</button>`).join('')}
+        <div class="map-palette-tabs" id="map-palette-tabs">
+          ${PALETTE_GROUPS.map(([label]) =>
+            `<button class="map-tab" type="button" data-group="${label}">${label}</button>`).join('')}
         </div>
+        <div class="map-palette-grid" id="map-palette-grid"></div>
       </div>`;
 
     for (const b of host.querySelectorAll('.map-tool-btn')) {
@@ -541,22 +596,21 @@ window.Views.map = (function () {
         if (mode === 'off') return setTool(null);
         if (mode === 'paint') return setTool({ mode, material: b.dataset.material });
         if (mode === 'remove') return setTool({ mode });
+        // Tree asks the server to run the generator's own rules rather than
+        // naming a sprite, so a placed tree is built like a grown one.
+        if (mode === 'tree') return setTool({ mode: 'place', sprite: 'tree', tree: true });
         setTool({ mode: 'place', sprite: selectedSprite });
       });
     }
-    for (const sw of host.querySelectorAll('.map-swatch')) {
-      sw.addEventListener('click', () => {
-        selectedSprite = sw.dataset.sprite;
-        for (const o of host.querySelectorAll('.map-swatch')) o.classList.toggle('active', o === sw);
-        setTool({ mode: 'place', sprite: selectedSprite });
+    for (const tab of host.querySelectorAll('.map-tab')) {
+      tab.classList.toggle('active', tab.dataset.group === activeGroup);
+      tab.addEventListener('click', () => {
+        activeGroup = tab.dataset.group;
+        for (const o of host.querySelectorAll('.map-tab')) o.classList.toggle('active', o === tab);
+        renderPalette(host);
       });
     }
-    host.querySelector('#map-palette-filter')?.addEventListener('input', (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      for (const sw of host.querySelectorAll('.map-swatch')) {
-        sw.hidden = q ? !sw.dataset.sprite.includes(q) : false;
-      }
-    });
+    renderPalette(host);
   }
 
   function connect() {

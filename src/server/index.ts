@@ -48,6 +48,7 @@ import { CombatIntent } from '../combat/intent.js';
 import { buildWeaponInfo, loadEnemy, enemyFootprintSize } from '../combat/enemy_loader.js';
 import { generateAIIntent } from '../combat/ai.js';
 import { generateReplay, runMatrix } from '../combat/replay_sim.js';
+import { makeTree } from '../combat/terrain.js';
 import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
@@ -4270,9 +4271,17 @@ io.on('connection', (socket: Socket) => {
     const at = parseTilePos(tile);
     if (!at || typeof sprite !== 'string' || !sprite) return;
 
+    // A tree is built by the generator's own rules rather than dropped as a
+    // single sprite, so one placed by hand is the same kind of thing as one
+    // that grew there: a trunk with a canopy above it, not a flat decal.
+    const wantsTree = kind === 'tree' || sprite === 'tree';
+    const tree = wantsTree ? makeTree(Math.random) : null;
+
     const object = await placeObject({
-      chunk: presence.chunk, ...at, sprite,
-      kind: typeof kind === 'string' && kind ? kind : 'decor',
+      chunk: presence.chunk, ...at,
+      sprite: tree ? tree.stack[0] : sprite,
+      kind: wantsTree ? 'tree' : (typeof kind === 'string' && kind ? kind : 'decor'),
+      data: tree ? { stack: tree.stack, f: tree.f } : undefined,
       ownerAccountId: presence.accountId,
     });
     io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });

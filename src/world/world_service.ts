@@ -29,6 +29,14 @@ export interface WorldObjectView {
   sprite: string;
   kind: string;
   state: string | null;
+  /**
+   * Present on things that stand more than one square tall, like a tree: the
+   * sprites from the base upward, plus one flip flag for the whole prop. The
+   * renderer treats these the way it treats generated props, so a placed tree
+   * gets a canopy over the tokens rather than being a flat decal.
+   */
+  stack?: string[];
+  f?: boolean;
 }
 
 /** Ground materials that can be painted. The generator only uses these two. */
@@ -135,10 +143,7 @@ export async function loadChunk(chunk: Chunk): Promise<ChunkView | null> {
       ...o,
       state: cleared.has(`${o.pos.x},${o.pos.y}`) ? 'destroyed' : o.state,
     })),
-    objects: objectRows.map(o => ({
-      id: o.id, x: o.tile_x, y: o.tile_y,
-      sprite: o.sprite, kind: o.kind, state: o.state,
-    })),
+    objects: objectRows.map(viewOf),
     diffs,
     exits: exitsFrom(chunk),
   };
@@ -224,16 +229,30 @@ export async function paintSquare(args: {
 
 export async function placeObject(args: {
   chunk: Chunk; x: number; y: number; sprite: string;
-  kind?: string; state?: string | null; ownerAccountId?: string | null;
+  kind?: string; state?: string | null;
+  data?: Record<string, unknown>; ownerAccountId?: string | null;
 }): Promise<WorldObjectView> {
   const row = await prisma.worldObject.create({
     data: {
       chunk_x: args.chunk.x, chunk_y: args.chunk.y, tile_x: args.x, tile_y: args.y,
       sprite: args.sprite, kind: args.kind ?? 'decor', state: args.state ?? null,
+      data: (args.data ?? {}) as object,
       owner_account_id: args.ownerAccountId ?? null,
     },
   });
-  return { id: row.id, x: row.tile_x, y: row.tile_y, sprite: row.sprite, kind: row.kind, state: row.state };
+  return viewOf(row);
+}
+
+function viewOf(row: {
+  id: string; tile_x: number; tile_y: number; sprite: string;
+  kind: string; state: string | null; data: unknown;
+}): WorldObjectView {
+  const d = (row.data ?? {}) as { stack?: unknown; f?: unknown };
+  return {
+    id: row.id, x: row.tile_x, y: row.tile_y,
+    sprite: row.sprite, kind: row.kind, state: row.state,
+    ...(Array.isArray(d.stack) ? { stack: d.stack as string[], f: !!d.f } : {}),
+  };
 }
 
 /** Remove the most recently placed object on a square, or nothing. */

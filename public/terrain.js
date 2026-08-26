@@ -28,8 +28,9 @@
   // it grows, so hand-editing coordinates here goes wrong quietly: a stale entry
   // still draws, it just draws the wrong tile.
   //
-  // Buildings (bld_) are deliberately absent. They are 2x2 and 1x2, and this
-  // table only describes single cells.
+  // Buildings are included, and SPRITE_SIZE below says how many cells each one
+  // spreads across. Their atlas entry is the TOP-LEFT cell; the sprite runs
+  // right and down from there.
   const ATLAS = {
     // shadows
     shadow_sm: ['t', 0, 8], shadow_md: ['t', 1, 8],
@@ -80,6 +81,13 @@
     dec_fence_t_junction: ['d', 3, 8], dec_fence_cross: ['d', 4, 8],
     dec_fence_gate: ['d', 5, 8],
 
+    // buildings — atlas entry is the top-left cell; see SPRITE_SIZE
+    bld_house_01: ['d', 0, 11], bld_shed_01: ['d', 2, 11],
+    bld_smithy_01: ['d', 3, 11], bld_house_02: ['d', 0, 13],
+    bld_house_back_02: ['d', 2, 13], bld_tent_01: ['d', 4, 13],
+    bld_tent_02: ['d', 0, 15], bld_tent_03: ['d', 2, 15],
+    bld_tent_04: ['d', 4, 15],
+
     // crops
     dec_crop_grain_sprout_01: ['d', 0, 9], dec_crop_grain_growth_01: ['d', 1, 9],
     dec_crop_grain_harvest_01: ['d', 2, 9], dec_crop_root_sprout_01: ['d', 3, 9],
@@ -87,6 +95,16 @@
     dec_crop_legume_sprout_01: ['d', 0, 10], dec_crop_legume_growth_01: ['d', 1, 10],
     dec_crop_legume_harvest_01: ['d', 2, 10],
   };
+
+  // Anything not listed is a single cell. Buildings are two rows tall and,
+  // except the shed, two columns wide.
+  const SPRITE_SIZE = {
+    bld_house_01: [2, 2], bld_shed_01: [1, 2], bld_smithy_01: [2, 2],
+    bld_house_02: [2, 2], bld_house_back_02: [2, 2],
+    bld_tent_01: [2, 2], bld_tent_02: [2, 2],
+    bld_tent_03: [2, 2], bld_tent_04: [2, 2],
+  };
+  const sizeOf = (name) => SPRITE_SIZE[name] || [1, 1];
 
   // ---- shadows ----
   // Each shadow sprite is drawn to fit a particular piece of decor, so which one
@@ -245,6 +263,27 @@
 
   // Rotations are exact multiples of 90°, so nearest-neighbour sampling stays
   // pixel-exact — no smoothing, no half-pixel drift.
+  /**
+   * Draw a sprite that may span more than one cell.
+   *
+   * Anchored at the BOTTOM-left, so a two-tall building placed on a square
+   * stands on it and rises into the squares above, the same way a tree does.
+   * Placing anchored at the top would have you clicking empty sky to put a
+   * house down.
+   */
+  function blitSprite(ctx, name, g, x, y) {
+    const [w, h] = sizeOf(name);
+    if (w === 1 && h === 1) { blitNamed(ctx, name, g.rect(x, y)); return; }
+    const a = ATLAS[name];
+    if (!a) return;
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        const r = g.rect(x + dx, y - (h - 1) + dy);
+        ctx.drawImage(sheets[a[0]], (a[1] + dx) * TS, (a[2] + dy) * TS, TS, TS, r.x, r.y, r.w, r.h);
+      }
+    }
+  }
+
   function blitRotated(ctx, sheet, col, row, r, rot) {
     if (rot === 0) { blit(ctx, sheet, col, row, r); return; }
     ctx.save();
@@ -432,6 +471,15 @@
       const dead = state.get(`${p.x},${p.y}`) === 'destroyed';
       return { x: p.x, y: p.y, f: p.f, stack: dead ? [p.rubble] : p.stack };
     });
+    // A placed tree is a prop, not decor: it has a trunk on its square and a
+    // canopy leaning into the squares above, and anything standing under it
+    // belongs behind the leaves. Flat objects stay in the decor pass below.
+    const placed = board.objects || [];
+    for (const o of placed) {
+      if (Array.isArray(o.stack) && o.stack.length) {
+        props.push({ x: o.x, y: o.y, f: !!o.f, stack: o.stack });
+      }
+    }
 
     // 4. shadows — LAST thing decided, first thing drawn. Which shadow a square
     // gets depends on the sprite standing on it, so the set can't be worked out
@@ -446,7 +494,9 @@
       const sprite = SHADOW_FOR[p.stack[0]];
       if (sprite) shadows.push({ x: p.x, y: p.y, sprite });
     }
-    for (const o of board.objects || []) {
+    for (const o of placed) {
+      // Stacked ones already went through props above and got theirs there.
+      if (Array.isArray(o.stack) && o.stack.length) continue;
       const sprite = SHADOW_FOR[o.sprite];
       if (sprite) shadows.push({ x: o.x, y: o.y, sprite });
     }
@@ -457,8 +507,10 @@
     // of flowers sits on top of them rather than under.
     for (const s of terrain.scatter) blitNamed(ctx, s.s, g.rect(s.x, s.y), s.f);
     for (const p of props) blitNamed(ctx, p.stack[0], g.rect(p.x, p.y), p.f);
-    const objects = [...(board.objects || [])].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    for (const o of objects) blitNamed(ctx, o.sprite, g.rect(o.x, o.y), false);
+    const flat = placed
+      .filter(o => !(Array.isArray(o.stack) && o.stack.length))
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    for (const o of flat) blitSprite(ctx, o.sprite, g, o.x, o.y);
 
     // No square lines and no coordinates: the board is a place, not a
     // spreadsheet. What you can do with a square is shown when it matters — the
@@ -531,7 +583,18 @@
   }
 
   window.paintTerrain = paintTerrain;
-  // Everything the renderer can draw, for the place tool's palette. Names only:
-  // the caller has no business knowing where on a sheet a sprite lives.
-  window.spriteNames = () => Object.keys(ATLAS).filter(n => !n.startsWith('shadow_'));
+
+  // What the place tool needs to draw its own palette: where each sprite lives
+  // on which sheet, how many cells it spans, and where the sheets are. Handing
+  // over the coordinates means a swatch can be the sprite itself rather than
+  // its name, which is the difference between choosing and guessing.
+  window.spriteCatalogue = () => ({
+    sheets: { t: '/tiles/tileset_terrain.png', d: '/tiles/tileset_decor.png' },
+    tile: TS,
+    sprites: Object.fromEntries(
+      Object.keys(ATLAS)
+        .filter(n => !n.startsWith('shadow_'))
+        .map(n => [n, { at: ATLAS[n], size: sizeOf(n) }]),
+    ),
+  });
 })();
