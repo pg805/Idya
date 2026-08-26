@@ -214,6 +214,8 @@ window.Views.map = (function () {
     if (!tokenLayer()) return;
     for (const [id, o] of occupants) {
       ensureToken(id, o);
+      // o.tile is kept current by placeToken as tokens walk, so this redraws
+      // where they actually are rather than where the last list said.
       if (!walks.has(id)) placeToken(id, o.tile, false);
     }
   }
@@ -396,17 +398,12 @@ window.Views.map = (function () {
       const entry = ensureToken(o.id, o);
       if (!entry?.el) continue;    // no stage yet; renderTokens will place it
 
-      // A presence update is a statement about where people ARE, which during a
-      // walk is the far end of a path the token is still crossing. Applying it
-      // would teleport them to the destination and then the walk would carry on
-      // from the beginning.
-      if (walks.has(o.id)) continue;
-
-      // For our own token the server is echoing a position we already know
-      // about, so only move if it genuinely disagrees; otherwise every update
-      // is a chance to stutter.
-      if (o.id === meId && !isNew && myTile
-          && o.tile.x === myTile.x && o.tile.y === myTile.y) continue;
+      // The list says WHO is here. Where they are comes from walks, which are
+      // live; the list is only sent on joins and departures, so its positions
+      // are as old as the last one of those. Repositioning from it threw
+      // everybody back to where they stood when somebody last arrived, which is
+      // what made chopping look like it teleported you.
+      if (!isNew) continue;
 
       placeToken(o.id, o.tile, false);
     }

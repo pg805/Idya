@@ -4040,7 +4040,7 @@ function broadcastOccupants(chunk: Chunk): void {
 /** Obstacle set for a chunk, so movement can be checked against it. */
 async function blockedIn(chunk: Chunk): Promise<Set<string> | null> {
   const view = await loadChunk(chunk);
-  return view ? blockedBy(view.obstacles) : null;
+  return view ? blockedBy(view.obstacles, view.objects) : null;
 }
 
 async function persistPosition(characterId: string | null, chunk: Chunk, tile: TilePos) {

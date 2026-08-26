@@ -1,5 +1,6 @@
 import { CHUNK_SIZE, inBounds, type TilePos } from './chunk.js';
 import type { Obstacle } from '../combat/board.js';
+import { sizeOf, isWalkableSprite } from './sprites.js';
 
 /**
  * Walking around a chunk.
@@ -12,13 +13,35 @@ import type { Obstacle } from '../combat/board.js';
 
 export type Blocked = (p: TilePos) => boolean;
 
-/** Squares a standing obstacle occupies. Destroyed ones are walked over. */
-export function blockedBy(obstacles: Obstacle[]): Set<string> {
-  return new Set(
+/**
+ * Squares you cannot walk onto.
+ *
+ * Standing obstacles, plus anything placed that stands up rather than lying on
+ * the ground. Placed objects were passable until now, so a barrel or a house
+ * was scenery you strolled through.
+ *
+ * Only the base of a tree blocks, not the squares its canopy leans over: you
+ * walk UNDER branches, which is why the renderer puts them above the tokens.
+ * Buildings block their whole footprint, since none of it is sky.
+ */
+export function blockedBy(
+  obstacles: Obstacle[],
+  objects: Array<{ x: number; y: number; sprite: string; stack?: string[] }> = [],
+): Set<string> {
+  const blocked = new Set(
     obstacles
       .filter(o => o.state !== 'destroyed')
       .map(o => `${o.pos.x},${o.pos.y}`),
   );
+  for (const o of objects) {
+    const base = o.stack?.[0] ?? o.sprite;
+    if (isWalkableSprite(base)) continue;
+    const [w, h] = sizeOf(o.sprite);
+    for (let dx = 0; dx < w; dx++) {
+      for (let dy = 0; dy < h; dy++) blocked.add(`${o.x + dx},${o.y - dy}`);
+    }
+  }
+  return blocked;
 }
 
 export function isPassable(p: TilePos, blocked: Set<string>): boolean {
