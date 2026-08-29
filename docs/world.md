@@ -229,6 +229,10 @@ with generated terrain everywhere else.
 
 So: derived terrain, persistent consequences.
 
+**The map is continuous** — 0,1 is adjacent to 0,0, and a chunk is the screen rather
+than a place you pick from a menu. Regions, the feature layer, and what lives where
+are in **§17**, along with the generator change continuity needs.
+
 #### Buildings and the town's size
 
 **Buildings are 64×64px — exactly 2×2 tiles** on the existing 32px grid. That's a
@@ -977,6 +981,123 @@ answer than it appearing overnight.
 
 ---
 
+### 17. The continuous world — session zero
+
+The systems below are one loop, not a list. Food gates work and combat; enemies are
+the food; clearing land is what turns the camp into a town.
+
+#### The map is continuous
+
+- **One grid, town at 0,0, and 0,1 is next to 0,0.** No "pick a place" menu. The
+  wilderness is somewhere you walk to.
+- **A chunk is the screen, not a separate place.** 24×24 tiles, confirmed.
+- **Prerequisite:** the generator currently seeds noise per board and cuts dirt at
+  that board's own quantile, so neighbours don't line up along a shared edge. World
+  space noise and a global cut. This lands before anything else here.
+
+#### Regions and features
+
+- **No hand-authored chunks outside the town.**
+- **A world-scale feature layer**, placed before terrain: bodies of water, stands of
+  special trees, dungeons. Chunks inherit whatever overlaps them.
+- **Zones, not rings.** A zone is a named region spanning many chunks and carries
+  its difficulty, spawn roster, spawn budget `X`, and terrain character. (Difficulty
+  by distance is out: ring `N` holds `8N` chunks, so it gives 8 chunks of early game
+  and 40 of endgame.)
+- **Features drive rosters.** Swallows spawn around water.
+
+#### Entering combat
+
+- **Walking into a chunk that holds a live enemy is entering combat.** No Hunt page,
+  no bait as a ticket.
+- **The arena is the chunk** — the real map, with its real trees as cover. Not a
+  separate 12×10 board.
+- **The town is a no-combat zone.**
+- **Joining is entering.** Anyone who comes into the chunk joins the fight. Loot
+  splits by turns participated.
+- **No working during a fight.** Labour costs time and that time can't be put in
+  mid-combat.
+- Being dragged into a fight you can't win is allowed, if someone can arrange it.
+
+#### Enemies are world objects
+
+Two records, not one:
+
+| | Holds | Refills |
+|---|---|---|
+| **Spawn point** (per chunk) | budget `X`, roster from the zone and the features under it | the tick tops it up |
+| **Live enemy** | position, current HP, last tick | the tick heals it |
+
+- **Both persist across restarts.** Combat sessions are currently an in-memory `Map`
+  filled by a button; that's what this replaces.
+- **Wounds persist.** A wounded enemy is still wounded when you come back, and
+  someone else can finish your kill.
+
+#### The 4-hour tick
+
+- **Heal every live enemy to full.**
+- **Spawn `X − alive`.**
+- **Never onto a square a player is standing on.** The chunk itself can be occupied;
+  search for a free square the same way tree placement does.
+- **In combat, healing is the monster's own heal actions** at combat pace. The tick
+  is the only out-of-combat clock, and at four hours a fight's duration is noise
+  against it, so regen doesn't pause for combat.
+
+#### Bait is a lure
+
+- **Not a permit.** Every existing bait item keeps its identity and its enemy
+  mapping (`BAIT_TO_ENEMY`).
+- **It pulls another of that kind to a location that has been cleared.**
+
+#### Food
+
+- **Food gates combat and labour.** Both cost it.
+- **It comes from enemies, and from farming.**
+- **The camp holds a communal store**, and food is the reason to come back to 0,0.
+- **A battle and a tree cost about the same and return about the same.**
+
+#### One faucet per resource
+
+| Resource | Source |
+|---|---|
+| Wood | Felling trees |
+| Ore | The mine |
+| Crops | Farming |
+| Meat, hide, bone, arcane parts | Enemies |
+
+Enemies stop dropping wood and ore.
+
+#### Labour
+
+- **Chopping and digging cost time.** Not durability: the axe is also a weapon and
+  doesn't dull.
+- **Time pools.** Several players on one tree finish it sooner.
+- **Trees regrow everywhere except the town chunk.**
+- **Death costs wounds** (§12).
+
+#### The bootstrap
+
+- **The GM hands out pre-made L0 tools as quest rewards.** The mechanism exists:
+  `quest_board.ts` grants weapons on completion and the GM quest form already has
+  the field.
+- **Needs:** an L0 axe and an L0 shovel as weapon YAMLs, added to `CHOP_TOOLS` and
+  `DIG_TOOLS` in `src/world/labour.ts`.
+- **The L0 axe is the starter weapon**, in place of `branch`. One item works and
+  fights, so carrying the axe or the shovel is a real choice and a pair has to split
+  the tools between them.
+
+#### Open
+
+- The time cost of a swing, and `X` per zone.
+- Regrowth rate.
+- Whether `X` falls as a chunk is cleared.
+- Running away as an action.
+- Live combat has **no round cap** — only the simulators do (80 in `sim_core.ts`,
+  60 in `replay_sim.ts`). On a 24×24 arena with kiting, two units that both retreat
+  may not resolve.
+
+---
+
 ## Data model sketch
 
 New Prisma models, roughly:
@@ -1021,6 +1142,12 @@ because the whole premise is putting this in front of players as it's built.
 | **0** | Identity: uuid `account_id`, `Identity` table, persisted sessions, Google OAuth + email fallback | Blocks everything, and the migration only grows as more tables reference identity. |
 | **1** | Location-based in-character chat, presence, persisted history | Highest social value per effort. Also the first real test of proximity rules. |
 | **2** | World map: coordinates, seeded chunks, diff storage, the authored town, movement, seeing other players | The map everything else sits on. Needs chunk size closed first. |
+| **2a** | Continuity (§17): world-space noise, global dirt cut, so neighbouring chunks line up | Everything in §17 assumes you can walk from 0,0 to 0,1. |
+| **2b** | Regions (§17): the feature layer, zones, per-zone rosters and `X` | Decides what lives where without hand-authoring chunks. |
+| **2c** | Enemies as world objects (§17): spawn points, live instances, the 4h tick, persistent wounds | Replaces the in-memory session map. Combat entry depends on it. |
+| **2d** | Combat entry (§17): chunk as arena, presence as participation, joining, loot by turns in | Retires the Hunt page and bait-as-permit. |
+| **2e** | Food and labour (§17): food gates both, time cost on chopping, one faucet per resource, L0 tools | The loop that makes clearing land mean something. |
+| — | **▶ SESSION ZERO** | 0–2e. Clear land around the camp; the GM hands out the first tools. |
 | **3** | GM console: ported admin/dev commands + announce, quest, spawn, place, move, roster | Makes sessions runnable as sessions rather than as chat plus manual DB edits. |
 | **4** | Player shops: owner-set prices, GM price bounds, the always-open floor shop, NPC market removed | The GM's character is the first shop, and the mint needs somewhere to mint from. |
 | **5** | Character creation: the forces list, required prose, chosen stance (GM reviews by hand at first) | Players need characters with a stake before the first session, not after. |
@@ -1045,6 +1172,17 @@ be the schedule risk, since it can't be delegated.
 - **Same repo, `dev` branch, additive.** Not a new repo, not a long-lived feature
   branch — one server runs one branch, and the social game has to be playtested as
   it's built.
+- **The map is continuous** (§17). One grid, town at 0,0, chunks 24×24, a chunk is
+  the screen and not a destination you choose.
+- **Zones, not difficulty rings** (§17). Named regions over a world-scale feature
+  layer; features decide what spawns.
+- **The chunk is the combat arena**, and being in it is being in the fight (§17).
+  The town is a no-combat zone.
+- **Food gates combat and labour**, comes from enemies and farming, and is the
+  reason to come back to town (§17).
+- **One faucet per resource** (§17). Wood from trees, ore from the mine, crops from
+  farming, bodies from enemies.
+- **Labour costs time**, pools across players, and can't be done mid-fight (§17).
 - **Combat keeps its round structure.** Not being rewritten as continuous
   real-time. A round timer is likely; the rest of the resolution stack stands.
 - **No NPCs, no automatic market.** Players run the economy.
@@ -1087,8 +1225,7 @@ be the schedule risk, since it can't be delegated.
 
 ## Open questions
 
-1. **Chunk size** — falls out of the town's drawn size (§3). ~24×24 is the working
-   assumption. Confirm once the town layout settles.
+1. ~~**Chunk size**~~ — **closed: 24×24** (§17).
 2. **What is canon?** Does what's said in a Discord voice call during a session
    count as in-world, or is only in-client text canon? Shapes how much has to live
    in the game.
@@ -1098,6 +1235,8 @@ be the schedule risk, since it can't be delegated.
    who can talk, trade, follow, block, steal, attack? Chat range is the first case;
    everything else inherits the answer.
 5. **Round timer** — always on, or only above a player count? How long? GM override?
+   Sharper now that presence means participation (§17): an unsubmitted intent holds
+   a whole chunk, and live combat has no round cap.
 6. **Land economy** — fixed parcel supply (scarcity, land value, resale) or a map
    that expands with the population?
 7. **Crop duration spread** — the actual hours/days/weeks bands.
@@ -1121,10 +1260,10 @@ be the schedule risk, since it can't be delegated.
     part-targeted, or dominant-material? Supersedes the current "upgrade only your
     own profession's weapons" rule.
 18. **Which weapons exist at session one**, and what the mine unlocks.
-19. **Where the higher-level enemies live.** The baseline is answered — **you can
-    always fight swallows**, by design, so the material faucet never closes and a
-    new player always has something to do. What's open is how the rest of the roster
-    is reached: wandering, hunting grounds, GM-spawned, or gated behind projects.
+19. **Where the higher-level enemies live.** Largely closed by §17: a zone carries
+    its own roster, and the feature layer under it decides the rest, so swallows
+    live around water and the harder roster lives in the zones that name it. What
+    stays open is the `X` and the roster per zone, which is authoring, not design.
 20. **Onboarding after the reset** — the tutorial (`tutorial_swallow`,
     `tutorial_complete`) assumes a solo funnel. With a founding session and a GM
     present, how much of it survives, and what does someone arriving in week three
