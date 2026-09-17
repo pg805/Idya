@@ -53,10 +53,16 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #turn-label { color: var(--gold); font-weight: bold; }
 #phase-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
-/* Forfeit lives at the right edge of the status bar so the rest of the row
-   keeps its centered, conversational feel and the bail-out is one obvious click. */
+/* The right-hand group: commit mode, the tutorial guide, and forfeit. The rest
+   of the row keeps its centered, conversational feel and the bail-out stays one
+   obvious click at the far edge.
+
+   Only #commit-mode-btn carries the margin-left:auto, because it is the only one
+   of the three that is always visible. Putting an auto margin on more than one
+   splits the free space between them and pulls the group apart, and putting it
+   on a button that hides (the guide is tutorial-only) loses the anchor entirely
+   on every ordinary hunt. */
 #forfeit-btn {
-  margin-left: auto;
   font-size: 0.72rem;
   padding: 4px 12px;
   background: transparent;
@@ -70,10 +76,13 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
 #forfeit-btn:disabled,
 #forfeit-btn[hidden] { display: none; }
 
-/* Tutorial-only "Show guide" / "Run lore" buttons — Show guide anchors the
-   right-side group (Run lore + forfeit follow), styled like forfeit but with a
-   neutral gold hover. */
-#tour-replay-btn, #lore-replay-btn {
+/* Commit mode (always there) and the tutorial-only "Show guide", styled like
+   forfeit but with a neutral gold hover rather than a warning one. */
+#commit-mode-btn { margin-left: auto; }
+#commit-mode-btn.active { color: var(--gold); border-color: var(--gold-dim); }
+
+#commit-mode-btn,
+#tour-replay-btn {
   font-size: 0.72rem;
   padding: 4px 12px;
   background: transparent;
@@ -83,9 +92,9 @@ h1 { color: var(--gold); letter-spacing: 0.12em; font-size: 1.3rem; }
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-#tour-replay-btn { margin-left: auto; }
-#tour-replay-btn:hover, #lore-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
-#tour-replay-btn[hidden], #lore-replay-btn[hidden] { display: none; }
+#commit-mode-btn:hover,
+#tour-replay-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+#tour-replay-btn[hidden] { display: none; }
 
 /* Everything is a STATIC size so content changes (log lines, action sets,
    telegraphs) never reflow the page. Top row: cards | board | log, all fixed

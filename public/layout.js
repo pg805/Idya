@@ -71,16 +71,6 @@ function renderLayout() {
         <div class="layout-right">
           <span class="layout-korel">${layoutData.korel.toLocaleString()} korel</span>
           <button class="layout-settings-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
-          <div class="layout-settings-pop" hidden>
-            <div class="layout-settings-row">
-              <label for="settings-quick" class="layout-settings-label">Quick actions</label>
-              <input id="settings-quick" type="checkbox" class="layout-settings-toggle">
-            </div>
-            <p class="layout-settings-help">In combat, actions fire the instant you pick them (one click). Off lets you review and Confirm before committing your turn.</p>
-            <div class="layout-settings-row">
-              <a class="layout-settings-link" href="/app/settings">All settings</a>
-            </div>
-          </div>
         </div>
       </div>
       ${layoutCompact ? '' : `<div class="layout-prof-row">
@@ -91,7 +81,7 @@ function renderLayout() {
       </div>`}
     </header>`;
 
-  wireSettingsPopover();
+  wireSettingsButton();
   renderVerifyBanner();
 }
 
@@ -167,36 +157,28 @@ function snoozeVerifyBanner() {
 }
 
 /**
- * The header popover.
+ * The gear opens settings. That is the whole behaviour.
  *
- * Deliberately thin. Everything that isn't needed mid-fight lives on the
- * settings page instead; this keeps the one combat preference, because the
- * battle screen renders this same header and leaving a fight to change how
- * actions commit would be absurd.
+ * It used to open a popover holding one preference and a link to the settings
+ * page, which made settings a two-hop trip to reach a page that already had
+ * everything on it, including that preference.
+ *
+ * The popover existed for one real reason: the battle screen renders this same
+ * header, and leaving a fight to change how actions commit would be absurd.
+ * That is a combat control rather than a setting, so it now lives on the battle
+ * screen's own status bar, next to Forfeit, where it is one click from the
+ * board instead of two from a gear.
+ *
+ * In the SPA settings opens as a panel over the world and costs you nothing.
+ * The battle page is its own page, so there the gear is a plain link.
  */
-async function wireSettingsPopover() {
+async function wireSettingsButton() {
   const btn = document.querySelector('.layout-settings-btn');
-  const pop = document.querySelector('.layout-settings-pop');
-  if (!btn || !pop) return;
-
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    pop.hidden = !pop.hidden;
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    if (typeof window.navigate === 'function') window.navigate('/settings');
+    else location.href = '/app/settings';
   });
-  document.addEventListener('click', (e) => {
-    if (pop.hidden) return;
-    if (!pop.contains(e.target) && e.target !== btn) pop.hidden = true;
-  });
-
-  // Quick actions — a client-side (per-device) combat preference read by game.js.
-  const quickToggle = document.getElementById('settings-quick');
-  if (quickToggle) {
-    quickToggle.checked = localStorage.getItem('idya.battle_quick') === '1';
-    quickToggle.addEventListener('change', () => {
-      localStorage.setItem('idya.battle_quick', quickToggle.checked ? '1' : '0');
-      window.dispatchEvent(new CustomEvent('commitmode-change'));
-    });
-  }
 }
 
 

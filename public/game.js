@@ -47,7 +47,37 @@ const ui = {
 // just read the key and re-render the panel when it flips mid-battle. ----
 const COMMIT_KEY = 'idya.battle_quick';
 const quickMode = () => localStorage.getItem(COMMIT_KEY) === '1';
-window.addEventListener('commitmode-change', () => renderActionPanel());
+window.addEventListener('commitmode-change', () => { renderActionPanel(); renderCommitModeBtn(); });
+
+// Commit mode belongs on the battle screen rather than behind the header gear:
+// it only means anything during a fight, and it is the one preference you want
+// to change without leaving one. Same localStorage key the settings page uses,
+// and the same event, so the two stay in step if both are open.
+function renderCommitModeBtn() {
+  const btn = document.getElementById('commit-mode-btn');
+  if (!btn) return;
+  const quick = localStorage.getItem(COMMIT_KEY) === '1';
+  btn.textContent = quick ? 'Quick actions: on' : 'Quick actions: off';
+  btn.classList.toggle('active', quick);
+  btn.title = quick
+    ? 'Actions fire the instant you pick them. Click to require a Confirm instead.'
+    : 'Actions wait for Confirm before committing. Click to make them fire on one click.';
+}
+
+function wireCommitModeBtn() {
+  const btn = document.getElementById('commit-mode-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    localStorage.setItem(COMMIT_KEY, localStorage.getItem(COMMIT_KEY) === '1' ? '0' : '1');
+    window.dispatchEvent(new CustomEvent('commitmode-change'));
+  });
+  renderCommitModeBtn();
+}
+// This script is a plain tag at the end of the body, so the button is already
+// parsed by now. Checking readyState anyway costs a line and survives the day
+// somebody adds defer to the tag.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireCommitModeBtn);
+else wireCommitModeBtn();
 
 // ---- DOM refs ----
 const boardEl         = document.getElementById('board');
