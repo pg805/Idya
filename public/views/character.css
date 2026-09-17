@@ -168,3 +168,87 @@
 #char-toast.show     { opacity: 1; }
 #char-toast.show.ok  { border-color: var(--teal-dim); color: var(--teal-bright); }
 #char-toast.show.err { border-color: var(--warn-dim); color: var(--warn-bright); }
+
+/* ---- canon status --------------------------------------------------------
+   The sheet says canon or not canon, because that is the distinction a player
+   cares about. draft and submitted both read as not canon and differ only in
+   whose move it is, which the note underneath says. */
+
+.char-canon {
+  display: inline-block;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.char-canon-canon {
+  color: var(--gold-bright);
+  border-color: var(--gold-dim);
+  background: var(--gold-bg);
+}
+.char-canon-submitted { color: var(--teal); border-color: var(--teal-dim); }
+
+.char-canon-note {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin-top: 8px;
+}
+
+.char-physical {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.char-prose {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* ---- goals and stances ---- */
+
+.char-goals, .char-stances { display: flex; flex-direction: column; gap: 8px; }
+
+.char-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--teal-dim);
+  border-radius: 3px;
+}
+.char-goal-name { font-size: 0.86rem; color: var(--text-2); }
+.char-goal-detail { font-size: 0.76rem; color: var(--text-faint); line-height: 1.6; white-space: pre-wrap; }
+.char-goal-status {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+/* A proposal is waiting on the GM rather than on the world, so it is marked in
+   the same gold the rest of the site uses for "somebody has to read this". */
+.char-goal-proposed { border-left-color: var(--gold-dim); }
+.char-goal-proposed .char-goal-status { color: var(--gold-dim); }
+.char-goal-accomplished { border-left-color: var(--gold); opacity: 0.75; }
+
+.char-stance {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.char-stance-force { font-size: 0.84rem; color: var(--text-2); }
+.char-stance-value { font-size: 0.76rem; color: var(--teal); }

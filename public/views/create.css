@@ -52,6 +52,9 @@
 
 #create-name,
 #create-bio,
+#create-physical,
+#create-relationships,
+.create-goal-detail,
 #create-sprite-filter {
   background: var(--bg-deep);
   border: 1px solid var(--border);
@@ -65,8 +68,14 @@
 }
 #create-name:focus,
 #create-bio:focus,
+#create-physical:focus,
+#create-relationships:focus,
+.create-goal-detail:focus,
 #create-sprite-filter:focus { border-color: var(--gold-dim); }
-#create-bio { resize: vertical; min-height: 60px; }
+#create-bio,
+#create-physical,
+#create-relationships,
+.create-goal-detail { resize: vertical; min-height: 60px; line-height: 1.5; }
 
 .create-nationality {
   display: grid;
@@ -169,4 +178,185 @@
   border: 1px solid var(--warn-dim);
   border-radius: 4px;
   padding: 8px 14px;
+}
+
+/* ---- the optional half of the sheet --------------------------------------
+   Everything below the required card is worth filling in and costs nothing to
+   skip, so it is styled as an invitation rather than as a form to get through:
+   a quieter card, a heading that says what the section is for, and a note that
+   explains what filling it in actually buys. */
+
+.create-section-head {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+.create-optional { border-color: var(--border); }
+.create-note {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+.create-note strong { color: var(--gold-dim); font-weight: normal; }
+.create-footer-note { text-align: center; margin-top: 8px; }
+
+.create-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.create-link:hover { color: var(--teal-bright); }
+
+.create-namepick { margin-top: 6px; }
+.create-name-group { margin-top: 10px; }
+.create-name-culture {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.create-name-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.create-name-chip {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-2);
+  padding: 4px 9px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.create-name-chip:hover { background: var(--bg-hover); border-color: var(--gold-dim); color: var(--gold-bright); }
+
+/* ---- goals ---- */
+
+.create-goals { display: flex; flex-direction: column; gap: 8px; }
+.create-goal {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+.create-goal.selected { border-color: var(--teal); }
+.create-goal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.create-goal-head:hover { background: var(--bg-hover); }
+.create-goal-mark {
+  flex: 0 0 14px;
+  color: var(--teal-bright);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.create-goal-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.create-goal-label { font-size: 0.92rem; }
+.create-goal.selected .create-goal-label { color: var(--teal-bright); }
+.create-goal-blurb { font-size: 0.76rem; color: var(--text-faint); line-height: 1.5; }
+
+.create-goal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 14px 14px 38px;
+}
+.create-goal-varlabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.create-goal-variant {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 11px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-2);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.create-goal-variant:hover { background: var(--bg-hover); border-color: var(--teal-dim); }
+.create-goal-variant.selected {
+  background: var(--teal-bg);
+  border-color: var(--teal);
+  color: var(--teal-bright);
+}
+.create-goal-vlabel { font-size: 0.85rem; }
+.create-goal-vblurb { font-size: 0.74rem; color: var(--text-faint); line-height: 1.5; }
+.create-goal-variant.selected .create-goal-vblurb { color: var(--teal-bright); opacity: 0.75; }
+
+/* Free text is an application, not a goal, and the page has to say so where the
+   player is about to write it rather than in a footnote. */
+.create-goal-proposal {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  line-height: 1.6;
+  background: var(--gold-bg);
+  border-left: 3px solid var(--gold-dim);
+  border-radius: 3px;
+  padding: 9px 12px;
+  margin-top: 4px;
+}
+.create-goal-proposal strong { color: var(--gold-bright); font-weight: normal; }
+
+/* ---- the forces ---- */
+
+.create-forces { display: flex; flex-direction: column; gap: 10px; }
+.create-force {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-deep);
+  padding: 12px 14px;
+}
+.create-force-name { font-size: 0.92rem; color: var(--gold-bright); }
+.create-force-want {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin: 5px 0 9px;
+}
+.create-force-stances { display: flex; flex-wrap: wrap; gap: 5px; }
+.create-stance {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-2);
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.create-stance:hover { background: var(--bg-hover); border-color: var(--teal-dim); }
+.create-stance.selected {
+  background: var(--teal-bg);
+  border-color: var(--teal);
+  color: var(--teal-bright);
+}
+
+@media (max-width: 560px) {
+  .create-nationality { grid-template-columns: 1fr; }
+  .create-goal-body { padding-left: 14px; }
 }

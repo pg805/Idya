@@ -27,6 +27,43 @@
 
   const PROF_SHOP = { lumberjack: 'lumberjack', blacksmith: 'blacksmith', enchanter: 'enchanting_shop' };
 
+  // The sheet names a goal or a stance through the catalogue the server sent
+  // with the character, so this view cannot drift from what creation offered.
+  function goalLabel(g) {
+    const kind = (data.catalogue?.goals ?? []).find(k => k.key === g.kind);
+    if (!kind) return g.kind;
+    const variant = (kind.variants ?? []).find(v => v.key === g.variant);
+    return variant ? `${kind.label}: ${variant.label}` : kind.label;
+  }
+
+  function forceLabel(key) {
+    return (data.catalogue?.forces ?? []).find(f => f.key === key)?.name ?? key;
+  }
+
+  function stanceLabel(key) {
+    return (data.catalogue?.stances ?? []).find(st => st.key === key)?.label ?? key;
+  }
+
+  // draft and submitted both read as "not canon" on the sheet, because that is
+  // the distinction that matters to the player. The sub-state tells them whose
+  // move it is.
+  const CANON_COPY = {
+    canon: {
+      tag: 'Canon',
+      note: 'The GM has approved this character. Your history is part of the world.',
+    },
+    submitted: {
+      tag: 'Not canon',
+      note: 'Submitted and waiting on the GM. You lose nothing in the meantime: a provisional character plays exactly like an approved one.',
+    },
+    draft: {
+      tag: 'Not canon',
+      note: 'This sheet is still a draft. Filling it in and having the GM approve it is what makes your character canon, and canon characters start the world already meaning something to somebody.',
+    },
+  };
+
+
+
   function render() {
     const body = document.getElementById('char-body');
     const c = data;
@@ -62,6 +99,23 @@
         </tr>`;
     }).join('');
 
+    const canon = CANON_COPY[c.canon_status] ?? CANON_COPY.draft;
+
+    const goalRows = (c.goals ?? []).map(g => `
+      <li class="char-goal char-goal-${esc(g.status)}">
+        <span class="char-goal-name">${esc(goalLabel(g))}</span>
+        ${g.status !== 'active' ? `<span class="char-goal-status">${esc(g.status)}</span>` : ''}
+        ${g.detail ? `<span class="char-goal-detail">${esc(g.detail)}</span>` : ''}
+      </li>
+    `).join('');
+
+    const stanceRows = Object.entries(c.force_stances ?? {}).map(([f, st]) => `
+      <li class="char-stance">
+        <span class="char-stance-force">${esc(forceLabel(f))}</span>
+        <span class="char-stance-value">${esc(stanceLabel(st))}</span>
+      </li>
+    `).join('');
+
     body.innerHTML = `
       <section class="char-hero">
         <div class="char-sprite-box">
@@ -69,10 +123,31 @@
         </div>
         <div class="char-summary">
           <h2 class="char-name">${esc(c.name)}</h2>
+          <p class="char-canon char-canon-${esc(c.canon_status ?? 'draft')}">${esc(canon.tag)}</p>
           ${c.nationality ? `<p class="char-nationality">${esc(c.nationality)}</p>` : ''}
+          ${c.physical ? `<p class="char-physical">${esc(c.physical)}</p>` : ''}
           ${c.bio ? `<p class="char-bio">${esc(c.bio)}</p>` : '<p class="char-bio-empty">No bio set.</p>'}
+          <p class="char-canon-note">${esc(canon.note)}</p>
         </div>
       </section>
+
+      ${goalRows ? `
+      <section class="char-section">
+        <h3 class="char-section-label">Goals</h3>
+        <ul class="char-goals">${goalRows}</ul>
+      </section>` : ''}
+
+      ${stanceRows ? `
+      <section class="char-section">
+        <h3 class="char-section-label">The forces</h3>
+        <ul class="char-stances">${stanceRows}</ul>
+      </section>` : ''}
+
+      ${c.relationships ? `
+      <section class="char-section">
+        <h3 class="char-section-label">Who you know</h3>
+        <p class="char-prose">${esc(c.relationships)}</p>
+      </section>` : ''}
 
       <section class="char-section">
         <h3 class="char-section-label">Vitals</h3>

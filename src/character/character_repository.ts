@@ -22,7 +22,27 @@ export default class CharacterRepository {
     async load(discord_id: string, character_id: string): Promise<Character | null> {
         return prisma.character.findFirst({ where: { id: character_id, discord_id } });
     }
-    async create(discord_id: string, name: string, weapon_key: string, sprite_token?: string, nationality?: string, bio?: string): Promise<Character> {
+    /**
+     * `sheet` is everything on the character sheet beyond a name and a sprite.
+     * All of it is optional by design: a name and a sprite put you on the map,
+     * and the rest is what turns a provisional character into a canon one
+     * (docs/world.md section 11). Goals arrive as chosen (kind, variant) pairs
+     * already validated by the caller.
+     */
+    async create(
+        discord_id: string,
+        name: string,
+        weapon_key: string,
+        sprite_token?: string,
+        nationality?: string,
+        bio?: string,
+        sheet?: {
+            physical?: string;
+            relationships?: string;
+            forceStances?: Record<string, string>;
+            goals?: { kind: string; variant?: string | null; detail?: string | null; status: string }[];
+        },
+    ): Promise<Character> {
         await prisma.user.upsert({
             where:  { discord_id },
             update: {},
@@ -38,12 +58,26 @@ export default class CharacterRepository {
                 sprite_token:  sprite_token  ?? null,
                 nationality:   nationality   ?? null,
                 bio:           bio           ?? null,
+                physical:      sheet?.physical      ?? null,
+                relationships: sheet?.relationships ?? null,
+                force_stances: (sheet?.forceStances ?? {}) as object,
                 health:        hp,
                 max_health:    hp,
                 tile_x:        SPAWN.x,
                 tile_y:        SPAWN.y,
             }
         });
+        if (sheet?.goals?.length) {
+            await prisma.characterGoal.createMany({
+                data: sheet.goals.map(g => ({
+                    character_id: character.id,
+                    kind:    g.kind,
+                    variant: g.variant ?? null,
+                    detail:  g.detail  ?? null,
+                    status:  g.status,
+                })),
+            });
+        }
         const starterWeapon = await prisma.characterWeapon.create({
             data: { character_id: character.id, weapon_key }
         });

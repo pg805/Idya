@@ -12,10 +12,10 @@ datasource db {
 // created any other way). Renaming that column is a separate, additive step;
 // see docs/world.md §1. Discord users are backfilled here lazily on first login.
 model Identity {
-  provider          String   // 'discord' | 'email' | 'google'
-  provider_user_id  String   // the id that provider knows them by
-  account_id        String
-  created_at        DateTime @default(now())
+  provider         String // 'discord' | 'email' | 'google'
+  provider_user_id String // the id that provider knows them by
+  account_id       String
+  created_at       DateTime @default(now())
 
   @@id([provider, provider_user_id])
   @@index([account_id])
@@ -24,13 +24,13 @@ model Identity {
 // Email + password sign-in. Separate from Identity because only this provider
 // stores a secret; the others delegate. One per account.
 model EmailCredential {
-  account_id     String    @id
-  email          String    @unique   // stored lowercased
-  password_hash  String              // scrypt: salt:hash, both hex
+  account_id    String    @id
+  email         String    @unique // stored lowercased
+  password_hash String // scrypt: salt:hash, both hex
   // Null until they click the link. Deliberately does NOT gate play — see
   // docs/world.md §1. It gates trusting the address, not the account.
-  verified_at    DateTime?
-  created_at     DateTime  @default(now())
+  verified_at   DateTime?
+  created_at    DateTime  @default(now())
 }
 
 // Same shape and reasoning as PasswordReset: only a SHA-256 of the emailed
@@ -39,12 +39,12 @@ model EmailCredential {
 // token by accident. `email` is recorded so verifying proves control of *that*
 // address, even if the credential's address changed in the meantime.
 model EmailVerification {
-  token_hash  String    @id
-  account_id  String
-  email       String
-  expires_at  DateTime
-  used_at     DateTime?
-  created_at  DateTime  @default(now())
+  token_hash String    @id
+  account_id String
+  email      String
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
 
   @@index([account_id])
 }
@@ -53,11 +53,11 @@ model EmailVerification {
 // in the email — the token itself is never stored, so a database leak can't be
 // used to reset anyone's password. Single use, and short-lived.
 model PasswordReset {
-  token_hash  String    @id
-  account_id  String
-  expires_at  DateTime
-  used_at     DateTime?
-  created_at  DateTime  @default(now())
+  token_hash String    @id
+  account_id String
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
 
   @@index([account_id])
 }
@@ -70,16 +70,16 @@ model PasswordReset {
 // somebody was called when they said it, and reading history shouldn't need a
 // join against a character that may since have been renamed or deleted.
 model ChatMessage {
-  id              String    @id @default(uuid())
-  chunk_x         Int
-  chunk_y         Int
-  account_id      String
-  character_id    String?
-  character_name  String
-  body            String
-  created_at      DateTime  @default(now())
+  id             String    @id @default(uuid())
+  chunk_x        Int
+  chunk_y        Int
+  account_id     String
+  character_id   String?
+  character_name String
+  body           String
+  created_at     DateTime  @default(now())
   // Set by GM moderation rather than deleting the row, so the record survives.
-  deleted_at      DateTime?
+  deleted_at     DateTime?
 
   @@index([chunk_x, chunk_y, created_at])
   @@index([account_id])
@@ -97,15 +97,15 @@ model ChatMessage {
 // while 'cleared' addresses a square whose obstacle has been felled. Without
 // kind in the key those two would collide on the same numbers.
 model WorldTile {
-  chunk_x     Int
-  chunk_y     Int
-  tile_x      Int
-  tile_y      Int
-  kind        String   // 'corner' | 'cleared'
-  data        Json     @default("{}")
-  account_id  String?  // who changed it, when a player did
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  chunk_x    Int
+  chunk_y    Int
+  tile_x     Int
+  tile_y     Int
+  kind       String // 'corner' | 'cleared'
+  data       Json     @default("{}")
+  account_id String? // who changed it, when a player did
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@id([chunk_x, chunk_y, tile_x, tile_y, kind])
   @@index([chunk_x, chunk_y])
@@ -119,19 +119,19 @@ model WorldTile {
 // WorldTile because more than one thing can share a square with the ground under
 // it, and because an object carries state and an owner that ground never does.
 model WorldObject {
-  id          String   @id @default(uuid())
-  chunk_x     Int
-  chunk_y     Int
-  tile_x      Int
-  tile_y      Int
+  id               String   @id @default(uuid())
+  chunk_x          Int
+  chunk_y          Int
+  tile_x           Int
+  tile_y           Int
   // Atlas name of what to draw, e.g. dec_fire_01. Swapping this is how a thing
   // changes appearance: an unlit fire becomes a lit one.
-  sprite      String
-  kind        String   @default("decor")   // 'decor' | 'fire' | 'building' | ...
-  state       String?
-  data        Json     @default("{}")
+  sprite           String
+  kind             String   @default("decor") // 'decor' | 'fire' | 'building' | ...
+  state            String?
+  data             Json     @default("{}")
   owner_account_id String?
-  created_at  DateTime @default(now())
+  created_at       DateTime @default(now())
 
   @@index([chunk_x, chunk_y])
   @@index([owner_account_id])
@@ -148,26 +148,26 @@ model WorldObject {
 // each person put in is kept, so a town effort can pay out by contribution
 // rather than to whoever happened to land the last one.
 model Quest {
-  id            String    @id @default(uuid())
-  title         String
-  brief         String    @default("")
-  scope         String    @default("group")   // 'solo' | 'group'
+  id           String    @id @default(uuid())
+  title        String
+  brief        String    @default("")
+  scope        String    @default("group") // 'solo' | 'group'
   // 'chop' | 'dig' | 'kill' | 'deposit' | 'manual'
   // 'manual' has no counter: the GM marks it done. It is what lets something
   // that happened at the table become a quest without needing code first.
-  objective     String
-  target_key    String?                       // enemy key, item id; null for chop/dig
-  target_count  Int       @default(1)
+  objective    String
+  target_key   String? // enemy key, item id; null for chop/dig
+  target_count Int       @default(1)
   // { korel: n, items: { id: n }, weapons: [key] }
-  reward        Json      @default("{}")
-  starts_at     DateTime  @default(now())
-  ends_at       DateTime?
-  status        String    @default("active")  // active | complete | expired | cancelled
-  created_by    String?
-  created_at    DateTime  @default(now())
+  reward       Json      @default("{}")
+  starts_at    DateTime  @default(now())
+  ends_at      DateTime?
+  status       String    @default("active") // active | complete | expired | cancelled
+  created_by   String?
+  created_at   DateTime  @default(now())
 
-  assignees     QuestAssignee[]
-  progress      QuestProgress[]
+  assignees QuestAssignee[]
+  progress  QuestProgress[]
 
   @@index([status])
 }
@@ -175,9 +175,9 @@ model Quest {
 // Who it is for. No rows at all means it is open to the whole town, which is
 // what makes a group quest a town effort rather than a private errand.
 model QuestAssignee {
-  quest_id      String
-  character_id  String
-  quest         Quest    @relation(fields: [quest_id], references: [id], onDelete: Cascade)
+  quest_id     String
+  character_id String
+  quest        Quest  @relation(fields: [quest_id], references: [id], onDelete: Cascade)
 
   @@id([quest_id, character_id])
   @@index([character_id])
@@ -186,56 +186,102 @@ model QuestAssignee {
 // What one character has done towards it. Kept per person even on a group
 // quest, so a shared total still knows who filled it.
 model QuestProgress {
-  quest_id      String
-  character_id  String
-  count         Int       @default(0)
-  rewarded_at   DateTime?
-  updated_at    DateTime  @updatedAt
-  quest         Quest     @relation(fields: [quest_id], references: [id], onDelete: Cascade)
+  quest_id     String
+  character_id String
+  count        Int       @default(0)
+  rewarded_at  DateTime?
+  updated_at   DateTime  @updatedAt
+  quest        Quest     @relation(fields: [quest_id], references: [id], onDelete: Cascade)
 
   @@id([quest_id, character_id])
   @@index([character_id])
 }
 
 model User {
-  discord_id         String      @id
-  korel              Int         @default(0)
-  tutorial_complete  Boolean     @default(false)
-  created_at         DateTime    @default(now())
+  discord_id        String      @id
+  korel             Int         @default(0)
+  tutorial_complete Boolean     @default(false)
+  created_at        DateTime    @default(now())
   // When true, Discord announcements that name the player use a <@id> ping
   // instead of the bare character name. Default false (quieter for most).
-  ping_on_action     Boolean     @default(false)
-  characters         Character[]
+  ping_on_action    Boolean     @default(false)
+  characters        Character[]
 }
 
 model Character {
-  id                  String   @id @default(uuid())
-  discord_id          String
-  name                String
-  sprite_token        String?
-  nationality         String?
-  faction             String   @default("neutral")   // empire | town | neutral; set at creation, gates NPC dialogue
-  bio                 String?
-  health              Int
-  max_health          Int
-  equipped_weapon_id  String?
+  id                 String    @id @default(uuid())
+  discord_id         String
+  name               String
+  sprite_token       String?
+  nationality        String?
+  faction            String    @default("neutral") // empire | town | neutral; set at creation, gates NPC dialogue
+  bio                String?
+  // Character sheet, the parts that are prose. None of it is required to play:
+  // a name and a sprite get you onto the map (docs/world.md SS11).
+  physical           String?
+  relationships      String?
+  // Declared stance toward each of the five forces, { forceKey: stance }.
+  // Json rather than a table because this is what the character SAYS at
+  // creation, not what they have earned. Standing, which is earned and lost in
+  // play and gates access, is a different thing and gets its own table when it
+  // exists.
+  force_stances      Json      @default("{}")
+  // draft -> submitted -> canon. Approval is the GM's alone, and it grants
+  // standing rather than access: a provisional character plays immediately and
+  // what review decides is whether they enter canon.
+  canon_status       String    @default("draft")
+  canon_submitted_at DateTime?
+  canon_reviewed_at  DateTime?
+  health             Int
+  max_health         Int
+  equipped_weapon_id String?
 
   // Where this character is standing. Chunk coordinate plus a tile within it
   // (docs/world.md §3). Defaults put everyone in Sulku'it near the middle;
   // the spawn is nudged to a free square on arrival if the stored one is
   // blocked, so a terrain change can't strand somebody inside a tree.
-  chunk_x             Int      @default(0)
-  chunk_y             Int      @default(0)
-  tile_x              Int      @default(12)
-  tile_y              Int      @default(12)
+  chunk_x Int @default(0)
+  chunk_y Int @default(0)
+  tile_x  Int @default(12)
+  tile_y  Int @default(12)
 
-  user                User                  @relation(fields: [discord_id], references: [discord_id])
-  equipped_weapon     CharacterWeapon?      @relation("EquippedWeapon", fields: [equipped_weapon_id], references: [id])
-  inventory           InventoryItem[]
-  weapons             CharacterWeapon[]     @relation("OwnedWeapons")
-  professions         CharacterProfession[]
-  orchard_plots       OrchardPlot[]
-  npc_relations       PlayerNpcRelation[]
+  user            User                  @relation(fields: [discord_id], references: [discord_id])
+  equipped_weapon CharacterWeapon?      @relation("EquippedWeapon", fields: [equipped_weapon_id], references: [id])
+  inventory       InventoryItem[]
+  weapons         CharacterWeapon[]     @relation("OwnedWeapons")
+  professions     CharacterProfession[]
+  goals           CharacterGoal[]
+  orchard_plots   OrchardPlot[]
+  npc_relations   PlayerNpcRelation[]
+}
+
+// What a character is here to do. Not flavour text: each kind is a gameplay
+// feature, so a goal is something the world can actually track and hand back as
+// accomplished, after which the character picks another one.
+//
+// 'own_path' is the exception and is deliberately not a goal yet. Free text is a
+// PROPOSAL, on the same footing as any other application (docs/world.md SS5):
+// the GM reads it, and if it is good it gets built and becomes a real kind.
+model CharacterGoal {
+  id              String    @id @default(uuid())
+  character_id    String
+  // 'build' | 'debt' | 'serve' | 'master' | 'buried' | 'magic' | 'own_path'
+  kind            String
+  // Which flavour of that kind: home/shop, money/vengeance, a force key, a
+  // profession key, an item key, spell/enchantment. Null for own_path.
+  variant         String?
+  // The player's own words. The whole submission for own_path; colour elsewhere.
+  detail          String?
+  // 'active' | 'accomplished' | 'abandoned', or 'proposed' for own_path, which
+  // is waiting on the GM rather than on the player.
+  status          String    @default("active")
+  created_at      DateTime  @default(now())
+  accomplished_at DateTime?
+
+  character Character @relation(fields: [character_id], references: [id], onDelete: Cascade)
+
+  @@index([character_id])
+  @@index([status])
 }
 
 // Player <-> NPC relationship. opinion (warmth, 0-10) and familiarity are the
@@ -251,17 +297,17 @@ model PlayerNpcRelation {
   last_spoken_at DateTime?
   updated_at     DateTime  @updatedAt
 
-  character      Character @relation(fields: [character_id], references: [id])
+  character Character @relation(fields: [character_id], references: [id])
 
   @@id([character_id, npc_id])
 }
 
 model CharacterProfession {
-  character_id  String
-  profession    String
-  level         Int       @default(0)
+  character_id String
+  profession   String
+  level        Int    @default(0)
 
-  character     Character @relation(fields: [character_id], references: [id])
+  character Character @relation(fields: [character_id], references: [id])
 
   @@id([character_id, profession])
 }
@@ -278,29 +324,29 @@ model Item {
 // `accrued` is the banked output so far; rolls are persisted so the page matches
 // harvest. An idle plot has item_id = null. One row per (character, slot).
 model OrchardPlot {
-  character_id  String
-  slot          Int
-  item_id       String?
-  seed_count    Int       @default(0)
-  fertilizer    Int       @default(0)   // allocated from a pool = plot count; modifies odds
-  accrued       Int       @default(0)
-  ticks_banked  Int       @default(0)   // rolls since plant; capped at 6
-  last_tick_at  DateTime  @default(now())
+  character_id String
+  slot         Int
+  item_id      String?
+  seed_count   Int      @default(0)
+  fertilizer   Int      @default(0) // allocated from a pool = plot count; modifies odds
+  accrued      Int      @default(0)
+  ticks_banked Int      @default(0) // rolls since plant; capped at 6
+  last_tick_at DateTime @default(now())
 
-  character     Character @relation(fields: [character_id], references: [id])
+  character Character @relation(fields: [character_id], references: [id])
 
   @@id([character_id, slot])
 }
 
 model CharacterWeapon {
-  id            String     @id @default(uuid())
-  character_id  String
-  weapon_key    String
-  upgrades      Json       @default("{}")
-  created_at    DateTime   @default(now())
+  id           String   @id @default(uuid())
+  character_id String
+  weapon_key   String
+  upgrades     Json     @default("{}")
+  created_at   DateTime @default(now())
 
-  character     Character  @relation("OwnedWeapons", fields: [character_id], references: [id])
-  equipped_by   Character[] @relation("EquippedWeapon")
+  character   Character   @relation("OwnedWeapons", fields: [character_id], references: [id])
+  equipped_by Character[] @relation("EquippedWeapon")
 
   @@index([character_id, weapon_key])
 }
@@ -315,44 +361,44 @@ model KorelLedger {
 }
 
 model BattleLog {
-  id           String          @id @default(uuid())
-  discord_id   String
-  character_id String
-  enemy        String
-  outcome      String
-  korel_delta  Int
-  loot         String?
-  started_at   DateTime
-  ended_at     DateTime        @default(now())
+  id                String          @id @default(uuid())
+  discord_id        String
+  character_id      String
+  enemy             String
+  outcome           String
+  korel_delta       Int
+  loot              String?
+  started_at        DateTime
+  ended_at          DateTime        @default(now())
   // Filterable on the dev stats page. NULL on pre-0.2.0 rows.
-  version      String?
-  weapon_key   String?
+  version           String?
+  weapon_key        String?
   // Player upgrade count on the equipped weapon at battle time (each = +1; 3 = a
   // weapon level). Lets the stats page split a weapon by effective level. NULL on
   // rows logged before this was tracked.
-  weapon_upgrades Int?
+  weapon_upgrades   Int?
   // Per-battle metrics for the dev stats page. NULL on pre-0.2.0 rows.
   // Multi-enemy battles emit one row per enemy; player-side metrics
   // (player_hp_left, damage_received, rounds_count, crit_count,
   // aimed_attempted, aimed_hit, restores, player_went_first) repeat
   // across rows. Enemy-side metrics (damage_dealt, enemy_hp_left) are
   // per-enemy.
-  player_hp_left     Int?
-  enemy_hp_left      Int?
-  damage_dealt       Int?
-  damage_received    Int?
-  rounds_count       Int?
-  crit_count         Int?
-  aimed_attempted    Int?
-  aimed_hit          Int?
-  restores           Int?
-  player_went_first  Boolean?
-  rounds             BattleRoundLog?
+  player_hp_left    Int?
+  enemy_hp_left     Int?
+  damage_dealt      Int?
+  damage_received   Int?
+  rounds_count      Int?
+  crit_count        Int?
+  aimed_attempted   Int?
+  aimed_hit         Int?
+  restores          Int?
+  player_went_first Boolean?
+  rounds            BattleRoundLog?
 }
 
 model BattleRoundLog {
-  id        String   @id @default(uuid())
-  battle_id String   @unique
+  id        String    @id @default(uuid())
+  battle_id String    @unique
   battle    BattleLog @relation(fields: [battle_id], references: [id])
   rounds    Json
 }
@@ -368,7 +414,7 @@ model BattleRoundLog {
 // mattered.
 model EventLog {
   id           String   @id @default(uuid())
-  discord_id   String                     // the account; name is historical
+  discord_id   String // the account; name is historical
   character_id String?
   event_type   String
   chunk_x      Int?
@@ -400,7 +446,7 @@ model ShopTransaction {
   id         String   @id @default(uuid())
   shop_id    String
   item_id    String
-  type       String   // 'buy' | 'sell'
+  type       String // 'buy' | 'sell'
   quantity   Int
   discord_id String
   created_at DateTime @default(now())
@@ -421,12 +467,12 @@ model ShopPriceTick {
 }
 
 model InventoryItem {
-  character_id  String
-  item_id       String
-  quantity      Int       @default(1)
+  character_id String
+  item_id      String
+  quantity     Int    @default(1)
 
-  character     Character @relation(fields: [character_id], references: [id])
-  item          Item      @relation(fields: [item_id], references: [id])
+  character Character @relation(fields: [character_id], references: [id])
+  item      Item      @relation(fields: [item_id], references: [id])
 
   @@id([character_id, item_id])
 }
@@ -435,30 +481,30 @@ model InventoryItem {
 // price; participants earn a rank-tiered trophy when it completes. Authored as a
 // YAML in database/quests/ and materialized into a row when its start time hits.
 model GlobalQuest {
-  id          String         @id
-  name        String
-  lore        String
-  item_id     String
-  target      Int
-  price       Int            // korel paid per item deposited (fixed for the quest)
-  deposited   Int            @default(0)
-  starts_at   DateTime
-  ends_at     DateTime
-  status      String         @default("scheduled") // scheduled | active | completed
-  created_at  DateTime       @default(now())
-  deposits    QuestDeposit[]
+  id         String         @id
+  name       String
+  lore       String
+  item_id    String
+  target     Int
+  price      Int // korel paid per item deposited (fixed for the quest)
+  deposited  Int            @default(0)
+  starts_at  DateTime
+  ends_at    DateTime
+  status     String         @default("scheduled") // scheduled | active | completed
+  created_at DateTime       @default(now())
+  deposits   QuestDeposit[]
 }
 
 model QuestDeposit {
-  id            String      @id @default(uuid())
-  quest_id      String
-  character_id  String
-  quantity      Int         @default(0)
-  rank          Int?        // frozen 1/2/3/… at completion; null while active
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
+  id           String   @id @default(uuid())
+  quest_id     String
+  character_id String
+  quantity     Int      @default(0)
+  rank         Int? // frozen 1/2/3/… at completion; null while active
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 
-  quest         GlobalQuest @relation(fields: [quest_id], references: [id])
+  quest GlobalQuest @relation(fields: [quest_id], references: [id])
 
   @@unique([quest_id, character_id])
   @@index([character_id])

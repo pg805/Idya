@@ -61,6 +61,10 @@ import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
 import { islandGround } from '../combat/terrain.js';
+import {
+  FORCES, STANCES, GOAL_KINDS, KETULVU_NAMES, CHAE_NAMES,
+  FORCE_KEYS, STANCE_KEYS, goalIsValid, initialGoalStatus,
+} from '../character/character_sheet.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop, baseBuyPrices, type ShopItemListing } from '../economy/shop_loader.js';
 import {
@@ -1797,10 +1801,11 @@ app.get('/api/character', async (req: Request, res: Response) => {
   if (chars.length === 0) { res.status(400).json({ error: 'No character found' }); return; }
   const char = chars[0];
 
-  const [weapons, dbUser, profRows] = await Promise.all([
+  const [weapons, dbUser, profRows, goalRows] = await Promise.all([
     prisma.characterWeapon.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
     prisma.user.findUnique({ where: { discord_id: discordId } }),
     prisma.characterProfession.findMany({ where: { character_id: char.id } }),
+    prisma.characterGoal.findMany({ where: { character_id: char.id }, orderBy: { created_at: 'asc' } }),
   ]);
   const weaponList = weapons.map(w => {
     const raw = loadWeaponYaml(w.weapon_key, __dirname) as Record<string, unknown> | null;
@@ -1825,6 +1830,18 @@ app.get('/api/character', async (req: Request, res: Response) => {
     name:         char.name,
     nationality:  char.nationality,
     bio:          char.bio,
+    physical:      char.physical,
+    relationships: char.relationships,
+    force_stances: char.force_stances ?? {},
+    // The sheet shows canon or not canon. Every state plays identically: what
+    // approval grants is standing, not access (docs/world.md section 11).
+    canon_status:  char.canon_status,
+    goals: goalRows.map(g => ({
+      id: g.id, kind: g.kind, variant: g.variant, detail: g.detail, status: g.status,
+    })),
+    // The catalogue rides along so the sheet can name a goal or a force without
+    // a second request, and cannot disagree with creation about what they mean.
+    catalogue: { forces: FORCES, stances: STANCES, goals: GOAL_KINDS },
     sprite_token: char.sprite_token,
     sprite_cdn:   worldConfig.sprite_cdn,
     health:       char.health,
@@ -1877,20 +1894,75 @@ app.get('/api/sprites', async (_req: Request, res: Response) => {
   });
 });
 
+// Everything the creation screen renders, served rather than duplicated in the
+// client: the forces and their wants, the stances, the goal catalogue, the name
+// lists and the sprites. One fetch, and one place where what exists is decided.
+app.get('/api/character/options', async (_req: Request, res: Response) => {
+  res.json({
+    sprites:   SPRITES,
+    spriteCdn: worldConfig.sprite_cdn,
+    forces:    FORCES,
+    stances:   STANCES,
+    goals:     GOAL_KINDS,
+    names:     { Ketulvu: KETULVU_NAMES, Chae: CHAE_NAMES },
+  });
+});
+
 app.post('/api/character/create', async (req: Request, res: Response) => {
   const discordId = resolveAuth(req);
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
-  const { name, bio, nationality, sprite_key } = req.body as {
+  const {
+    name, bio, nationality, sprite_key, physical, relationships, force_stances, goals,
+  } = req.body as {
     name?: string; bio?: string; nationality?: string; sprite_key?: string;
+    physical?: string; relationships?: string;
+    force_stances?: Record<string, string>;
+    goals?: { kind?: string; variant?: string | null; detail?: string | null }[];
   };
-  if (typeof name !== 'string' || typeof nationality !== 'string' || typeof sprite_key !== 'string') {
-    res.status(400).json({ error: 'name, nationality, and sprite_key required' }); return;
+  // Name and sprite are the whole requirement. Everything else is what turns a
+  // provisional character into one the GM can make canon, and none of it gates
+  // getting onto the map (docs/world.md section 11).
+  if (typeof name !== 'string' || typeof sprite_key !== 'string') {
+    res.status(400).json({ error: 'name and sprite_key required' }); return;
   }
+  const str = (v: unknown, max: number): string | undefined =>
+    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
+
+  // Keep only stances that name a real force and a real stance. A stray key is
+  // dropped rather than refused: it cannot mean anything, and failing the whole
+  // creation over it would lose everything the player just wrote.
+  const stances: Record<string, string> = {};
+  for (const [k, v] of Object.entries(force_stances ?? {})) {
+    if (FORCE_KEYS.has(k) && typeof v === 'string' && STANCE_KEYS.has(v)) stances[k] = v;
+  }
+
+  const chosenGoals: { kind: string; variant?: string | null; detail?: string | null; status: string }[] = [];
+  for (const g of goals ?? []) {
+    if (typeof g?.kind !== 'string') continue;
+    const variant = typeof g.variant === 'string' && g.variant ? g.variant : null;
+    if (!goalIsValid(g.kind, variant)) {
+      res.status(400).json({ error: `Unknown goal: ${g.kind}${variant ? `/${variant}` : ''}` });
+      return;
+    }
+    if (chosenGoals.some(c => c.kind === g.kind && c.variant === variant)) continue;
+    chosenGoals.push({
+      kind:    g.kind,
+      variant,
+      detail:  str(g.detail, 1000) ?? null,
+      // Free text is a proposal for the GM rather than a goal the world tracks.
+      status:  initialGoalStatus(g.kind),
+    });
+  }
+
   const result = await bootstrapNewCharacter(discordId, {
     name: name.trim(),
-    bio:  typeof bio === 'string' ? bio.trim() || undefined : undefined,
-    nationality: nationality as Nationality,
+    bio:  str(bio, 1500),
+    nationality: typeof nationality === 'string' && nationality ? nationality as Nationality : undefined,
     spriteKey:   sprite_key,
+    physical:      str(physical, 1000),
+    relationships: str(relationships, 1500),
+    forceStances:  stances,
+    goals:         chosenGoals,
   });
   if (!result.ok) {
     res.json({ success: false, message: result.error });
@@ -5443,17 +5515,33 @@ function findActiveTutorialSession(discordId: string): string | null {
 // Character creation + tutorial-session bootstrap. Used by /api/character/create.
 async function bootstrapNewCharacter(
   discordId: string,
-  input: { name: string; bio?: string; nationality: Nationality; spriteKey: string },
+  input: {
+    name: string; bio?: string; nationality?: Nationality; spriteKey: string;
+    physical?: string; relationships?: string;
+    forceStances?: Record<string, string>;
+    goals?: { kind: string; variant?: string | null; detail?: string | null; status: string }[];
+  },
 ): Promise<{ ok: true; sessionUrl: string } | { ok: false; error: string }> {
   if (!input.name || input.name.trim().length === 0) return { ok: false, error: 'Name is required.' };
   if (input.name.length > 32) return { ok: false, error: 'Name max 32 characters.' };
-  if (input.bio && input.bio.length > 300) return { ok: false, error: 'Bio max 300 characters.' };
-  if (!VALID_NATIONALITIES.includes(input.nationality)) return { ok: false, error: 'Invalid nationality.' };
+  // Nationality is now optional, like the rest of the sheet. Given, it still
+  // has to be one of the two.
+  if (input.nationality && !VALID_NATIONALITIES.includes(input.nationality)) {
+    return { ok: false, error: 'Invalid nationality.' };
+  }
   if (!SPRITES.find(s => s.key === input.spriteKey)) return { ok: false, error: 'Invalid sprite.' };
   const existing = await charRepo.list(discordId);
   if (existing.length > 0) return { ok: false, error: 'You already have a character.' };
 
-  await charRepo.create(discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio);
+  await charRepo.create(
+    discordId, input.name, 'branch', input.spriteKey, input.nationality, input.bio,
+    {
+      physical:      input.physical,
+      relationships: input.relationships,
+      forceStances:  input.forceStances,
+      goals:         input.goals,
+    },
+  );
   const sessionId = startTutorialSession(discordId, input.spriteKey);
   return { ok: true, sessionUrl: `/battle/${sessionId}` };
 }
