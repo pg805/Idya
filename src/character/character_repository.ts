@@ -5,6 +5,14 @@ import { Character } from '@prisma/client';
 
 export type { Character as CharacterData };
 
+// Where a new character wakes up: the gap in the ring of logs around the
+// campfire at the south-east of Sulku'it (the fire is at 19,20 and the logs
+// close it on three sides, leaving the south open). Arriving at a lit fire
+// with somewhere to sit reads as being met, which the middle of an empty
+// field does not. The schema default of 12,12 stays as the fallback for rows
+// written by anything that does not go through here.
+const SPAWN = { x: 19, y: 21 } as const;
+
 export default class CharacterRepository {
 
     async list(discord_id: string): Promise<Character[]> {
@@ -14,7 +22,6 @@ export default class CharacterRepository {
     async load(discord_id: string, character_id: string): Promise<Character | null> {
         return prisma.character.findFirst({ where: { id: character_id, discord_id } });
     }
-
     async create(discord_id: string, name: string, weapon_key: string, sprite_token?: string, nationality?: string, bio?: string): Promise<Character> {
         await prisma.user.upsert({
             where:  { discord_id },
@@ -33,6 +40,8 @@ export default class CharacterRepository {
                 bio:           bio           ?? null,
                 health:        hp,
                 max_health:    hp,
+                tile_x:        SPAWN.x,
+                tile_y:        SPAWN.y,
             }
         });
         const starterWeapon = await prisma.characterWeapon.create({
