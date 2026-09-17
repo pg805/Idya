@@ -14,7 +14,8 @@ import { choosePlan } from '../combat/ai_planner.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { buildWeaponInfo } from '../combat/enemy_loader.js';
 import { CombatIntent } from '../combat/intent.js';
-import { BoardConfig, Pos, chebyshevDist } from '../combat/board.js';
+import { BoardConfig, Board, Pos, chebyshevDist } from '../combat/board.js';
+import { islandGround } from '../combat/terrain.js';
 import Weapon from '../weapon/weapon.js';
 import yaml from 'js-yaml';
 import fs from 'fs';
@@ -839,6 +840,41 @@ console.log('\nTrain follow (in order): the NPC walks the squares the player vac
   const pp = s.combatants.find(c => c.id === 'P')!.pos;
   const ep = s.combatants.find(c => c.id === 'E')!.pos;
   check(pp.x === 3 && ep.x === 2, `both advanced — player led (${pp.x},${pp.y}), NPC followed into the vacated squares (${ep.x},${ep.y})`);
+}
+
+// ---- Test 38: impassable ground stops feet but not sight ----
+// The tutorial island: a 6x2 strip of grass with one square of water all round.
+// Water is not an obstacle, so the two have to be told apart: movement must
+// refuse it, sight must ignore it, and nothing may be knocked into it.
+console.log('\nImpassable ground (water): feet stop, sight does not:');
+{
+  const W = 8, H = 4, INSET = 1;
+  const g = islandGround(W, H, INSET);
+  const water = new Set(g.impassable.map(p => `${p.x},${p.y}`));
+  const b = new Board({
+    width: W, height: H, obstacles: [],
+    impassable: g.impassable, terrainBase: 'water', terrainCorners: g.corners,
+  });
+
+  check(g.impassable.length === W * H - 12, `the island is 6x2 of dry land (${W * H - g.impassable.length} walkable)`);
+  check(b.isImpassable({ x: 0, y: 0 }) && !b.isImpassable({ x: 1, y: 1 }),
+    'the ring is impassable and the strip is not');
+  check(!b.isBlocked({ x: 0, y: 0 }),
+    'water is NOT an obstacle - isBlocked stays false, so sight and AOE still cross it');
+
+  // A range far larger than the island: if water leaks, this floods the board.
+  const far = reachableTiles({ x: 1, y: 2 }, 20, b, new Set());
+  check(far.size === 12 && ![...far.keys()].some(k => water.has(k)),
+    `movement cannot leave the island even with range to spare (reached ${far.size})`);
+
+  // Control: the same board without the list must flood, or the test proves nothing.
+  const open = new Board({ width: W, height: H, obstacles: [] });
+  check(reachableTiles({ x: 1, y: 2 }, 20, open, new Set()).size === W * H,
+    'control: the same board with no impassable list floods all 32 squares');
+
+  const path = findPath({ x: 1, y: 1 }, { x: 6, y: 2 }, 20, b, new Set(), 'A', false);
+  check(!!path && !path.some(st => water.has(`${st.x},${st.y}`)),
+    'a path across the island never steps in the water');
 }
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — ${pass} passed, ${fail} failed\n`);

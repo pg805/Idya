@@ -475,14 +475,18 @@
     const g = geometry(terrain.width, terrain.height, cellPx, window.devicePixelRatio || 1);
     const ctx = prepare(canvases.ground, g, cellPx);
 
-    // 1. dirt — the base everything else sits on, so it's a flat fill.
+    // 1. the base — a flat fill everything else sits on. Dirt for a wild board,
+    // water for a made one, and the layer above does not care which: grass is
+    // painted the same way over either, so the same corner lattice reads as
+    // worn earth on one board and as a shoreline on the next.
+    const baseRow = MATERIAL_ROW[terrain.base] ?? MATERIAL_ROW.dirt;
     for (let y = 0; y < g.h; y++)
       for (let x = 0; x < g.w; x++)
-        blit(ctx, 't', 0, MATERIAL_ROW.dirt, g.rect(x, y));
+        blit(ctx, 't', 0, baseRow, g.rect(x, y));
 
-    // 2. grass — autotiled over the dirt from the CORNER lattice. Dirt is the
-    // rare thing, so what shows through reads as bare earth worn into a forest
-    // floor rather than as terrain in its own right.
+    // 2. grass — autotiled over the base from the CORNER lattice. On a dirt
+    // board what shows through is the rare thing and reads as bare earth worn
+    // into a forest floor; on a water board it is everything outside the land.
     paintMaterial(ctx, 'grass', g, (i, j) => terrain.corners[j][i] === 'g');
 
     // 3. grass overlay — tufts that break up the flat fill.

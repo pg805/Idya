@@ -246,9 +246,13 @@ function myPlayerCombatant() {
 // runs the same avoidance, so the green outline matches the damage actually taken.
 function computeReachable(combatant) {
   const { width, height, obstacles } = state.board;
+  // Mirrors cannotEnter() in the server's movement.ts: feet are stopped by a
+  // standing obstacle OR by the ground itself. Sight is not, which is why the
+  // LOS helper below builds its own set from obstacles alone.
   const obstacleSet = new Set(
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
+  for (const p of state.board.impassable || []) obstacleSet.add(`${p.x},${p.y}`);
   const tiles = state.board.tiles || [];
   const slowSet = new Set(tiles.filter(t => t.kind === 'slow').map(t => `${t.pos.x},${t.pos.y}`));
   const hazardVal = new Map(); // 'x,y' → damage, opposing-team hazard tiles only
@@ -401,9 +405,14 @@ function computeTargetableTiles(actionInfo, fromPos) {
     obstacles.filter(o => o.state !== 'destroyed').map(o => `${o.pos.x},${o.pos.y}`)
   );
   // A blink-strike (moveTo) relocates you onto the aimed tile, so it can only
-  // target an empty passable square — never one a combatant is standing on.
+  // target an empty passable square — never one a combatant is standing on, and
+  // never water. Every other aimed action may target water freely: a blast
+  // centred on a pond still catches whoever is on the bank.
   const occupiedSet = actionInfo.moveTo
-    ? new Set(state.combatants.filter(c => c.hp > 0).flatMap(combatantCells))
+    ? new Set([
+        ...state.combatants.filter(c => c.hp > 0).flatMap(combatantCells),
+        ...(state.board.impassable || []).map(p => `${p.x},${p.y}`),
+      ])
     : null;
   const tiles = new Set();
   for (let x = 0; x < width; x++) {

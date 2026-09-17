@@ -1,4 +1,4 @@
-import { generateTerrain, type TerrainData } from './terrain.js';
+import { generateTerrain, type TerrainData, type GroundMaterial, type GroundRow } from './terrain.js';
 
 export type Pos = { x: number; y: number };
 export type ObstacleState = 'intact' | 'damaged' | 'destroyed';
@@ -16,6 +16,20 @@ export interface BoardConfig {
   // rolls its own the first time it's serialized. Pass a seed to reproduce a
   // specific board's look.
   terrainSeed?: number;
+  // Squares no unit can enter because of the GROUND, not because something is
+  // standing on them. Water, today. Kept separate from `obstacles` on purpose:
+  // an obstacle blocks sight and can be destroyed, and water does neither. You
+  // can see and shoot clean across a pond, you just cannot walk onto it.
+  //
+  // An explicit list rather than something read back off the terrain, because
+  // terrain is built lazily and most boards never build it at all: the balance
+  // sims spin up tens of thousands and never draw one. A board that passes no
+  // list pays nothing for this.
+  impassable?: Pos[];
+  // Flat fill under the grass, and ground laid out by hand. Both are for made
+  // places; a wild board leaves them alone and rolls its own.
+  terrainBase?: GroundMaterial;
+  terrainCorners?: GroundRow[];
 }
 
 // Board-effect tiles (0.2.0 positional layer). Permanent; placing on an occupied
@@ -32,6 +46,9 @@ export class Board {
   readonly width: number;
   readonly height: number;
   readonly terrainSeed: number;
+  private readonly impassable: Set<string>;
+  private readonly terrainBase?: GroundMaterial;
+  private readonly terrainCorners?: GroundRow[];
   private obstacles: Map<string, Obstacle>;
   private tiles: Map<string, Tile> = new Map();
   // Built on first use, not in the constructor: the balance sims spin up tens of
@@ -44,6 +61,9 @@ export class Board {
     this.width = config.width;
     this.height = config.height;
     this.terrainSeed = config.terrainSeed ?? Math.floor(Math.random() * 0xffffffff);
+    this.impassable = new Set((config.impassable ?? []).map(posKey));
+    this.terrainBase = config.terrainBase;
+    this.terrainCorners = config.terrainCorners;
     this.obstacles = new Map();
     for (const obs of config.obstacles) {
       this.obstacles.set(posKey(obs.pos), { ...obs });
@@ -54,6 +74,7 @@ export class Board {
     if (!this.terrainCache) {
       this.terrainCache = generateTerrain(
         this.width, this.height, Array.from(this.obstacles.values()), this.terrainSeed,
+        { base: this.terrainBase, corners: this.terrainCorners },
       );
     }
     return this.terrainCache;
@@ -66,6 +87,12 @@ export class Board {
   isBlocked(pos: Pos): boolean {
     const obs = this.obstacles.get(posKey(pos));
     return obs !== undefined && obs.state !== 'destroyed';
+  }
+
+  // Ground a unit cannot stand on. Movement asks this; sight does not, because
+  // water stops feet and nothing else.
+  isImpassable(pos: Pos): boolean {
+    return this.impassable.has(posKey(pos));
   }
 
   getObstacle(pos: Pos): Obstacle | undefined {
@@ -95,6 +122,12 @@ export class Board {
       width: this.width,
       height: this.height,
       obstacles: Array.from(this.obstacles.values()),
+      // The client mirrors the movement rules to highlight reachable squares,
+      // so it needs the same ground the server is walking on.
+      impassable: Array.from(this.impassable).map(k => {
+        const [x, y] = k.split(',').map(Number);
+        return { x, y };
+      }),
       tiles: Array.from(this.tiles.values()),
       terrain: this.terrain,
     };

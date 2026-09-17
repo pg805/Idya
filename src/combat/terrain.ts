@@ -17,8 +17,14 @@
 
 import type { Obstacle, Pos } from './board.js';
 
-// 'g' = grass, 'd' = dirt. One char per grid CORNER, one string per row of
-// corners — so this array is (height + 1) rows of (width + 1) chars, not one
+// The flat fill under the grass layer. Not a per-corner value: a board is dirt
+// under grass or water under grass, never both, because there is one base blit.
+export type GroundMaterial = 'dirt' | 'water';
+
+// 'g' = grass, anything else = the board's base material showing through
+// ('d' for dirt, 'w' for water, which read identically to the autotiler and
+// differ only in which row the base fill comes from). One char per grid CORNER,
+// one string per row of corners — so this array is (height + 1) rows of (width + 1) chars, not one
 // entry per square. See the note on `corners` in TerrainData.
 export type GroundRow = string;
 
@@ -49,6 +55,12 @@ export interface TerrainData {
   seed: number;
   width: number;
   height: number;
+  // The flat fill the grass is autotiled over. Grass is always the material
+  // painted on top; what shows through where there is no grass is this. 'dirt'
+  // makes the gaps read as bare earth worn into a forest floor. 'water' makes
+  // the same grass shape read as an island, with the shoreline autotiling
+  // itself, because the shape set does not care what is underneath it.
+  base: GroundMaterial;
   // Ground material lives on the grid's CORNERS, not on its squares. Every tile
   // the renderer draws — terrain, decor, all of it — sits on the same aligned
   // 32px grid; what varies per tile is which of its four corners are grass, and
@@ -371,6 +383,48 @@ export function isGrassy(corners: GroundRow[], x: number, y: number): boolean {
   return n >= 3;
 }
 
+/**
+ * An island: a rectangle of grass sitting in water, with everything outside it
+ * water. Returns the authored ground AND the squares that ground makes
+ * unwalkable, from one calculation, because the two must agree. Deriving
+ * passability from the painted corners separately is how you get a shoreline
+ * you can stand on in one build and not the next.
+ *
+ * `inset` is how many squares of water ring the grass. The grass rectangle is
+ * therefore (width - 2*inset) x (height - 2*inset).
+ *
+ * A square is walkable only when all FOUR of its corners are grass. That makes
+ * the shoreline tiles, which are drawn half in the water, unwalkable, which is
+ * what they look like. Corners run one wider and one taller than the board, so
+ * the grass corner block is one larger in each direction than the grass square
+ * block it produces.
+ */
+export function islandGround(
+  width: number,
+  height: number,
+  inset: number,
+): { corners: GroundRow[]; impassable: { x: number; y: number }[] } {
+  const grassCorner = (i: number, j: number) =>
+    i >= inset && i <= width - inset && j >= inset && j <= height - inset;
+
+  const corners: GroundRow[] = [];
+  for (let j = 0; j <= height; j++) {
+    let row = '';
+    for (let i = 0; i <= width; i++) row += grassCorner(i, j) ? 'g' : 'w';
+    corners.push(row);
+  }
+
+  const impassable: { x: number; y: number }[] = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const dry = grassCorner(x, y) && grassCorner(x + 1, y)
+               && grassCorner(x, y + 1) && grassCorner(x + 1, y + 1);
+      if (!dry) impassable.push({ x, y });
+    }
+  }
+  return { corners, impassable };
+}
+
 // Build the cosmetic layers for a board of the given size and obstacle set.
 // Deterministic in `seed` — the same seed and obstacles always produce the same
 // dressing.
@@ -383,9 +437,26 @@ export function generateTerrain(
    * How much of the ground is bare dirt, 0..1. Omitted, a board rolls its own
    * from the range below, which is what a wild place should do. A place that
    * has been cleared or worked wants to say so instead.
+   *
+   * A number is still accepted so the callers that only ever wanted this one
+   * knob keep reading as they did.
    */
-  dirtFraction?: number,
+  opts?: number | {
+    dirtFraction?: number;
+    /** Flat fill under the grass. Default 'dirt'. */
+    base?: GroundMaterial;
+    /**
+     * Ground laid out by hand instead of rolled from noise. (h+1) rows of
+     * (w+1) chars, same shape as `corners`. Authored ground is the point of
+     * a made place: an island has a shape somebody chose, not one the noise
+     * happened to produce.
+     */
+    corners?: GroundRow[];
+  },
 ): TerrainData {
+  const o = typeof opts === 'number' ? { dirtFraction: opts } : (opts ?? {});
+  const base: GroundMaterial = o.base ?? 'dirt';
+  const dirtFraction = o.dirtFraction;
   const r = rng(seed);
   const noise = makeNoise(r, width, height);
 
@@ -414,7 +485,9 @@ export function generateTerrain(
     ? -Infinity
     : flat[Math.max(0, Math.floor(flat.length * fraction) - 1)];
 
-  const corners: GroundRow[] = field.map(row => row.map(v => (v <= cut ? 'd' : 'g')).join(''));
+  const fill = base === 'water' ? 'w' : 'd';
+  const corners: GroundRow[] = o.corners
+    ?? field.map(row => row.map(v => (v <= cut ? fill : 'g')).join(''));
 
   // Obstacles are dressed BEFORE the loose props, because a tree occupies more
   // squares than the one it blocks: its trunk and canopy are drawn over the open
@@ -511,6 +584,7 @@ export function generateTerrain(
     seed,
     width,
     height,
+    base,
     corners,
     overlay,
     scatter,

@@ -222,7 +222,7 @@ function randomTileInRange(
     for (let dy = -range; dy <= range; dy++) {
       if (dx === 0 && dy === 0) continue;
       const p = { x: from.x + dx, y: from.y + dy };
-      if (board.inBounds(p) && !board.isBlocked(p)) candidates.push(p);
+      if (board.inBounds(p) && !board.isBlocked(p) && !board.isImpassable(p)) candidates.push(p);
     }
   if (candidates.length === 0) return { ...from };
   return candidates[Math.floor(Math.random() * candidates.length)];
@@ -253,7 +253,8 @@ function knockback(
       : [nextAnchor];
     let blockedStep = false;
     for (const cell of entering) {
-      if (!session.board.inBounds(cell) || session.board.isBlocked(cell)) { blockedStep = true; break; }
+      if (!session.board.inBounds(cell) || session.board.isBlocked(cell)
+          || session.board.isImpassable(cell)) { blockedStep = true; break; }
       if (session.combatants.some(c => c.id !== target.id && occupies(c, cell))) { blockedStep = true; break; }
     }
     if (blockedStep) break;
@@ -642,7 +643,8 @@ export function resolveIntents(
       const extra: string[] = [];
       if (action.moveTo) {
         const occupied = session.combatants.some(c => c.id !== actor.id && occupies(c, targetPos));
-        if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos) && !occupied) {
+        if (session.board.inBounds(targetPos) && !session.board.isBlocked(targetPos)
+            && !session.board.isImpassable(targetPos) && !occupied) {
           actor.pos = { x: targetPos.x, y: targetPos.y };
           extra.push(`blink to ${tileStr}`);   // shown as a resolution line under the header
         }

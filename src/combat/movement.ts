@@ -1,5 +1,13 @@
 import { Board, Pos, footprint, occupies } from './board.js';
 
+// Why a square refuses feet: something standing on it, or the ground itself.
+// Movement asks this instead of board.isBlocked directly, so water and a tree
+// are the same answer here while staying different answers to sight, which only
+// obstacles stop.
+function cannotEnter(board: Board, p: Pos): boolean {
+  return board.isBlocked(p) || board.isImpassable(p);
+}
+
 // Can a unit of `size` anchored at `anchor` stand here? Every footprint cell must
 // be in bounds, unblocked, and unoccupied by another unit. `occupied` is the union
 // of *other* units' footprint cells (the mover's own cells are excluded by callers).
@@ -7,7 +15,7 @@ import { Board, Pos, footprint, occupies } from './board.js';
 function footprintFits(anchor: Pos, size: number, board: Board, occupied: Set<string>): boolean {
   for (const c of footprint(anchor, size)) {
     if (!board.inBounds(c)) return false;
-    if (board.isBlocked(c)) return false;
+    if (cannotEnter(board, c)) return false;
     if (occupied.has(`${c.x},${c.y}`)) return false;
   }
   return true;
@@ -79,14 +87,14 @@ export function reachableCosts(
       const sk = `${k}:${newParity}`;
       if (newCost > range) continue;
       if (!board.inBounds(n)) continue;
-      if (board.isBlocked(n)) continue;
+      if (cannotEnter(board, n)) continue;
       // No diagonal corner-cutting: if both orthogonal neighbors that the
       // diagonal step "squeezes between" are blocked, the diagonal is
       // blocked too. Out-of-bounds doesn't count (board edge isn't a wall).
       if (isDiag) {
         const a = { x: pos.x, y: n.y };
         const b = { x: n.x, y: pos.y };
-        if (board.inBounds(a) && board.inBounds(b) && board.isBlocked(a) && board.isBlocked(b)) continue;
+        if (board.inBounds(a) && board.inBounds(b) && cannotEnter(board, a) && cannotEnter(board, b)) continue;
       }
       if ((costs.get(sk) ?? Infinity) <= newCost) continue;
       if (occupied.has(k)) continue;
@@ -167,11 +175,11 @@ function searchLabels(
       const newParity = isDiag ? 1 - cur.parity : cur.parity;
       if (newCost > range) continue;
       if (!board.inBounds(n)) continue;
-      if (board.isBlocked(n)) continue;
+      if (cannotEnter(board, n)) continue;
       if (isDiag) {
         const a = { x: cur.pos.x, y: n.y };
         const b = { x: n.x, y: cur.pos.y };
-        if (board.inBounds(a) && board.inBounds(b) && board.isBlocked(a) && board.isBlocked(b)) continue;
+        if (board.inBounds(a) && board.inBounds(b) && cannotEnter(board, a) && cannotEnter(board, b)) continue;
       }
       if (occupied.has(k)) continue;
       if (size > 1 && !footprintFits(n, size, board, occupied)) continue;

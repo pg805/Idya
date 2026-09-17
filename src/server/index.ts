@@ -60,6 +60,7 @@ import { computeTelegraph } from '../combat/telegraph.js';
 import { resolveIntents } from '../combat/resolution.js';
 import { PatternActionType } from '../infrastructure/pattern.js';
 import { chebyshevDist, cellsOf } from '../combat/board.js';
+import { islandGround } from '../combat/terrain.js';
 import { reachableTiles } from '../combat/movement.js';
 import { loadShop, baseBuyPrices, type ShopItemListing } from '../economy/shop_loader.js';
 import {
@@ -279,6 +280,17 @@ function applyWeaponCustomizations(weapon: Weapon, weaponKey: string, upgradesJs
     else if (e.type === 'ranged') weapon.attack.push(buildSidaevAction('ranged', weaponLevel));
   }
 }
+
+// The tutorial fights on an island. The playable strip is the same 6x2 it has
+// always been; the board around it is one square of water on every side, which
+// is scenery the player cannot walk into rather than an invisible wall at the
+// board edge. islandGround returns the painted ground and the squares that
+// ground makes unwalkable together, so the shoreline cannot end up walkable in
+// one and not the other.
+const TUTORIAL_INSET = 1;
+const TUTORIAL_BOARD_W = 6 + TUTORIAL_INSET * 2;
+const TUTORIAL_BOARD_H = 2 + TUTORIAL_INSET * 2;
+const TUTORIAL_GROUND = islandGround(TUTORIAL_BOARD_W, TUTORIAL_BOARD_H, TUTORIAL_INSET);
 
 // Random obstacle layout for non-tutorial hunt boards. 2-6 obstacles placed
 // anywhere in the rectangle (1,0)-(5,4) inclusive. Player spawn (0,2) and
@@ -506,8 +518,8 @@ function createSession(
   const enemyFpSize = isTutorial ? 1 : enemyFootprintSize(enemyPath);
   const layout = isTutorial
     ? {
-        playerSpawn: { x: 0, y: 1 },
-        enemySpawns: [{ x: 5, y: 0 }],
+        playerSpawn: { x: TUTORIAL_INSET + 0, y: TUTORIAL_INSET + 1 },
+        enemySpawns: [{ x: TUTORIAL_INSET + 5, y: TUTORIAL_INSET + 0 }],
         obstacles: [] as { pos: { x: number; y: number }; state: 'intact' }[],
       }
     : randomHuntBoard(effectiveCount, enemyFpSize);
@@ -536,7 +548,14 @@ function createSession(
   }
 
   const boardConfig = isTutorial
-    ? { width: 6, height: 2, obstacles: [] }
+    ? {
+        width: TUTORIAL_BOARD_W,
+        height: TUTORIAL_BOARD_H,
+        obstacles: [],
+        terrainBase: 'water' as const,
+        terrainCorners: TUTORIAL_GROUND.corners,
+        impassable: TUTORIAL_GROUND.impassable,
+      }
     : {
         width: HUNT_BOARD_W,
         height: HUNT_BOARD_H,
