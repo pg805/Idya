@@ -7,9 +7,8 @@ let isTutorial = false;
 // at the real combat UI (board / cards / actions / log) so a new player knows what
 // they're looking at before the combat lessons start. Reuses the shared tour
 // component (tour.js). Functional, no lore.
-// Shared so the intro gate and the lore cards carry the same heading — ties the
-// whole tutorial together under one title.
-const TUTORIAL_TITLE = 'A bird in the attic';
+// Shared so the intro gate and the coaching cards carry the same heading.
+const TUTORIAL_TITLE = 'A bird by the pond';
 const BATTLE_TOUR_STEPS = [
   { title: TUTORIAL_TITLE, body: 'The following tutorial explains the battle mechanics. You can view the guide again at any point by clicking the Show Guide button.', nextLabel: 'Begin tutorial' },
   { selector: '#board',                                  title: 'The battlefield', body: 'This is the battlefield. Your character lives on the board.' },
@@ -17,18 +16,8 @@ const BATTLE_TOUR_STEPS = [
   { selector: '#action-panel',                           title: 'Your actions',    body: 'These are the actions your character can take. After moving, select an action.' },
   { selector: '.action-row[data-choice="attack"][data-aimed="false"]', title: 'Reactive actions', body: 'Some actions are reactive, meaning they automatically target any enemy within range.' },
   { selector: '.action-row[data-aimed="true"]',          title: 'Aimed actions',   body: 'Some actions are aimed. After selecting it, you select a square to aim the attack at. Because all moves and actions resolve at the same time, the enemy may not be on the square you expect. Make sure to lead your attack!' },
-  { selector: '#combatant-list',                         title: 'Fighters',        body: 'Your health and resource are shown here. Most actions cost resource and can\'t be used if you don\'t have enough. The game ends when all characters on one side reach 0 health.' },
+  { selector: '#combatant-list',                         title: 'Fighters',        body: "Your health and resource are shown here. Most actions cost resource and can't be used if you don't have enough. The game ends when all characters on one side reach 0 health." },
   { selector: '#right-col',                              title: 'Combat log',      body: 'This is the combat log. It shows what happens when the turn resolves.' },
-];
-// Story sequence, shown once right after the UI tour completes (centered, no
-// spotlights — just narrative cards). Replayable via the "Run lore" button.
-// The exact original arrival lore, one paragraph per card.
-const LORE_TOUR_STEPS = [
-  { title: TUTORIAL_TITLE, body: 'The journey has been long and rough. Tales of prosperity spreading throughout the Chae empire sustained you through the cold nights sleeping on the ground, hoping for a better life. Hard to believe at first, small towns reportedly have found new sources of wealth from their local wildlife. Although stories of searching for a better life are now common throughout the empire, this one is your own. A local merchant caravan agreed to let you join for what savings you had.' },
-  { title: TUTORIAL_TITLE, body: 'The caravan stops in a clearing on the outskirts of your final destination, Sulku\'it. A tall man with a gruff chinstrap beard wearing rugged overalls approaches your caravan. After dealing with the caravan leader, he turns to you.' },
-  { title: TUTORIAL_TITLE, body: '"Ah, another traveler, welcome to Sulku\'it. My name is Fendalok and I\'m the Padev around here. I take it you are here to help out in the forest. The empire asks that we record everyone in the town census log for tax purposes."' },
-  { title: TUTORIAL_TITLE, body: 'Fendalok sneers at the mention of taxes. He turns inquisitive as he looks you up and down.' },
-  { title: TUTORIAL_TITLE, body: '"You\'ve got good timing, a bird got into the attic again and I could use some help getting rid of it. Could you grab that branch and help me out? You can keep whatever it leaves behind."' },
 ];
 
 let battleTourShown = false;
@@ -37,8 +26,7 @@ function maybeStartBattleTour() {
   if (typeof window.startTour !== 'function') return;
   if (!document.querySelector('#board .cell')) return;   // wait until the board is actually rendered
   battleTourShown = true;
-  // First time through: UI guide, then the lore on completion (not on Skip).
-  window.startTour(BATTLE_TOUR_STEPS, () => window.startTour(LORE_TOUR_STEPS));
+  window.startTour(BATTLE_TOUR_STEPS);
 }
 
 const PASS_ACTION = { label: 'Pass', choice: 'pass', index: 0, needsTarget: false, range: 0, cost: 0 };
@@ -162,11 +150,6 @@ socket.on('session_joined', ({ playerTeamId: tid, isTutorial: tutorial }) => {
     replayBtn.hidden = !isTutorial;
     if (isTutorial) replayBtn.onclick = () => { if (window.startTour) window.startTour(BATTLE_TOUR_STEPS); };
   }
-  const loreBtn = document.getElementById('lore-replay-btn');
-  if (loreBtn) {
-    loreBtn.hidden = !isTutorial;
-    if (isTutorial) loreBtn.onclick = () => { if (window.startTour) window.startTour(LORE_TOUR_STEPS); };
-  }
 });
 
 socket.on('session_state', (newState) => {
@@ -233,11 +216,7 @@ socket.on('reward_result', ({ summary }) => {
 });
 
 socket.on('tutorial_aside', ({ text, isOOC }) => {
-  if (isOOC) {
-    appendLog([text], 'tutorial-ooc');
-  } else {
-    appendLog([`Fendalok: "${text}"`], 'tutorial-aside');
-  }
+  appendLog([text], isOOC ? 'tutorial-ooc' : 'tutorial-aside');
 });
 
 // ---- State helpers ----

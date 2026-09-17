@@ -522,7 +522,7 @@ function createSession(
       pos: layout.enemySpawns[i],
       movementRange: 2,
       // Tutorial enemies always start at pattern index 0 so the lesson
-      // plays in the intended order (Fendalok's asides time off it).
+      // plays in the intended order (the coaching asides time off it).
       randomizePatternStart: !isTutorial,
       // Only the tutorial bird is scripted (walks its Pattern); every real hunt
       // enemy uses the utility planner.
@@ -1718,7 +1718,7 @@ app.post('/api/hunt/start', async (req: Request, res: Response) => {
 
   const dbUser = await prisma.user.findUnique({ where: { discord_id: discordId } });
   if (!dbUser?.tutorial_complete) {
-    res.status(403).json({ error: 'Finish the tutorial first — use /battle to talk to Fendalok.' });
+    res.status(403).json({ error: 'Finish the tutorial first.' });
     return;
   }
 
@@ -4727,7 +4727,7 @@ io.on('connection', (socket: Socket) => {
       socket.emit('turn_result', { log: session.initiativeLog });
     }
     if (isTut) {
-      socket.emit('tutorial_aside', { text: "There's the bird. Let's see what you've got." });
+      socket.emit('tutorial_aside', { text: 'A swallow is working the reeds at the edge of the pond. It has not noticed you yet.' });
       socket.emit('tutorial_aside', { text: "The flow of battle moves between 3 phases: move > intent > resolve.  First, select your movement by clicking on your token, then clicking on the square to move to.  Then, select your action.  The turn will then auto resolve actions in order of 'move > defend > attack > special'.", isOOC: true });
     }
   });
@@ -4842,11 +4842,11 @@ io.on('connection', (socket: Socket) => {
         tip('telegraph', "See the hint on the swallow's card? Enemies telegraph their next move with a tell — read it to know which action will beat them. Each new enemy type will behave differently, so be sure to watch their card to learn what possible actions they will take.");
       }
 
-      // Safety net: if the fight drags on, Fendalok steps in so a stuck player
-      // isn't stranded.
+      // Safety net: if the fight drags on the bird gives up and goes, so a
+      // stuck player isn't stranded in a tutorial they can't finish.
       if (session.turn >= 15) {
-        io.to(sessionId).emit('tutorial_aside', { text: 'Tell you what — let me give you a hand.' });
-        io.to(sessionId).emit('tutorial_aside', { text: 'Fendalok steps in and knocks the bird out of the air for you.', isOOC: true });
+        io.to(sessionId).emit('tutorial_aside', { text: 'The swallow has had enough of this and breaks for open water, leaving a feather behind.' });
+        io.to(sessionId).emit('tutorial_aside', { text: 'That is the end of the lesson. The fight is scored as a win so you can get on with it.', isOOC: true });
         for (const team of session.teams) {
           if (team.id === 'team-b') {
             for (const c of team.combatants) {
