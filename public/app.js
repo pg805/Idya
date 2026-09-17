@@ -25,7 +25,6 @@ function routeFromPath(path) {
   if (path === '/crafting' || path === '/craft') return { viewName: 'crafting', params: {} };
   if (path === '/upgrade')              return { viewName: 'upgrade', params: {} };
   if (path === '/enchant')              return { viewName: 'enchant', params: {} };
-  if (path === '/orchard')              return { viewName: 'orchard', params: {} };
   if (path === '/professions')          return { viewName: 'professions', params: {} };
   if (path === '/enemies')              return { viewName: 'enemies', params: {} };
   if (path === '/lore')                 return { viewName: 'lore',    params: {} };
@@ -37,9 +36,7 @@ function routeFromPath(path) {
   if (path === '/trade')                return { viewName: 'trade-start', params: {} };
   if (path === '/create')               return { viewName: 'create',  params: {} };
   if (path === '/weapon-stats')         return { viewName: 'weapons', params: {} };
-  if (path === '/market')               return { viewName: 'market', params: {} };
   if (path === '/stats')                return { viewName: 'stats', params: {} };
-  if (path === '/town-square')          return { viewName: 'town_square', params: {} };
   if (path === '/dev/stats')            return { viewName: 'dev_stats', params: {} };
   if (path === '/dev/replay')           return { viewName: 'dev_replay', params: {} };
   if (path === '/dev/matrix')           return { viewName: 'dev_matrix', params: {} };
