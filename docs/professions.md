@@ -173,10 +173,11 @@ Wanted, just not in the starting set.
    nothing stops. Every profession added is another node the dependency graph can be
    missing, and rule 9 puts every missing node on the GM. The load-bearing set should
    stay small, and it should be chosen rather than discovered.
-5. **Armour slots versus material owners.** Head, chest, legs, boots and pack want to
-   come from more than one profession, or the tanner makes the entire armour system
-   alone. Metal plate and leather splitting the slots is the obvious answer; cloth
-   would want the weaver back.
+5. **Who makes armour?** Armour is now **one piece on one axis** (health against speed —
+   `combat.md` §8), not five slots, so the multi-slot question is deferred rather than
+   open. What remains: heavy reads as metal (Blacksmith) and light as leather (Tanner),
+   but the Tanner is out of session 0. Either the Blacksmith makes both, or armour is an
+   assembly of metal and leather, or light armour waits for the Tanner.
 6. **Does the profession set change what a weapon assembly needs?** Five starter
    weapons currently need Carpenter, Blacksmith and Artificer. Tanner, Apothecary and
    Cleric contribute nothing to a weapon, which is fine if they own armour and

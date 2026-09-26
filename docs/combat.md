@@ -134,6 +134,33 @@ Consequences, all good:
 - Authoring an enemy becomes picking a kit rather than writing action lists.
 - `enemy_loader.ts` gets much smaller.
 
+## 8. Armour
+
+**One piece.** Not head, chest, legs, boots and pack — just **armour**, because one item
+ships and five do not. The slot breakdown is a later enrichment, not a starting
+requirement.
+
+**One axis, two poles: health against speed.** Exactly the same shape as a weapon — a
+budget spread along an axis, with concentrating beating spreading.
+
+| Pole | Gives |
+|---|---|
+| **health** | HP |
+| **speed** | movement rate |
+
+Three things fall out of this, which is why it is worth having:
+
+- **HP comes from armour, not from the weapon.** The weapon's `HP` field goes. That
+  satisfies `design-rules.md` rule 4 and it is the answer to where health lives.
+- **No permission gate anywhere.** An earlier idea had the weapon decide what armour you
+  could wear, which rule 12 forbids. It is unnecessary: you cannot be armoured *and* fast
+  because the points do not exist. A heavy set with a big weapon is perfectly legal — you
+  are simply slow, and slow means you cannot kite and cannot disengage.
+- **It is the counter to kiting.** A kiter has to buy speed, and speed is bought *with*
+  health. So anyone fast enough to kite is made of paper, and one hit from a big-hit
+  weapon ends them. The tactical question becomes whether they can stay out of reach, not
+  whether they can survive being caught.
+
 ## 8. Client
 
 Three pieces of motion, none of them sprite animation:
@@ -163,27 +190,26 @@ No attack animations, no cast poses, no projectile sprites.
    deciding whether cooldowns also exist, because if they do, the restore-action rhythm
    that currently gives weapons their feel probably goes away.
 
-2. **Armour: a gate or a budget?** "Weapons determine what armour you can wear" is a
-   *permission* restriction, and `design-rules.md` rule 12 says permission is universal
-   and only effectiveness varies. The consistent version of the same intent:
+2. ~~Armour: gate or budget~~ — **settled: a budget, one piece, one axis.** See §8.
 
-   **Armour has its own budget**, spread across health, speed and carry, exactly as a
-   weapon's seven numbers sum to `CAP(L)`. You cannot be armoured *and* fast, because the
-   points do not exist. Nothing forbids a heavy set with a big weapon — you are simply
-   slow, and slow means you cannot kite and cannot disengage.
+3. ~~Where HP comes from~~ — **settled: armour.** The weapon's `HP` field goes, which is a
+   real migration since every weapon YAML sets it.
 
-   That gets the outcome wanted ("you can't have super armour and health and a bajillion
-   damage") without a restriction, and it keeps the weapon out of the business of vetoing
-   equipment.
+4. ~~Speed's counter~~ — **largely settled by §8:** speed is bought with health, so a
+   kiter is fragile by construction. What is left is whether that alone is enough, or
+   whether `control` slows and terrain also need to carry weight.
 
-3. **Where does HP come from?** Armour, per the stats-from-items decision and rule 4. But
-   the current weapon format carries an `HP` field and every weapon YAML sets it, so this
-   is a real migration and not just a docs edit.
+4b. **How does speed express on a discrete grid?** Movement is one tile per beat and the
+   beat is uniform, so "faster" cannot mean fractional tiles. Proposal: **one tile per
+   beat is the ceiling**, and weight makes you slower — heavy armour moves one tile every
+   two beats. Nobody exceeds baseline; the differential comes from the other unit being
+   slow. That also means kiting works against heavy enemies and not against light ones,
+   which is texture worth having.
 
-4. **Speed's counter.** If speed enables kiting and speed is bought, what stops a ranged
-   build in fast boots from kiting everything? Candidates: ranged abilities costing more
-   resource, slows and roots on the `control` pole, terrain and LOS, or enemies with their
-   own speed. Probably several at once, but it needs an answer before ranged is authored.
+4c. **Who makes armour in session 0?** Heavy reads as metal (Blacksmith) and light as
+   leather (Tanner), but the Tanner is out of scope. So either the Blacksmith makes both,
+   or armour is an assembly, or light armour waits. Affects `professions.md` open question
+   5.
 
 5. **Threat tiebreak.** "Nearest and lowest HP" needs an order — nearest first with HP as
    the tiebreak, a weighted score, or re-evaluated every few beats. Re-evaluation cadence
