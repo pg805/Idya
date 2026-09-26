@@ -72,41 +72,56 @@ let the player retreat every turn. Real time removes the retreat window.
 
 ## 4. Actions
 
-Three categories: **Defend, Attack, Special.**
+Three categories: **Defend, Attack, Special.** **Every ability resolves immediately.**
+There are no wind-ups and no cast bars.
 
-- **Attack and Defend resolve on the tick they are issued.**
-- **Special has a wind-up**, then resolves. **It is not interruptible.** The wind-up is
-  the only exception to uniform timing, and its job is now **telegraphing**: it is the
-  window in which an opponent can read the commitment and answer it by guarding or
-  stepping out of reach.
-- **Defend is a held state**, not a one-off. It persists until you do something else.
-- A cast bar shows Special wind-ups. It is the only cast bar, which is why it reads.
-- **Input queues.** A tapped key spends on the next tick; a held key repeats. An input
-  issued between ticks is never dropped, which is what makes the tick feel responsive
-  rather than unresponsive. Confirmed by feel in the harness: hold-to-move read as
-  *"am I slower than the monsters?"* when the speeds were in fact identical.
+**Cost is what makes an ability heavy**, not time. A Special is expensive rather than
+slow — the "wind-up" becomes a hole in your resource bar that takes ticks to refill. Same
+rhythm, no lockout, one mechanism instead of two.
+
+### Defend is a commitment, not a toggle
+
+**Defending lasts 3 ticks, and you cannot attack during them.** Guarding for a single
+tick was not worth doing: at 450ms the moment-to-moment value never justified the lost
+output, so the option was dead.
+
+Committing for three fixes that in both directions. It is a real trade — three ticks of
+no damage — and it is *readable*, because an opponent gets a window in which they know
+you are guarding and can answer with a Special.
+
+It also settles the double-defence question: ×0.6 **and** `guard` subtracting are both
+fine when defending costs three ticks of output.
+
+### Exposure replaces the wind-up
+
+**Proposed, not decided.** Removing wind-ups leaves the triangle's Attack-beats-Special
+edge with nothing to catch — if Specials are instant, nobody is ever mid-Special.
+
+The proposal: **a Special leaves you exposed for 2–3 ticks afterwards.** You can still
+move and act; you simply take the ×1.5 from Attacks during it. Recovery rather than
+telegraph — exposed *after* the blow instead of vulnerable *before* it.
+
+That keeps all three edges, keeps abilities immediate, and never locks anyone out. What
+it loses is the readable warning: an opponent can no longer see a big hit coming, only
+punish it afterwards.
 
 ### The triangle
 
-**Damage multipliers, not separate mechanics.** Your action's category against whatever
-the target is currently committed to scales the roll. Nothing is interrupted, nothing
-ripostes, nothing pierces.
+**Damage multipliers, not separate mechanics.** Your category against whatever the target
+is currently in scales the roll.
 
-| Attacker | Target committed to | Multiplier |
+| Attacker | Target's state | Multiplier |
 |---|---|---|
-| Attack | Special (mid-wind-up) | **×1.5** |
-| Special | Defend (held guard) | **×1.5** |
-| Attack | Defend (held guard) | **×0.6** |
-| anything | nothing | ×1 |
+| Attack | exposed, after a Special | **×1.5** |
+| Special | guarding | **×1.5** |
+| Attack | guarding | **×0.6** |
+| anything | neither | ×1 |
 
-A target committed to nothing is neutral, which means the triangle only pays when the
-opponent has actually chosen something. Exact multipliers are a tuning knob; the shape
-is the decision.
+A target in neither state is neutral, so the triangle only pays when the opponent has
+actually committed to something. Exact multipliers are tuning; the shape is the decision.
 
-**Superseded:** an earlier draft had three distinct verbs — riposte, interrupt and
-pierce. Multipliers replace them. The reason worth keeping is that the verb version made
-the wind-up load-bearing (interrupt needed something to bite on) and multipliers do not,
-so the wind-up now survives on telegraphing alone.
+**Superseded:** an earlier draft had three distinct verbs — riposte, interrupt and pierce.
+Multipliers replace them.
 
 ## 5. The seven stats
 
@@ -184,7 +199,26 @@ Three things fall out of this, which is why it is worth having:
   weapon ends them. The tactical question becomes whether they can stay out of reach, not
   whether they can survive being caught.
 
-## 9. Client
+## 9. Resource — the fourth axis
+
+**One resource budget, split between pool and regen.** The question is never *whether*
+you have resource — everyone does, or nothing works — but **burst or sustain**.
+
+| Pole | Gives |
+|---|---|
+| **pool** | a big tank: several expensive abilities back to back, then a dry spell |
+| **regen** | a fast refill: cheap abilities never stop, but the big one is rare |
+
+Same shape as the weapon's poles and armour's: a fixed budget spread along an axis, with
+concentrating beating spreading. Because it is a split rather than a presence, there is no
+weapon that simply cannot act.
+
+**This settles open question 1: resource, not cooldowns.** Both limited frequency and
+having both was one system too many. Resource does it with a shared pool, which keeps the
+spend-and-refill rhythm the current weapons are built on, and makes a Special heavy
+without making it slow.
+
+## 10. Client
 
 Three pieces of motion, none of them sprite animation:
 
@@ -200,18 +234,14 @@ No attack animations, no cast poses, no projectile sprites.
 
 ## Open
 
-1. **Resource or cooldowns, or both?** The current game runs on **resource only** — spend
-   down, then spend an action restoring (Poise, Noko). The tick spec adds **cooldowns**.
-   Those limit frequency in different ways and having both may be one system too many:
+1. ~~Resource or cooldowns~~ — **settled: resource, no cooldowns.** See §9. Cost replaces
+   both the cooldown and the wind-up.
 
-   - *Resource* is a shared pool, so it limits **total output** and creates a rhythm of
-     spending and refilling.
-   - *Cooldowns* are per ability, so they limit **that ability's** frequency and let a
-     heavy hit be rare without touching anything else.
-
-   Resource per level is the working idea, which makes it part of the budget. Worth
-   deciding whether cooldowns also exist, because if they do, the restore-action rhythm
-   that currently gives weapons their feel probably goes away.
+1b. **Does exposure survive?** §4 proposes it as the thing that keeps Attack-beats-Special
+   alive now that wind-ups are gone. The cost is that a big hit no longer telegraphs, so
+   there is no warning to read — only a punish window afterwards. If that reads badly, the
+   alternative is accepting a two-state triangle (guarding or not) and dropping the third
+   edge.
 
 2. ~~Armour: gate or budget~~ — **settled: a budget, one piece, one axis.** See §8.
 
@@ -233,12 +263,6 @@ No attack animations, no cast poses, no projectile sprites.
    leather (Tanner), but the Tanner is out of scope. So either the Blacksmith makes both,
    or armour is an assembly, or light armour waits. Affects `professions.md` open question
    5.
-
-5. **Does the triangle multiplier stack with `guard` subtracting?** Right now an Attack
-   into a held guard takes ×0.6 *and then* has `guard` subtracted from what is left, so
-   defending wins twice. Either the multiplier is the whole of Defend-beats-Attack and
-   `guard` only applies against Specials, or the numbers need to account for both. Visible
-   in the harness as guard feeling very strong at fast ticks.
 
 6. **Threat tiebreak.** "Nearest and lowest HP" needs an order — nearest first with HP as
    the tiebreak, a weighted score, or re-evaluated every few ticks. Re-evaluation cadence
