@@ -56,34 +56,47 @@ is the only reason the list is this short.
 
 ---
 
-## The map problem
+## The map
 
-**Two places exist:** Sulku'it (0,0) and Sulkupa Forest (1,0). That is not a map.
+**Two places exist today:** Sulku'it (0,0) and Sulkupa Forest (1,0). `src/world/places.ts`
+is a whitelist — a chunk with an entry is somewhere a player can be, and everywhere else
+is unreachable. That is not a map.
 
-The architecture is also not what `world.md` describes. `src/world/chunk.ts` states a
-chunk is *"a DISCRETE PLACE, not a window onto a continuous world"* — you are in one at
-a time and you see it alone. The terrain generator seeds its noise per board and cuts
-dirt at a quantile of that board's own values, so **neighbouring chunks do not line up
-along their shared edge.** The code calls making it continuous "a real change, not a
-tweak," and it is out of scope.
+### Spec: the world generates as you walk
 
-So the map grows by **authoring places**, not by generating rings. `src/world/places.ts`
-is the whitelist: a chunk with an entry is somewhere a player can be, and `exitsFrom`
-connects it to whichever of its four neighbours also exist.
+Walk west and a new chunk exists. Walk west again and another does. **Capped at three
+rings** for now, so the walkable world is chebyshev distance ≤ 3 from town — a 7×7 grid,
+49 chunks. The cap is there to be felt and moved, not because 49 is correct.
 
-### Spec: adding a place
+- **The whitelist stops gating travel.** `exitsFrom` currently offers only neighbours
+  that exist in `PLACES`; it should offer any neighbour inside the cap.
+- **Nothing is stored.** `chunkSeed` already generates deterministic terrain for any
+  coordinate from the world seed, so an unvisited chunk costs nothing and the same
+  coordinate always produces the same ground.
+- **Unauthored chunks need generated `dirt` and `obstacles`**, since those are currently
+  hand-set per place. Derive them from the seed.
+- **Authored places override.** Sulku'it and Sulkupa Forest keep their names, blurbs and
+  hand-set knobs; `places.ts` becomes a table of *exceptions* rather than the list of
+  what exists.
+- **At the cap, offer no exit.** Needs a line of copy for why you cannot go further.
 
-A `Place` is four fields, keyed by `'x,y'`:
+**This is not the change `chunk.ts` warns about.** The comment there — that neighbouring
+chunks do not line up along their shared edge, and fixing it would need world-space noise
+and a global dirt cut — is about **rendering neighbours side by side.** A chunk is still
+viewed alone, one screen at a time, so mismatched edges are never visible. Generating on
+demand is cheap; a seamless scrolling world is the expensive thing, and it is not being
+asked for.
+
+### Spec: a Place
+
+Still four fields, now as overrides rather than the gate:
 
 | Field | Meaning |
 |---|---|
 | `name` | What it is called |
 | `blurb` | One line, shown on arrival |
-| `dirt` | 0–1, how much bare ground. Town is 0 (it is built by hand), forest is 0.1 |
+| `dirt` | 0–1, how much bare ground. Town is 0 (built by hand), forest is 0.1 |
 | `obstacles` | Roughly how many trees and rocks to scatter. Forest is 34 |
-
-Terrain generates from `chunkSeed` with nothing stored, so a place costs nothing until
-somebody decorates it. Adding one is a four-line diff.
 
 ---
 
@@ -169,6 +182,8 @@ Stat values wait on spec question 3.
 - **The ability provides the shape. The weapon provides the number.** An ability
   declares its category, which weapon stat it scales off, range, area, aimed or
   reactive, cooldown, and wind-up if it is a Special.
+- **Magnitude is a multiplier on that stat** (settled). The ability carries no damage of
+  its own. Stab scales off `striker`, bash off the big-hit stat, a fireball off `magic`.
 - **Permission is universal; effectiveness is not.** Any ability goes in any slot on any
   weapon. A fireball on an axe is legal and does almost nothing because the axe's
   `magic` is 2. There are no equip restrictions anywhere in the system.
@@ -240,14 +255,12 @@ call — but it should be a choice rather than an accident.
 
 Numbered so they can be answered by number. Proposals given where one exists.
 
-1. **Tick rate.** Proposal: 400–500ms. The single number that decides whether combat
-   reads as tactical or as a clickfest, and it cannot be picked on paper.
-2. **Movement speed.** One tile per how many beats? Proposal: one tile per beat, so
-   movement is the baseline rhythm everything else is measured against.
-3. **Ability scaling — the blocking one.** Does an ability carry its own damage which
-   the weapon stat modifies, or does it carry a *multiplier* with all magnitude coming
-   from the weapon? Proposal: multipliers, which keeps abilities cheap to author.
-   **This blocks every weapon stat value**, so it goes first.
+1. ~~Tick rate~~ — **settled: 400–500ms**, adjustable once it can be felt.
+2. ~~Movement speed~~ — **settled: one tile per beat.** Movement is the baseline rhythm
+   and cooldowns are measured against it.
+3. ~~Ability scaling~~ — **settled: multipliers.** An ability names which weapon stat it
+   scales off and all magnitude comes from the weapon. Stab reads `striker`, bash reads
+   the big-hit stat.
 4. **Resource regen.** How much per beat, and does it pause while acting?
 5. **Cooldown range.** The spread between the cheapest repeatable ability and the
    heaviest. Proposal: 1 beat to roughly 8.
@@ -263,10 +276,62 @@ Numbered so they can be answered by number. Proposals given where one exists.
 10. **Death and injury in real time.** Injury 0–6 on defeat is designed, but what happens
     to a player who drops mid-fight: out until it ends, or revivable by someone carrying
     a heal?
-11. **How many places** for session 0.
+11. ~~How many places~~ — **settled: the world generates as you walk, capped at 3 rings.**
+    See the map spec above.
 12. **Does arcane refine?** thuvel → hiruos, or thuvel alone. It is the only material
     line that could, which would make the artificer the one profession with a refining
     step.
+
+### The next batch
+
+Deeper than the list above, and mostly about combat. Two are contradictions in the docs
+rather than gaps.
+
+13. **What do `guard`, `healer`, `support` and `control` actually do?** Six poles were
+    named and only two were specced. `striker` and `breaker` multiply damage and `magic`
+    multiplies spell damage, but the other four have no mechanics at all:
+
+    - `guard` — while Defend is held, does it *subtract* from incoming damage, *multiply*
+      it down, or absorb a pool that depletes?
+    - `healer` — presumably a multiplier on heal abilities, which is the easy one.
+    - `support` — buffs *what*? It needs a stat vocabulary to modify and that vocabulary
+      does not exist yet.
+    - `control` — debuffs what? Movement, cooldowns, damage, all three?
+
+    `support` and `control` are the hard ones, because unlike damage they have nothing to
+    point at until the buff/debuff targets are defined.
+
+14. **HP: weapon or armour?** A contradiction. The weapon spec lists HP as a weapon field,
+    inherited from the current system. But the decision that stats come from items put
+    health on **armour**. Both cannot be the primary source, and `design-rules.md` rule 4
+    ("power does not live in the weapon") points at armour.
+
+15. **Is the resource pool inside the level budget or outside it?** The seven stats sum to
+    `CAP(L)`. Resource is listed as a separate field. If it is free, every weapon maxes it
+    and it stops being a design lever.
+
+16. **Do enemies use the same system?** Seven stats, four ability slots, multiplier
+    abilities — or something simpler? This decides how much of the roster needs
+    re-authoring and whether `ai_planner.ts` can be reused at all.
+
+17. **Move and act on the same beat, or one or the other?** If both, movement is free and
+    kiting dominates, which is already the observed failure in `battle-ideas.md`. If one,
+    moving costs a beat of output and positioning becomes a real trade.
+
+18. **What ends a fight?** All enemies dead, presumably — but `world.md` also wants
+    enemies to persist in the chunk as world objects with their own HP between sessions,
+    which means a fight can end by everyone leaving.
+
+19. **Can you walk out of a fight?** Leaving the chunk mid-combat: allowed, blocked, or
+    allowed at a cost?
+
+20. **Who do enemies attack when several players are present?** Nearest, lowest HP,
+    whoever last hit them, random?
+
+    This is the same question as "what makes `guard` mean anything." If enemies always
+    strike the nearest, a guard protects people by standing in front and the pole works.
+    If they strike the weakest, a guard cannot protect anybody and the pole is decorative.
+    **Threat rules and the guard pole are one decision, not two.**
 
 ---
 
