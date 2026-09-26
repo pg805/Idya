@@ -53,14 +53,22 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── CHANGELOG_DISCORD.md # Player-facing condensed changelog (auto-announced)
 ├── PRD.md               # Vision / product requirements
 ├── world.md             # 0.3.0 frame: persistent world map, web identity, GM sessions
+├── design-rules.md      # Hard constraints an idea must survive (read before designing)
 ├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
+├── items.md             # Weapon/ability/item rework: authoring speed, where power lives
+├── professions.md       # The six professions and the material each one owns
+├── map-ideas.md         # Regions, features, environmental storytelling (add & read often)
 ├── terrain.md           # Painted terrain: the six layers + dual-grid autotiling
 ├── interface-art.md     # Asset todo list for moving the UI to pixel art + FX decisions
+├── combat-log-spec.md   # Combat log format
 ├── rules.md
 ├── demo.md
 ├── reference.md         # Served at /api/info/reference (Reference info page)
 ├── about.md             # Served at /api/info/about (About info page)
+├── sim/                 # Simulation output and notes
+├── releases/            # Per-release planning docs (release_0_2_0.md)
+├── archive/             # Docs for scrapped features (orchard.md)
 └── lore/
     ├── apolis.md        # Designer-facing world doc — NOT served (0.3.0 setting)
     ├── world_player.md  # Served at /api/info/lore (Lore info page)

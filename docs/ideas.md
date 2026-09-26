@@ -2,8 +2,10 @@
 
 A running backlog of feature/content ideas — unsorted, unprioritized, and not
 commitments. Capture place for "wouldn't it be cool if…". Combat-specific design
-detail lives in [`battle-ideas.md`](battle-ideas.md); pre-alpha must-dos live in
-[`alpha_checklist.md`](alpha_checklist.md). The 0.3.0 world/social frame — the
+detail lives in [`battle-ideas.md`](battle-ideas.md); regions and environmental
+storytelling in [`map-ideas.md`](map-ideas.md); the weapon/ability/item rework in
+[`items.md`](items.md). Hard design constraints — the rules an idea has to survive —
+are in [`design-rules.md`](design-rules.md). The 0.3.0 world/social frame — the
 persistent map, web identity, GM sessions — is planned in
 [`world.md`](world.md), which is where several of the ideas below now live.
 
@@ -30,7 +32,6 @@ persistent map, web identity, GM sessions — is planned in
 ## Social & world
 
 - Chat in the web app
-- NPC conversation system (choice-based shopkeeper dialogue — design spec in [`npc-dialogue-system.md`](npc-dialogue-system.md))
 
 ## Progression & onboarding
 
