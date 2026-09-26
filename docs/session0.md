@@ -123,7 +123,7 @@ Item 3 needs places to exist first. Name a number and they can be in before you 
 
 **Spec lives in [`combat.md`](combat.md).** In brief: a 400–500ms world tick, no
 in-combat state at all, one tile per beat with move-and-act simultaneous, Defend held and
-Special wound up, the riposte/interrupt/pierce triangle, threat on nearest-and-lowest-HP
+Special wound up, the triangle as damage multipliers, threat on nearest-and-lowest-HP
 with taunt, and enemies running the same seven stats and budget as players.
 
 The largest piece is that **there is no combat session** — no arena, no joining, no loot

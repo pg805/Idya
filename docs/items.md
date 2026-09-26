@@ -337,27 +337,22 @@ someone whose current action is a Special fires your bonus. This is the closest 
 of what exists now and it works, but it is invisible: the player cannot see why the
 bonus happened.
 
-**C. Three verbs, read off the cast bar.** The preferred one. Each edge of the
-triangle becomes a *different mechanic* rather than one damage table:
+**C. Three verbs, read off the cast bar.** Riposte on Defend-beats-Attack, interrupt on
+Attack-beats-Special, pierce on Special-beats-Defend. Each edge a different mechanic
+rather than one table, all three readable from a cast bar.
 
-| Edge | Verb | What happens |
-|---|---|---|
-| Defend beats Attack | **riposte** | a blow that lands on a held guard comes back |
-| Attack beats Special | **interrupt** | hitting someone mid-commitment breaks it |
-| Special beats Defend | **pierce** | a committed blow goes through the guard |
+### Decided: B, as multipliers
 
-The interrupt edge is what requires Special to have a wind-up (§5). Defend being a
-*held state* rather than a committed action is what makes riposte work on a uniform
-beat.
+**The triangle is a damage multiplier.** Your action's category against whatever the
+target is currently committed to scales the roll — ×1.5 for Attack into a wind-up, ×1.5
+for Special into a held guard, ×0.6 for Attack into a held guard, ×1 against a target
+committed to nothing. Full table in [`combat.md`](combat.md) §4.
 
-Why this is better: the triangle stops being a hidden comparison and becomes
-something you *watch*. Real time gives you a cast bar, and a cast bar makes all three
-reads visible. Holding a guard is a live decision with a cost (you are not attacking),
-and committing to a Special is a live risk (you can be interrupted).
-
-It also gives the three weapon numbers concrete meaning: Defense is how hard your
-riposte hits back, Attack is your interrupt pressure, Special is how much you punch
-through a guard.
+C is superseded. It was the more expressive option and it cost more: three separate
+mechanics to build, tune and explain, where one multiplier does the job. It also made the
+wind-up load-bearing, because interrupt needed something to bite on. Under multipliers the
+wind-up survives on **telegraphing** instead — it is the window where an opponent reads
+your commitment and answers it.
 
 ---
 

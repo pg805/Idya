@@ -69,21 +69,38 @@ let the player retreat every turn. Real time removes the retreat window.
 Three categories: **Defend, Attack, Special.**
 
 - **Attack and Defend resolve on the beat they are issued.**
-- **Special has a wind-up**, then resolves, and is interruptible for the whole wind-up.
-  The only exception to uniform timing, and it exists because interrupt needs something
-  to bite on.
+- **Special has a wind-up**, then resolves. **It is not interruptible.** The wind-up is
+  the only exception to uniform timing, and its job is now **telegraphing**: it is the
+  window in which an opponent can read the commitment and answer it by guarding or
+  stepping out of reach.
 - **Defend is a held state**, not a one-off. It persists until you do something else.
 - A cast bar shows Special wind-ups. It is the only cast bar, which is why it reads.
+- **Input queues.** A tapped key spends on the next beat; a held key repeats. An input
+  issued between beats is never dropped, which is what makes the beat feel responsive
+  rather than unresponsive. Confirmed by feel in the harness: hold-to-move read as
+  *"am I slower than the monsters?"* when the speeds were in fact identical.
 
 ### The triangle
 
-Three distinct mechanics rather than a damage table:
+**Damage multipliers, not separate mechanics.** Your action's category against whatever
+the target is currently committed to scales the roll. Nothing is interrupted, nothing
+ripostes, nothing pierces.
 
-| Edge | Verb | Mechanic |
+| Attacker | Target committed to | Multiplier |
 |---|---|---|
-| Defend beats Attack | **riposte** | an Attack landing on a held guard fires the defender's counter |
-| Attack beats Special | **interrupt** | an Attack landing on a unit mid-wind-up cancels the Special |
-| Special beats Defend | **pierce** | a Special resolving into a held guard ignores it |
+| Attack | Special (mid-wind-up) | **×1.5** |
+| Special | Defend (held guard) | **×1.5** |
+| Attack | Defend (held guard) | **×0.6** |
+| anything | nothing | ×1 |
+
+A target committed to nothing is neutral, which means the triangle only pays when the
+opponent has actually chosen something. Exact multipliers are a tuning knob; the shape
+is the decision.
+
+**Superseded:** an earlier draft had three distinct verbs — riposte, interrupt and
+pierce. Multipliers replace them. The reason worth keeping is that the verb version made
+the wind-up load-bearing (interrupt needed something to bite on) and multipliers do not,
+so the wind-up now survives on telegraphing alone.
 
 ## 5. The seven stats
 
@@ -211,24 +228,30 @@ No attack animations, no cast poses, no projectile sprites.
    or armour is an assembly, or light armour waits. Affects `professions.md` open question
    5.
 
-5. **Threat tiebreak.** "Nearest and lowest HP" needs an order — nearest first with HP as
+5. **Does the triangle multiplier stack with `guard` subtracting?** Right now an Attack
+   into a held guard takes ×0.6 *and then* has `guard` subtracted from what is left, so
+   defending wins twice. Either the multiplier is the whole of Defend-beats-Attack and
+   `guard` only applies against Specials, or the numbers need to account for both. Visible
+   in the harness as guard feeling very strong at fast ticks.
+
+6. **Threat tiebreak.** "Nearest and lowest HP" needs an order — nearest first with HP as
    the tiebreak, a weighted score, or re-evaluated every few beats. Re-evaluation cadence
    matters more than the formula: an enemy that re-picks every beat feels twitchy and
    cannot be held by a guard at all.
 
-6. **Does the tick run everywhere?** If the world ticks rather than a fight, do enemies in
+7. **Does the tick run everywhere?** If the world ticks rather than a fight, do enemies in
    unoccupied chunks act? Proposal: only chunks with a player present tick, and enemies
    elsewhere are stored state that catches up — which is close to what `world.md` already
    designed with its 4-hour tick.
 
-7. **Dropped loot.** Does it persist, expire, or belong to nobody? Anyone-can-take is the
+8. **Dropped loot.** Does it persist, expire, or belong to nobody? Anyone-can-take is the
    social version and the default here, but it needs a lifetime so the ground does not
    fill up forever.
 
-8. **Death.** Injury 0–6 on defeat is designed for a fight that ends. With no combat
+9. **Death.** Injury 0–6 on defeat is designed for a fight that ends. With no combat
    state, what happens the moment a player's HP hits zero while others keep going —
    dropped where they stand and revivable, or moved somewhere?
 
-9. **A name for the big-hit stat.** It is the one stat that cannot be referred to.
+10. **A name for the big-hit stat.** It is the one stat that cannot be referred to.
    `breaker` floated, not adopted. Blocks ability definitions and every doc that mentions
    it.
