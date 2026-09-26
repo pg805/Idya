@@ -106,7 +106,7 @@ which abilities the player brings to them**.
 
 If a weapon is seven numbers, weapons become fungible stat sticks and the craft tree
 loses its reason to exist. The answer is the budget and the spread penalty (§3): a
-weapon's numbers must add up to its level's budget, and concentrating beats
+weapon's numbers must add up to its level's budget, and concentrating ticks
 spreading, so every weapon is a real shape rather than a strictly-better version of
 a lower one. If that does not carry enough identity, this design fails. Worth
 checking early rather than late.
@@ -405,17 +405,17 @@ Not continuous physics, not sub-tile positioning. A 400 to 500ms server tick.
 - Abilities are cooldowns measured in ticks; resource regenerates per tick.
 - Deterministic and replayable, the same way rounds are today.
 
-#### One beat for everyone, variation in cooldowns
+#### One tick for everyone, variation in cooldowns
 
 **Decided:** actions do not take different amounts of time. Everyone acts on the same
-beat. What differs is how long an ability takes to come back.
+tick. What differs is how long an ability takes to come back.
 
 Uniform action rate costs exactly one thing: speed as a stat axis. Everything real time
 was actually bought for survives it — nobody waits on anybody, movement is continuous,
 and both sides act at once so prediction matters.
 
 Tempo comes back as **cooldown length** instead. A heavy weapon's big swing recharges
-over several beats; you still act every beat, you just act with something lesser in
+over several ticks; you still act every tick, you just act with something lesser in
 between. Commitment becomes *"I spent my big thing"* rather than *"I am frozen and
 cannot respond."* This is the RuneScape arrangement and it is better than variable
 duration for three reasons: it is one universal rhythm (the simple-levers rule),
@@ -429,7 +429,7 @@ rule enforcing itself rather than a compromise.
 
 **The one exception: Special has a wind-up.** Interrupt needs something to bite on, so
 if every action resolved instantly the Attack-beats-Special edge would have no
-mechanism. Attack and Defend resolve on the beat; Special telegraphs. That makes the
+mechanism. Attack and Defend resolve on the tick; Special telegraphs. That makes the
 cast bar exist *only* on Specials, which is exactly where the drama belongs, and makes
 Special a real commitment rather than a bigger number.
 

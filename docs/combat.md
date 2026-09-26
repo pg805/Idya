@@ -36,27 +36,33 @@ people divide it fairly, is between the players.
 
 ## 2. The tick
 
-- A fixed server tick, **400–500ms**. Adjustable once it can be felt.
-- **The world ticks**, not a fight. Enemies act on the beat whether or not anyone is
+**A note on the word.** "Tick" is overloaded in this project: `world.md` has a **4-hour
+tick** for enemy respawn and healing, and the economy has `ShopPriceTick` and
+`tickAllDue`. Bare **tick** means the combat tick everywhere in this document; the slow
+one is always written **world tick**. (An earlier draft said "beat" for this to avoid the
+clash — one concept, one word, and tick is the one that stays.)
+
+- A fixed server tick of **400–500ms**. Adjustable once it can be felt.
+- **The world ticks**, not a fight. Enemies act on the tick whether or not anyone is
   engaging them.
-- All units act on **the same beat**. No unit acts more often than another.
+- All units act on **the same tick**. No unit acts more often than another.
 - Variation between weapons and abilities lives in **cooldown length**, never in action
   duration. Nothing ever locks a player out of responding.
-- Server authoritative. The client interpolates position between beats and predicts only
+- Server authoritative. The client interpolates position between ticks and predicts only
   its own movement.
 - Deterministic and replayable.
-- The AI re-plans on a cadence of several beats or on events, **not every beat**. Cheaper,
+- The AI re-plans on a cadence of several ticks or on events, **not every tick**. Cheaper,
   and it gives enemies something like reaction time.
 
 ## 3. Movement
 
-- **One tile per beat.** Movement is the baseline rhythm and everything else is measured
+- **One tile per tick.** Movement is the baseline rhythm and everything else is measured
   against it.
-- **You move and act on the same beat.** In real time that is the only thing that makes
+- **You move and act on the same tick.** In real time that is the only thing that makes
   sense — there is no turn to spend.
 
 That changes what kiting is. With equal speed you **cannot** kite: a melee enemy moving
-one tile per beat stays adjacent to a player moving one tile per beat, forever. Kiting
+one tile per tick stays adjacent to a player moving one tile per tick, forever. Kiting
 requires being *faster*, which makes **speed the kiting stat** — and speed is a pole on
 armour (§8), bought at the cost of health rather than chosen at character creation.
 
@@ -68,15 +74,15 @@ let the player retreat every turn. Real time removes the retreat window.
 
 Three categories: **Defend, Attack, Special.**
 
-- **Attack and Defend resolve on the beat they are issued.**
+- **Attack and Defend resolve on the tick they are issued.**
 - **Special has a wind-up**, then resolves. **It is not interruptible.** The wind-up is
   the only exception to uniform timing, and its job is now **telegraphing**: it is the
   window in which an opponent can read the commitment and answer it by guarding or
   stepping out of reach.
 - **Defend is a held state**, not a one-off. It persists until you do something else.
 - A cast bar shows Special wind-ups. It is the only cast bar, which is why it reads.
-- **Input queues.** A tapped key spends on the next beat; a held key repeats. An input
-  issued between beats is never dropped, which is what makes the beat feel responsive
+- **Input queues.** A tapped key spends on the next tick; a held key repeats. An input
+  issued between ticks is never dropped, which is what makes the tick feel responsive
   rather than unresponsive. Confirmed by feel in the harness: hold-to-move read as
   *"am I slower than the monsters?"* when the speeds were in fact identical.
 
@@ -216,10 +222,10 @@ No attack animations, no cast poses, no projectile sprites.
    kiter is fragile by construction. What is left is whether that alone is enough, or
    whether `control` slows and terrain also need to carry weight.
 
-4b. **How does speed express on a discrete grid?** Movement is one tile per beat and the
-   beat is uniform, so "faster" cannot mean fractional tiles. Proposal: **one tile per
-   beat is the ceiling**, and weight makes you slower — heavy armour moves one tile every
-   two beats. Nobody exceeds baseline; the differential comes from the other unit being
+4b. **How does speed express on a discrete grid?** Movement is one tile per tick and the
+   tick is uniform, so "faster" cannot mean fractional tiles. Proposal: **one tile per
+   tick is the ceiling**, and weight makes you slower — heavy armour moves one tile every
+   two ticks. Nobody exceeds baseline; the differential comes from the other unit being
    slow. That also means kiting works against heavy enemies and not against light ones,
    which is texture worth having.
 
@@ -235,8 +241,8 @@ No attack animations, no cast poses, no projectile sprites.
    in the harness as guard feeling very strong at fast ticks.
 
 6. **Threat tiebreak.** "Nearest and lowest HP" needs an order — nearest first with HP as
-   the tiebreak, a weighted score, or re-evaluated every few beats. Re-evaluation cadence
-   matters more than the formula: an enemy that re-picks every beat feels twitchy and
+   the tiebreak, a weighted score, or re-evaluated every few ticks. Re-evaluation cadence
+   matters more than the formula: an enemy that re-picks every tick feels twitchy and
    cannot be held by a guard at all.
 
 7. **Does the tick run everywhere?** If the world ticks rather than a fight, do enemies in

@@ -122,7 +122,7 @@ Item 3 needs places to exist first. Name a number and they can be in before you 
 ### 1. Combat
 
 **Spec lives in [`combat.md`](combat.md).** In brief: a 400–500ms world tick, no
-in-combat state at all, one tile per beat with move-and-act simultaneous, Defend held and
+in-combat state at all, one tile per tick with move-and-act simultaneous, Defend held and
 Special wound up, the triangle as damage multipliers, threat on nearest-and-lowest-HP
 with taunt, and enemies running the same seven stats and budget as players.
 
@@ -235,18 +235,18 @@ call — but it should be a choice rather than an accident.
 Numbered so they can be answered by number. Proposals given where one exists.
 
 1. ~~Tick rate~~ — **settled: 400–500ms**, adjustable once it can be felt.
-2. ~~Movement speed~~ — **settled: one tile per beat.** Movement is the baseline rhythm
+2. ~~Movement speed~~ — **settled: one tile per tick.** Movement is the baseline rhythm
    and cooldowns are measured against it.
 3. ~~Ability scaling~~ — **settled: multipliers.** An ability names which weapon stat it
    scales off and all magnitude comes from the weapon. Stab reads `striker`, bash reads
    the big-hit stat.
-4. **Resource regen.** How much per beat, and does it pause while acting?
+4. **Resource regen.** How much per tick, and does it pause while acting?
 5. **Cooldown range.** The spread between the cheapest repeatable ability and the
-   heaviest. Proposal: 1 beat to roughly 8.
+   heaviest. Proposal: 1 tick to roughly 8.
 6. **Special wind-up length.** Fixed for all Specials or per ability? Proposal: per
-   ability, 2–4 beats, since wind-up length *is* the risk.
-7. **Input model.** Does a click fire on the next beat, or queue an intent that persists
-   until it can fire? Proposal: queue, so a missed beat is not a lost input.
+   ability, 2–4 ticks, since wind-up length *is* the risk.
+7. **Input model.** Does a click fire on the next tick, or queue an intent that persists
+   until it can fire? Proposal: queue, so a missed tick is not a lost input.
 8. **Moving during a wind-up.** Cancels the Special, or can you walk while winding up?
    Proposal: cancels, because commitment should mean standing still.
 9. **Loot splitting.** `world.md` says loot splits "by turns participated," which has no
