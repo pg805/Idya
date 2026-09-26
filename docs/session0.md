@@ -119,44 +119,17 @@ Item 3 needs places to exist first. Name a number and they can be in before you 
 
 ## The build
 
-### 1. The tick
+### 1. Combat
 
-Replaces `resolveIntents` (`src/combat/resolution.ts`, ~880 lines) and
-`resolveTriangleCrits`.
+**Spec lives in [`combat.md`](combat.md).** In brief: a 400–500ms world tick, no
+in-combat state at all, one tile per beat with move-and-act simultaneous, Defend held and
+Special wound up, the riposte/interrupt/pierce triangle, threat on nearest-and-lowest-HP
+with taunt, and enemies running the same seven stats and budget as players.
 
-- A fixed server tick. All units act on **the same beat** — no unit acts more often
-  than another.
-- Variation between weapons and abilities lives in **cooldown length**, never in action
-  duration. Nothing ever locks a player out of responding.
-- Server authoritative. The client interpolates position between beats and predicts only
-  its own movement.
-- Deterministic and replayable, the way rounds are today.
-- The AI planner re-plans on a cadence of several beats or on events, **not every
-  beat**. Cheaper, and it gives enemies something like reaction time.
+The largest piece is that **there is no combat session** — no arena, no joining, no loot
+split. Enemies are in the world, they come at you, and they drop items on the ground.
 
-**Survives unchanged:** the grid, `board.ts`, `los.ts`, terrain, the tile layer (types
-9/10/11/13), and `movement.ts` pathing.
-
-### 2. Actions and the triangle
-
-- Three action categories: **Defend, Attack, Special.**
-- **Attack and Defend resolve on the beat they are issued.**
-- **Special has a wind-up**, then resolves, and is interruptible for the whole wind-up.
-  This is the only exception to uniform timing, and it exists because interrupt needs
-  something to bite on.
-- **Defend is a held state**, not a one-off action. It persists until you do something
-  else.
-- The triangle is three distinct mechanics rather than a damage table:
-
-| Edge | Verb | Mechanic |
-|---|---|---|
-| Defend beats Attack | **riposte** | an Attack landing on a held guard fires the defender's counter |
-| Attack beats Special | **interrupt** | an Attack landing on a unit mid-wind-up cancels the Special |
-| Special beats Defend | **pierce** | a Special resolving into a held guard ignores it |
-
-- A cast bar shows Special wind-ups, and it is the only cast bar, which is why it reads.
-
-### 3. Weapons
+### 2. Weapons
 
 - A weapon is a name, a level, HP, a resource pool, and **seven numbers**: `striker`,
   `breaker`, `guard`, `healer`, `support`, `control`, `magic`. Nothing else.
@@ -177,7 +150,7 @@ Replaces `resolveIntents` (`src/combat/resolution.ts`, ~880 lines) and
 
 Stat values wait on spec question 3.
 
-### 4. Abilities
+### 3. Abilities
 
 - **The ability provides the shape. The weapon provides the number.** An ability
   declares its category, which weapon stat it scales off, range, area, aimed or
@@ -197,24 +170,30 @@ so a player carries two of the four.
 
 Spells: **none written yet.** Needs two or three so the magic side is a decision too.
 
-### 5. Combat in the chunk
+### 4. Enemies in the world
 
-- The arena is **the chunk**, with its real terrain and real trees as cover. Not a
-  separate generated board.
-- `createSession` currently builds its own layout with random spawns and
-  `ENEMY_DIST_MIN/MAX`. That goes.
-- **Anyone who enters a chunk holding a live enemy joins the fight.** No hunt page, no
-  session to accept.
-- `sessions` is an in-memory `Map` keyed per player and `createSession` takes one
-  character and one weapon. Both change.
+Enemies stop being the contents of a session and become **things standing in a chunk**.
 
-### 6. GM spawn
+- **`createSession` goes.** It currently builds its own board with random player and
+  enemy spawns and `ENEMY_DIST_MIN/MAX`. There is no separate board any more — the chunk's
+  real terrain, with its real trees as cover, is where fighting happens.
+- **The `sessions` map goes.** It is keyed per player and holds one character and one
+  weapon, which is the wrong shape for a world where several people are standing in the
+  same place.
+- **Nobody joins anything.** Being in the chunk is being in the chunk. See
+  [`combat.md`](combat.md) §1.
+- Enemies need persistent position and HP so they are still there when you come back,
+  which is `world.md`'s "enemies as world objects."
+- Defeated enemies **drop items on the ground**. Needs a ground-item concept, which does
+  not exist yet.
+
+### 5. GM spawn
 
 The GM places enemies into a chunk the way they already place world objects
 (`world:place` behind `requireGm()`). Needs a count and a roster pick, since the
 session's climax is a horde rather than one enemy.
 
-### 7. Client
+### 6. Client
 
 Three pieces of motion, none of them sprite animation:
 
@@ -226,7 +205,7 @@ Three pieces of motion, none of them sprite animation:
 
 No attack animations, no cast poses, no projectile sprites.
 
-### 8. Data
+### 7. Data
 
 - Cut the level system to three. `CAP(L)` truncates on its own, so this is caps and
   validation rather than maths.
@@ -239,7 +218,7 @@ No attack animations, no cast poses, no projectile sprites.
   `WEAPON_PROFESSION` in `src/economy/upgrade_service.ts`. Rides the wipe, so no
   migration.
 
-### 9. Balance
+### 8. Balance
 
 **Every enemy is tuned 1v1**, and eight L0 enemies against four players is a different
 problem. Neither `simulate.ts` nor `spatial_sim.ts` can evaluate it, and both are built
@@ -282,56 +261,17 @@ Numbered so they can be answered by number. Proposals given where one exists.
     line that could, which would make the artificer the one profession with a refining
     step.
 
-### The next batch
+### Combat spec questions
 
-Deeper than the list above, and mostly about combat. Two are contradictions in the docs
-rather than gaps.
+Moved to [`combat.md`](combat.md), which has its own Open list. Settled since this doc
+was written: guard subtracts, healer scales the heal, support and control scale the
+existing effect types, damage rolls rather than multiplying flat, enemies use the same
+system, move and act happen together, there is no combat state, you can leave freely,
+and threat is nearest-and-lowest-HP with taunt for guards.
 
-13. **What do `guard`, `healer`, `support` and `control` actually do?** Six poles were
-    named and only two were specced. `striker` and `breaker` multiply damage and `magic`
-    multiplies spell damage, but the other four have no mechanics at all:
-
-    - `guard` — while Defend is held, does it *subtract* from incoming damage, *multiply*
-      it down, or absorb a pool that depletes?
-    - `healer` — presumably a multiplier on heal abilities, which is the easy one.
-    - `support` — buffs *what*? It needs a stat vocabulary to modify and that vocabulary
-      does not exist yet.
-    - `control` — debuffs what? Movement, cooldowns, damage, all three?
-
-    `support` and `control` are the hard ones, because unlike damage they have nothing to
-    point at until the buff/debuff targets are defined.
-
-14. **HP: weapon or armour?** A contradiction. The weapon spec lists HP as a weapon field,
-    inherited from the current system. But the decision that stats come from items put
-    health on **armour**. Both cannot be the primary source, and `design-rules.md` rule 4
-    ("power does not live in the weapon") points at armour.
-
-15. **Is the resource pool inside the level budget or outside it?** The seven stats sum to
-    `CAP(L)`. Resource is listed as a separate field. If it is free, every weapon maxes it
-    and it stops being a design lever.
-
-16. **Do enemies use the same system?** Seven stats, four ability slots, multiplier
-    abilities — or something simpler? This decides how much of the roster needs
-    re-authoring and whether `ai_planner.ts` can be reused at all.
-
-17. **Move and act on the same beat, or one or the other?** If both, movement is free and
-    kiting dominates, which is already the observed failure in `battle-ideas.md`. If one,
-    moving costs a beat of output and positioning becomes a real trade.
-
-18. **What ends a fight?** All enemies dead, presumably — but `world.md` also wants
-    enemies to persist in the chunk as world objects with their own HP between sessions,
-    which means a fight can end by everyone leaving.
-
-19. **Can you walk out of a fight?** Leaving the chunk mid-combat: allowed, blocked, or
-    allowed at a cost?
-
-20. **Who do enemies attack when several players are present?** Nearest, lowest HP,
-    whoever last hit them, random?
-
-    This is the same question as "what makes `guard` mean anything." If enemies always
-    strike the nearest, a guard protects people by standing in front and the pole works.
-    If they strike the weakest, a guard cannot protect anybody and the pole is decorative.
-    **Threat rules and the guard pole are one decision, not two.**
+Two of the old questions are answered for free by there being no combat state: **loot
+splitting** (items drop on the ground, whoever picks them up has them) and **what ends a
+fight** (nothing does — there is no fight to end).
 
 ---
 
