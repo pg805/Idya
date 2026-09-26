@@ -467,20 +467,28 @@ engine, so it can step ticks instead of rounds. The constants still have to be r
 
 ## 6. Sequencing
 
-The two halves are not equally entangled, and that matters.
+**Decided: real time and the weapon rework land together, in session 0.**
 
-**The weapon/ability split is separable.** It is a data-model and loader change. It can
-land on the *current* round-based engine, be validated with the existing sims, and
-deliver value immediately (abilities as findable, teachable, tradeable goods). It also
-de-risks the real-time move, because abilities as independent objects with their own
-cooldowns is exactly the shape real time wants.
+An earlier draft of this section argued the opposite — do the ability split first on the
+round engine, prove the data model, then swap the loop. That was the lower-risk order and
+it is superseded, for a reason that holds: **the weapon rework is what makes combat real
+time**, so splitting them means building the data model twice, once against rounds and
+once against the tick. And the new map does not make sense turn-based, so shipping a
+round-based session 0 on it would be shipping something already known to be wrong.
 
-**Real time is not incrementally reachable.** There is no half-step from
-`resolveIntents` to a tick loop. It is one commit that swaps the loop, followed by a
-long tail of re-tuning.
+What that costs, stated honestly:
 
-So if a first move is wanted that is not a rewrite: do the ability split first, on the
-turn engine, and let the data model prove itself before the loop changes underneath it.
+- The largest and riskiest piece of work is in front of the first session rather than
+  after it.
+- The balance tooling has to be rebased onto the tick before session 0 rather than at
+  leisure. `budget.ts`, `cost_report.ts`, `simulate.ts`, `spatial_sim.ts` and
+  `pacing_sim.ts` all cost per *round*, and every tuned economy constant sits on that
+  maths.
+- Players meet the untested part of the design before anyone knows whether the
+  cooperation thesis holds.
+
+The mitigation is scope, not sequence: three levels, five weapons, one wood, one metal,
+three professions. See [`session0.md`](session0.md) for the cut line and the spec.
 
 ---
 

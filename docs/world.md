@@ -12,14 +12,16 @@ Known reversals, so the contradictions do not have to be rediscovered:
 
 | This doc says | Now |
 |---|---|
-| "Combat keeps its round structure. Not being rewritten as continuous real-time." | Real time on a fixed server tick is the direction. Session 0 still uses rounds plus a round timer, so the reversal is planned rather than immediate. `items.md` §5. |
+| "Combat keeps its round structure. Not being rewritten as continuous real-time." | Real time on a fixed server tick, and it lands **in session 0** rather than after it. Rounds and the round timer are gone. `items.md` §5, `session0.md`. |
 | "No hand-authored chunks outside the town." | Procgen generates the chunks and a GM pass places points of interest on top. `map-ideas.md`. |
 | Cleric is a service profession with "no weapon parts." | The cleric makes holy weapons. `professions.md`. |
 | Professions in lockstep — three material tiers each, unlocks at matching ranks. | Evenness is not being forced. Metal goes four tiers deep. `design-rules.md` rule 13. |
 | Combat is deep tactical content. | Combat is a faucet, a demand generator, and a reason to need people. `design-rules.md` rule 3. |
 
-Also open question 5 ("round timer — always on, or only above a player count?") is now
-answered for session 0: on, because multiplayer rounds are exactly where waiting bites.
+Also open question 5 ("round timer — always on, or only above a player count?") is
+**void**: real time has no rounds to time. And the continuous-map assumption behind §17
+is not what is built — `src/world/chunk.ts` makes a chunk a discrete place whose terrain
+does not tile with its neighbours. See `session0.md`.
 
 ## What this is
 

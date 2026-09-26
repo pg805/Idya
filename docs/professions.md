@@ -78,22 +78,40 @@ starts being the thing that makes an uneven design fair.
 
 | Line | Tiers | Faucet |
 |---|---|---|
-| **Wood** | sulwood → treated_sulwood → hardwood | Felling trees with an axe. Built (`src/world/labour.ts`). |
-| **Arcane** | thuvel → hiruos → nodol | Enemy drops. Thuvel is already described as *"shed by enchanted creatures."* |
-| **Metal** | talamite → ? → ? → ? | Enemy drops for the lower tiers; **the mine for the highest**. |
+| **Wood** | **sulwood only, for now** | Felling trees with an axe. Built (`src/world/labour.ts`). |
+| **Arcane** | thuvel → hiruos → nodol (**settled at three**) | Enemy drops. Thuvel is already described as *"shed by enchanted creatures."* |
+| **Metal** | talamite → demite → domesite → sielite | Enemy drops for the lower three; **the mine for sielite**. |
 
-**Metal is four metals, not four grades of one.** Talamite is the low tier, copper-like.
-Three more need names.
+**Metal is four metals, not four grades of one**, and all four are named:
+
+| | Metal | Notes |
+|---|---|---|
+| 1 | **talamite** | The low tier. Copper-like. |
+| 2 | **demite** | |
+| 3 | **domesite** | |
+| 4 | **sielite** | Very rare, very good, and the only thing the mine produces. |
+
+**The depths are one, four and three.** Wood one, metal four, arcane three. Fully
+asymmetric and settled that way.
+
+**Wood is one tier right now.** Just sulwood — `treated_sulwood` and `hardwood` are
+dropped for the moment. Against four metals that is a stark asymmetry, and it is the
+"not forcing evenness" decision above taken at full strength rather than an oversight.
+
+It has one consequence worth following up: **with nothing to refine, the carpenter's
+rank cannot gate refining.** It has to gate *recipes* instead — which things you can
+make out of sulwood. That may be the right answer for every profession, with refining
+being a separate axis rather than the ladder itself. See open question 2.
 
 **Enemy level likely decides which metal drops** — low enemies give talamite, harder
 enemies give the better metals. That makes fighting harder things economically
 meaningful, which is `design-rules.md` rule 3 scaled, and it needs no new systems, only
 loot tables.
 
-It also creates one inversion worth being deliberate about: **the top metal becomes the
-only one you do not fight for.** If mining is pure labour, the best material is the
-safest to get, so the mine's *location* has to be its cost — deep, far, or somewhere
-that getting there is the risk. That is a map decision, not an economy one.
+It also creates one inversion worth being deliberate about: **sielite is the only metal
+you do not fight for.** If mining is pure labour, the best material is the safest to
+get, so the mine's *location* has to be its cost — deep, far, or somewhere that getting
+there is the risk. That is a map decision, not an economy one.
 
 **On one faucet per resource:** a rare drop and a gathered material only coexist
 without breaking price control if they are *different resources*. Gathering feeds one
@@ -130,20 +148,36 @@ Wanted, just not in the starting set.
    Blacksmith and Tanner produce physical things, which `striker` and `breaker` already
    cover; the Apothecary's output is consumables, not weapon scaling.
 
-2. **What is the sacred material?** Every other profession owns something the world
+2. **If metals drop, what does the blacksmith's rank still gate?** Today rank gates
+   *smelting* — talamite at rank 2, alloy at rank 7 — and that is the blacksmith's
+   whole reason to climb. If all four metals come off enemies finished, smelting
+   disappears and rank has nothing left to hold.
+
+   The version that keeps both: **raw ore drops, the smith refines it.** Enemies give
+   crude demite, the smith turns it into demite, and rank gates which ores they can
+   work. Preserves the drop faucet, preserves the smelt verb, preserves the reason a
+   raw ore is worth selling to someone. Costs a second item per metal, which the
+   existing `crude_talamite` / `talamite` pair already does.
+
+   Arcane has the same raw-to-refined shape (`thuvel` → `hiruos`) so the question
+   applies there too. Wood no longer does — it is one tier, which forces the
+   rank-gates-recipes answer for the carpenter whether or not it is chosen for
+   everyone else.
+
+3. **What is the sacred material?** Every other profession owns something the world
    produces from a faucet. Sacred does not have one yet, and without it the cleric has
    no supply chain — which matters more now that they make weapons rather than only
    services.
-3. **Which of the six are load-bearing?** A load-bearing profession is one where
+4. **Which of the six are load-bearing?** A load-bearing profession is one where
    something is *impossible* without it; an enriching one makes things better but
    nothing stops. Every profession added is another node the dependency graph can be
    missing, and rule 9 puts every missing node on the GM. The load-bearing set should
    stay small, and it should be chosen rather than discovered.
-4. **Armour slots versus material owners.** Head, chest, legs, boots and pack want to
+5. **Armour slots versus material owners.** Head, chest, legs, boots and pack want to
    come from more than one profession, or the tanner makes the entire armour system
    alone. Metal plate and leather splitting the slots is the obvious answer; cloth
    would want the weaver back.
-5. **Does the profession set change what a weapon assembly needs?** Five starter
+6. **Does the profession set change what a weapon assembly needs?** Five starter
    weapons currently need Carpenter, Blacksmith and Artificer. Tanner, Apothecary and
    Cleric contribute nothing to a weapon, which is fine if they own armour and
    consumables instead — but worth stating deliberately.
