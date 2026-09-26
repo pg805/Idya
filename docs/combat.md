@@ -57,8 +57,8 @@ people divide it fairly, is between the players.
 
 That changes what kiting is. With equal speed you **cannot** kite: a melee enemy moving
 one tile per beat stays adjacent to a player moving one tile per beat, forever. Kiting
-requires being *faster*, which makes **speed the kiting stat** — and speed comes from
-boots, so it is bought rather than chosen at character creation.
+requires being *faster*, which makes **speed the kiting stat** — and speed is a pole on
+armour (§8), bought at the cost of health rather than chosen at character creation.
 
 This is the fix for the failure recorded in `battle-ideas.md`, where range-1 enemies
 essentially never land a hit on a kiting player because movement parity plus turn order
@@ -161,7 +161,7 @@ Three things fall out of this, which is why it is worth having:
   weapon ends them. The tactical question becomes whether they can stay out of reach, not
   whether they can survive being caught.
 
-## 8. Client
+## 9. Client
 
 Three pieces of motion, none of them sprite animation:
 
