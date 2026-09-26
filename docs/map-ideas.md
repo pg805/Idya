@@ -6,9 +6,9 @@ uncommitted, added to whenever something occurs. Same spirit as
 
 The system this feeds is `world.md` §17: a world-scale feature layer placed before
 terrain, and **zones** (named regions spanning many chunks, each carrying its own
-difficulty, spawn roster, spawn budget and terrain character). No hand-authored
-chunks outside the town. So what gets designed here is **zones and features**, not
-squares.
+difficulty, spawn roster, spawn budget and terrain character). Procgen generates the
+chunks and a **GM pass adds points of interest on top** — which reverses `world.md`'s
+"no hand-authored chunks outside the town." See "How the map actually gets made".
 
 ---
 
@@ -58,6 +58,52 @@ So every region should be able to answer:
 
 ---
 
+## How the map actually gets made
+
+**Procgen stays, and it is the canvas.** The generated terrain and the world-scale
+feature layer are wanted in place, not replaced. Hand-authoring happens *on top*: a GM
+pass that walks the chunks and places **points of interest**, not one that paints
+terrain square by square.
+
+That reverses `world.md`'s "no hand-authored chunks outside the town," and it is
+deliberate. The generated world is what makes the personal touch affordable, because
+you only pay attention to the places that matter.
+
+The tools already exist and are gated behind `requireGm()` — `world:paint`,
+`world:place`, `world:remove`. Placing points of interest is a **content task, not a
+build task**; nothing blocks starting it.
+
+### The 2D constraint, and what it changes
+
+The map is top-down and the viewport is a chunk. **You cannot see anything from
+another chunk.** So there is no distance pull, no silhouette on the horizon, none of
+the landmark-gravity that open-world design normally leans on.
+
+A point of interest is therefore not a *lure*. It is a **reward and a memory** — worth
+finding, and worth telling someone about.
+
+Which makes the discovery mechanism **other players.** "There is a ruin two chunks
+north of the camp" is knowledge that has to travel person to person, so the shape of
+the world becomes social knowledge rather than something each player independently
+reveals. That is more on-thesis than a silhouette would have been.
+
+Two cheap things that support it:
+
+- **Paths and roads that exit a chunk edge.** A road heading north is a promise about
+  somewhere you cannot see — the 2D substitute for a silhouette, and it is just decor
+  placement.
+- **A map that fills in as people go**, shared rather than per-player. Cartography
+  becomes something a player can do *for other people*.
+
+### Art this needs
+
+- **Ruins.** The first thing wanted, and it needs drawing. Goes on
+  [`interface-art.md`](interface-art.md); the pipeline is Asset Library →
+  `build-tilesets.lua` → `npm run tiles:sync`.
+- **Landmark props generally** — enough distinct things that a place is worth naming.
+
+---
+
 ## Region template
 
 Copy this per idea. Everything is optional except Gives / Costs / Hook.
@@ -65,7 +111,7 @@ Copy this per idea. Everything is optional except Gives / Costs / Hook.
 ```
 ### <name>
 
-- **Read:**     what you see from a distance; the silhouette that pulls you
+- **Read:**     what you see on walking in (there is no view from outside — 2D)
 - **Gives:**    the thing only here
 - **Costs:**    what being here takes
 - **Threat:**   what lives here
@@ -104,7 +150,7 @@ the pump. Materials and enemies referenced are the ones already in
 
 ### Old growth
 
-- **Read:** trees far larger than anything around them, visible from well outside.
+- **Read:** trees far larger than anything around them.
 - **Gives:** hardwood, the tier-3 carpentry line.
 - **Costs:** the trees take real time to bring down and the noise carries.
 - **Threat:** melbear (L4).
@@ -147,6 +193,10 @@ Anything that is not a full region yet.
    depends on the land question in `world.md`.
 4. **Does evidence need to persist identically for everyone,** or can a place change
    after enough people have passed through?
-5. **How does a region read from outside it?** The pull comes from seeing something
-   at distance and going to it. That is a rendering question the current chunk-sized
-   viewport may not answer.
+5. ~~**How does a region read from outside it?**~~ **Closed: it does not.** The map is
+   2D with a chunk-sized viewport, so there is no distance pull at all. Discovery is
+   social, plus roads that point somewhere. See above.
+6. **How much of ring 2 and 3 gets a hand pass, and when?** Ring 1 plus the town is 9
+   chunks and that is session 0's scope. Rings 2 and 3 are 16 and 24 more. Doing them
+   as players push outward means decorating places people have reason to go rather
+   than guessing.

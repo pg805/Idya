@@ -1,7 +1,25 @@
 # Idya 0.3.0 — The World
 
-Status: **planning**. Nothing here is built yet. This is the frame for 0.3.0 and
-the plan for getting there.
+Status: **planning snapshot, partly superseded.** This was the frame for 0.3.0 as of
+its writing. Most of it stands, but the direction moved after it, and where the two
+disagree **this document is the older one**.
+
+The live design lives in [`design-rules.md`](design-rules.md) (hard constraints),
+[`items.md`](items.md) (weapons, abilities, combat), [`professions.md`](professions.md),
+[`map-ideas.md`](map-ideas.md) and [`session0.md`](session0.md) (the first slice).
+
+Known reversals, so the contradictions do not have to be rediscovered:
+
+| This doc says | Now |
+|---|---|
+| "Combat keeps its round structure. Not being rewritten as continuous real-time." | Real time on a fixed server tick is the direction. Session 0 still uses rounds plus a round timer, so the reversal is planned rather than immediate. `items.md` §5. |
+| "No hand-authored chunks outside the town." | Procgen generates the chunks and a GM pass places points of interest on top. `map-ideas.md`. |
+| Cleric is a service profession with "no weapon parts." | The cleric makes holy weapons. `professions.md`. |
+| Professions in lockstep — three material tiers each, unlocks at matching ranks. | Evenness is not being forced. Metal goes four tiers deep. `design-rules.md` rule 13. |
+| Combat is deep tactical content. | Combat is a faucet, a demand generator, and a reason to need people. `design-rules.md` rule 3. |
+
+Also open question 5 ("round timer — always on, or only above a player count?") is now
+answered for session 0: on, because multiplayer rounds are exactly where waiting bites.
 
 ## What this is
 

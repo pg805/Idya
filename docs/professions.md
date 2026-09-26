@@ -36,6 +36,9 @@ enchanter modifies, an artificer makes.
 | **Tanner** | Hide and leather | Light armour, grips, packs. |
 | **Cleric** | Sacred | Holy weapons, and the non-herbal half of consumables. |
 
+**Session 0 uses three:** Carpenter, Blacksmith, Artificer. Cleric, Apothecary and
+Tanner wait. See [`session0.md`](session0.md).
+
 **Cleric and Apothecary split on herb or not herb.** That is the line: anything made
 from plants is the apothecary's, anything sacred is the cleric's, and both make things
 that fix people.
@@ -50,6 +53,55 @@ with the whole per-profession upgrade and enchant machinery.
 **Cleric** is from `world.md`: the fourth profession and the first service profession,
 religious across a variety of forces rather than one church, with allegiance a
 separate axis from the profession. Clerics can heal themselves.
+
+---
+
+## Professions are not symmetric
+
+**Evenness is not being forced.** The current build has all three professions in
+lockstep: smelt at rank 2 and 7, weapons at ranks 1/3/5/9, three material tiers each.
+That grid is part of why the economy reads mechanical, and it is being abandoned
+rather than extended.
+
+Metal is the first case. It goes **four tiers deep** while wood and arcane stay at
+three, and that asymmetry is the point rather than a bug to fix.
+
+One test keeps unevenness honest: **a longer ladder is only fair if that profession is
+needed.** If the blacksmith climbs further but everyone needs metal, that is a fine
+trade. If the climb is longer *and* the material is skippable, it is a bad deal nobody
+takes. So the question "which professions are load-bearing" stops being tidiness and
+starts being the thing that makes an uneven design fair.
+
+---
+
+## Materials and where they come from
+
+| Line | Tiers | Faucet |
+|---|---|---|
+| **Wood** | sulwood → treated_sulwood → hardwood | Felling trees with an axe. Built (`src/world/labour.ts`). |
+| **Arcane** | thuvel → hiruos → nodol | Enemy drops. Thuvel is already described as *"shed by enchanted creatures."* |
+| **Metal** | talamite → ? → ? → ? | Enemy drops for the lower tiers; **the mine for the highest**. |
+
+**Metal is four metals, not four grades of one.** Talamite is the low tier, copper-like.
+Three more need names.
+
+**Enemy level likely decides which metal drops** — low enemies give talamite, harder
+enemies give the better metals. That makes fighting harder things economically
+meaningful, which is `design-rules.md` rule 3 scaled, and it needs no new systems, only
+loot tables.
+
+It also creates one inversion worth being deliberate about: **the top metal becomes the
+only one you do not fight for.** If mining is pure labour, the best material is the
+safest to get, so the mine's *location* has to be its cost — deep, far, or somewhere
+that getting there is the risk. That is a map decision, not an economy one.
+
+**On one faucet per resource:** a rare drop and a gathered material only coexist
+without breaking price control if they are *different resources*. Gathering feeds one
+tier, enemies feed another. Two taps on the same resource is what the rule forbids.
+
+**Profession-specific abilities** fit the model: if abilities are detachable objects
+and professions make things, a profession-specific ability is a *craftable good*. Every
+profession then has something to sell that is neither a weapon nor a tool.
 
 ---
 

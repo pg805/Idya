@@ -1,11 +1,13 @@
 # Items, weapons, and what a collectathon demands of combat
 
-Status: **thinking, not building.** Nothing here is locked. This is the frame for a
-combat + item overhaul that would land after the 0.3.0 world work, and it exists so
-the reasoning survives the gap.
+Status: **the 0.3.0 direction.** Parts are decided, parts are open, and each section
+says which. Session 0 takes a deliberate subset of it — see
+[`session0.md`](session0.md) for what is in and out.
 
-Related: `docs/world.md` (the 0.3.0 frame), `docs/battle-ideas.md` (AI and combat
-ideas against the *current* engine), `docs/ideas.md` (general backlog).
+Related: [`design-rules.md`](design-rules.md) (the constraints, in short form),
+[`professions.md`](professions.md) (who owns which material),
+[`session0.md`](session0.md) (the first slice), `battle-ideas.md` (AI ideas against
+the *current* engine), `world.md` (the 0.3.0 world frame, now partly superseded).
 
 ---
 
@@ -221,6 +223,11 @@ new power tier, while the ratio flattens (2.5×, 1.8×, 1.56×, 1.43×) so L5 si
 L1 instead of running away. A steeper curve would put more of the game's total power
 into the weapon and squeeze §1's "power does not live in the weapon."
 
+**Three levels for session 0.** Progression is being overhauled and the level count
+drops from five to three for the first session. The curve truncates cleanly — L1-L3 is
+50 / 125 / 225 — so nothing needs rescaling, it just stops early. See
+[`session0.md`](session0.md).
+
 **Spread penalty.** Concentrating beats spreading, by design. Expressed as a
 percentage so it scales itself and never needs re-tuning per level: **−10% of budget
 per stat beyond the first.** One stat 100%, two 90%, three 80% — at L1 that is
@@ -229,6 +236,31 @@ three-stat spread is the target feel.
 
 This also collapses `cost_report.ts`'s hard job. Costing field arrays, ranges, area,
 crit lists and riders becomes addition.
+
+### The first roster
+
+Decided, with **no stat values yet** — those get set together once it is settled
+whether an ability is a multiplier on a weapon stat or carries its own magnitude
+(§7, open question 6).
+
+**Weapons:** sword, axe, shovel, wand, quarterstaff.
+
+All five already exist in some form (`sword_wood`, `axe_wood`, `shovel_wood`,
+`kustaff`, `wand`), so names and flavour carry over rather than being invented.
+
+- **Axe and shovel are tools as well as weapons**; sword is a weapon only. Already
+  true in `src/world/labour.ts`, where `CHOP_TOOLS` fells and `DIG_TOOLS` digs and
+  neither does the other's job.
+- **The quarterstaff is pure wood**, which makes it the one weapon a lone carpenter
+  can finish, and therefore the natural starter.
+
+**Abilities:** slash, stab, chop, bash. Slash and stab read as many-small-hits, chop
+and bash as one-big-hit, so they split two and two across the damage axis. With two
+non-magic slots a player carries two of the four, which is a real decision from the
+first hour.
+
+**Spells: none yet.** The magic side needs at least two or three before the same is
+true there.
 
 ### Ability slots
 

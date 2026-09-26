@@ -259,6 +259,25 @@ number that makes it bad instead.
 message of the form "you cannot use that with this." You can cast a fireball with a
 battle axe; it does almost nothing, and that is the whole mechanism.
 
+### 13. Uneven is fine; unneeded is not
+
+Professions do not have to be symmetric. Ladders can be different lengths, material
+lines different depths, unlocks at different ranks. Evenness is not being forced.
+
+**Why:** The current lockstep grid — all three professions smelting at ranks 2 and 7,
+weapons at 1/3/5/9, three material tiers each — is a large part of why the economy reads
+mechanical. Character comes from professions being shaped differently.
+
+**Test:** Is this profession *needed* by somebody else? A longer climb is a fair trade
+when everyone needs what you make. A longer climb for a material people can skip is a
+bad deal nobody takes.
+
+**Kills:** Adding a tier to one profession "for parity." Balancing professions against
+each other rather than against whether anyone depends on them. Any profession whose
+output is optional.
+
+---
+
 ## Maybes
 
 Not rules yet. Recorded so they are not re-derived from scratch.
