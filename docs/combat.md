@@ -15,6 +15,36 @@ Replaces the round engine: `resolveIntents` and `resolveTriangleCrits`
 
 ---
 
+## 0. How this is being built
+
+**The base first, from scratch.** Everything below §3 was specced by merging two systems
+that were never designed together — a round engine and a real-time idea — and layering an
+action model on top. The layers kept needing repair because the base underneath them had
+no tension in it.
+
+So the action layer is **parked**, not deleted: Defend, Special, the triangle, resource,
+armour poles, taunt and threat weighting all stay written down but none of them is settled
+until the primitive is worth playing on its own.
+
+**The primitive is: a square that moves and hits other squares, and squares that hit
+back.** Nothing else.
+
+At that level there is exactly one question, and it is not a mechanic — it is a number.
+Move and act happen on the same tick (§3), so moving costs nothing and attacking costs
+nothing, which means **how often you can swing** is the only thing that can make
+positioning matter. Swing every tick and movement is pointless. Swing every third and the
+gaps between swings become the whole game.
+
+Being tested in a harness rather than argued about: the swing interval, three different
+swing inputs (automatic, press, or hit-the-tile-you-face so that walking is aiming), reach
+against theirs, and enemy count. What comes back into the spec is whatever that proves.
+
+One early suspicion worth recording: a single enemy may not be interesting at *any* swing
+interval, which would mean the base mechanic is **being outnumbered** rather than the
+swing. If that holds, it points somewhere other than where §4 onward was heading.
+
+---
+
 ## 1. There is no combat state
 
 The largest simplification in the design. **There is no in-combat and out-of-combat.**
