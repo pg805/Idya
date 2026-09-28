@@ -33,6 +33,7 @@ import {
   loadChunk, paintSquare, placeObject, removeTopObject, removeObject,
   editTreePart, resetSquare, setTile,
 } from '../world/world_service.js';
+import { seedSwallows, clearEnemies } from '../world/spawns.js';
 import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
@@ -641,6 +642,35 @@ app.use((req: Request, res: Response, next) => {
 // combat shell, not a front door. `/` is routed to the landing page below.
 app.use(express.static(join(__dirname, '../../public'), { index: false }));
 app.use(express.json());
+
+// --- Dev: put swallows in the world ---
+// Inert for now: they stand in their chunks and nothing walks into them, because
+// the combat that would pick them up does not exist yet (docs/combat.md §0).
+// Idempotent per chunk, so hitting this twice does not double the flock.
+app.post('/api/dev/seed-swallows', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  const perChunk = Math.max(1, Math.min(12, Number(req.query.per ?? 3) || 3));
+  try {
+    res.json(await seedSwallows({ perChunk }));
+  } catch (err) {
+    console.error('seed-swallows failed:', err);
+    res.status(500).json({ error: 'Seeding failed' });
+  }
+});
+
+app.post('/api/dev/clear-enemies', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
+  try {
+    res.json({ removed: await clearEnemies() });
+  } catch (err) {
+    console.error('clear-enemies failed:', err);
+    res.status(500).json({ error: 'Clear failed' });
+  }
+});
 
 // --- Dev: AI replay generator (powers the dev replay view) ---
 app.get('/api/dev/replay/options', (req: Request, res: Response) => {

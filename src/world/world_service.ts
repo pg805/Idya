@@ -71,7 +71,7 @@ export interface ChunkView {
  * stable while the trees moved. Uses the chunk seed, offset so it doesn't walk
  * the same sequence the terrain does.
  */
-function obstaclesFor(chunk: Chunk, place: Place): Obstacle[] {
+export function obstaclesFor(chunk: Chunk, place: Place): Obstacle[] {
   let state = (chunkSeed(chunk) ^ 0x9e3779b9) >>> 0;
   const next = () => {
     // xorshift32: small, fast, and identical across processes.

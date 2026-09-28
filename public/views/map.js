@@ -154,9 +154,15 @@ window.Views.map = (function () {
       canopy: stage.querySelector('#map-canopy'),
     };
 
+    // Enemies come down the same objects list as barrels and trees, but they are
+    // creatures: they belong in the token layer with the people, not blitted from
+    // the decor atlas (which has no creature art in it at all).
+    const decor = (view.objects ?? []).filter(o => o.kind !== 'enemy');
+    const beasts = (view.objects ?? []).filter(o => o.kind === 'enemy');
+
     const painted = paintTerrain(
       canvases,
-      { terrain: view.terrain, obstacles: view.obstacles, objects: view.objects },
+      { terrain: view.terrain, obstacles: view.obstacles, objects: decor },
       cell,
       { onReady: () => paint() },   // sheets may still be loading on first paint
     );
@@ -168,7 +174,34 @@ window.Views.map = (function () {
     // Tokens are sized and repositioned in the same units the canvases just
     // used, so a resize moves everyone with the ground under them.
     for (const [id, o] of occupants) placeToken(id, o.tile, false);
+    renderBeasts(beasts);
     updateCamera(false);
+  }
+
+  /**
+   * Enemies standing in the chunk.
+   *
+   * Rebuilt outright on every paint rather than diffed: they do not move yet, so
+   * there is nothing to animate, and a chunk's worth is a handful of nodes. When
+   * they start moving this wants the same treatment the people get.
+   */
+  function renderBeasts(list) {
+    const layer = tokenLayer();
+    if (!layer) return;
+    for (const old of layer.querySelectorAll('.map-token.beast')) old.remove();
+    for (const b of list) {
+      const el = document.createElement('div');
+      el.className = 'map-token beast';
+      el.innerHTML =
+        `<img class="map-token-sprite" src="${spriteUrl(b.sprite)}" alt="">` +
+        `<span class="map-token-name"></span>`;
+      el.querySelector('.map-token-name').textContent = '';
+      el.style.transitionDuration = '0ms';
+      el.style.width = `${cell}px`;
+      el.style.height = `${cell}px`;
+      el.style.transform = `translate(${b.x * cell}px, ${b.y * cell}px)`;
+      layer.appendChild(el);
+    }
   }
 
   // ---- people ----
