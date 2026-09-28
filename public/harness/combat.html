@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body { margin: 0; font: 14px system-ui, sans-serif; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Idya Squares</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground:#eceef0; --surface:#ffffff; --raised:#f5f6f8; --line:#d3d8de;
+    --ink:#1b2229; --ink-dim:#5c6773; --ink-faint:#8b96a3;
+    --copper:#a8632a; --copper-lo:#c98b52; --steel:#3f6f8c; --moss:#4f7539; --rust:#a83f30;
+    --warded:#7a6a2e;
+    --board-bg:#2a3540; --tile-a:#35443a; --tile-b:#3b4a3f; --tile-dirt:#4a4034; --tile-line:#0003;
+    --radius:3px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0f1418; --surface:#171e25; --raised:#1f272f; --line:#2c3741;
+      --ink:#e6ebf0; --ink-dim:#97a4b1; --ink-faint:#68757f;
+      --copper:#d08c4d; --copper-lo:#8a5a2c; --steel:#6ba3c4; --moss:#83ad63; --rust:#d16853;
+      --warded:#d8c25e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0f1418; --surface:#171e25; --raised:#1f272f; --line:#2c3741;
+    --ink:#e6ebf0; --ink-dim:#97a4b1; --ink-faint:#68757f;
+    --copper:#d08c4d; --copper-lo:#8a5a2c; --steel:#6ba3c4; --moss:#83ad63; --rust:#d16853;
+    --warded:#d8c25e;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink);
+         font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 14px; line-height: 1.5;
+         -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px;
+          display: flex; flex-direction: column; gap: 16px; }
+
+  h1 { font-family: Silkscreen, monospace; font-size: 22px; line-height: 1; margin: 0; text-wrap: balance; }
+  .lede { margin: 7px 0 0; color: var(--ink-dim); max-width: 64ch; font-size: 13px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px; }
+  .readout { margin-left: auto; display: flex; gap: 18px; font-family: "IBM Plex Mono", monospace;
+             font-variant-numeric: tabular-nums; }
+  .readout div { text-align: right; }
+  .readout b { display: block; font-size: 20px; font-weight: 600; line-height: 1; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .13em;
+             text-transform: uppercase; color: var(--ink-faint); margin: 0 0 3px; }
+
+  .cols { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 14px; align-items: start; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .panel h2 { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .13em;
+              text-transform: uppercase; color: var(--ink-faint); margin: 0 0 10px; font-weight: 500; }
+
+  .board-shell { padding: 10px; }
+  .board { position: relative; width: 100%; aspect-ratio: 18/12; background: var(--board-bg);
+           border-radius: 2px; overflow: hidden; touch-action: none; cursor: crosshair; }
+  .tiles { position: absolute; inset: 0; display: grid;
+           grid-template-columns: repeat(18,1fr); grid-template-rows: repeat(12,1fr); }
+  canvas.layer { position: absolute; inset: 0; width: 100%; height: 100%;
+                 image-rendering: pixelated; pointer-events: none; }
+  #canopy { z-index: 5; }
+  .board.art .tiles { display: none; }
+  .board.art .unit { background-color: transparent; box-shadow: none;
+                     image-rendering: pixelated; background-size: 100% 100%;
+                     background-repeat: no-repeat; background-position: center bottom; }
+  .board.art .unit.dead { opacity: .25; }
+  .unit.spr { border-radius: 0; }
+  .tile { border-right: 1px solid var(--tile-line); border-bottom: 1px solid var(--tile-line); }
+
+  .unit { position: absolute; border-radius: 3px; box-shadow: 0 2px 0 #0005; }
+  .unit.player { background: var(--copper); }
+  .unit.foe { background: var(--rust); }
+  .unit.dead { opacity: .14; filter: grayscale(1); }
+  .unit.shielded { box-shadow: 0 0 0 2px var(--steel), 0 2px 0 #0005; }
+  .board.art .unit.warded { filter: drop-shadow(0 0 3px var(--warded)) drop-shadow(0 0 1px var(--warded)); }
+  .unit.warded { outline: 2px solid var(--warded); outline-offset: 1px; }
+
+  .hpbar { position: absolute; height: 3px; background: #0007; border-radius: 2px; overflow: hidden; }
+  .hpbar i { display: block; height: 100%; background: var(--moss); }
+
+  /* thrust hitboxes, drawn as the real rectangle */
+  .box { position: absolute; transform-origin: 0 50%; pointer-events: none; border-radius: 2px; }
+  .box.ghost { background: color-mix(in srgb, var(--copper) 16%, transparent);
+               box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--copper) 55%, transparent); }
+  .box.live  { background: color-mix(in srgb, var(--copper) 62%, transparent);
+               box-shadow: inset 0 0 0 1px var(--copper); }
+  .box.tell  { background: color-mix(in srgb, var(--rust) 26%, transparent);
+               box-shadow: inset 0 0 0 1px var(--rust); }
+  .box.foelive { background: color-mix(in srgb, var(--rust) 66%, transparent);
+                 box-shadow: inset 0 0 0 1px var(--rust); }
+
+  .pop { position: absolute; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 13px;
+         pointer-events: none; animation: rise .8s ease-out forwards; text-shadow: 0 1px 2px #000a; }
+  @keyframes rise { to { transform: translateY(-24px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation-duration: .01ms; } }
+
+  label.k { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink-dim); }
+  label.k + label.k { margin-top: 12px; }
+  input[type=range] { width: 100%; accent-color: var(--copper); }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  button { font: inherit; font-family: "IBM Plex Mono", monospace; font-size: 12px;
+           background: var(--raised); color: var(--ink); border: 1px solid var(--line);
+           border-radius: var(--radius); padding: 7px 10px; cursor: pointer; }
+  button:hover { border-color: var(--copper); }
+  button:focus-visible { outline: 2px solid var(--copper); outline-offset: 1px; }
+  button.on { background: var(--steel); border-color: var(--steel); color: #fff; }
+  .seg button { flex: 1 1 auto; min-width: 70px; text-align: center; }
+
+  .log { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; height: 110px;
+         overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 2px; }
+  .log p { margin: 0; color: var(--ink-dim); }
+  .log p b { color: var(--ink); font-weight: 500; }
+  .log .t { color: var(--ink-faint); }
+  .log .hurt b { color: var(--rust); }
+  .log .hit b { color: var(--copper); }
+
+  .tally { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 10px;
+           font-family: "IBM Plex Mono", monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tally span { color: var(--ink-dim); }
+  .tally i { color: var(--ink-faint); font-style: normal; }
+  .tally .ind { color: var(--ink-faint); padding-left: 12px; font-size: 11.5px; }
+  .tally .rule { grid-column: 1/-1; border-top: 1px solid var(--line); margin: 5px 0 3px; }
+
+  .note { font-size: 12.5px; color: var(--ink-dim); margin: 0; }
+  .note + .note { margin-top: 9px; }
+  .note b { color: var(--ink); font-weight: 600; }
+  code { font-family: "IBM Plex Mono", monospace; font-size: .92em; background: var(--raised);
+         border: 1px solid var(--line); border-radius: 2px; padding: 0 4px; }
+  footer { color: var(--ink-faint); font-size: 12px; border-top: 1px solid var(--line); padding-top: 13px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Idya Squares</h1>
+      <p class="lede">Grid world, free bodies. The tiles are still the world &mdash; terrain, objects, everything you paint &mdash; but units move continuously over them and attacks are real hitboxes. The attack is a <b>one-tile thrust</b>. <b>WASD</b> moves, the <b>mouse aims</b>, <b>left click</b> thrusts, <b>right click</b> shields, <b>Q</b> drops a ward.</p>
+    </div>
+    <div class="readout">
+      <div><p class="eyebrow">HP</p><b id="hpNo">100</b></div>
+      <div><p class="eyebrow">Left</p><b id="aliveNo">3</b></div>
+      <div><p class="eyebrow">FPS</p><b id="fpsNo">&mdash;</b></div>
+    </div>
+  </header>
+
+  <div class="cols">
+    <div class="stack">
+      <div class="panel board-shell">
+        <div class="board" id="board"><canvas class="layer" id="ground"></canvas><canvas class="layer" id="fx"></canvas><div class="tiles" id="tiles"></div><canvas class="layer" id="canopy"></canvas></div>
+      </div>
+      <div class="panel"><h2>Event log</h2><div class="log" id="log"></div></div>
+    </div>
+
+    <div class="stack">
+      <div class="panel">
+        <h2>The thrust</h2>
+        <label class="k" for="reach"><input type="range" id="reach" min="40" max="220" step="10" value="100"><span id="reachLabel"></span></label>
+        <label class="k" for="width"><input type="range" id="width" min="20" max="120" step="5" value="45"><span id="widthLabel"></span></label>
+        <label class="k" for="active"><input type="range" id="active" min="40" max="400" step="20" value="120"><span id="activeLabel"></span></label>
+        <label class="k" for="cool"><input type="range" id="cool" min="120" max="1400" step="40" value="520"><span id="coolLabel"></span></label>
+        <p class="note" style="margin-top:10px">A thrust is a long thin rectangle, so it reaches but barely sweeps. A swing would be short and wide &mdash; that difference is the thing a grid could not express at reach 1.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Ward &mdash; a 3&times;3 buff tile</h2>
+        <label class="k" for="zbuff"><input type="range" id="zbuff" min="110" max="300" step="10" value="160"><span id="zbuffLabel"></span></label>
+        <label class="k" for="zlife"><input type="range" id="zlife" min="3000" max="20000" step="1000" value="11000"><span id="zlifeLabel"></span></label>
+        <div class="seg" id="wardPick" style="margin-bottom:10px"></div>
+        <p class="note" style="margin-top:10px"><b>Q</b> lays it on the tile your centre point is in, plus the eight around it. Your body is a circle that can straddle four tiles, so standing on it has to mean something exact &mdash; the centre decides, and you can feel the edge.</p>
+      </div>
+
+      <div class="panel">
+        <h2>View</h2>
+        <div class="seg" id="viewPick"></div>
+        <p class="note" style="margin-top:10px">The real tilesets, painted the way the game paints them &mdash; dirt underneath, grass autotiled off the corner lattice, canopy over the top so a body behind a trunk is behind the leaves. <b>Trees block movement.</b></p>
+      </div>
+
+      <div class="panel">
+        <h2>Bodies</h2>
+        <label class="k" for="speed"><input type="range" id="speed" min="15" max="90" step="5" value="42"><span id="speedLabel"></span></label>
+        <label class="k" for="foeSpeed"><input type="range" id="foeSpeed" min="10" max="80" step="5" value="26"><span id="foeSpeedLabel"></span></label>
+        <label class="k" for="foeCount"><input type="range" id="foeCount" min="1" max="8" step="1" value="3"><span id="foeLabel"></span></label>
+        <div style="margin-top:12px"><button id="reset">Reset the chunk</button></div>
+      </div>
+
+      <div class="panel">
+        <h2>Are you hitting what you aimed at?</h2>
+        <div id="aimStats"></div>
+        <p class="note" style="margin-top:10px">No wedge any more &mdash; aim is a real angle, so there is no direction to round off. An early click is still held until the thrust is ready.</p>
+      </div>
+
+      <div class="panel">
+        <h2>What changed</h2>
+        <p class="note">Positions are floats in tile units, not tile indices. Collision is circles, attacks are oriented rectangles, and enemies telegraph their thrust in dark red before it goes live &mdash; that window is the only reason you can dodge.</p>
+        <p class="note">Still absent: the triangle, resource, armour poles, taunt, abilities as objects.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    No tick. Movement and attacks run on the frame clock, cooldowns are milliseconds. The real server would still tick and interpolate, but nothing the player feels depends on that rate any more.
+  </footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// The skin: the real tilesets, drawn the way the game draws them.
+// Atlas maps, the autotile table and the corner-mask scheme are lifted from
+// public/terrain.js so the ground comes out identical to the live renderer.
+// ---------------------------------------------------------------------------
+// The real art, loaded from public/. (The published mockup inlines these as
+// data URIs because the artifact sandbox cannot reach this server; here they are
+// just files, so editing a tileset and reloading shows up immediately.)
+var ART = {
+  T:  "../tiles/tileset_terrain.png",
+  D:  "../tiles/tileset_decor.png",
+  P:  "../sprites/archibald.png",
+  E:  "../sprites/thokk.png",
+  E2: "../sprites/xolgren.png"
+};
+
+var TILE = 32;
+var SHAPE_COL = { full: 0, empty: 1, edge: 2, outer: 3, inner: 4, diagonal: 5 };
+var BASE_MASK = { full: 0b1111, empty: 0b0000, edge: 0b0101,
+                  outer: 0b0100, inner: 0b1101, diagonal: 0b0110 };
+var MATERIAL_ROW = { grass: 0, dirt: 1, road: 2, stone: 4, sand: 5, water: 6 };
+
+function rotateMask(m) {
+  return ((m & 0b1000) >> 1) | ((m & 0b0100) >> 2)
+       | ((m & 0b0001) << 1) | ((m & 0b0010) << 2);
+}
+var AUTOTILE = (function () {
+  var table = new Array(16);
+  Object.keys(BASE_MASK).forEach(function (shape) {
+    var m = BASE_MASK[shape];
+    for (var rot = 0; rot < 4; rot++) {
+      if (table[m] === undefined) table[m] = { col: SHAPE_COL[shape], rot: rot };
+      m = rotateMask(m);
+    }
+  });
+  return table;
+})();
+
+// name -> [sheet, col, row]
+var ATLAS = {
+  shadow_sm: ['t',0,8], shadow_md: ['t',1,8], shadow_lg: ['t',2,8], shadow_xl: ['t',3,8],
+  dec_tree_01_top_01:['d',0,0], dec_tree_01_top_02:['d',1,0], dec_tree_01_top_03:['d',2,0],
+  dec_tree_01_top_04:['d',3,0], dec_tree_01_top_05:['d',4,0], dec_tree_01_top_06:['d',5,0],
+  dec_tree_01_middle_01:['d',0,1], dec_tree_01_top_07:['d',1,1],
+  dec_tree_01_middle_02:['d',2,1], dec_tree_01_stump:['d',3,1], dec_tree_01_bottom:['d',0,2],
+  dec_tree_02_top_01:['d',0,3], dec_tree_02_top_03:['d',1,3], dec_tree_02_top_04:['d',2,3],
+  dec_tree_02_top_05:['d',3,3], dec_tree_02_top_06:['d',4,3], dec_tree_02_top_07:['d',5,3],
+  dec_tree_02_middle_03:['d',0,4], dec_tree_02_middle_02:['d',0,5],
+  dec_tree_02_middle_01:['d',0,6], dec_tree_02_bottom:['d',0,7], dec_tree_02_stump:['d',1,7],
+  dec_bush_01:['d',4,1], dec_bush_02:['d',5,1], dec_bush_03:['d',1,2], dec_bush_04:['d',2,2],
+  dec_flower_01:['d',3,2], dec_flower_02:['d',4,2],
+  dec_rock_01:['d',1,4], dec_rock_02:['d',2,4],
+  ov_grass_01:['d',3,6], ov_grass_02:['d',4,6], ov_grass_03:['d',5,6]
+};
+
+var sheets = {};
+var artReady = false;
+function loadArt(done) {
+  var keys = [['t', ART.T], ['d', ART.D]];
+  var sprites = [['P', ART.P], ['E', ART.E], ['E2', ART.E2]];
+  var left = keys.length + sprites.length;
+  function one(store, k, src) {
+    var im = new Image();
+    im.onload = im.onerror = function () { if (--left === 0) { artReady = true; done(); } };
+    im.src = src; store[k] = im;
+  }
+  keys.forEach(function (p) { one(sheets, p[0], p[1]); });
+  sprites.forEach(function (p) { one(sheets, p[0], p[1]); });
+}
+
+function blit(ctx, sheetKey, col, row, dx, dy, rot) {
+  var im = sheets[sheetKey];
+  if (!im || !im.width) return;
+  if (!rot) { ctx.drawImage(im, col*TILE, row*TILE, TILE, TILE, dx, dy, TILE, TILE); return; }
+  ctx.save();
+  ctx.translate(dx + TILE/2, dy + TILE/2);
+  ctx.rotate(rot * Math.PI / 2);
+  ctx.drawImage(im, col*TILE, row*TILE, TILE, TILE, -TILE/2, -TILE/2, TILE, TILE);
+  ctx.restore();
+}
+function blitNamed(ctx, name, dx, dy) {
+  var a = ATLAS[name];
+  if (a) blit(ctx, a[0], a[1], a[2], dx, dy, 0);
+}
+
+// ---- world generation: a corner lattice, trees, scatter ----
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+var TREE_BUILDS = [
+  { bottom:'dec_tree_01_bottom', mids:['dec_tree_01_middle_01','dec_tree_01_middle_02'],
+    tops:['dec_tree_01_top_01','dec_tree_01_top_02','dec_tree_01_top_03','dec_tree_01_top_05'] },
+  { bottom:'dec_tree_02_bottom', mids:['dec_tree_02_middle_01','dec_tree_02_middle_02','dec_tree_02_middle_03'],
+    tops:['dec_tree_02_top_01','dec_tree_02_top_04','dec_tree_02_top_05'] }
+];
+
+function buildWorld(cols, rows, seed, treeCount, keepClear) {
+  var r = mulberry32(seed);
+  // corner lattice: grass with a few dirt patches worn into it
+  var corners = [];
+  for (var j = 0; j <= rows; j++) {
+    var row = [];
+    for (var i = 0; i <= cols; i++) row.push('g');
+    corners.push(row);
+  }
+  for (var p = 0; p < 5; p++) {
+    var cx = 1 + Math.floor(r()*(cols-2)), cy = 1 + Math.floor(r()*(rows-2));
+    var rad = 1 + r()*1.8;
+    for (var j2 = 0; j2 <= rows; j2++) for (var i2 = 0; i2 <= cols; i2++)
+      if (Math.hypot(i2-cx, j2-cy) < rad) corners[j2][i2] = 'd';
+  }
+
+  // trees, kept off the player's spawn
+  var trees = [], taken = {};
+  var guard = 0;
+  while (trees.length < treeCount && guard++ < 600) {
+    var tx = Math.floor(r()*cols), ty = 2 + Math.floor(r()*(rows-2));
+    if (taken[tx+","+ty]) continue;
+    if (Math.hypot(tx+0.5-keepClear.x, ty+0.5-keepClear.y) < 3) continue;
+    var neighbour = false;
+    for (var d = -1; d <= 1; d++) if (taken[(tx+d)+","+ty]) neighbour = true;
+    if (neighbour) continue;
+    taken[tx+","+ty] = 1;
+    var build = TREE_BUILDS[r() < 0.5 ? 0 : 1];
+    trees.push({ x: tx, y: ty, build: build,
+      mids: 1 + Math.floor(r()*2),
+      mid: build.mids[Math.floor(r()*build.mids.length)],
+      top: build.tops[Math.floor(r()*build.tops.length)] });
+  }
+
+  var scatter = [];
+  for (var s = 0; s < 26; s++) {
+    var sx = Math.floor(r()*cols), sy = Math.floor(r()*rows);
+    if (taken[sx+","+sy]) continue;
+    var pick = r();
+    scatter.push({ x: sx, y: sy,
+      sprite: pick < 0.42 ? (r()<0.5?'ov_grass_01':'ov_grass_02')
+            : pick < 0.6  ? 'ov_grass_03'
+            : pick < 0.74 ? (r()<0.5?'dec_rock_01':'dec_rock_02')
+            : pick < 0.88 ? (r()<0.5?'dec_flower_01':'dec_flower_02')
+            : (r()<0.5?'dec_bush_01':'dec_bush_03') });
+  }
+  return { corners: corners, trees: trees, scatter: scatter, blocked: taken };
+}
+
+// ---- painting ----
+function paintMaterial(ctx, material, cols, rows, isMat) {
+  var row = MATERIAL_ROW[material];
+  for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++) {
+    var mask = (isMat(x,y)?0b1000:0) | (isMat(x+1,y)?0b0100:0)
+             | (isMat(x,y+1)?0b0010:0) | (isMat(x+1,y+1)?0b0001:0);
+    if (mask === 0) continue;
+    var sh = AUTOTILE[mask];
+    blit(ctx, 't', sh.col, row, x*TILE, y*TILE, sh.rot);
+  }
+}
+
+function paintGround(canvas, world, cols, rows) {
+  var ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.scale(canvas.width / (cols*TILE), canvas.height / (rows*TILE));
+
+  // dirt underneath everywhere, grass painted over it by corner mask
+  for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++)
+    blit(ctx, 't', SHAPE_COL.full, MATERIAL_ROW.dirt, x*TILE, y*TILE, 0);
+  paintMaterial(ctx, 'grass', cols, rows, function (i, j) {
+    var r = world.corners[j]; return r ? r[i] === 'g' : false;
+  });
+
+  world.scatter.forEach(function (s) { blitNamed(ctx, s.sprite, s.x*TILE, s.y*TILE); });
+  // a tree's shadow and trunk sit on the ground layer
+  world.trees.forEach(function (t) {
+    blitNamed(ctx, 'shadow_xl', t.x*TILE, t.y*TILE);
+    blitNamed(ctx, t.build.bottom, t.x*TILE, t.y*TILE);
+  });
+  ctx.restore();
+}
+
+// Canopy goes over the units, because a body behind a trunk is behind the leaves.
+function paintCanopy(canvas, world, cols, rows) {
+  var ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.scale(canvas.width / (cols*TILE), canvas.height / (rows*TILE));
+  world.trees.forEach(function (t) {
+    var y = t.y - 1;
+    for (var m = 0; m < t.mids; m++, y--) blitNamed(ctx, t.mid, t.x*TILE, y*TILE);
+    blitNamed(ctx, t.top, t.x*TILE, y*TILE);
+  });
+  ctx.restore();
+}
+
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var COLS = 18, ROWS = 12;
+  var KEYAXIS = { w:[0,-1], arrowup:[0,-1], a:[-1,0], arrowleft:[-1,0],
+                  s:[0,1], arrowdown:[0,1], d:[1,0], arrowright:[1,0] };
+  var held = Object.create(null);
+
+  var S = {
+    reach: 1.0, width: 0.45, activeMs: 120, coolMs: 520,
+    speed: 4.2, foeSpeed: 2.6, foeCount: 3,
+    aim: 0, mouse: { x: 6, y: 6 },
+    clickHeld: false, shielding: false,
+    units: [], last: 0, fps: 0, running: true,
+    stats: { clicks:0, buffered:0, fired:0, hits:0, misses:0, delay:0 },
+    pendingAt: 0, art: true, boxes: true, world: null, seed: 7,
+    zones: [], zoneCool: 0, ZONE_CD: 4000, ZONE_LIFE: 11000, ZONE_BUFF: 1.6, wardOpen: false
+  };
+
+  function mk(o) {
+    return { kind:o.kind, name:o.name, x:o.x, y:o.y, r:o.r, hp:o.hp, maxHp:o.hp,
+             dmg:o.dmg, speed:o.speed, dead:false,
+             phase:"idle", tLeft:0, angle:0, struck:null, cool:0, el:null, bar:null, boxEl:null };
+  }
+  var me = null;
+  function foes() { return S.units.filter(function (u) { return u.kind === "foe"; }); }
+  function living(l) { return l.filter(function (u) { return !u.dead; }); }
+  function dist(a,b) { return Math.hypot(a.x-b.x, a.y-b.y); }
+
+  function reset() {
+    S.units = [];
+    me = mk({ kind:"player", name:"You", x:4.5, y:6.5, r:0.34, hp:100, dmg:16, speed:S.speed });
+    S.units.push(me);
+    for (var i=0;i<S.foeCount;i++) {
+      S.units.push(mk({ kind:"foe", name:"Sq"+(i+1),
+        x: COLS - 3.5 - (i%2)*1.4, y: 1.5 + (i*10/Math.max(1,S.foeCount)),
+        r:0.34, hp:44, dmg:9, speed:S.foeSpeed }));
+    }
+    S.stats = { clicks:0, buffered:0, fired:0, hits:0, misses:0, delay:0 };
+    S.zones = []; S.zoneCool = 0;
+    S.world = buildWorld(COLS, ROWS, S.seed, 16, { x: me.x, y: me.y });
+    build(); repaintLayers(); paint();
+  }
+
+  // ---- hitbox: oriented rectangle from a unit's centre vs a circle ----
+  function rectHitsCircle(ux, uy, angle, len, w, t) {
+    var dx = t.x - ux, dy = t.y - uy;
+    var c = Math.cos(-angle), s = Math.sin(-angle);
+    var lx = dx*c - dy*s, ly = dx*s + dy*c;
+    var cx = Math.min(Math.max(lx, 0), len);
+    var cy = Math.min(Math.max(ly, -w/2), w/2);
+    return Math.hypot(lx-cx, ly-cy) <= t.r;
+  }
+
+  function startThrust(u, angle) {
+    u.phase = u.kind === "player" ? "active" : "tell";
+    u.tLeft = u.kind === "player" ? S.activeMs : 360;
+    u.angle = angle;
+    u.struck = [];
+  }
+
+  // Your body is a circle that can straddle four tiles, so "standing on it" has
+  // to mean something specific. The centre point decides.
+  function onWard(u) {
+    var tx = Math.floor(u.x), ty = Math.floor(u.y);
+    return S.zones.some(function (z) {
+      return Math.abs(tx - z.cx) <= 1 && Math.abs(ty - z.cy) <= 1;
+    });
+  }
+
+  // ONE rule, asked by both the damage maths and the outline. Writing it twice
+  // is what let the enemies light up while getting nothing.
+  function buffing(u) {
+    if (!onWard(u)) return false;
+    return S.wardOpen ? true : u.kind === "player";
+  }
+
+  function dropZone() {
+    S.zones.push({ cx: Math.floor(me.x), cy: Math.floor(me.y), born: performance.now() });
+    S.zoneCool = S.ZONE_CD;
+    log("<b>Ward down.</b> Three by three, centred on the tile you are standing in.", "hit");
+  }
+
+  function damage(src, tgt) {
+    var buffed = buffing(src);
+    var d = Math.max(1, Math.round(src.dmg * (buffed ? S.ZONE_BUFF : 1) * (0.8 + Math.random()*0.4)));
+    var blocked = 0;
+    if (tgt === me && S.shielding) { blocked = Math.round(d*0.5); d -= blocked; }
+    tgt.hp = Math.max(0, tgt.hp - d);
+    pop(tgt, d>0 ? "-"+d : "block", blocked ? "var(--steel)" : (buffed ? "var(--warded)" : (src===me ? "var(--copper)" : "var(--rust)")));
+    log((src===me ? "<b>Thrust into "+tgt.name : "<b>"+src.name+" thrust into you") + " for "+d+".</b>" +
+        (blocked ? " Shield ate "+blocked+"." : "") + (buffed ? " <b>Warded.</b>" : ""), src===me ? "hit" : "hurt");
+    if (tgt.hp === 0 && !tgt.dead) {
+      tgt.dead = true;
+      log("<b>" + (tgt===me ? "You went down." : tgt.name+" is gone.") + "</b>", "hurt");
+    }
+  }
+
+  // ---- frame ----
+  function frame(now) {
+    if (!S.last) S.last = now;
+    var dt = Math.min(0.05, (now - S.last)/1000);
+    S.last = now;
+    S.fps = S.fps ? S.fps*0.9 + (1/Math.max(dt,0.001))*0.1 : 1/Math.max(dt,0.001);
+
+    // aim is a real angle now — nothing to round
+    S.aim = Math.atan2(S.mouse.y - me.y, S.mouse.x - me.x);
+
+    // player movement
+    if (!me.dead) {
+      var mx = 0, my = 0;
+      for (var k in held) if (held[k]) { mx += KEYAXIS[k][0]; my += KEYAXIS[k][1]; }
+      var ml = Math.hypot(mx, my);
+      if (ml) { me.x += (mx/ml)*S.speed*dt; me.y += (my/ml)*S.speed*dt; }
+    }
+
+    // enemies steer in, then telegraph and thrust
+    living(foes()).forEach(function (f) {
+      var d = dist(f, me);
+      if (f.phase === "idle" && !me.dead) {
+        if (d > S.reach*0.85 + f.r) {
+          var a = Math.atan2(me.y-f.y, me.x-f.x);
+          f.x += Math.cos(a)*S.foeSpeed*dt; f.y += Math.sin(a)*S.foeSpeed*dt;
+        } else if (f.cool <= 0) {
+          startThrust(f, Math.atan2(me.y-f.y, me.x-f.x));
+        }
+      }
+    });
+
+    // attack phases
+    S.units.forEach(function (u) {
+      if (u.dead) { u.phase = "idle"; return; }
+      if (u.cool > 0) u.cool -= dt*1000;
+      if (u.phase === "idle") return;
+      u.tLeft -= dt*1000;
+      if (u.phase === "tell" && u.tLeft <= 0) { u.phase = "active"; u.tLeft = 140; u.struck = []; }
+      else if (u.phase === "active") {
+        var targets = living(S.units).filter(function (t) { return t.kind !== u.kind; });
+        targets.forEach(function (t) {
+          if (u.struck.indexOf(t) !== -1) return;
+          if (rectHitsCircle(u.x, u.y, u.angle, S.reach, S.width, t)) {
+            u.struck.push(t);
+            damage(u, t);
+            if (u === me) S.stats.hits++;
+          }
+        });
+        if (u.tLeft <= 0) {
+          if (u === me && !u.struck.length) { S.stats.misses++; }
+          u.phase = "idle";
+          u.cool = u === me ? S.coolMs : 1100;
+        }
+      }
+    });
+
+    if (S.zoneCool > 0) S.zoneCool -= dt*1000;
+    S.zones = S.zones.filter(function (z) { return now - z.born < S.ZONE_LIFE; });
+    if (S.qHeld && S.zoneCool <= 0 && !me.dead) { dropZone(); }
+    S.qHeld = false;
+
+    // held click keeps trying until the thrust is off cooldown
+    if (S.clickHeld && !me.dead && me.phase === "idle" && me.cool <= 0) {
+      S.stats.fired++;
+      if (S.pendingAt) { S.stats.delay += now - S.pendingAt; S.pendingAt = 0; }
+      startThrust(me, S.aim);
+      S.clickHeld = false;
+    }
+
+    // trees are solid: the trunk's tile is an axis-aligned box the body slides off
+    if (S.world) S.units.forEach(function (u) {
+      if (u.dead) return;
+      for (var ty = Math.floor(u.y-1); ty <= Math.floor(u.y+1); ty++)
+        for (var tx = Math.floor(u.x-1); tx <= Math.floor(u.x+1); tx++) {
+          if (!S.world.blocked[tx+","+ty]) continue;
+          var nx = Math.min(Math.max(u.x, tx), tx+1);
+          var ny = Math.min(Math.max(u.y, ty), ty+1);
+          var ddx = u.x-nx, ddy = u.y-ny, dd = Math.hypot(ddx, ddy);
+          if (dd >= u.r) continue;
+          if (dd > 0.0001) { u.x = nx + ddx/dd*u.r; u.y = ny + ddy/dd*u.r; }
+          else { u.y = ty - u.r; }
+        }
+    });
+
+    // keep bodies out of each other
+    for (var i=0;i<S.units.length;i++) for (var j=i+1;j<S.units.length;j++) {
+      var a = S.units[i], b = S.units[j];
+      if (a.dead || b.dead) continue;
+      var dx = b.x-a.x, dy = b.y-a.y, dd = Math.hypot(dx,dy), min = a.r+b.r;
+      if (dd > 0 && dd < min) {
+        var push = (min-dd)/2, ux = dx/dd, uy = dy/dd;
+        a.x -= ux*push; a.y -= uy*push; b.x += ux*push; b.y += uy*push;
+      }
+    }
+    S.units.forEach(function (u) {
+      u.x = Math.min(Math.max(u.x, u.r), COLS-u.r);
+      u.y = Math.min(Math.max(u.y, u.r), ROWS-u.r);
+    });
+
+    render(); paintFx(); paint();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- render ----
+  var boardEl = document.getElementById("board"), logEl = document.getElementById("log");
+  (function () {
+    var f = document.createDocumentFragment();
+    for (var y=0;y<ROWS;y++) for (var x=0;x<COLS;x++) {
+      var d = document.createElement("div"); d.className = "tile";
+      var n = (Math.sin(x*12.9898 + y*78.233) * 43758.5453) % 1;
+      d.style.background = n > 0.82 ? "var(--tile-dirt)" : ((x+y)%2 ? "var(--tile-a)" : "var(--tile-b)");
+      f.appendChild(d);
+    }
+    document.getElementById("tiles").appendChild(f);
+  })();
+
+  function paintFx() {
+    var cv = document.getElementById("fx");
+    var ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (!S.zones.length) return;
+    var sx = cv.width / COLS, sy = cv.height / ROWS, now = performance.now();
+    S.zones.forEach(function (z) {
+      var life = 1 - (now - z.born) / S.ZONE_LIFE;
+      var a = Math.min(1, life * 3);                       // fades out near the end
+      var pulse = 0.82 + 0.18 * Math.sin(now / 280);
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+        var tx = z.cx + dx, ty = z.cy + dy;
+        if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) continue;
+        ctx.fillStyle = "rgba(216,194,94," + (0.17 * a * pulse).toFixed(3) + ")";
+        ctx.fillRect(tx*sx, ty*sy, sx, sy);
+        ctx.strokeStyle = "rgba(216,194,94," + (0.5 * a).toFixed(3) + ")";
+        ctx.lineWidth = Math.max(1, sx * 0.035);
+        ctx.strokeRect(tx*sx + ctx.lineWidth/2, ty*sy + ctx.lineWidth/2,
+                       sx - ctx.lineWidth, sy - ctx.lineWidth);
+      }
+    });
+  }
+
+  function repaintLayers() {
+    if (!S.world || !artReady) return;
+    var g = document.getElementById("ground"), c = document.getElementById("canopy");
+    var fx = document.getElementById("fx");
+    var r = boardEl.getBoundingClientRect();
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    [g, c, fx].forEach(function (cv) {
+      cv.width = Math.max(1, Math.round(r.width * dpr));
+      cv.height = Math.max(1, Math.round(r.height * dpr));
+    });
+    paintGround(g, S.world, COLS, ROWS);
+    paintCanopy(c, S.world, COLS, ROWS);
+  }
+  window.addEventListener("resize", repaintLayers);
+
+  function build() {
+    Array.prototype.slice.call(boardEl.querySelectorAll(".unit,.hpbar,.box")).forEach(function (n) { n.remove(); });
+    S.units.forEach(function (u) {
+      var box = document.createElement("div"); box.className = "box"; boardEl.appendChild(box); u.boxEl = box;
+      var bar = document.createElement("div"); bar.className = "hpbar";
+      bar.innerHTML = "<i></i>"; boardEl.appendChild(bar); u.bar = bar;
+      var el = document.createElement("div"); el.className = "unit " + u.kind; boardEl.appendChild(el); u.el = el;
+    });
+  }
+
+  function render() {
+    S.units.forEach(function (u) {
+      var w = u.r*2/COLS*100, h = u.r*2/ROWS*100;
+      u.el.style.left = ((u.x-u.r)/COLS*100)+"%"; u.el.style.top = ((u.y-u.r)/ROWS*100)+"%";
+      u.el.style.width = w+"%"; u.el.style.height = h+"%";
+      u.el.classList.toggle("dead", u.dead);
+      u.el.classList.toggle("shielded", u === me && S.shielding);
+      u.el.classList.toggle("warded", !u.dead && buffing(u));
+      if (S.art) {
+        // a 32px token stands a little taller than its body, feet on the circle
+        var sw = 1.05/COLS*100, sh = 1.05/ROWS*100;
+        u.el.style.left = ((u.x-0.525)/COLS*100)+"%";
+        u.el.style.top  = ((u.y-0.78)/ROWS*100)+"%";
+        u.el.style.width = sw+"%"; u.el.style.height = sh+"%";
+        u.el.classList.add("spr");
+        u.el.style.backgroundImage = "url(" + (u === me ? ART.P : (u.name.slice(-1) % 2 ? ART.E : ART.E2)) + ")";
+      } else {
+        u.el.classList.remove("spr");
+        u.el.style.backgroundImage = "";
+      }
+
+      // The token is drawn taller than the body circle, so the bar clears the
+      // sprite's head in art mode rather than the collision radius.
+      var headY = S.art ? (u.y - 0.78 - 0.16) : (u.y - u.r - 0.14);
+      u.bar.style.left = ((u.x-u.r)/COLS*100)+"%";
+      u.bar.style.top = (headY/ROWS*100)+"%";
+      u.bar.style.width = w+"%";
+      u.bar.hidden = u.dead;
+      u.bar.firstChild.style.width = (100*u.hp/u.maxHp)+"%";
+
+      var show = (!S.boxes || u.dead) ? null : (u === me ? (u.phase === "active" ? "live" : "ghost")
+                                           : (u.phase === "tell" ? "tell" : u.phase === "active" ? "foelive" : null));
+      if (!show) { u.boxEl.hidden = true; return; }
+      var ang = (u === me && u.phase !== "active") ? S.aim : u.angle;
+      u.boxEl.hidden = false;
+      u.boxEl.className = "box " + show;
+      u.boxEl.style.left = (u.x/COLS*100)+"%";
+      u.boxEl.style.top = ((u.y - S.width/2)/ROWS*100)+"%";
+      u.boxEl.style.width = (S.reach/COLS*100)+"%";
+      u.boxEl.style.height = (S.width/ROWS*100)+"%";
+      u.boxEl.style.transform = "rotate("+ang+"rad)";
+    });
+  }
+
+  function pop(u, text, color) {
+    var el = document.createElement("div"); el.className = "pop";
+    el.textContent = text; el.style.color = color;
+    el.style.left = (u.x/COLS*100)+"%"; el.style.top = ((u.y-u.r)/ROWS*100)+"%";
+    boardEl.appendChild(el); setTimeout(function(){ el.remove(); }, 850);
+  }
+  function log(html, cls) {
+    var p = document.createElement("p"); if (cls) p.className = cls;
+    p.innerHTML = '<span class="t">&rsaquo;</span> ' + html;
+    logEl.insertBefore(p, logEl.firstChild);
+    while (logEl.childNodes.length > 60) logEl.removeChild(logEl.lastChild);
+  }
+
+  // ---- input ----
+  document.addEventListener("keydown", function (e) {
+    var k = e.key.toLowerCase();
+    if (KEYAXIS[k]) { held[k] = true; e.preventDefault(); return; }
+    if (k === "q") { S.qHeld = true; e.preventDefault(); }
+  });
+  document.addEventListener("keyup", function (e) {
+    var k = e.key.toLowerCase();
+    if (KEYAXIS[k]) held[k] = false;
+  });
+  window.addEventListener("blur", function () { for (var k in held) held[k] = false; });
+
+  function toTile(e) {
+    var r = boardEl.getBoundingClientRect();
+    S.mouse.x = (e.clientX - r.left) / r.width * COLS;
+    S.mouse.y = (e.clientY - r.top) / r.height * ROWS;
+  }
+  boardEl.addEventListener("pointermove", toTile);
+  boardEl.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  boardEl.addEventListener("pointerdown", function (e) {
+    toTile(e); e.preventDefault();
+    if (e.button === 2) { S.shielding = true; return; }
+    S.stats.clicks++;
+    if (S.clickHeld) S.stats.buffered++;
+    S.clickHeld = true;
+    if (!S.pendingAt) S.pendingAt = performance.now();
+  });
+  window.addEventListener("pointerup", function (e) { if (e.button === 2) S.shielding = false; });
+
+  // ---- panels ----
+  function paint() {
+    Array.prototype.forEach.call(wardPick.children, function (b) {
+      b.classList.toggle("on", (b.dataset.k === "open") === S.wardOpen);
+    });
+    Array.prototype.forEach.call(viewPick.children, function (b) {
+      b.classList.toggle("on", !!S[b.dataset.k]);
+    });
+    document.getElementById("hpNo").textContent = Math.round(me.hp);
+    document.getElementById("aliveNo").textContent = living(foes()).length;
+    document.getElementById("fpsNo").textContent = Math.round(S.fps);
+
+    document.getElementById("reachLabel").innerHTML = "Reach <b>" + S.reach.toFixed(2) + "</b> tiles";
+    document.getElementById("widthLabel").innerHTML = "Width <b>" + S.width.toFixed(2) + "</b> tiles &mdash; " +
+      (S.width < 0.4 ? "a thrust" : S.width < 0.8 ? "a broad thrust" : "closer to a swing");
+    document.getElementById("activeLabel").innerHTML = "Hitbox live for <b>" + S.activeMs + "ms</b>";
+    document.getElementById("coolLabel").innerHTML = "Cooldown <b>" + S.coolMs + "ms</b>";
+    document.getElementById("speedLabel").innerHTML = "Your speed <b>" + S.speed.toFixed(1) + "</b> tiles/sec";
+    document.getElementById("foeSpeedLabel").innerHTML = "Their speed <b>" + S.foeSpeed.toFixed(1) + "</b> &mdash; " +
+      (S.foeSpeed < S.speed - 0.3 ? "you can outrun them" : S.foeSpeed > S.speed + 0.3 ? "they run you down" : "matched");
+    document.getElementById("foeLabel").innerHTML = "<b>" + S.foeCount + "</b> of them";
+    document.getElementById("zbuffLabel").innerHTML = "Damage while warded <b>&times;" + S.ZONE_BUFF.toFixed(2) + "</b>";
+    document.getElementById("zlifeLabel").innerHTML = "Lasts <b>" + (S.ZONE_LIFE/1000).toFixed(0) + "s</b>" +
+      (S.zoneCool > 0 ? " &mdash; recharging" : " &mdash; ready");
+
+    var t = S.stats, tot = t.hits + t.misses;
+    function pct(n,d) { return d ? "<i>"+Math.round(100*n/d)+"%</i>" : "<i>&mdash;</i>"; }
+    function row(l,v,p,c) { return '<span class="'+(c||"")+'">'+l+"</span><b>"+v+"</b>"+(p||"<i></i>"); }
+    document.getElementById("aimStats").innerHTML = '<div class="tally">' +
+      row("Clicks", t.clicks) +
+      row("Held for later", t.buffered, pct(t.buffered, t.clicks), "ind") +
+      row("Thrusts fired", t.fired) +
+      '<div class="rule"></div>' +
+      row("Connected", t.hits, pct(t.hits, tot)) +
+      row("Hit nothing", t.misses, pct(t.misses, tot)) +
+      '<div class="rule"></div>' +
+      row("Click to thrust", t.fired ? Math.round(t.delay/t.fired)+"ms" : "&mdash;") +
+      "</div>";
+  }
+
+  var wardPick = document.getElementById("wardPick");
+  [["mine","Helps you only"],["open","Helps anyone on it"]].forEach(function (pair) {
+    var b = document.createElement("button");
+    b.textContent = pair[1]; b.dataset.k = pair[0];
+    b.onclick = function () {
+      S.wardOpen = pair[0] === "open";
+      log(S.wardOpen ? "Wards now help whoever stands on them &mdash; contested ground."
+                     : "Wards help you alone.", "");
+      paint();
+    };
+    wardPick.appendChild(b);
+  });
+
+  var viewPick = document.getElementById("viewPick");
+  [["art","Game art"],["boxes","Hitboxes"]].forEach(function (pair) {
+    var b = document.createElement("button");
+    b.textContent = pair[1]; b.dataset.k = pair[0];
+    b.onclick = function () {
+      S[pair[0]] = !S[pair[0]];
+      boardEl.classList.toggle("art", S.art);
+      document.getElementById("ground").hidden = !S.art;
+      document.getElementById("canopy").hidden = !S.art;
+      paint();
+    };
+    viewPick.appendChild(b);
+  });
+
+  function bind(id, key, scale, after) {
+    var el = document.getElementById(id);
+    el.oninput = function () { S[key] = Number(el.value)/(scale||1); if (after) after(); paint(); };
+  }
+  document.getElementById("zbuff").oninput = function () { S.ZONE_BUFF = Number(this.value)/100; paint(); };
+  document.getElementById("zlife").oninput = function () { S.ZONE_LIFE = Number(this.value); paint(); };
+  bind("reach","reach",100); bind("width","width",100);
+  bind("active","activeMs",1); bind("cool","coolMs",1);
+  bind("speed","speed",10); bind("foeSpeed","foeSpeed",10);
+  bind("foeCount","foeCount",1, reset);
+  document.getElementById("reset").onclick = function () { reset(); log("Reset.",""); };
+
+  loadArt(function () { repaintLayers(); paint(); });
+  reset();
+  boardEl.classList.add("art");
+  log("Grid world, free bodies. Aim with the mouse, left click to thrust.","");
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

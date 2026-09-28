@@ -55,6 +55,7 @@ docs/                    # All markdown — dev docs and SPA-served content
 ├── world.md             # 0.3.0 frame — planning snapshot, partly superseded (see its header)
 ├── design-rules.md      # Hard constraints an idea must survive (read before designing)
 ├── session0.md          # Scope + todo for the first multiplayer session
+├── combat.md            # Real-time combat spec (replaces the round engine)
 ├── ideas.md             # Running idea/feature backlog (add & read from often)
 ├── battle-ideas.md      # Design ideas / future work for combat
 ├── items.md             # Weapon/ability/item rework: authoring speed, where power lives

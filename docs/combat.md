@@ -45,6 +45,124 @@ swing. If that holds, it points somewhere other than where §4 onward was headin
 
 ---
 
+## 0b. Settled by playing it
+
+A harness lives at `public/harness/combat.html` (standalone, no server, opens from
+disk). It is the reference for how this should feel, and the following came out of
+playing rather than arguing.
+
+### Bodies are continuous; the world stays a grid
+
+**The grid is two decisions, and only one of them was wrong.** The grid as *world
+structure* — terrain, autotiling, 32px art, chunk coordinates, tile effects, object
+and POI placement, building — is kept exactly as it is. The grid as *unit positions*
+is dropped.
+
+This is the Stardew arrangement, which was already the stated model: tile world, free
+bodies. Positions are floats in tile units, collision is circles, and units slide off
+obstacles rather than sticking.
+
+**Why the tile-position version failed**, measured rather than guessed: it stacked
+three kinds of granularity — the right tile, the right tick, the right 45° wedge — and
+a miss on any one produced nothing. Instrumented over a real fight, **about 18% of
+clicks did anything at all**. The wedge was the worst of it, because aiming at an
+*adjacent* enemy is both the commonest case and the one where a few pixels of cursor
+movement swings you through three directions.
+
+### Attacks are hitboxes
+
+An attack is an oriented rectangle swept from the body, and **its shape is what
+distinguishes weapons**: a thrust is long and thin, a swing is short and wide. On a
+tile grid at reach 1 a thrust and a swing are both "the adjacent tile", so the
+difference could not be expressed at all without a weapon reaching three tiles.
+
+### There is no tick the player can feel
+
+Movement and attacks run on the frame clock; cooldowns are milliseconds. The server
+will still tick and interpolate, but **nothing the player feels depends on that rate**,
+which removes tick length from the design surface entirely. §2's tick spec is now a
+netcode concern rather than a combat one.
+
+### Controls
+
+**WASD moves, the mouse aims, left click attacks, right click holds the shield, Q is
+the special.** Movement and aim are separate hands, so backing away while attacking
+forward is the basic move.
+
+This is the standard top-down action scheme (Hades, Gungeon, Risk of Rain 2, Realm of
+the Mad God) and using it is a feature: players arrive already knowing it. QWER is not
+available because W is movement; the free keys beside WASD are Q, E, R, F, Shift and
+Space.
+
+### Generosity is a mechanic
+
+Two fixes moved the hit rate more than any tuning:
+
+- **Inputs buffer.** A click that arrives early is held until the attack is ready
+  rather than discarded. Movement already worked this way; attacks did not, and that
+  inconsistency alone was eating a quarter of all clicks.
+- **Aim assist.** If nothing is under the aim but an enemy is in reach within roughly
+  one wedge of where you pointed, it connects. This is what Hades does and it is not
+  cheating: the player indicates, the game finishes the job.
+
+### Tile effects still work, with one rule
+
+A 3×3 buff tile dropped at your feet reads fine on a continuous body, but **"standing
+on it" needs an exact meaning** because a circle can straddle four tiles. The rule is
+**your centre point decides**. You can be visually half on a ward and getting nothing,
+and that edge is felt rather than confusing.
+
+An open fork found while testing it: **does a buff tile help whoever stands on it, or
+only allies?** `world.md` says allies. But the open version makes the tile *contested
+ground* — somewhere worth holding and worth pushing people off — which is the first
+mechanic here that gives a fight a place rather than just a set of bodies, and it gives
+the guard pole a job that is not taunt.
+
+---
+
+## 0c. What translates
+
+Rough inventory against the current tree. Line counts are real.
+
+**Survives untouched** — the large majority of the game:
+
+| | |
+|---|---|
+| `combat/terrain.ts` (593) + `public/terrain.js` (668) | The harness reuses the atlas and autotile table verbatim. Zero change. |
+| Tilesets, sprites, the font, `tiles:sync`, `font:build` | Art pipeline is unaffected. |
+| `world/chunk.ts`, `world_service.ts`, `world/labour.ts` | Tile-shaped, and tiles stay. |
+| `chat/`, presence, sockets, identity, the SPA shell | Nothing to do with combat. |
+| `economy/` in full, quests, the market | Untouched. |
+
+**Dies** (~1,400 lines):
+
+`resolution.ts` (879), `initiative.ts` (38), `telegraph.ts` (56), `intent.ts` (13),
+`disposition.ts` (12), `action_resolver.ts` (226), `src/weapon/` (459 across the
+loader and twelve action classes), and all 17 weapon YAMLs.
+
+**Rewritten, with the ideas surviving** (~2,400 lines):
+
+| | |
+|---|---|
+| `movement.ts` (288) | Tile pathing becomes steering. Grid A* stays for routing between waypoints. |
+| `board.ts` (198) | Tile occupancy goes; passability and obstacle queries survive in another shape. |
+| `los.ts` (29) | Tile walk becomes segment-versus-box. Small. |
+| `ai.ts` + `ai_planner.ts` (630) | Scoring `(destination, action, target)` per round has no meaning without rounds. Most goes; the utility idea survives at a much smaller size. |
+| `combat_session.ts` (195) | There are no sessions (§1). |
+| `enemy_loader.ts` (217) | New format, and smaller, since enemies use the same kit shape as players. |
+| `public/game.js` (1186) | Round-based intent submission becomes continuous input. Most goes. |
+
+**Tooling, all of it round-based** (~1,150 lines): `budget.ts`, `cost_report.ts` (157),
+`simulate.ts` (142), `spatial_sim.ts` (372), `replay_sim.ts` (236), `action_value.ts`
+(296). The `CAP(L)` curve survives as a number; everything that costs *per round* has to
+be rebased onto time. `pacing_sim.ts` is economy and survives.
+
+**The shape of it:** roughly 1,400 lines deleted, 2,400 rewritten, and the terrain,
+world, economy, chat and identity layers — the bulk of the codebase — untouched. The
+rework is deep but narrow, exactly as the game/world/infrastructure split predicted.
+
+---
+
 ## 1. There is no combat state
 
 The largest simplification in the design. **There is no in-combat and out-of-combat.**
