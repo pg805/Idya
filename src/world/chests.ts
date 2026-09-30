@@ -9,8 +9,16 @@ import prisma from '../database/prisma.js';
  * "item -> count" would reshuffle their chest each time they opened it. That is
  * the difference from InventoryItem, which is a bag and has no order.
  *
- * Every write is a transaction. Two people can be standing at the same chest,
- * and a read-modify-write outside one loses whichever of them was slower.
+ * CONCURRENCY. Two people can stand at the same chest, and a transaction alone
+ * does not save you: Postgres defaults to READ COMMITTED, so both can read
+ * "quantity 5", both decide to take 5, and both credit themselves 5. That is a
+ * transaction doing exactly what it promised and still duplicating items.
+ *
+ * So nothing here trusts a value it read. Every move is a CONDITIONAL write —
+ * `updateMany` with the quantity it expects in the WHERE clause — and a count of
+ * zero means somebody got there first, which aborts rather than proceeding on a
+ * stale number. Reads are only ever used to work out WHAT to move; the database
+ * decides whether the move is still legal.
  */
 
 /** Two rows of six. */
@@ -68,16 +76,19 @@ export async function takeFromChest(args: {
 
     const qty = Math.max(1, Math.min(args.quantity ?? row.quantity, row.quantity));
 
-    if (qty >= row.quantity) {
-      await tx.chestSlot.delete({
-        where: { object_id_slot: { object_id: args.objectId, slot: args.slot } },
-      });
-    } else {
-      await tx.chestSlot.update({
-        where: { object_id_slot: { object_id: args.objectId, slot: args.slot } },
-        data: { quantity: row.quantity - qty },
-      });
-    }
+    // Conditional: the row must STILL hold at least what we are taking. Zero
+    // rows means somebody emptied or reduced it between the read and here, and
+    // proceeding would credit items that no longer exist.
+    const took = await tx.chestSlot.updateMany({
+      where: { object_id: args.objectId, slot: args.slot, quantity: { gte: qty } },
+      data: { quantity: { decrement: qty } },
+    });
+    if (took.count === 0) return { ok: false, why: 'Somebody got there first.' };
+
+    // An emptied slot stops existing, which is what "no row means empty" means.
+    await tx.chestSlot.deleteMany({
+      where: { object_id: args.objectId, slot: args.slot, quantity: { lte: 0 } },
+    });
 
     await tx.inventoryItem.upsert({
       where: { character_id_item_id: { character_id: args.characterId, item_id: row.item_id } },
@@ -124,22 +135,30 @@ export async function putInChest(args: {
     const at = used.get(target);
     if (at && at.item_id !== args.itemId) return { ok: false, why: 'Something else is in that slot.' };
 
-    if (held.quantity <= qty) {
-      await tx.inventoryItem.delete({
-        where: { character_id_item_id: { character_id: args.characterId, item_id: args.itemId } },
-      });
-    } else {
-      await tx.inventoryItem.update({
-        where: { character_id_item_id: { character_id: args.characterId, item_id: args.itemId } },
-        data: { quantity: held.quantity - qty },
+    // Same guard on the way out of the bag: you must still be carrying it.
+    const paid = await tx.inventoryItem.updateMany({
+      where: { character_id: args.characterId, item_id: args.itemId, quantity: { gte: qty } },
+      data: { quantity: { decrement: qty } },
+    });
+    if (paid.count === 0) return { ok: false, why: 'You are not carrying that any more.' };
+    await tx.inventoryItem.deleteMany({
+      where: { character_id: args.characterId, item_id: args.itemId, quantity: { lte: 0 } },
+    });
+
+    // Add to the stack if that slot still holds this item; otherwise claim it.
+    // A create that collides on the primary key throws, which rolls the whole
+    // transaction back — including the bag decrement above — so a race costs a
+    // retry rather than an item. Upserting here instead would have merged a
+    // deposit into whatever somebody else had just put in the slot.
+    const stacked = await tx.chestSlot.updateMany({
+      where: { object_id: args.objectId, slot: target, item_id: args.itemId },
+      data: { quantity: { increment: qty } },
+    });
+    if (stacked.count === 0) {
+      await tx.chestSlot.create({
+        data: { object_id: args.objectId, slot: target, item_id: args.itemId, quantity: qty },
       });
     }
-
-    await tx.chestSlot.upsert({
-      where: { object_id_slot: { object_id: args.objectId, slot: target } },
-      update: { quantity: { increment: qty } },
-      create: { object_id: args.objectId, slot: target, item_id: args.itemId, quantity: qty },
-    });
     return { ok: true };
   });
 }

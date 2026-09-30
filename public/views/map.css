@@ -331,8 +331,10 @@ body.gm-open #world-root { padding-left: 208px; }
    left alone: an 8px bitmap is punishing to read a paragraph of. */
 .map-note, .map-hint, .map-here, .map-scale,
 .map-zoom-btn, #gm-toggle, .gm-btn, .gm-tab, .gm-note, .gm-key {
-  font-family: var(--pixel);
+  font-family: 'Idya Pixel', ui-monospace, monospace;
   font-weight: normal;
+  /* Without this the browser antialiases the bitmap and it looks soft. */
+  -webkit-font-smoothing: none;
 }
 .map-note, .map-hint, .map-here, .map-scale, .gm-note, .gm-key { font-size: 8px; }
 .map-zoom-btn, #gm-toggle, .gm-btn, .gm-tab { font-size: 16px; }
@@ -374,79 +376,83 @@ body.gm-open #world-root { padding-left: 208px; }
 }
 
 /* ---- chests ---- */
-/* Two rows of six, laid out by a variable so the server decides the shape and
-   the stylesheet does not have to be edited to change it.
+/* Drawn the way chat.css draws: one art pixel of border (--box-width, 2 CSS px
+   at this 2x zoom), --box for a raised edge and --box-inset for a recessed one,
+   so a slot reads as cut INTO the panel rather than bevelled onto it. No
+   radius, no blur — a 32px art style has neither.
 
-   Styled as a piece of the world rather than a web dialog: the pixel face, no
-   rounded corners, and a two-pixel shadow instead of a blur, which is what a
-   32px art style can actually render. Type sizes are whole multiples of 8, the
-   only sizes the font stays crisp at. */
+   -webkit-font-smoothing: none matters as much as the font itself. Without it
+   the browser antialiases a bitmap face and every glyph goes soft, which reads
+   as "the pixel font is not applied" even when it is. */
 #chest-panel {
-  /* Absolute inside the stage, placed beside the chest by placeChestPanel.
-     Fixed to a corner put it on top of the chat, which is a real column rather
-     than an overlay. Above the canopy, which sits at z-index 5. */
   position: absolute; z-index: 20;
   width: 264px;
   padding: 8px;
   background: var(--bg-surface);
-  border: 2px solid var(--bg-darkest);
-  box-shadow: 4px 4px 0 var(--bg-darkest);
-  font-family: var(--pixel);
+  border: var(--box-width) solid var(--box);
+  box-shadow: var(--box-width) var(--box-width) 0 var(--ground);
+  font-family: 'Idya Pixel', ui-monospace, monospace;
   font-size: 16px;
+  line-height: 1.5;
   color: var(--text);
+  -webkit-font-smoothing: none;
 }
 #chest-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 #chest-panel h3, #chest-panel h4 {
-  margin: 0; font-family: var(--pixel); font-size: 16px; font-weight: normal;
+  margin: 0; font: inherit; font-size: 16px; font-weight: normal;
   color: var(--gold-bright); text-transform: uppercase;
 }
 #chest-panel h4 { margin: 8px 0 4px; color: var(--text-muted); }
 #chest-close {
   margin-left: auto; background: none; border: 0; cursor: pointer;
-  font-family: var(--pixel); font-size: 16px; line-height: 1; padding: 0 4px;
-  color: var(--text-faint);
+  font: inherit; font-size: 16px; line-height: 1; padding: 0 4px;
+  color: var(--text-faint); -webkit-font-smoothing: none;
 }
 #chest-close:hover { color: var(--gold-bright); }
 
 .chest-grid {
   display: grid;
   grid-template-columns: repeat(var(--chest-cols, 6), 1fr);
-  gap: 4px;
+  gap: var(--box-width);
 }
+/* A slot is a hole in the panel: its edge is the recessed one, and the ground
+   behind it is the darkest thing on screen. */
 .chest-slot {
   aspect-ratio: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; padding: 2px;
-  background: var(--bg-deep);
-  border: 2px solid var(--bg-darkest);
+  gap: 0; padding: 2px;
+  background: var(--ground);
+  border: var(--box-width) solid var(--box-inset);
   color: var(--text-faint);
-  font-family: var(--pixel); font-size: 8px; line-height: 1.25; text-align: center;
+  font: inherit; font-size: 8px; line-height: 1; text-align: center;
+  -webkit-font-smoothing: none;
   overflow: hidden; cursor: default;
 }
 .chest-slot.filled {
   cursor: pointer; color: var(--text);
-  background: var(--bg-hover); border-color: var(--gold-dim);
+  background: var(--bg-deep); border-color: var(--box);
 }
 .chest-slot.filled:hover { border-color: var(--gold-bright); }
-.chest-slot:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.chest-slot:focus-visible { outline: var(--box-width) solid var(--gold-bright); outline-offset: 0; }
 .chest-item { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .chest-qty { font-variant-numeric: tabular-nums; color: var(--gold-bright); }
 
-.chest-bag { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+.chest-bag { display: flex; flex-direction: column; gap: var(--box-width); max-height: 120px; overflow-y: auto; }
 .chest-bag-row {
   display: flex; justify-content: space-between; gap: 8px;
   padding: 4px 8px; text-align: left;
-  background: var(--bg-deep);
-  border: 2px solid var(--bg-darkest);
+  background: var(--ground);
+  border: var(--box-width) solid var(--box-inset);
   color: var(--text);
-  font-family: var(--pixel); font-size: 16px;
+  font: inherit; font-size: 16px;
+  -webkit-font-smoothing: none;
   cursor: pointer;
 }
-.chest-bag-row:hover { border-color: var(--gold-dim); background: var(--bg-hover); }
-.chest-bag-row:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.chest-bag-row:hover { border-color: var(--box); background: var(--bg-deep); }
+.chest-bag-row:focus-visible { outline: var(--box-width) solid var(--gold-bright); outline-offset: 0; }
 .chest-note {
-  margin: 8px 0 0; font-family: var(--pixel); font-size: 8px;
-  color: var(--text-faint); min-height: 1.2em;
+  margin: 8px 0 0; font: inherit; font-size: 8px; line-height: 1.5;
+  color: var(--text-faint); min-height: 1.5em; -webkit-font-smoothing: none;
 }
 
 /* No small-screen override: it is placed on the board, and the board is the

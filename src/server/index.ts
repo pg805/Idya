@@ -862,6 +862,34 @@ const APP_VERSION = (() => {
   } catch (_) { return 'dev'; }
 })();
 
+/**
+ * The stamp actually appended to asset URLs.
+ *
+ * The version alone was not enough. It only changes when somebody bumps
+ * package.json, so every deploy between bumps served the SAME ?v=0.2.2 and
+ * browsers went on using stylesheets from days earlier — CSS changes simply did
+ * not arrive, and it looked like the CSS was wrong rather than stale.
+ *
+ * Mixed with the newest mtime under public/ instead, so the stamp moves whenever
+ * an asset does and stays put when nothing has changed.
+ */
+const ASSET_STAMP = (() => {
+  const dir = join(__dirname, '../../public');
+  let newest = 0;
+  const walk = (at: string): void => {
+    for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const full = join(at, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(?:js|css|html)$/.test(entry.name)) continue;
+      const m = fs.statSync(full).mtimeMs;
+      if (m > newest) newest = m;
+    }
+  };
+  try { walk(dir); } catch (_) { /* fall back to the version alone */ }
+  return newest ? `${APP_VERSION}-${newest.toString(36)}` : APP_VERSION;
+})();
+
 function sendVersionedHtml(
   res: Response,
   file: 'index.html' | 'app.html' | 'landing.html' | 'signin.html'
@@ -871,7 +899,7 @@ function sendVersionedHtml(
   // Append ?v=VERSION to every same-origin .js/.css asset URL (skip ones
   // that already have a query string). HTML itself is sent no-cache so the
   // browser always picks up the latest version stamp on every navigation.
-  const stamped = raw.replace(/(src|href)="(\/[^"?]+\.(?:js|css))"/g, `$1="$2?v=${APP_VERSION}"`);
+  const stamped = raw.replace(/(src|href)="(\/[^"?]+\.(?:js|css))"/g, `$1="$2?v=${ASSET_STAMP}"`);
   res.setHeader('Cache-Control', 'no-cache');
   res.type('html').send(stamped);
 }
