@@ -455,5 +455,17 @@ body.gm-open #world-root { padding-left: 208px; }
   color: var(--text-faint); min-height: 1.5em; -webkit-font-smoothing: none;
 }
 
+/* Somebody else moved something. One art pixel of gold on the frame for a
+   moment: enough to notice a change you did not cause, not enough to be an
+   alarm about a chest working normally. */
+#chest-panel.touched { animation: chest-touched 600ms steps(2, end); }
+@keyframes chest-touched {
+  0%, 100% { border-color: var(--box); }
+  50%      { border-color: var(--gold-bright); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #chest-panel.touched { animation: none; }
+}
+
 /* No small-screen override: it is placed on the board, and the board is the
    thing that gets smaller. */

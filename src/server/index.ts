@@ -655,20 +655,27 @@ app.use(express.json());
 // the client is trusted to have respected.
 
 /** The live position of whoever this account is playing, or null if not in the world. */
-function whereIs(accountId: string): { chunk: Chunk; tile: TilePos; characterId: string } | null {
+function whereIs(accountId: string): {
+  chunk: Chunk; tile: TilePos; characterId: string; characterName: string;
+} | null {
   for (const [socketId, presence] of chatPresence) {
     if (presence.accountId !== accountId) continue;
     // No character means nothing to put anything into or take anything out of.
     if (!presence.characterId) return null;
     const at = worldSim.tileOf(socketId) ?? presence.tile;
-    return { chunk: presence.chunk, tile: at, characterId: presence.characterId };
+    return {
+      chunk: presence.chunk, tile: at,
+      characterId: presence.characterId,
+      characterName: presence.characterName,
+    };
   }
   return null;
 }
 
 /** The chest you are close enough to use, or a reason you are not. */
 async function reachableChest(accountId: string, objectId: string): Promise<
-  { ok: true; characterId: string } | { ok: false; status: number; error: string }
+  { ok: true; characterId: string; characterName: string; chunk: Chunk }
+  | { ok: false; status: number; error: string }
 > {
   const me = whereIs(accountId);
   if (!me) return { ok: false, status: 409, error: 'You are not in the world.' };
@@ -683,7 +690,30 @@ async function reachableChest(accountId: string, objectId: string): Promise<
   const near = Math.max(Math.abs(row.tile_x - me.tile.x), Math.abs(row.tile_y - me.tile.y)) <= 1;
   if (!near) return { ok: false, status: 403, error: 'Too far away.' };
 
-  return { ok: true, characterId: me.characterId };
+  return {
+    ok: true,
+    characterId: me.characterId,
+    characterName: me.characterName,
+    chunk: me.chunk,
+  };
+}
+
+/**
+ * Tell the chunk a chest changed.
+ *
+ * The whole view goes out rather than a nudge to refetch, so a second panel
+ * updates in the same instant instead of a round trip later — the point is that
+ * two people at one chest are never looking at different contents.
+ *
+ * Contents reach everyone in the chunk, which is not a leak worth guarding:
+ * anybody there can walk two tiles and open it themselves.
+ */
+async function announceChest(
+  chunk: Chunk, objectId: string, by: string, action: 'took' | 'put', what: string,
+): Promise<void> {
+  io.to(chatRoom(chunk)).emit('chest:changed', {
+    chest: await readChest(objectId), by, action, what,
+  });
 }
 
 app.get('/api/chest', async (req: Request, res: Response) => {
@@ -716,12 +746,16 @@ app.post('/api/chest/take', async (req: Request, res: Response) => {
   if (!Number.isInteger(slot) || slot! < 0 || slot! >= CHEST_SLOTS) {
     res.status(400).json({ error: 'No such slot.' }); return;
   }
+  // Read the slot's label before the move, since the row may be gone after it.
+  const before = (await readChest(String(id))).slots.find(sl => sl.slot === slot);
   const out = await takeFromChest({
     objectId: String(id), slot: slot as number,
     characterId: gate.characterId, quantity,
   });
   if (!out.ok) { res.status(400).json({ error: out.why }); return; }
-  res.json(await readChest(String(id)));
+  const view = await readChest(String(id));
+  void announceChest(gate.chunk, String(id), gate.characterName, 'took', before?.name ?? 'something');
+  res.json(view);
 });
 
 app.post('/api/chest/put', async (req: Request, res: Response) => {
@@ -738,7 +772,10 @@ app.post('/api/chest/put', async (req: Request, res: Response) => {
     slot: Number.isInteger(slot) ? slot : undefined,
   });
   if (!out.ok) { res.status(400).json({ error: out.why }); return; }
-  res.json(await readChest(String(id)));
+  const view = await readChest(String(id));
+  const named = view.slots.find(sl => sl.itemId === itemId);
+  void announceChest(gate.chunk, String(id), gate.characterName, 'put', named?.name ?? String(itemId));
+  res.json(view);
 });
 
 // --- Dev: put swallows in the world ---

@@ -909,6 +909,7 @@ window.Views.map = (function () {
 
     socket.on('world:you', async (me) => {
       meId = me.id;
+      myName = me.name ?? myName;
       myTile = me.tile;
       focus = { x: me.tile.x + 0.5, y: me.tile.y + 0.5 };
       startInput();
@@ -981,6 +982,29 @@ window.Views.map = (function () {
       }
     });
 
+    // Somebody moved something in a chest. If it is the one we have open, the
+    // contents arrive with the message, so the grid changes in the same instant
+    // rather than a refetch later — two people at one chest should never be
+    // looking at different contents.
+    socket.on('chest:changed', ({ chest, by, action, what }) => {
+      if (!chestId || !chest || chest.id !== chestId) return;
+      const el = document.getElementById('chest-panel');
+      if (!el || el.hidden) return;
+      // Our own move already redrew from the POST, so only somebody else's is
+      // worth narrating; being told what you just did is noise.
+      const mine = by === myName;
+      drawChest(chest, lastBag);
+      if (!mine) {
+        const note = el.querySelector('#chest-note');
+        if (note) {
+          note.textContent = `${by} ${action} ${what}.`;
+          clearTimeout(note._t);
+          note._t = setTimeout(() => { note.textContent = ''; }, 4000);
+        }
+        flashChest();
+      }
+    });
+
     socket.on('world:blocked', () => {
       endHold();
       const me = occupants.get(meId);
@@ -1041,6 +1065,8 @@ window.Views.map = (function () {
   // explain, and the server is what decides whether a move is allowed anyway.
 
   let chestId = null;
+  let myName = null;        // so a broadcast can tell our own move from somebody else's
+  let lastBag = [];         // the bag as last drawn; a broadcast only carries the chest
   let chestTile = null;      // where the thing we opened is standing
   /** Give up on a chest past this, in tiles. Reach is 1; this is 1 plus slack. */
   const CHEST_RANGE = 2.2;
@@ -1128,6 +1154,8 @@ window.Views.map = (function () {
   }
 
   function drawChest(chest, bag) {
+    lastBag = bag ?? lastBag;
+    bag = lastBag;
     const el = chestPanel();
     const grid = el.querySelector('#chest-grid');
     const bySlot = new Map((chest.slots ?? []).map(sl => [sl.slot, sl]));
@@ -1162,6 +1190,15 @@ window.Views.map = (function () {
       b.addEventListener('click', () => void moveChest('put', { itemId: row.itemId }));
       bagEl.appendChild(b);
     }
+  }
+
+  /** Mark the panel as having changed under you. */
+  function flashChest() {
+    const el = document.getElementById('chest-panel');
+    if (!el) return;
+    el.classList.remove('touched');
+    void el.offsetWidth;
+    el.classList.add('touched');
   }
 
   async function moveChest(verb, body) {
