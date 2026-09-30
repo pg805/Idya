@@ -15,24 +15,10 @@
 
 .map-view > * { flex-shrink: 0; }
 
-.map-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 10px;
-}
 
-.map-place {
-  margin: 0;
-  font-size: 1.05rem;
-  color: var(--gold);
-}
 
-.map-coords { font-size: 0.75rem; color: var(--text-vdim); }
 
-.map-blurb { margin: 0; font-size: 0.85rem; color: var(--text-faint); }
 
-.map-exits { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 
 /* The board's wrapper is a level below .map-view, so it has to carry the flex

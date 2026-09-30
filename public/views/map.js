@@ -525,22 +525,6 @@ window.Views.map = (function () {
       if (workableAt(tile)) { socket.emit('world:act', tile); return; }
     });
 
-    root.querySelector('#map-place').textContent = view.place.name;
-    root.querySelector('#map-blurb').textContent = view.place.blurb;
-    root.querySelector('#map-coords').textContent = `(${chunk.x}, ${chunk.y})`;
-
-    // A signpost rather than a control. You leave by walking off the edge.
-    const bearing = (e) => {
-      const ns = e.y < chunk.y ? 'North' : e.y > chunk.y ? 'South' : '';
-      const ew = e.x > chunk.x ? 'East' : e.x < chunk.x ? 'West' : '';
-      return ns && ew ? `${ns}-${ew.toLowerCase()}` : (ns || ew);
-    };
-    root.querySelector('#map-exits').innerHTML = view.exits.length
-      ? view.exits
-          .map(e => `<span class="map-note">${bearing(e)}: ${esc(e.name)}</span>`)
-          .join('')
-      : '<span class="map-note">Nowhere to go from here.</span>';
-
     paint();
     // The stage is new. Apply whatever the server last said about this place,
     // which may have arrived while the fetch above was in flight, then draw.
@@ -577,7 +561,7 @@ window.Views.map = (function () {
           : tool.mode === 'remove' ? 'Click a square to remove what is on it.'
           : tool.material === 'reset' ? 'Click a square to put its ground back.'
           : `Click a square to paint ${tool.material === 'd' ? 'dirt' : 'grass'}.`)
-        : 'Click a square to walk there, or use the arrow keys.';
+        : '';
     }
   }
 
@@ -911,7 +895,7 @@ window.Views.map = (function () {
         ? `${d.by} fells a tree.` : `${d.by} clears a stump.`;
       clearTimeout(note._t);
       note._t = setTimeout(() => {
-        note.textContent = 'Click a square to walk there, or use the arrow keys.';
+        note.textContent = '';
       }, 3000);
     });
 
@@ -934,14 +918,7 @@ window.Views.map = (function () {
     root = el;
     root.innerHTML = `
       <div class="map-view">
-        <div class="map-head">
-          <h2 class="map-place" id="map-place">…</h2>
-          <span class="map-coords" id="map-coords"></span>
-        </div>
-        <p class="map-blurb" id="map-blurb"></p>
-
-        <p class="map-hint" id="map-hint">Click a square to walk there, or use the arrow keys.</p>
-        <div class="map-exits" id="map-exits"></div>
+        <p class="map-hint" id="map-hint"></p>
         <div id="map-body"></div>
         <div class="map-foot">
           <span class="map-here" id="map-here"></span>
