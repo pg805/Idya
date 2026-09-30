@@ -56,8 +56,13 @@ export interface RtUnit {
   r: number;
   hp: number;
   maxHp: number;
-  /** Tiles per second. */
+  /** Tiles per second, at full intent. */
   speed: number;
+  /**
+   * How far this thing can see, in tiles. Beyond it, nothing is a target and it
+   * goes back to wandering. Zero means it always notices you.
+   */
+  vision: number;
   attack: AttackShape;
 
   // ---- intent, set from input or from the AI each step ----
@@ -78,6 +83,13 @@ export interface RtUnit {
   /** Ids already hit by the swing in flight, so one swing lands once each. */
   struck: string[];
   dead: boolean;
+
+  // ---- wandering, owned by driveEnemy ----
+  /** The heading being idled along, or (0,0) while standing still. */
+  wanderX: number;
+  wanderY: number;
+  /** Milliseconds left before picking a new heading or a new pause. */
+  wanderMs: number;
 }
 
 export type RtEvent =
@@ -175,11 +187,16 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
   }
 
   // ---- movement ----
+  // Direction is normalised, so a diagonal is not faster. Magnitude is a
+  // THROTTLE capped at one: a vector of length 0.4 moves at 40% speed, which is
+  // how a wandering body potters rather than charging, and anything longer than
+  // one (a held diagonal, at sqrt(2)) is simply full speed.
   for (const u of live()) {
     const len = Math.hypot(u.moveX, u.moveY);
-    if (len > 0) {
-      u.x += (u.moveX / len) * u.speed * dt;
-      u.y += (u.moveY / len) * u.speed * dt;
+    if (len > 1e-6) {
+      const throttle = Math.min(1, len);
+      u.x += (u.moveX / len) * throttle * u.speed * dt;
+      u.y += (u.moveY / len) * throttle * u.speed * dt;
     }
   }
   resolveBodies(live());
@@ -242,14 +259,25 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
 }
 
 /**
- * The enemy's whole mind: close, then swing when in reach.
+ * The enemy's whole mind: look, then chase or potter.
  *
  * Deliberately thin. The old utility planner scored (destination, action,
  * target) once per round, which has no meaning without rounds, and depth here
  * is not what the game is for (design-rules.md rule 3). What makes a fight
  * readable is the wind-up, not the cleverness.
+ *
+ * `dtMs` is how long since the last call, used only to time the wander.
  */
-export function driveEnemy(u: RtUnit, targets: RtUnit[]): void {
+
+/** How far a wandering body drifts, as a fraction of its speed. */
+const WANDER_THROTTLE = 0.4;
+/** How long one wander heading or pause lasts, in ms. */
+const WANDER_MIN_MS = 700;
+const WANDER_MAX_MS = 2000;
+/** How often a new wander decision is a pause rather than a heading. */
+const WANDER_PAUSE_CHANCE = 0.45;
+
+export function driveEnemy(u: RtUnit, targets: RtUnit[], dtMs = 0): void {
   u.moveX = 0; u.moveY = 0;
   u.wantAttack = false;
   if (u.dead || u.phase !== 'idle') return;
@@ -264,8 +292,13 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[]): void {
       best = t; bestD = d;
     }
   }
-  if (!best) return;
 
+  // Out of sight is out of mind. Vision of zero means it always notices.
+  if (best && u.vision > 0 && bestD > u.vision) best = null;
+
+  if (!best) { wander(u, dtMs); return; }
+
+  u.wanderMs = 0;                 // drop whatever it was pottering towards
   u.aim = Math.atan2(best.y - u.y, best.x - u.x);
   // Close to just inside reach, then commit. Stopping short of the hitbox's own
   // length keeps it from shuffling on the boundary.
@@ -275,4 +308,28 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[]): void {
   } else if (u.cool <= 0) {
     u.wantAttack = true;
   }
+}
+
+/**
+ * Idle drift: a heading for a while, then a pause, then another heading.
+ *
+ * Held for a stretch rather than rerolled every frame, because a direction
+ * chosen sixty times a second averages to standing still and looks like a
+ * twitch. Pauses are half of it — a bird that never stops reads as patrolling.
+ */
+function wander(u: RtUnit, dtMs: number): void {
+  u.wanderMs -= dtMs;
+  if (u.wanderMs <= 0) {
+    u.wanderMs = WANDER_MIN_MS + Math.random() * (WANDER_MAX_MS - WANDER_MIN_MS);
+    if (Math.random() < WANDER_PAUSE_CHANCE) {
+      u.wanderX = 0; u.wanderY = 0;
+    } else {
+      const a = Math.random() * Math.PI * 2;
+      u.wanderX = Math.cos(a) * WANDER_THROTTLE;
+      u.wanderY = Math.sin(a) * WANDER_THROTTLE;
+      u.aim = a;                  // face where it is going
+    }
+  }
+  u.moveX = u.wanderX;
+  u.moveY = u.wanderY;
 }

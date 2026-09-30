@@ -35,6 +35,15 @@ const PLAYER_SPEED = 5.6;
 const SWALLOW_SPEED = 3.4;
 
 /**
+ * How far an enemy can see, in tiles. TUNE HERE.
+ *
+ * A third of a chunk, so a bird notices you from across a clearing but not from
+ * the far corner, and walking away is a real way out of a fight. Per kit below,
+ * so a bigger thing can eventually see further than a small one.
+ */
+const VISION_TILES = CHUNK_SIZE / 3;
+
+/**
  * Placeholder kits.
  *
  * Weapons are being rebuilt as numbers plus a hitbox shape (docs/items.md), and
@@ -48,9 +57,10 @@ const PLAYER_THRUST: AttackShape = {
 const SWALLOW_PECK: AttackShape = {
   reach: 1, width: 0.5, activeMs: 140, coolMs: 1100, tellMs: 360, damage: 7,
 };
-const ENEMY_KITS: Record<string, { hp: number; speed: number; attack: AttackShape }> = {
-  lithkem_swallow: { hp: 20, speed: SWALLOW_SPEED, attack: SWALLOW_PECK },
-  tutorial_swallow: { hp: 20, speed: SWALLOW_SPEED * 0.92, attack: SWALLOW_PECK },
+interface EnemyKit { hp: number; speed: number; vision: number; attack: AttackShape }
+const ENEMY_KITS: Record<string, EnemyKit> = {
+  lithkem_swallow:  { hp: 20, speed: SWALLOW_SPEED,        vision: VISION_TILES, attack: SWALLOW_PECK },
+  tutorial_swallow: { hp: 20, speed: SWALLOW_SPEED * 0.92, vision: VISION_TILES * 0.75, attack: SWALLOW_PECK },
 };
 const DEFAULT_KIT = ENEMY_KITS.lithkem_swallow;
 
@@ -152,9 +162,11 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: row.id, ref: row.id, team: 'enemy',
         // Bodies stand in the middle of the tile they were placed on.
         x: row.tile_x + 0.5, y: row.tile_y + 0.5, r: 0.34,
-        hp: kit.hp, maxHp: kit.hp, speed: kit.speed, attack: kit.attack,
-        moveX: 0, moveY: 0, aim: 0, wantAttack: false,
+        hp: kit.hp, maxHp: kit.hp, speed: kit.speed, vision: kit.vision, attack: kit.attack,
+        moveX: 0, moveY: 0, aim: Math.random() * Math.PI * 2, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+        // Staggered, so a freshly loaded flock does not turn in unison.
+        wanderX: 0, wanderY: 0, wanderMs: Math.random() * 1200,
       });
       sim.meta.set(row.id, { name: key.replace(/_/g, ' '), sprite: row.sprite });
     }
@@ -171,9 +183,10 @@ export function createWorldSim(deps: WorldSimDeps) {
       unit: {
         id: args.socketId, ref: args.socketId, team: 'player',
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
-        hp: 100, maxHp: 100, speed: PLAYER_SPEED, attack: PLAYER_THRUST,
+        hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0, attack: PLAYER_THRUST,
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+        wanderX: 0, wanderY: 0, wanderMs: 0,
       },
     });
     start();
@@ -260,7 +273,7 @@ export function createWorldSim(deps: WorldSimDeps) {
 
       const players = [...sim.members.values()].map(m => m.unit);
       const units = [...players, ...sim.enemies];
-      for (const e of sim.enemies) driveEnemy(e, players);
+      for (const e of sim.enemies) driveEnemy(e, players, dt * 1000);
 
       const events = stepWorld(units, sim.world, dt);
 

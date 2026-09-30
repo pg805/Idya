@@ -17,10 +17,11 @@ const CLAWS:  AttackShape = { reach: 1, width: 0.5,  activeMs: 140, coolMs: 1100
 
 function unit(o: Partial<RtUnit> & { id: string; team: RtUnit['team'] }): RtUnit {
   return {
-    ref: o.id, x: 5, y: 5, r: 0.34, hp: 100, maxHp: 100, speed: 4.2,
+    ref: o.id, x: 5, y: 5, r: 0.34, hp: 100, maxHp: 100, speed: 4.2, vision: 0,
     attack: o.team === 'player' ? THRUST : CLAWS,
     moveX: 0, moveY: 0, aim: 0, wantAttack: false,
     phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+    wanderX: 0, wanderY: 0, wanderMs: 0,
     ...o,
   } as RtUnit;
 }
@@ -173,6 +174,76 @@ console.log('\nenemies');
   driveEnemy(e, [a, b]);
   const aimedAt = Math.abs(e.aim) < 0.2 ? 'either' : 'elsewhere';
   ok('faces the pair', aimedAt === 'either', `aim=${e.aim.toFixed(2)}`);
+}
+
+console.log('\nthrottle');
+{
+  // Intent magnitude is a throttle, so a wandering body can potter.
+  const full = unit({ id: 'f', team: 'player' });
+  const half = unit({ id: 'h', team: 'player', x: 15 });
+  full.moveX = 1;
+  half.moveX = 0.4;
+  run([full], world(), 60);
+  run([half], world(), 60);
+  const a = full.x - 5, b = half.x - 15;
+  ok('a short vector moves slower', Math.abs(b / a - 0.4) < 0.02, `ratio ${(b / a).toFixed(2)}`);
+}
+
+console.log('\nvision');
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy', x: 18, y: 5, vision: 8, speed: 0 });
+  driveEnemy(e, [p], 16);
+  ok('does not notice you from far off', !e.wantAttack && e.phase === 'idle');
+  p.x = 10;
+  driveEnemy(e, [p], 16);
+  ok('notices you inside its range', Math.abs(Math.abs(e.aim) - Math.PI) < 0.01,
+     `aim ${e.aim.toFixed(2)}`);
+}
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy', x: 20, y: 20, vision: 6, speed: 2.6 });
+  for (let i = 0; i < 300; i++) { driveEnemy(e, [p], 1000 / 60); stepWorld([p, e], world(), 1 / 60); }
+  ok('out of sight means it never reaches you', Math.hypot(e.x - p.x, e.y - p.y) > 3,
+     `gap ${Math.hypot(e.x - p.x, e.y - p.y).toFixed(1)}`);
+  ok('and you take nothing', p.hp === 100, `hp=${p.hp}`);
+}
+
+console.log('\nwandering');
+{
+  const e = unit({ id: 'e', team: 'enemy', x: 12, y: 12, vision: 6, speed: 2.6 });
+  const start = { x: e.x, y: e.y };
+  let moved = false;
+  for (let i = 0; i < 600; i++) {
+    driveEnemy(e, [], 1000 / 60);
+    stepWorld([e], world(), 1 / 60);
+    if (Math.hypot(e.x - start.x, e.y - start.y) > 0.5) moved = true;
+  }
+  ok('an idle body drifts', moved);
+  ok('but does not bolt', Math.hypot(e.x - start.x, e.y - start.y) < 14,
+     `drifted ${Math.hypot(e.x - start.x, e.y - start.y).toFixed(1)}`);
+}
+{
+  const e = unit({ id: 'e', team: 'enemy', x: 12, y: 12, vision: 6 });
+  let swung = false;
+  for (let i = 0; i < 400; i++) {
+    driveEnemy(e, [], 1000 / 60);
+    for (const v of stepWorld([e], world(), 1 / 60)) if (v.kind === 'swing') swung = true;
+  }
+  ok('and never attacks thin air', !swung);
+}
+{
+  // Pauses are half the point: a body that never stops reads as patrolling.
+  const e = unit({ id: 'e', team: 'enemy', x: 12, y: 12, vision: 6 });
+  let still = 0, frames = 0;
+  for (let i = 0; i < 1800; i++) {
+    driveEnemy(e, [], 1000 / 60);
+    frames++;
+    if (e.moveX === 0 && e.moveY === 0) still++;
+    stepWorld([e], world(), 1 / 60);
+  }
+  ok('it stops sometimes', still > frames * 0.15 && still < frames * 0.8,
+     `${Math.round(100 * still / frames)}% of frames idle`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
