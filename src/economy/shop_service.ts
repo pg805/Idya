@@ -263,28 +263,55 @@ export async function buyItem(
   const total = item.buy * quantity;
 
   const result = await prisma.$transaction(async tx => {
-    const user = await tx.user.findUnique({ where: { discord_id: discordId } });
-    if (!user || user.korel < total) {
+    // Conditional, not read-then-write. Reading the balance and then
+    // decrementing lets two requests in flight at once both pass the check on
+    // the same balance and both spend it: the player pays once and gets twice,
+    // and korel goes negative. A double-click is enough to do it.
+    const paid = await tx.user.updateMany({
+      where: { discord_id: discordId, korel: { gte: total } },
+      data:  { korel: { decrement: total } },
+    });
+    if (paid.count === 0) {
+      const user = await tx.user.findUnique({ where: { discord_id: discordId } });
       return { success: false, message: `Not enough korel — need ${total}, have ${user?.korel ?? 0}.` };
     }
 
-    await tx.user.update({ where: { discord_id: discordId }, data: { korel: { decrement: total } } });
+    // Stock was checked before the transaction opened, which is no check at all
+    // once two people want the last one. Taken conditionally here instead.
+    if (!item.infinite) {
+      const pulled = await tx.shopItemState.updateMany({
+        where: { shop_id: shopKey, item_id: item.id, stock: { gte: quantity } },
+        data:  { stock: { decrement: quantity } },
+      });
+      if (pulled.count === 0) return { success: false, message: 'That just sold out.' };
+    }
+
     await tx.item.upsert({
       where:  { id: item.id },
       update: {},
       create: { id: item.id, name: ITEMS[item.id]?.name ?? item.id, description: ITEMS[item.id]?.description ?? '' },
     });
-    await tx.inventoryItem.upsert({
-      where:  { character_id_item_id: { character_id: characterId, item_id: item.id } },
-      update: { quantity: { increment: quantity } },
-      create: { character_id: characterId, item_id: item.id, quantity },
-    });
-    const stockUpdate = item.infinite
-      ? { cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } }
-      : { stock: { decrement: quantity }, cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } };
+    if (isUnlock(item.id)) {
+      // One per character, ever. A create rather than an upsert: the "do you
+      // already have one" check happened before the transaction, so two
+      // requests could both pass it, and an upsert would quietly increment to
+      // two. Colliding on the primary key throws instead, rolling the payment
+      // back with it.
+      await tx.inventoryItem.create({
+        data: { character_id: characterId, item_id: item.id, quantity: 1 },
+      });
+    } else {
+      await tx.inventoryItem.upsert({
+        where:  { character_id_item_id: { character_id: characterId, item_id: item.id } },
+        update: { quantity: { increment: quantity } },
+        create: { character_id: characterId, item_id: item.id, quantity },
+      });
+    }
+    // Stock itself was already taken above where it could be guarded; this is
+    // only the volume counters, which are increments and safe to add blindly.
     await tx.shopItemState.update({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-      data:  stockUpdate,
+      data:  { cumulative_volume: { increment: quantity }, recent_volume: { increment: quantity } },
     });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: item.id, type: 'buy', quantity, discord_id: discordId },
@@ -325,26 +352,39 @@ export async function sellItem(
   const total = item.sell * actualQty;
 
   const result = await prisma.$transaction(async tx => {
-    const inv = await tx.inventoryItem.findUnique({
-      where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
+    // Conditional for the same reason as buying: read-then-decrement lets the
+    // same stack be sold twice, paying twice and leaving a negative quantity
+    // behind. The WHERE clause is the check.
+    const handed = await tx.inventoryItem.updateMany({
+      where: { character_id: characterId, item_id: item.id, quantity: { gte: quantity } },
+      data:  { quantity: { decrement: actualQty } },
     });
-    if (!inv || inv.quantity < quantity) {
+    if (handed.count === 0) {
+      const inv = await tx.inventoryItem.findUnique({
+        where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
+      });
       return { success: false, message: `You only have ${inv?.quantity ?? 0}.` };
     }
-
-    if (inv.quantity === actualQty) {
-      await tx.inventoryItem.delete({ where: { character_id_item_id: { character_id: characterId, item_id: item.id } } });
-    } else {
-      await tx.inventoryItem.update({
-        where: { character_id_item_id: { character_id: characterId, item_id: item.id } },
-        data:  { quantity: { decrement: actualQty } },
-      });
-    }
+    await tx.inventoryItem.deleteMany({
+      where: { character_id: characterId, item_id: item.id, quantity: { lte: 0 } },
+    });
 
     await tx.user.update({ where: { discord_id: discordId }, data: { korel: { increment: total } } });
+    // The cap was read before the transaction, so two sellers could both be
+    // told there was room for the last slot. Guarded here instead; over the cap
+    // the sale is refused rather than silently overstocking the shop.
+    const stocked = await tx.shopItemState.updateMany({
+      where: { shop_id: shopKey, item_id: item.id, stock: { lte: item.stock_max - actualQty } },
+      data:  { stock: { increment: actualQty } },
+    });
+    if (stocked.count === 0) {
+      return { success: false, message: "The shop just filled up and isn't buying right now." };
+    }
+    // Stock itself was added above, where the cap could be enforced. Only the
+    // volume counters here, which are plain increments.
     await tx.shopItemState.update({
       where: { shop_id_item_id: { shop_id: shopKey, item_id: item.id } },
-      data:  { stock: { increment: actualQty }, cumulative_volume: { increment: actualQty }, recent_volume: { increment: actualQty } },
+      data:  { cumulative_volume: { increment: actualQty }, recent_volume: { increment: actualQty } },
     });
     await tx.shopTransaction.create({
       data: { shop_id: shopKey, item_id: item.id, type: 'sell', quantity: actualQty, discord_id: discordId },
