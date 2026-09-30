@@ -12,6 +12,11 @@ window.Views.map = (function () {
 
   const TILE_SRC = 32;      // the tileset's native tile size
   const STEP_MS = 130;      // time to cross one tile, so a walk reads as walking
+  // A diagonal step crosses the diagonal of a square, which is sqrt(2) tiles, not
+  // one. Stepping it on the same clock as a straight step would make cutting
+  // corners about 41% faster than walking in a line — the classic grid speedup.
+  // Charging it the extra time is what keeps speed the same in every direction.
+  const DIAG = Math.SQRT2;
   let chunk = { x: 0, y: 0 };
   let view = null;          // the loaded ChunkView
   let root = null;
@@ -36,6 +41,7 @@ window.Views.map = (function () {
   // you go diagonally, so the last one pressed must not replace the first.
   const heldKeys = new Map();    // key -> { dx, dy }
   let stepTimer = null;
+  let cameraMs = STEP_MS;    // how long the step in flight is taking
   // Two keys meant as one diagonal never land in the same event. Waiting this
   // long before the FIRST step lets the second arrive and be counted, which is
   // the difference between going diagonally and going straight and then
@@ -124,7 +130,7 @@ window.Views.map = (function () {
       return -Math.max(0, Math.min(wanted, boardPx - viewportPx));
     };
 
-    stage.style.transitionDuration = animate ? `${STEP_MS}ms` : '0ms';
+    stage.style.transitionDuration = animate ? `${cameraMs}ms` : '0ms';
     stage.style.transform =
       `translate(${axis(wrap.clientWidth, me?.tile.x ?? 0)}px, ` +
       `${axis(wrap.clientHeight, me?.tile.y ?? 0)}px)`;
@@ -258,11 +264,11 @@ window.Views.map = (function () {
     return cdn ? `${cdn}/${token}.png` : `/sprites/${token}.png`;
   }
 
-  function placeToken(id, tile, animate) {
+  function placeToken(id, tile, animate, ms) {
     const entry = occupants.get(id);
     if (!entry?.el) return;
     entry.tile = tile;
-    entry.el.style.transitionDuration = animate ? `${STEP_MS}ms` : '0ms';
+    entry.el.style.transitionDuration = animate ? `${ms ?? STEP_MS}ms` : '0ms';
     entry.el.style.width = `${cell}px`;
     entry.el.style.height = `${cell}px`;
     entry.el.style.transform = `translate(${tile.x * cell}px, ${tile.y * cell}px)`;
@@ -296,10 +302,16 @@ window.Views.map = (function () {
 
     const step = () => {
       if (state.i >= state.queue.length) { walks.delete(id); return; }
-      placeToken(id, state.queue[state.i++], true);
+      const from = occupants.get(id)?.tile;
+      const to = state.queue[state.i++];
+      // A diagonal hop covers sqrt(2) tiles, so it gets sqrt(2) of the time.
+      // Timed per hop rather than per walk, because a path mixes both.
+      const diagonal = from && from.x !== to.x && from.y !== to.y;
+      const ms = diagonal ? STEP_MS * DIAG : STEP_MS;
+      placeToken(id, to, true, ms);
       // Chained timeouts rather than an interval: an interval drifts against
       // the CSS transition and the steps start to stutter.
-      state.timer = setTimeout(step, STEP_MS);
+      state.timer = setTimeout(step, ms);
     };
     step();
   }
@@ -323,6 +335,9 @@ window.Views.map = (function () {
     if (!heldKeys.size || !socket || !myTile || !view) return;
     const dir = currentDir();
     if (dir.dx === 0 && dir.dy === 0) return;   // pressing both ways at once
+    // The camera glides for as long as the step is paced to take, so a diagonal
+    // tracks the longer distance rather than arriving early and waiting.
+    cameraMs = (dir.dx !== 0 && dir.dy !== 0) ? STEP_MS * DIAG : STEP_MS;
     const to = { x: myTile.x + dir.dx, y: myTile.y + dir.dy };
     // Past the edge is a CROSSING, not a bad step: send it and let the server
     // put us down in the neighbour. It answers with world:you, which reloads
@@ -353,12 +368,22 @@ window.Views.map = (function () {
     }, DIAGONAL_GRACE_MS);
   }
 
+  /** How long the step we are about to take should cost. */
+  function stepCost() {
+    const dir = currentDir();
+    return (dir.dx !== 0 && dir.dy !== 0) ? STEP_MS * DIAG : STEP_MS;
+  }
+
   function startStepping() {
     stepHeld();
-    clearInterval(stepTimer);
-    // Paced to the animation, so holding a key walks at the same speed as
-    // clicking a distant tile instead of racing ahead of the tokens.
-    stepTimer = setInterval(stepHeld, STEP_MS);
+    scheduleStep();
+  }
+
+  // A self-rescheduling timeout rather than a fixed interval, because the gap
+  // between steps now depends on which way the next one goes.
+  function scheduleStep() {
+    clearTimeout(stepTimer);
+    stepTimer = setTimeout(() => { stepHeld(); scheduleStep(); }, stepCost());
   }
 
   function releaseHold(key) {
@@ -374,7 +399,7 @@ window.Views.map = (function () {
     heldKeys.clear();
     clearTimeout(graceTimer);
     graceTimer = null;
-    clearInterval(stepTimer);
+    clearTimeout(stepTimer);
     stepTimer = null;
   }
 
@@ -734,6 +759,11 @@ window.Views.map = (function () {
         <button class="gm-btn" type="button" data-tool="paint" data-material="g">Grass</button>
         <button class="gm-btn" type="button" data-tool="paint" data-material="reset">Reset</button>
       </div>
+      <div class="gm-modes">
+        <button class="gm-btn" type="button" id="gm-seed">Seed swallows</button>
+        <button class="gm-btn" type="button" id="gm-unseed">Clear enemies</button>
+      </div>
+      <p class="gm-note" id="gm-note"></p>
       <div class="gm-palette" id="gm-palette" hidden>
         <div class="gm-tabs" id="gm-tabs">
           ${PALETTE_GROUPS.map(([label]) =>
@@ -756,7 +786,37 @@ window.Views.map = (function () {
     });
     document.body.appendChild(gmToggle);
 
+    // Seeding lives here rather than in a console: it is world editing, and this
+    // is where world editing is. Says what it did, so an empty chunk is a fact
+    // rather than a guess.
+    const gmNote = (text) => {
+      const n = gmPanel.querySelector('#gm-note');
+      if (n) n.textContent = text;
+    };
+    gmPanel.querySelector('#gm-seed').addEventListener('click', async () => {
+      gmNote('Seeding…');
+      try {
+        const r = await fetch('/api/dev/seed-swallows?per=3', { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) { gmNote(d.error ?? `Failed (${r.status})`); return; }
+        gmNote(`Placed ${d.placed} across ${d.chunks} chunk(s)`
+          + (d.skipped?.length ? `, skipped ${d.skipped.length} that already had some.` : '.'));
+        if (view) await load(view.chunk);
+      } catch (err) { gmNote(`Failed: ${err}`); }
+    });
+    gmPanel.querySelector('#gm-unseed').addEventListener('click', async () => {
+      gmNote('Clearing…');
+      try {
+        const r = await fetch('/api/dev/clear-enemies', { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) { gmNote(d.error ?? `Failed (${r.status})`); return; }
+        gmNote(`Removed ${d.removed}.`);
+        if (view) await load(view.chunk);
+      } catch (err) { gmNote(`Failed: ${err}`); }
+    });
+
     for (const b of gmPanel.querySelectorAll('.gm-btn')) {
+      if (b.id === 'gm-seed' || b.id === 'gm-unseed') continue;   // not tools
       b.addEventListener('click', () => {
         const mode = b.dataset.tool;
         if (mode === 'off') return setTool(null);

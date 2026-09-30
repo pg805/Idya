@@ -314,3 +314,12 @@ body.gm-open #world-root { padding-left: 208px; }
   border-color: var(--teal-bright);
   background: rgba(26, 193, 154, 0.12);
 }
+
+/* Seeding readout in the GM panel. */
+.gm-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-dim, #9aa4ad);
+  min-height: 1.2em;
+}
