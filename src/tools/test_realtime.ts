@@ -1,0 +1,179 @@
+// Smoke tests for the real-time engine. No server, no database, no clock.
+//
+//   npm run build && node lib/tools/test_realtime.js
+import {
+  stepWorld, driveEnemy, rectHitsCircle,
+  type RtUnit, type StepWorld, type AttackShape, type RtEvent,
+} from '../combat/realtime.js';
+
+let pass = 0, fail = 0;
+function ok(name: string, cond: boolean, detail = ''): void {
+  if (cond) { pass++; console.log(`  ok    ${name}`); }
+  else { fail++; console.log(`  FAIL  ${name}${detail ? '  — ' + detail : ''}`); }
+}
+
+const THRUST: AttackShape = { reach: 1, width: 0.45, activeMs: 120, coolMs: 500, tellMs: 0, damage: 16 };
+const CLAWS:  AttackShape = { reach: 1, width: 0.5,  activeMs: 140, coolMs: 1100, tellMs: 360, damage: 9 };
+
+function unit(o: Partial<RtUnit> & { id: string; team: RtUnit['team'] }): RtUnit {
+  return {
+    ref: o.id, x: 5, y: 5, r: 0.34, hp: 100, maxHp: 100, speed: 4.2,
+    attack: o.team === 'player' ? THRUST : CLAWS,
+    moveX: 0, moveY: 0, aim: 0, wantAttack: false,
+    phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+    ...o,
+  } as RtUnit;
+}
+const world = (blocked: string[] = [], size = 24): StepWorld => ({ blocked: new Set(blocked), size });
+
+/** Run n frames of dt, collecting everything that happened. */
+function run(units: RtUnit[], w: StepWorld, frames: number, dt = 1 / 60): RtEvent[] {
+  const all: RtEvent[] = [];
+  for (let i = 0; i < frames; i++) all.push(...stepWorld(units, w, dt));
+  return all;
+}
+
+console.log('\nhitbox geometry');
+{
+  const t = { x: 6, y: 5, r: 0.34 };
+  ok('reaches straight ahead',      rectHitsCircle(5, 5, 0, 1, 0.45, t));
+  ok('misses behind',              !rectHitsCircle(5, 5, Math.PI, 1, 0.45, t));
+  ok('misses past its reach',      !rectHitsCircle(5, 5, 0, 0.5, 0.45, t));
+  ok('misses off to the side',     !rectHitsCircle(5, 5, 0, 1, 0.45, { x: 6, y: 6, r: 0.34 }));
+  ok('a thrust is narrow',         !rectHitsCircle(5, 5, 0, 1, 0.2, { x: 5.8, y: 5.45, r: 0.2 }));
+  ok('a swing is wide',             rectHitsCircle(5, 5, 0, 1, 1.2, { x: 5.8, y: 5.45, r: 0.2 }));
+  ok('works on the diagonal',       rectHitsCircle(5, 5, Math.PI / 4, 1, 0.45, { x: 5.6, y: 5.6, r: 0.34 }));
+}
+
+console.log('\nmovement');
+{
+  const u = unit({ id: 'p', team: 'player' });
+  u.moveX = 1; u.moveY = 0;
+  run([u], world(), 60);                       // one second
+  ok('walks its speed in a second', Math.abs(u.x - (5 + 4.2)) < 0.05, `x=${u.x.toFixed(2)}`);
+}
+{
+  // The bug the grid had: a diagonal must not be faster than a straight line.
+  const a = unit({ id: 'a', team: 'player' });
+  const b = unit({ id: 'b', team: 'player', x: 15 });
+  a.moveX = 1; a.moveY = 0;
+  b.moveX = 1; b.moveY = 1;
+  run([a], world(), 60);
+  run([b], world(), 60);
+  const straight = a.x - 5;
+  const diagonal = Math.hypot(b.x - 15, b.y - 5);
+  ok('diagonal is not faster', Math.abs(straight - diagonal) < 0.05,
+     `straight ${straight.toFixed(2)} vs diagonal ${diagonal.toFixed(2)}`);
+}
+{
+  const u = unit({ id: 'p', team: 'player', x: 5.5, y: 5.5 });
+  u.moveX = 1;
+  run([u], world(['6,5']), 60);
+  ok('stops against a solid tile', u.x < 6, `x=${u.x.toFixed(2)}`);
+  ok('is not inside it',           u.x <= 6 - u.r + 1e-6, `x=${u.x.toFixed(2)}`);
+}
+{
+  const u = unit({ id: 'p', team: 'player', x: 1, y: 5 });
+  u.moveX = -1;
+  run([u], world(), 60);
+  ok('cannot leave the chunk', u.x >= u.r - 1e-6, `x=${u.x.toFixed(2)}`);
+}
+{
+  const a = unit({ id: 'a', team: 'player', x: 5, y: 5 });
+  const b = unit({ id: 'b', team: 'enemy',  x: 5.1, y: 5 });
+  run([a, b], world(), 1);
+  ok('bodies push apart', Math.hypot(b.x - a.x, b.y - a.y) > 0.6,
+     `gap ${Math.hypot(b.x - a.x, b.y - a.y).toFixed(2)}`);
+}
+
+console.log('\nattacks');
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5, hp: 100 });
+  p.aim = 0; p.wantAttack = true;
+  const events = run([p, e], world(), 2);
+  ok('a player attack lands at once', e.hp === 100 - THRUST.damage, `hp=${e.hp}`);
+  ok('and reports a swing',           events.some(v => v.kind === 'swing'));
+  ok('and reports the hit',           events.some(v => v.kind === 'hit'));
+}
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5 });
+  p.aim = 0; p.wantAttack = true;
+  run([p, e], world(), 12);                    // the whole active window
+  ok('one swing lands once', e.hp === 100 - THRUST.damage, `hp=${e.hp}`);
+}
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5 });
+  p.aim = 0;
+  p.wantAttack = true; run([p, e], world(), 12);
+  p.wantAttack = true; run([p, e], world(), 2);
+  ok('cooldown refuses the second', e.hp === 100 - THRUST.damage, `hp=${e.hp}`);
+  p.wantAttack = true; run([p, e], world(), 40);   // wait it out
+  ok('and allows it once spent',    e.hp === 100 - THRUST.damage * 2, `hp=${e.hp}`);
+}
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const a = unit({ id: 'a', team: 'enemy', x: 5.9, y: 4.75 });
+  const b = unit({ id: 'b', team: 'enemy', x: 5.9, y: 5.25 });
+  p.aim = 0; p.wantAttack = true;
+  run([p, a, b], world(), 4);
+  ok('a wide swing catches two', a.hp < 100 && b.hp < 100, `a=${a.hp} b=${b.hp}`);
+}
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5, hp: THRUST.damage });
+  p.aim = 0; p.wantAttack = true;
+  const events = run([p, e], world(), 4);
+  ok('a killing blow reports a death', events.some(v => v.kind === 'died' && v.id === 'e'));
+  ok('and the body is out',            e.dead);
+}
+{
+  // An early press is held, not thrown away (docs/combat.md §0b).
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5, cool: 200 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5 });
+  p.aim = 0; p.wantAttack = true;
+  run([p, e], world(), 3);
+  ok('an early press is still pending', p.wantAttack && e.hp === 100);
+  run([p, e], world(), 20);
+  ok('and spends when the cooldown ends', e.hp < 100, `hp=${e.hp}`);
+}
+
+console.log('\nenemies');
+{
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 12, y: 5, speed: 2.6 });
+  let told = false;
+  for (let i = 0; i < 400; i++) {
+    driveEnemy(e, [p]);
+    for (const v of stepWorld([p, e], world(), 1 / 60)) if (v.kind === 'tell') told = true;
+  }
+  ok('closes the distance', Math.hypot(e.x - p.x, e.y - p.y) < 1.5,
+     `gap ${Math.hypot(e.x - p.x, e.y - p.y).toFixed(2)}`);
+  ok('telegraphs before striking', told);
+  ok('and gets damage in',         p.hp < 100, `hp=${p.hp}`);
+}
+{
+  // A telegraph is only worth having if it can be walked out of.
+  const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5, speed: 0 });
+  driveEnemy(e, [p]);
+  stepWorld([p, e], world(), 1 / 60);
+  ok('the wind-up starts', e.phase === 'tell');
+  p.moveX = 1; p.moveY = -1;                  // leave while it winds up
+  for (let i = 0; i < 40; i++) { stepWorld([p, e], world(), 1 / 60); }
+  ok('dodging the wind-up works', p.hp === 100, `hp=${p.hp}`);
+}
+{
+  // Nearest first, lowest HP to break a tie.
+  const a = unit({ id: 'a', team: 'player', x: 6, y: 5, hp: 90 });
+  const b = unit({ id: 'b', team: 'player', x: 6, y: 5, hp: 20 });
+  const e = unit({ id: 'e', team: 'enemy',  x: 5, y: 5 });
+  driveEnemy(e, [a, b]);
+  const aimedAt = Math.abs(e.aim) < 0.2 ? 'either' : 'elsewhere';
+  ok('faces the pair', aimedAt === 'either', `aim=${e.aim.toFixed(2)}`);
+}
+
+console.log(`\n${pass} passed, ${fail} failed\n`);
+process.exit(fail ? 1 : 0);

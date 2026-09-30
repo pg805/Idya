@@ -21,7 +21,8 @@
     "font:build": "python tools/build-font.py --verify",
     "palette:sync": "python tools/palette.py sync",
     "palette:build": "python tools/palette.py build",
-    "palette:check": "python tools/palette.py check"
+    "palette:check": "python tools/palette.py check",
+    "test:realtime": "tsc --project tsconfig.json && node lib/tools/test_realtime.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
