@@ -759,7 +759,14 @@ app.get('/api/chest', async (req: Request, res: Response) => {
   ]);
   res.json({
     chest,
-    inventory: bag.map(r => ({ itemId: r.item_id, name: r.item.name, quantity: r.quantity })),
+    // Unlocks are left out rather than listed and then refused. They cannot be
+    // sold, traded or stored — a trophy is proof you did a thing, not goods —
+    // so offering one and then saying no is a worse way to explain that than
+    // simply never offering it. putInChest still refuses them; this is the UI
+    // not asking a question with only one answer.
+    inventory: bag
+      .filter(r => !isUnlock(r.item_id))
+      .map(r => ({ itemId: r.item_id, name: r.item.name, quantity: r.quantity })),
   });
 });
 
