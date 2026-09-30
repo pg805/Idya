@@ -682,7 +682,7 @@ function whereIs(accountId: string): {
 
 /** The chest you are close enough to use, or a reason you are not. */
 async function reachableChest(accountId: string, objectId: string): Promise<
-  { ok: true; characterId: string; chunk: Chunk }
+  { ok: true; characterId: string; chunk: Chunk; tile: TilePos }
   | { ok: false; status: number; error: string }
 > {
   const me = whereIs(accountId);
@@ -698,7 +698,32 @@ async function reachableChest(accountId: string, objectId: string): Promise<
   const near = Math.max(Math.abs(row.tile_x - me.tile.x), Math.abs(row.tile_y - me.tile.y)) <= 1;
   if (!near) return { ok: false, status: 403, error: 'Too far away.' };
 
-  return { ok: true, characterId: me.characterId, chunk: me.chunk };
+  return { ok: true, characterId: me.characterId, chunk: me.chunk, tile: me.tile };
+}
+
+/**
+ * Write a chest move to the append-only log.
+ *
+ * Every other way an item changes hands is recorded — item_crafted,
+ * trade_completed, weapon_given — and chests were not, so when stock looked
+ * wrong there was nothing to read. An economy players run needs its moves
+ * legible after the fact, not just correct at the time.
+ */
+function logChestMove(args: {
+  accountId: string; characterId: string; chunk: Chunk; tile: TilePos;
+  objectId: string; itemId: string; quantity: number; direction: 'took' | 'put';
+}): void {
+  void logEvent({
+    accountId: args.accountId,
+    characterId: args.characterId,
+    type: `chest_${args.direction}`,
+    at: { chunk: args.chunk, tile: args.tile },
+    payload: {
+      chest: args.objectId,
+      item: args.itemId,
+      quantity: args.quantity,
+    },
+  });
 }
 
 /**
@@ -747,12 +772,24 @@ app.post('/api/chest/take', async (req: Request, res: Response) => {
   if (!Number.isInteger(slot) || slot! < 0 || slot! >= CHEST_SLOTS) {
     res.status(400).json({ error: 'No such slot.' }); return;
   }
+  // What was in the slot, so the log can name it once the row is gone.
+  const before = (await readChest(String(id))).slots.find(sl => sl.slot === slot);
   const out = await takeFromChest({
     objectId: String(id), slot: slot as number,
     characterId: gate.characterId, quantity,
   });
   if (!out.ok) { res.status(400).json({ error: out.why }); return; }
   const view = await readChest(String(id));
+  const left = view.slots.find(sl => sl.slot === slot);
+  if (before) {
+    logChestMove({
+      accountId: discordId, characterId: gate.characterId,
+      chunk: gate.chunk, tile: gate.tile,
+      objectId: String(id), itemId: before.itemId,
+      quantity: before.quantity - (left?.quantity ?? 0),
+      direction: 'took',
+    });
+  }
   announceChest(gate.chunk, view);
   res.json(view);
 });
@@ -765,6 +802,9 @@ app.post('/api/chest/put', async (req: Request, res: Response) => {
   const gate = await reachableChest(discordId, String(id ?? ''));
   if (!gate.ok) { res.status(gate.status).json({ error: gate.error }); return; }
   if (!itemId) { res.status(400).json({ error: 'Which item?' }); return; }
+  const held = (await readChest(String(id))).slots
+    .filter(sl => sl.itemId === itemId)
+    .reduce((n, sl) => n + sl.quantity, 0);
   const out = await putInChest({
     objectId: String(id), itemId: String(itemId),
     characterId: gate.characterId, quantity,
@@ -772,6 +812,16 @@ app.post('/api/chest/put', async (req: Request, res: Response) => {
   });
   if (!out.ok) { res.status(400).json({ error: out.why }); return; }
   const view = await readChest(String(id));
+  const now = view.slots
+    .filter(sl => sl.itemId === itemId)
+    .reduce((n, sl) => n + sl.quantity, 0);
+  logChestMove({
+    accountId: discordId, characterId: gate.characterId,
+    chunk: gate.chunk, tile: gate.tile,
+    objectId: String(id), itemId: String(itemId),
+    quantity: now - held,
+    direction: 'put',
+  });
   announceChest(gate.chunk, view);
   res.json(view);
 });
