@@ -297,6 +297,23 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
 }
 
 /**
+ * Has this body walked into an edge and is it still pushing at it?
+ *
+ * Pulled out of the server's tick so it can be tested without sockets. The
+ * engine clamps bodies inside the chunk, so "at the edge" means the clamp has
+ * just bitten rather than a coordinate outside it — which is why this needs the
+ * intent as well as the position. Returns -1, 0 or 1 per axis.
+ */
+export function exitDirection(u: RtUnit, size: number): { dx: number; dy: number } {
+  const atMinX = u.x <= u.r + 1e-3, atMaxX = u.x >= size - u.r - 1e-3;
+  const atMinY = u.y <= u.r + 1e-3, atMaxY = u.y >= size - u.r - 1e-3;
+  return {
+    dx: (atMinX && u.moveX < 0) ? -1 : (atMaxX && u.moveX > 0) ? 1 : 0,
+    dy: (atMinY && u.moveY < 0) ? -1 : (atMaxY && u.moveY > 0) ? 1 : 0,
+  };
+}
+
+/**
  * The enemy's whole mind: look, then chase or potter.
  *
  * Deliberately thin. The old utility planner scored (destination, action,

@@ -22,7 +22,7 @@
     "palette:sync": "python tools/palette.py sync",
     "palette:build": "python tools/palette.py build",
     "palette:check": "python tools/palette.py check",
-    "test:realtime": "tsc --project tsconfig.json && node lib/tools/test_realtime.js"
+    "test:realtime": "cross-env NODE_OPTIONS=--experimental-vm-modules jest realtime"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -61,6 +61,39 @@ export async function readChest(objectId: string): Promise<ChestView> {
 
 export type MoveResult = { ok: true } | { ok: false; why: string };
 
+/** What a slot holds, as much of it as choosing a target needs. */
+export interface SlotOccupant { slot: number; item_id: string }
+
+/**
+ * Which slot a deposit should land in.
+ *
+ * Pulled out of putInChest so it can be tested without a database — the rest of
+ * that function is writes, and this is the only part with a decision in it.
+ *
+ * Stacking comes FIRST, before any empty slot. Depositing the same thing twice
+ * should read as one action rather than scattering it across the grid, which is
+ * also why a full chest still accepts more of something already in it.
+ */
+export function chooseSlot(
+  rows: SlotOccupant[], itemId: string, requested?: number,
+): { slot: number } | { why: string } {
+  if (requested !== undefined) {
+    if (!Number.isInteger(requested) || requested < 0 || requested >= CHEST_SLOTS) {
+      return { why: 'No such slot.' };
+    }
+    const at = rows.find(r => r.slot === requested);
+    if (at && at.item_id !== itemId) return { why: 'Something else is in that slot.' };
+    return { slot: requested };
+  }
+
+  const stack = rows.find(r => r.item_id === itemId);
+  if (stack) return { slot: stack.slot };
+
+  const used = new Set(rows.map(r => r.slot));
+  for (let i = 0; i < CHEST_SLOTS; i++) if (!used.has(i)) return { slot: i };
+  return { why: 'The chest is full.' };
+}
+
 /**
  * Take from a chest slot into a character's bag.
  *
@@ -129,21 +162,9 @@ export async function putInChest(args: {
     const qty = Math.max(1, Math.min(args.quantity ?? held.quantity, held.quantity));
 
     const rows = await tx.chestSlot.findMany({ where: { object_id: args.objectId } });
-    const used = new Map(rows.map(r => [r.slot, r]));
-
-    let target = args.slot;
-    if (target === undefined) {
-      const stack = rows.find(r => r.item_id === args.itemId);
-      if (stack) target = stack.slot;
-      else {
-        for (let i = 0; i < CHEST_SLOTS; i++) if (!used.has(i)) { target = i; break; }
-      }
-    }
-    if (target === undefined) return { ok: false, why: 'The chest is full.' };
-    if (target < 0 || target >= CHEST_SLOTS) return { ok: false, why: 'No such slot.' };
-
-    const at = used.get(target);
-    if (at && at.item_id !== args.itemId) return { ok: false, why: 'Something else is in that slot.' };
+    const pick = chooseSlot(rows, args.itemId, args.slot);
+    if ('why' in pick) return { ok: false, why: pick.why };
+    const target = pick.slot;
 
     // Same guard on the way out of the bag: you must still be carrying it.
     const paid = await tx.inventoryItem.updateMany({

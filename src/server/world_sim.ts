@@ -3,7 +3,7 @@ import prisma from '../database/prisma.js';
 import { CHUNK_SIZE, chunkKey, type Chunk } from '../world/chunk.js';
 import { ENEMY_KIND } from '../world/spawns.js';
 import {
-  stepWorld, driveEnemy,
+  stepWorld, driveEnemy, exitDirection,
   type AttackShape, type RtUnit, type StepWorld,
 } from '../combat/realtime.js';
 
@@ -283,10 +283,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       for (const m of sim.members.values()) {
         const u = m.unit;
         if (u.dead) continue;
-        const atMinX = u.x <= u.r + 1e-3, atMaxX = u.x >= CHUNK_SIZE - u.r - 1e-3;
-        const atMinY = u.y <= u.r + 1e-3, atMaxY = u.y >= CHUNK_SIZE - u.r - 1e-3;
-        const dx = (atMinX && u.moveX < 0) ? -1 : (atMaxX && u.moveX > 0) ? 1 : 0;
-        const dy = (atMinY && u.moveY < 0) ? -1 : (atMaxY && u.moveY > 0) ? 1 : 0;
+        const { dx, dy } = exitDirection(u, CHUNK_SIZE);
         if (!dx && !dy) continue;
         deps.onExit?.({
           socketId: m.socketId, from: sim.chunk, dx, dy,

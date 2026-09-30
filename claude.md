@@ -138,7 +138,9 @@ npm run simulate       # Monte-Carlo weapon-balance sim
 npm run lint           # Fix linting issues (WARNING: reformats the whole repo)
 npm run tiles:sync     # Copy exported tilesets from the Asset Library
 npm run font:build     # Rebuild the Idya Pixel webfont from the fnt_*.png sheets
-node lib/tools/test_tiles.js     # Spatial combat smoke tests
+node lib/tools/test_tiles.js     # Spatial combat smoke tests (old round engine)
+npm test               # jest: the engine, the world, the economy (155 tests)
+npm run test:realtime  # just the real-time engine (a filter on the same suite)
 node lib/tools/cost_report.js N  # Budget report for level N
 ```
 
@@ -161,7 +163,7 @@ neither Discord nor the database:
 ```bash
 npm run build
 node -e "const {Board}=require('./lib/combat/board.js'); ..."   # engine / terrain / board
-npm test                          # jest
+npm test                          # jest — engine, world, economy
 npm run simulate                  # balance sim
 node lib/tools/test_tiles.js      # spatial combat smoke tests
 ```

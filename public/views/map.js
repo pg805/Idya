@@ -1078,7 +1078,7 @@ window.Views.map = (function () {
       <div class="chest-grid" id="chest-grid"></div>
       <p class="chest-note" id="chest-note"></p>
       <h4>Carrying</h4>
-      <div class="chest-bag" id="chest-bag"></div>`;
+      <div class="chest-grid" id="chest-bag"></div>`;
     (stage ?? document.body).appendChild(el);
     el.querySelector('#chest-close').addEventListener('click', closeChest);
     return el;
@@ -1169,6 +1169,38 @@ window.Views.map = (function () {
     if (chestPoll) { clearInterval(chestPoll); chestPoll = null; }
   }
 
+  /**
+   * An item's icon, falling back to the checkerboard.
+   *
+   * No registry: the file is named for the item id, so making
+   * public/items/sulwood.png is the whole of adding its icon. Anything unmade
+   * shows _missing.png, which is magenta on purpose.
+   */
+  function itemIcon(itemId) {
+    return `<img class="slot-icon" src="/items/${encodeURIComponent(itemId)}.png" alt=""`
+      + ` onerror="this.onerror=null;this.src='/items/_missing.png'">`;
+  }
+
+  /**
+   * One slot, filled or empty.
+   *
+   * Both halves of the panel use this, so a thing in your hands and the same
+   * thing in the chest are the same square. A list on one side and a grid on the
+   * other made moving something read as a conversion rather than a move.
+   */
+  function slotCell(entry, title, onClick) {
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'chest-slot' + (entry ? ' filled' : '');
+    cell.disabled = !entry;
+    if (!entry) return cell;
+    cell.innerHTML = itemIcon(entry.itemId)
+      + (entry.quantity > 1 ? `<span class="chest-qty">${entry.quantity}</span>` : '');
+    cell.title = title;
+    cell.addEventListener('click', onClick);
+    return cell;
+  }
+
   function drawChest(chest, bag) {
     lastBag = bag ?? lastBag;
     bag = lastBag;
@@ -1179,32 +1211,27 @@ window.Views.map = (function () {
     grid.innerHTML = '';
     for (let i = 0; i < (chest.size ?? 12); i++) {
       const sl = bySlot.get(i);
-      const cell = document.createElement('button');
-      cell.type = 'button';
-      cell.className = 'chest-slot' + (sl ? ' filled' : '');
-      cell.disabled = !sl;
-      cell.innerHTML = sl
-        ? `<span class="chest-item">${esc(sl.name)}</span><span class="chest-qty">${sl.quantity}</span>`
-        : '';
-      if (sl) {
-        cell.title = `Take ${sl.quantity} ${sl.name}`;
-        cell.addEventListener('click', () => void moveChest('take', { slot: i }));
-      }
-      grid.appendChild(cell);
+      grid.appendChild(slotCell(
+        sl,
+        sl ? `Take ${sl.quantity} ${sl.name}` : '',
+        () => void moveChest('take', { slot: i }),
+      ));
     }
 
+    // The bag is the same grid, padded to a full row or two so it reads as a
+    // container rather than a ragged edge of however much you happen to carry.
     const bagEl = el.querySelector('#chest-bag');
-    bagEl.innerHTML = bag.length
-      ? ''
-      : '<p class="chest-note">Your hands are empty.</p>';
-    for (const row of bag) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chest-bag-row';
-      b.innerHTML = `<span>${esc(row.name)}</span><span class="chest-qty">${row.quantity}</span>`;
-      b.title = `Put ${row.quantity} ${row.name} in`;
-      b.addEventListener('click', () => void moveChest('put', { itemId: row.itemId }));
-      bagEl.appendChild(b);
+    const cols = chest.cols ?? 6;
+    bagEl.style.setProperty('--chest-cols', cols);
+    bagEl.innerHTML = '';
+    const shown = Math.max(cols, Math.ceil(bag.length / cols) * cols);
+    for (let i = 0; i < shown; i++) {
+      const row = bag[i];
+      bagEl.appendChild(slotCell(
+        row,
+        row ? `Put ${row.quantity} ${row.name} in` : '',
+        () => void moveChest('put', { itemId: row.itemId }),
+      ));
     }
   }
 
