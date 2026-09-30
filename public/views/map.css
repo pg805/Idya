@@ -386,7 +386,10 @@ body.gm-open #world-root { padding-left: 208px; }
    as "the pixel font is not applied" even when it is. */
 #chest-panel {
   position: absolute; z-index: 20;
-  width: 264px;
+  /* Sized FROM the slot grid rather than chosen: 6*36 + 5*2 gap + 2*8 padding
+     + 2*2 border. Picking a round 264 instead left slots at 39px, which drew a
+     32px icon at 1.09x — every eleventh pixel doubled. */
+  width: 246px;
   padding: 8px;
   background: var(--bg-surface);
   border: var(--box-width) solid var(--box);
@@ -412,7 +415,9 @@ body.gm-open #world-root { padding-left: 208px; }
 
 .chest-grid {
   display: grid;
-  grid-template-columns: repeat(var(--chest-cols, 6), 1fr);
+  /* Fixed, not 1fr. A slot is 36 so that its 32px content box holds the art at
+     exactly 1:1 — the same scale the same drawing has lying on the ground. */
+  grid-template-columns: repeat(var(--chest-cols, 6), 36px);
   gap: var(--box-width);
 }
 /* A slot is a hole in the panel: its edge is the recessed one, and the ground
@@ -434,9 +439,10 @@ body.gm-open #world-root { padding-left: 208px; }
 }
 .chest-slot.filled:hover { border-color: var(--gold-bright); }
 .chest-slot:focus-visible { outline: var(--box-width) solid var(--gold-bright); outline-offset: 0; }
-/* The icon fills the slot; the count sits over its corner so a 32px drawing is
-   not squeezed to make room for two digits. image-rendering keeps the pixels
-   pixels when a slot is not exactly 32 wide. */
+/* The icon fills the slot's 32px content box exactly, so the art is never
+   resampled. image-rendering is the belt to that braces: if a future slot size
+   does go fractional, the pixels stay hard instead of blurring. The count sits
+   over the corner so the drawing is not squeezed to make room for two digits. */
 .slot-icon {
   width: 100%; height: 100%; display: block;
   image-rendering: pixelated;

@@ -56,6 +56,69 @@ If the interface ever moves to 3×, `--box-width` is the number to change.
 
 ---
 
+---
+
+## The drawing queue
+
+What is actually wanted next, in the order it unblocks something. Two pipelines,
+and which one a thing takes decides where the file goes — not how it is drawn.
+Everything here is **32x32**, one world tile, drawn 1:1.
+
+| Draw | Pipeline | Lands at | Unblocks |
+|---|---|---|---|
+| Feather | item | `public/items/swallow_feather.png` | drops from swallows today |
+| Wood | item | `public/items/sulwood.png` | the one material in scope |
+| Sword | item* | id not settled — see below | session 0 weapon |
+| Axe | item* | id not settled | session 0 weapon + tool |
+| Shovel | item* | id not settled | session 0 weapon + tool |
+| Magic big tree | world prop | Asset Library | a landmark worth naming a place after |
+| Ruins | world prop | Asset Library | the first POI prop |
+
+### Items: drop the file in, nothing else
+
+`public/items/<item_id>.png`, 32x32. Nothing registers it and nothing rebuilds;
+the id is the key in `src/economy/items.ts`. An item with no file falls back to
+`_missing.png`, the magenta checkerboard, which is off-palette on purpose so an
+unmade asset looks wrong rather than passable.
+
+**\* The three weapons have no folder yet.** Weapons are YAML in
+`database/weapons/`, not `InventoryItem` rows, so `public/items/` does not serve
+them and the current ids (`sword_wood`, `axe_wood`, `shovel_wood`) are the old
+system's. The new L1 ids are still open (`items.md`). None of that changes the
+drawing, so they are safe to make now; wiring them up is a small change once the
+ids land.
+
+### World props: through the Asset Library
+
+Asset Library -> `build-tilesets.lua` -> `npm run tiles:sync`, then placed in the
+world with `world:place`. Three rules the code actually enforces:
+
+- **A sprite blocks unless its name says otherwise.** `isWalkableSprite`
+  (`src/world/sprites.ts`) passes `ov_*`, `dec_flower|crop|shell|grass|reed`, and
+  anything ending `_stump`. Ruins want to block, so any other `dec_`/`obj_` name
+  does it.
+- **Bigger than one tile means two registrations.** `SPRITE_SIZE` lives in
+  `src/world/sprites.ts` *and* `public/terrain.js` — the server answers for
+  collision, the client for drawing, and a size in only one of them draws a
+  building you can walk through. Unlisted is 1x1. The footprint grows **upward**
+  from the base tile, which is the anchor.
+- **A tall thing is a stack, not a tall sprite.** `stack: [bottom, middle, top]`,
+  32px each. Only `stack[0]` blocks: you walk *under* a canopy, which is why the
+  upper tiles draw on `#board-canopy` above the tokens. The magic tree wants
+  this; `dec_tree_01_bottom/_middle_01/_top_01` is the pattern.
+
+### Scale, since these are the first things drawn at it
+
+The board draws a tile at **1:1** (32 art px -> 32 CSS px at zoom 1), while the
+interface chrome and font are at **2x** (see section 0). Item icons follow the
+*board*, not the chrome: the same drawing has to read the same in a slot and
+lying on the ground.
+
+That is now true rather than nearly true. Chest slots were 39px, which drew a
+32px icon at 1.09x and doubled every eleventh pixel; a slot is 36px so its 32px
+content box holds the art exactly, and the panel is sized from the grid instead
+of the other way round.
+
 ## 1. Units — the biggest gap
 
 There is no enemy art. Every enemy on the board renders as two letters in a

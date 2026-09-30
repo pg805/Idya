@@ -9,5 +9,10 @@ An item with no file falls back to `_missing.png`, the magenta checkerboard, whi
 is deliberately not a palette colour: its whole job is to look wrong so an
 unmade asset is noticed rather than lived with.
 
-32px to match the world's tile size, so an icon in a slot and the same thing
-lying on the ground are the same drawing at the same scale.
+32x32, to match the world's tile size, so an icon in a slot and the same thing
+lying on the ground are the same drawing at the same scale. A chest slot is 36px
+with a 2px border, so the art sits in a 32px box at exactly 1:1 and is never
+resampled — the panel's width is derived from that, not chosen.
+
+The wanted list, and the props that go through the Asset Library instead, are in
+`docs/interface-art.md` under "The drawing queue".

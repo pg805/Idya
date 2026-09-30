@@ -104,9 +104,11 @@ Still four fields, now as overrides rather than the gate:
 
 Art and world. None of it blocked by code.
 
-1. **Draw ruins.** The first POI prop wanted. Add to
-   [`interface-art.md`](interface-art.md); pipeline is Asset Library →
-   `build-tilesets.lua` → `npm run tiles:sync`.
+1. **Draw the queue** — sword, axe, shovel, feather, wood, a magic big tree, and
+   ruins. The list, with the size and where each file goes, is
+   [`interface-art.md` → The drawing queue](interface-art.md#the-drawing-queue).
+   Items are a drop-in file; props go Asset Library → `build-tilesets.lua` →
+   `npm run tiles:sync`.
 2. **Draw landmark props** — enough distinct things that a place is worth naming.
 3. **Walk the chunks and place points of interest.** `world:paint`, `world:place` and
    `world:remove` are built and GM-gated. Content, not code.
