@@ -24,6 +24,17 @@ import {
 const TICK_MS = 50;
 
 /**
+ * How fast bodies move, in tiles per second.
+ *
+ * A tile is 32px, so 5.6 is about 180px a second and crosses a 24-tile chunk in
+ * a little over four seconds. The RATIO is the part that matters: a player well
+ * clear of an enemy's speed can kite it forever, which is the thing the armour
+ * health/speed axis is eventually supposed to price (docs/combat.md §8).
+ */
+const PLAYER_SPEED = 5.6;
+const SWALLOW_SPEED = 3.4;
+
+/**
  * Placeholder kits.
  *
  * Weapons are being rebuilt as numbers plus a hitbox shape (docs/items.md), and
@@ -38,8 +49,8 @@ const SWALLOW_PECK: AttackShape = {
   reach: 1, width: 0.5, activeMs: 140, coolMs: 1100, tellMs: 360, damage: 7,
 };
 const ENEMY_KITS: Record<string, { hp: number; speed: number; attack: AttackShape }> = {
-  lithkem_swallow: { hp: 20, speed: 2.6, attack: SWALLOW_PECK },
-  tutorial_swallow: { hp: 20, speed: 2.4, attack: SWALLOW_PECK },
+  lithkem_swallow: { hp: 20, speed: SWALLOW_SPEED, attack: SWALLOW_PECK },
+  tutorial_swallow: { hp: 20, speed: SWALLOW_SPEED * 0.92, attack: SWALLOW_PECK },
 };
 const DEFAULT_KIT = ENEMY_KITS.lithkem_swallow;
 
@@ -160,7 +171,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       unit: {
         id: args.socketId, ref: args.socketId, team: 'player',
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
-        hp: 100, maxHp: 100, speed: 4.2, attack: PLAYER_THRUST,
+        hp: 100, maxHp: 100, speed: PLAYER_SPEED, attack: PLAYER_THRUST,
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
       },
