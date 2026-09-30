@@ -4403,6 +4403,7 @@ io.on('connection', (socket: Socket) => {
   }
 
   socket.on('world:step', async (raw: unknown) => {
+   try {
     const presence = chatPresence.get(socket.id);
     if (!presence) return;
     if (!moveLimiter.check(presence.accountId).allowed) return;
@@ -4465,6 +4466,11 @@ io.on('connection', (socket: Socket) => {
       from,
       path: [to],
     });
+   } catch (err) {
+    // An unhandled rejection in a socket handler takes the whole process with
+    // it on modern Node, which turns one bad step into a dead server.
+    console.error('world:step failed:', err);
+   }
   });
 
   // ---- editing the world ----

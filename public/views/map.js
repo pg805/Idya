@@ -629,6 +629,7 @@ window.Views.map = (function () {
     const dead = new Set(view.obstacles
       .filter(o => o.state === 'destroyed').map(o => `${o.pos.x},${o.pos.y}`));
     for (const o of view.objects) {
+      if (o.kind === 'enemy') continue;      // a bird is not a prop to work on
       const stack = o.stack ?? [o.sprite];
       if (o.x === tile.x && tile.y > o.y - stack.length && tile.y <= o.y) return stack;
     }
