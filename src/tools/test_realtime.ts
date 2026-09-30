@@ -20,7 +20,7 @@ function unit(o: Partial<RtUnit> & { id: string; team: RtUnit['team'] }): RtUnit
     ref: o.id, x: 5, y: 5, r: 0.34, hp: 100, maxHp: 100, speed: 4.2, vision: 0,
     attack: o.team === 'player' ? THRUST : CLAWS,
     moveX: 0, moveY: 0, aim: 0, wantAttack: false,
-    phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+    phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
     wanderX: 0, wanderY: 0, wanderMs: 0,
     ...o,
   } as RtUnit;
@@ -51,7 +51,13 @@ console.log('\nmovement');
   const u = unit({ id: 'p', team: 'player' });
   u.moveX = 1; u.moveY = 0;
   run([u], world(), 60);                       // one second
-  ok('walks its speed in a second', Math.abs(u.x - (5 + 4.2)) < 0.05, `x=${u.x.toFixed(2)}`);
+  // Short of a full second's travel by the acceleration ramp, which is the
+  // point: 0.22s spent getting up to speed costs about half of it.
+  ok('walks its speed in a second', u.x > 5 + 4.2 - 0.6 && u.x < 5 + 4.2,
+     `x=${u.x.toFixed(2)}`);
+  run([u], world(), 60);
+  const second = u.x - (5 + 4.2 - 0.43);
+  ok('and full speed once up to it', Math.abs(second - 4.2) < 0.15, `second ${second.toFixed(2)}`);
 }
 {
   // The bug the grid had: a diagonal must not be faster than a straight line.
@@ -147,7 +153,7 @@ console.log('\nenemies');
   const e = unit({ id: 'e', team: 'enemy',  x: 12, y: 5, speed: 2.6 });
   let told = false;
   for (let i = 0; i < 400; i++) {
-    driveEnemy(e, [p]);
+    driveEnemy(e, [p], 1000 / 60);
     for (const v of stepWorld([p, e], world(), 1 / 60)) if (v.kind === 'tell') told = true;
   }
   ok('closes the distance', Math.hypot(e.x - p.x, e.y - p.y) < 1.5,
@@ -159,7 +165,7 @@ console.log('\nenemies');
   // A telegraph is only worth having if it can be walked out of.
   const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
   const e = unit({ id: 'e', team: 'enemy',  x: 6, y: 5, speed: 0 });
-  driveEnemy(e, [p]);
+  driveEnemy(e, [p], 1000 / 60);
   stepWorld([p, e], world(), 1 / 60);
   ok('the wind-up starts', e.phase === 'tell');
   p.moveX = 1; p.moveY = -1;                  // leave while it winds up
@@ -171,7 +177,7 @@ console.log('\nenemies');
   const a = unit({ id: 'a', team: 'player', x: 6, y: 5, hp: 90 });
   const b = unit({ id: 'b', team: 'player', x: 6, y: 5, hp: 20 });
   const e = unit({ id: 'e', team: 'enemy',  x: 5, y: 5 });
-  driveEnemy(e, [a, b]);
+  driveEnemy(e, [a, b], 1000 / 60);
   const aimedAt = Math.abs(e.aim) < 0.2 ? 'either' : 'elsewhere';
   ok('faces the pair', aimedAt === 'either', `aim=${e.aim.toFixed(2)}`);
 }
@@ -186,7 +192,9 @@ console.log('\nthrottle');
   run([full], world(), 60);
   run([half], world(), 60);
   const a = full.x - 5, b = half.x - 15;
-  ok('a short vector moves slower', Math.abs(b / a - 0.4) < 0.02, `ratio ${(b / a).toFixed(2)}`);
+  // Not exactly 0.4 over the first second: the slower one finishes its ramp
+  // sooner, so it loses proportionally less to the acceleration.
+  ok('a short vector moves slower', b / a > 0.35 && b / a < 0.5, `ratio ${(b / a).toFixed(2)}`);
 }
 
 console.log('\nvision');
@@ -195,9 +203,11 @@ console.log('\nvision');
   const e = unit({ id: 'e', team: 'enemy', x: 18, y: 5, vision: 8, speed: 0 });
   driveEnemy(e, [p], 16);
   ok('does not notice you from far off', !e.wantAttack && e.phase === 'idle');
-  p.x = 10;
-  driveEnemy(e, [p], 16);
-  ok('notices you inside its range', Math.abs(Math.abs(e.aim) - Math.PI) < 0.01,
+  p.x = 10;                                   // walk into its range
+  // Turning is rate-limited, so it comes round over a few frames rather than
+  // snapping to face you.
+  for (let i = 0; i < 30; i++) driveEnemy(e, [p], 1000 / 60);
+  ok('notices you inside its range', Math.abs(Math.abs(e.aim) - Math.PI) < 0.05,
      `aim ${e.aim.toFixed(2)}`);
 }
 {

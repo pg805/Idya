@@ -164,7 +164,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         x: row.tile_x + 0.5, y: row.tile_y + 0.5, r: 0.34,
         hp: kit.hp, maxHp: kit.hp, speed: kit.speed, vision: kit.vision, attack: kit.attack,
         moveX: 0, moveY: 0, aim: Math.random() * Math.PI * 2, wantAttack: false,
-        phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+        phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         // Staggered, so a freshly loaded flock does not turn in unison.
         wanderX: 0, wanderY: 0, wanderMs: Math.random() * 1200,
       });
@@ -185,7 +185,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
         hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0, attack: PLAYER_THRUST,
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
-        phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false,
+        phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         wanderX: 0, wanderY: 0, wanderMs: 0,
       },
     });

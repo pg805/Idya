@@ -84,6 +84,15 @@ export interface RtUnit {
   struck: string[];
   dead: boolean;
 
+  /**
+   * Effective speed multiplier, eased toward the intent's magnitude.
+   *
+   * Owned by the step. Without it, a body pottering at 0.4 and then noticing you
+   * would snap to 1.0 in a single frame — a 2.5x jump in velocity that reads as
+   * a lurch rather than as something starting to run.
+   */
+  throttle: number;
+
   // ---- wandering, owned by driveEnemy ----
   /** The heading being idled along, or (0,0) while standing still. */
   wanderX: number;
@@ -106,6 +115,26 @@ export interface StepWorld {
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
+
+/** How long a body takes to reach full speed from a standstill, in seconds. */
+const ACCEL_SECONDS = 0.22;
+
+/**
+ * How fast an enemy can turn, in radians per second.
+ *
+ * A creature that snaps to face you the instant it notices reads as a turret.
+ * Turning takes a moment, which also gives the wind-up something to aim past:
+ * step sideways as it commits and it has to come round.
+ */
+const TURN_RATE = 7;
+
+/** Shortest signed angle from a to b, so turning never goes the long way. */
+function angleTo(a: number, b: number): number {
+  let d = (b - a) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
 
 /**
  * Does an oriented rectangle swept from (ux, uy) overlap a circle?
@@ -191,12 +220,21 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
   // THROTTLE capped at one: a vector of length 0.4 moves at 40% speed, which is
   // how a wandering body potters rather than charging, and anything longer than
   // one (a held diagonal, at sqrt(2)) is simply full speed.
+  //
+  // Getting faster is EASED, over ACCEL_SECONDS. Slowing down is not: stopping
+  // dead is what a player expects from releasing a key, while accelerating
+  // instantly is what made a bird lurch the moment it noticed you.
   for (const u of live()) {
     const len = Math.hypot(u.moveX, u.moveY);
-    if (len > 1e-6) {
-      const throttle = Math.min(1, len);
-      u.x += (u.moveX / len) * throttle * u.speed * dt;
-      u.y += (u.moveY / len) * throttle * u.speed * dt;
+    const want = Math.min(1, len);
+    if (want > u.throttle) {
+      u.throttle = Math.min(want, u.throttle + dt / ACCEL_SECONDS);
+    } else {
+      u.throttle = want;
+    }
+    if (len > 1e-6 && u.throttle > 1e-6) {
+      u.x += (u.moveX / len) * u.throttle * u.speed * dt;
+      u.y += (u.moveY / len) * u.throttle * u.speed * dt;
     }
   }
   resolveBodies(live());
@@ -299,9 +337,16 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[], dtMs = 0): void {
   if (!best) { wander(u, dtMs); return; }
 
   u.wanderMs = 0;                 // drop whatever it was pottering towards
-  u.aim = Math.atan2(best.y - u.y, best.x - u.x);
+
+  const wanted = Math.atan2(best.y - u.y, best.x - u.x);
+  // Called without timing information, there is no rate to limit by, so face it
+  // outright. A zero turn budget would otherwise pin the aim wherever it started.
+  const maxTurn = dtMs > 0 ? TURN_RATE * (dtMs / 1000) : Infinity;
+  u.aim += clamp(angleTo(u.aim, wanted), -maxTurn, maxTurn);
+
   // Close to just inside reach, then commit. Stopping short of the hitbox's own
-  // length keeps it from shuffling on the boundary.
+  // length keeps it from shuffling on the boundary. It runs the way it is
+  // FACING, not straight at the target, so a turn is something you can see.
   if (bestD > u.attack.reach * 0.85 + best.r) {
     u.moveX = Math.cos(u.aim);
     u.moveY = Math.sin(u.aim);
