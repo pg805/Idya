@@ -1,3 +1,26 @@
+/* The Asset Library's bitmap font, turned into real glyphs by tools/build-font.py
+ * (`npm run font:build`). It was only ever declared in game.css and landing.css,
+ * neither of which app.html loads, so the SPA could not use its own font. Here so
+ * the whole interface can.
+ *
+ * Its em is 8px and every outline sits on a whole pixel, so it stays crisp only
+ * at whole multiples of 8 — use 8/16/24, never a rem value, and never
+ * `font-weight: bold`, which browsers fake by smearing.
+ */
+@font-face {
+  font-family: 'Idya Pixel';
+  src: url('/fonts/idya-pixel.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Interface chrome: labels, buttons, counters. Prose stays in the readable face,
+ * because an 8px bitmap is punishing to read a paragraph of. */
+:root {
+  --pixel: 'Idya Pixel', ui-monospace, monospace;
+}
+
 /* The theme, mapped onto the art palette. Every value here is a palette entry
  * from public/palette.css, so the interface cannot drift away from the world it
  * sits next to. `npm run palette:check` fails the moment one does.

@@ -70,7 +70,7 @@
 
 
 
-.map-note { margin: 0; font-size: 0.8rem; color: var(--text-faint); }
+.map-note { margin: 0; color: var(--text-faint); }
 
 @media (max-width: 720px) {
   .map-view { padding: 16px 12px 24px; }
@@ -147,7 +147,7 @@
 }
 .map-error[hidden] { display: none; }
 
-.map-hint { margin: 0; font-size: 0.72rem; color: var(--text-vdim); }
+.map-hint { margin: 0; color: var(--text-vdim); }
 
 .map-zoom { display: inline-flex; gap: 4px; }
 .map-zoom-btn {
@@ -320,9 +320,27 @@ body.gm-open #world-root { padding-left: 208px; }
   margin: 2px 0 0;
   font-size: 12px;
   line-height: 1.4;
-  color: var(--ink-dim, #9aa4ad);
+  color: var(--text-muted);
   min-height: 1.2em;
 }
+
+/* ---- interface chrome, in the world's own typeface ---- */
+/* Labels, buttons and counters take the bitmap font. Sizes are whole multiples
+   of 8 because its em is 8px and anything else lands off the pixel grid and
+   blurs, and nothing is ever bold, which browsers fake by smearing. Prose is
+   left alone: an 8px bitmap is punishing to read a paragraph of. */
+.map-note, .map-hint, .map-here, .map-scale,
+.map-zoom-btn, #gm-toggle, .gm-btn, .gm-tab, .gm-note, .gm-key {
+  font-family: var(--pixel);
+  font-weight: normal;
+}
+.map-note, .map-hint, .map-here, .map-scale, .gm-note, .gm-key { font-size: 8px; }
+.map-zoom-btn, #gm-toggle, .gm-btn, .gm-tab { font-size: 16px; }
+
+/* Square corners and a hard shadow rather than a blur: a 32px art style has no
+   rounded ones, and a two-pixel offset is a shadow it can actually render. */
+.map-zoom-btn, #gm-toggle, .gm-btn, .chest-slot, .chest-bag-row { border-radius: 0; }
+#gm-panel, #chest-panel { border-radius: 0; }
 
 /* ---- the simulation's tokens ---- */
 /* Positioned by body centre in tile units, so a short linear transition is all
@@ -333,21 +351,22 @@ body.gm-open #world-root { padding-left: 208px; }
 
 .sim-hp {
   position: absolute; left: 18%; right: 18%; top: -3px; height: 3px;
-  background: #0007; border-radius: 2px; overflow: hidden;
-  opacity: 0; transition: opacity 140ms linear;
+  background: var(--bg-darkest); border: 1px solid var(--bg-deep);
+  overflow: hidden; opacity: 0; transition: opacity 140ms linear;
 }
 .map-token.sim.hurt .sim-hp { opacity: 1; }
-.sim-hp i { display: block; height: 100%; background: var(--moss, #7da35c); }
+.sim-hp i { display: block; height: 100%; background: var(--teal); }
 
 /* The attack hitbox, drawn as the rectangle it is: swept from the body's centre
-   along the aim, so its origin is the left-middle of the box. */
+   along the aim, so its origin is the left-middle of the box. Square corners,
+   because a 32px world has no rounded ones. */
 .sim-box {
   position: absolute; left: 50%; top: 50%;
   transform-origin: 0 50%; margin-top: -1px;
-  border-radius: 2px; pointer-events: none;
+  pointer-events: none;
 }
-.sim-box.tell { background: rgba(209, 104, 83, 0.30); box-shadow: inset 0 0 0 1px rgba(209, 104, 83, 0.85); }
-.sim-box.live { background: rgba(208, 140, 77, 0.62); box-shadow: inset 0 0 0 1px rgba(208, 140, 77, 1); }
+.sim-box.tell { background: var(--warn-bright); opacity: .34; outline: 1px solid var(--warn-bright); }
+.sim-box.live { background: var(--gold-dim); opacity: .72; outline: 1px solid var(--gold-bright); }
 
 @media (prefers-reduced-motion: reduce) {
   .map-token.sim { transition: none; }
@@ -356,29 +375,36 @@ body.gm-open #world-root { padding-left: 208px; }
 
 /* ---- chests ---- */
 /* Two rows of six, laid out by a variable so the server decides the shape and
-   the stylesheet does not have to be edited to change it. */
+   the stylesheet does not have to be edited to change it.
+
+   Styled as a piece of the world rather than a web dialog: the pixel face, no
+   rounded corners, and a two-pixel shadow instead of a blur, which is what a
+   32px art style can actually render. Type sizes are whole multiples of 8, the
+   only sizes the font stays crisp at. */
 #chest-panel {
   position: fixed; right: 16px; bottom: 16px; z-index: 40;
   width: min(360px, calc(100vw - 32px));
-  padding: 14px;
-  background: var(--panel, #171e25);
-  border: 1px solid var(--line, #2c3741);
-  border-radius: 4px;
-  box-shadow: 0 8px 28px #0007;
-  font-size: 13px;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 16px;
+  background: var(--bg-surface);
+  border: 2px solid var(--bg-darkest);
+  box-shadow: 4px 4px 0 var(--bg-darkest);
+  font-family: var(--pixel);
+  font-size: 16px;
+  color: var(--text);
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
-#chest-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+#chest-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 #chest-panel h3, #chest-panel h4 {
-  margin: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink-faint, #68757f); font-weight: 500;
+  margin: 0; font-family: var(--pixel); font-size: 16px; font-weight: normal;
+  color: var(--gold-bright); text-transform: uppercase;
 }
-#chest-panel h4 { margin: 12px 0 6px; }
+#chest-panel h4 { margin: 16px 0 8px; color: var(--text-muted); }
 #chest-close {
   margin-left: auto; background: none; border: 0; cursor: pointer;
-  color: var(--ink-faint, #68757f); font-size: 18px; line-height: 1; padding: 0 2px;
+  font-family: var(--pixel); font-size: 16px; line-height: 1; padding: 0 4px;
+  color: var(--text-faint);
 }
-#chest-close:hover { color: var(--ink, #e6ebf0); }
+#chest-close:hover { color: var(--gold-bright); }
 
 .chest-grid {
   display: grid;
@@ -389,29 +415,37 @@ body.gm-open #world-root { padding-left: 208px; }
   aspect-ratio: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px; padding: 2px;
-  background: var(--raised, #1f272f);
-  border: 1px solid var(--line, #2c3741);
-  border-radius: 3px;
-  color: var(--ink-dim, #97a4b1);
-  font: inherit; font-size: 9px; line-height: 1.15; text-align: center;
+  background: var(--bg-deep);
+  border: 2px solid var(--bg-darkest);
+  color: var(--text-faint);
+  font-family: var(--pixel); font-size: 8px; line-height: 1.25; text-align: center;
   overflow: hidden; cursor: default;
 }
-.chest-slot.filled { cursor: pointer; color: var(--ink, #e6ebf0); border-color: var(--gold-dim, #6b5a33); }
-.chest-slot.filled:hover { border-color: var(--gold-bright, #d8c25e); }
-.chest-slot:focus-visible { outline: 2px solid var(--gold-bright, #d8c25e); outline-offset: 1px; }
-.chest-item { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.chest-qty { font-variant-numeric: tabular-nums; color: var(--ink-faint, #68757f); }
-
-.chest-bag { display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow-y: auto; }
-.chest-bag-row {
-  display: flex; justify-content: space-between; gap: 10px;
-  padding: 5px 8px; font: inherit; font-size: 12px; text-align: left;
-  background: var(--raised, #1f272f);
-  border: 1px solid var(--line, #2c3741);
-  border-radius: 3px; color: var(--ink, #e6ebf0); cursor: pointer;
+.chest-slot.filled {
+  cursor: pointer; color: var(--text);
+  background: var(--bg-hover); border-color: var(--gold-dim);
 }
-.chest-bag-row:hover { border-color: var(--gold-dim, #6b5a33); }
-.chest-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint, #68757f); min-height: 1.1em; }
+.chest-slot.filled:hover { border-color: var(--gold-bright); }
+.chest-slot:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.chest-item { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.chest-qty { font-variant-numeric: tabular-nums; color: var(--gold-bright); }
+
+.chest-bag { display: flex; flex-direction: column; gap: 4px; max-height: 184px; overflow-y: auto; }
+.chest-bag-row {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 8px; text-align: left;
+  background: var(--bg-deep);
+  border: 2px solid var(--bg-darkest);
+  color: var(--text);
+  font-family: var(--pixel); font-size: 16px;
+  cursor: pointer;
+}
+.chest-bag-row:hover { border-color: var(--gold-dim); background: var(--bg-hover); }
+.chest-bag-row:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.chest-note {
+  margin: 8px 0 0; font-family: var(--pixel); font-size: 8px;
+  color: var(--text-faint); min-height: 1.2em;
+}
 
 @media (max-width: 520px) {
   #chest-panel { left: 16px; right: 16px; width: auto; }
