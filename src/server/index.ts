@@ -5415,13 +5415,36 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+/**
+ * Has this one-off already run?
+ *
+ * Both passes below are MIGRATIONS — they fix data from before a rule existed —
+ * but they were wired to run on every boot on the grounds of being idempotent.
+ * That held only while inventory rows never left. Chests broke it: a trophy put
+ * in one deletes its inventory row, the backfill sees a win with no trophy and
+ * mints a fresh one, and the next restart hands you a duplicate. Its sibling
+ * does the opposite damage, clamping two legitimately-held trophies back to one.
+ *
+ * So they run once and record that they did. Marked in EventLog rather than a
+ * new table, because one row is not worth a migration.
+ */
+async function alreadyRan(job: string): Promise<boolean> {
+  const seen = await prisma.eventLog.findFirst({
+    where: { discord_id: 'system', event_type: `boot_job:${job}` },
+  });
+  return seen !== null;
+}
+async function markRan(job: string): Promise<void> {
+  await prisma.eventLog.create({
+    data: { discord_id: 'system', event_type: `boot_job:${job}`, payload: {} },
+  }).catch(() => { /* a second instance got there first; fine */ });
+}
+
 // Retroactively grant trophy items to characters who already have wins in
-// BattleLog from before the trophy system existed. Idempotent — the upsert
-// path's update:{} is a no-op, so re-running just walks the list and finds
-// everything already in place. Bounded by character count × enemy count
-// (small) so the boot cost is fine.
+// BattleLog from before the trophy system existed. Runs ONCE — see alreadyRan.
 async function backfillTrophies(): Promise<void> {
   try {
+    if (await alreadyRan('trophy_backfill')) return;
     const ENEMY_KEY_BY_NAME = new Map<string, string>();
     for (const file of fs.readdirSync(join(__dirname, '../../database/enemies')).filter(f => f.endsWith('.yaml') && !f.startsWith('tutorial_'))) {
       const ek = file.replace('.yaml', '');
@@ -5452,28 +5475,31 @@ async function backfillTrophies(): Promise<void> {
       if (r) granted += 1;
     }
     if (granted > 0) console.log(`[boot] trophy backfill walked ${winRows.length} (char × enemy) pair(s)`);
+    await markRan('trophy_backfill');
   } catch (err) {
     console.error('[boot] backfillTrophies failed:', err);
   }
 }
 
-// One-time pass at boot to enforce the "unlock items have quantity 1" rule.
-// Players had piles of swallow_bait before it changed to an unlock type;
-// this clamps them all down on the next boot. Idempotent — running again
-// when nothing's wrong is a no-op.
+// One-time pass to enforce the "unlock items have quantity 1" rule. Players had
+// piles of swallow_bait before it changed to an unlock type. Runs ONCE: left on
+// every boot it would clamp away an unlock a player legitimately came to hold
+// more than one of.
 async function clampUnlockQuantities(): Promise<void> {
   try {
+    if (await alreadyRan('unlock_clamp')) return;
     const unlockIds = Object.entries(ITEMS).filter(([_, v]) => v.type === 'unlock').map(([k]) => k);
     if (unlockIds.length === 0) return;
     const overstuffed = await prisma.inventoryItem.findMany({
       where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
     });
-    if (overstuffed.length === 0) return;
+    if (overstuffed.length === 0) { await markRan('unlock_clamp'); return; }
     await prisma.inventoryItem.updateMany({
       where: { item_id: { in: unlockIds }, quantity: { gt: 1 } },
       data:  { quantity: 1 },
     });
     console.log(`[boot] clamped ${overstuffed.length} unlock inventory row(s) to quantity 1`);
+    await markRan('unlock_clamp');
   } catch (err) {
     console.error('[boot] clampUnlockQuantities failed:', err);
   }

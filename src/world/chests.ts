@@ -1,4 +1,5 @@
 import prisma from '../database/prisma.js';
+import { isUnlock } from '../economy/items.js';
 
 /**
  * Containers standing in the world.
@@ -110,6 +111,15 @@ export async function putInChest(args: {
   objectId: string; itemId: string; characterId: string;
   quantity?: number; slot?: number;
 }): Promise<MoveResult> {
+  // Unlocks are identity, not goods. A trophy is proof you did a thing, one per
+  // character ever, and the server has two boot passes that assume exactly
+  // that: one re-grants a trophy whose inventory row is missing, the other
+  // clamps any unlock above one back down. A chest holding trophies fights both
+  // — storing one duplicates it on the next restart, and taking two out gets
+  // one destroyed. It is not a storage problem, so it is refused here.
+  if (isUnlock(args.itemId)) {
+    return { ok: false, why: 'That is yours alone. It will not go in a chest.' };
+  }
   return prisma.$transaction(async tx => {
     const held = await tx.inventoryItem.findUnique({
       where: { character_id_item_id: { character_id: args.characterId, item_id: args.itemId } },
