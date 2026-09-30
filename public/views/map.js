@@ -1055,6 +1055,7 @@ window.Views.map = (function () {
   let chestId = null;
   let lastBag = [];         // the bag as last drawn; a broadcast only carries the chest
   let chestTile = null;      // where the thing we opened is standing
+  let chestPoll = null;      // slow re-read, so a dropped broadcast self-heals
   /** Give up on a chest past this, in tiles. Reach is 1; this is 1 plus slack. */
   const CHEST_RANGE = 2.2;
 
@@ -1102,6 +1103,7 @@ window.Views.map = (function () {
   }
 
   function closeChest() {
+    stopChestPoll();
     chestId = null;
     chestTile = null;
     const el = document.getElementById('chest-panel');
@@ -1121,10 +1123,17 @@ window.Views.map = (function () {
     el.hidden = false;
     placeChestPanel();
     el.querySelector('#chest-note').textContent = 'Opening…';
+    startChestPoll();
     await refreshChest();
   }
 
-  async function refreshChest() {
+  /**
+   * Re-read the chest from the server.
+   *
+   * `keepNote` leaves an error message in place, so a refusal can explain itself
+   * and correct the grid in the same breath.
+   */
+  async function refreshChest(keepNote) {
     if (!chestId) return;
     const el = chestPanel();
     const note = el.querySelector('#chest-note');
@@ -1132,12 +1141,32 @@ window.Views.map = (function () {
       const r = await fetch(`/api/chest?id=${encodeURIComponent(chestId)}`);
       const d = await r.json();
       if (!r.ok) { note.textContent = d.error ?? 'Cannot open that.'; return; }
-      note.textContent = '';
+      if (!keepNote) note.textContent = '';
       drawChest(d.chest, d.inventory ?? []);
       placeChestPanel();
     } catch (err) {
       note.textContent = `Cannot open that: ${err}`;
     }
+  }
+
+  /**
+   * A slow re-read while the panel is open.
+   *
+   * The broadcast is what makes a change instant, but it is one message over one
+   * socket and a dropped one leaves a slot on screen that is not in the chest.
+   * Two seconds is slow enough to cost nothing and fast enough that a phantom
+   * cannot survive long enough to be worth a bug report. Correctness does not
+   * depend on the push arriving.
+   */
+  function startChestPoll() {
+    stopChestPoll();
+    chestPoll = setInterval(() => {
+      if (!chestId) { stopChestPoll(); return; }
+      void refreshChest(true);
+    }, 2000);
+  }
+  function stopChestPoll() {
+    if (chestPoll) { clearInterval(chestPoll); chestPoll = null; }
   }
 
   function drawChest(chest, bag) {
@@ -1189,7 +1218,14 @@ window.Views.map = (function () {
         body: JSON.stringify({ id: chestId, ...body }),
       });
       const d = await r.json();
-      if (!r.ok) { note.textContent = d.error ?? 'That did not work.'; return; }
+      if (!r.ok) {
+        note.textContent = d.error ?? 'That did not work.';
+        // A refusal means the panel was showing something that is not there —
+        // a slot somebody else already emptied. Re-read so clicking a phantom
+        // heals it rather than leaving it on screen to be clicked again.
+        await refreshChest(true);
+        return;
+      }
       note.textContent = '';
       await refreshChest();
     } catch (err) {

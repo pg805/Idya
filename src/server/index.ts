@@ -659,14 +659,25 @@ app.use(express.json());
 function whereIs(accountId: string): {
   chunk: Chunk; tile: TilePos; characterId: string;
 } | null {
+  // One account can hold SEVERAL sockets — a second tab, or one the server has
+  // not noticed closing yet. Taking the first match meant possibly answering
+  // from a stale presence in the wrong chunk, which checks reach against a body
+  // that is not there and broadcasts the change to a room nobody is in.
+  //
+  // Prefer a socket the simulation actually knows about, since that is one
+  // standing in a chunk right now. Otherwise take the most recent, because
+  // chatPresence is insertion-ordered and the newest socket is the live tab.
+  let fallback: { chunk: Chunk; tile: TilePos; characterId: string } | null = null;
   for (const [socketId, presence] of chatPresence) {
     if (presence.accountId !== accountId) continue;
-    // No character means nothing to put anything into or take anything out of.
-    if (!presence.characterId) return null;
-    const at = worldSim.tileOf(socketId) ?? presence.tile;
-    return { chunk: presence.chunk, tile: at, characterId: presence.characterId };
+    if (!presence.characterId) continue;   // no character: nothing to move
+    const live = worldSim.tileOf(socketId);
+    if (live) {
+      return { chunk: presence.chunk, tile: live, characterId: presence.characterId };
+    }
+    fallback = { chunk: presence.chunk, tile: presence.tile, characterId: presence.characterId };
   }
-  return null;
+  return fallback;
 }
 
 /** The chest you are close enough to use, or a reason you are not. */
