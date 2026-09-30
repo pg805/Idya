@@ -382,23 +382,25 @@ body.gm-open #world-root { padding-left: 208px; }
    32px art style can actually render. Type sizes are whole multiples of 8, the
    only sizes the font stays crisp at. */
 #chest-panel {
-  position: fixed; right: 16px; bottom: 16px; z-index: 40;
-  width: min(360px, calc(100vw - 32px));
-  padding: 16px;
+  /* Absolute inside the stage, placed beside the chest by placeChestPanel.
+     Fixed to a corner put it on top of the chat, which is a real column rather
+     than an overlay. Above the canopy, which sits at z-index 5. */
+  position: absolute; z-index: 20;
+  width: 264px;
+  padding: 8px;
   background: var(--bg-surface);
   border: 2px solid var(--bg-darkest);
   box-shadow: 4px 4px 0 var(--bg-darkest);
   font-family: var(--pixel);
   font-size: 16px;
   color: var(--text);
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
-#chest-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+#chest-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 #chest-panel h3, #chest-panel h4 {
   margin: 0; font-family: var(--pixel); font-size: 16px; font-weight: normal;
   color: var(--gold-bright); text-transform: uppercase;
 }
-#chest-panel h4 { margin: 16px 0 8px; color: var(--text-muted); }
+#chest-panel h4 { margin: 8px 0 4px; color: var(--text-muted); }
 #chest-close {
   margin-left: auto; background: none; border: 0; cursor: pointer;
   font-family: var(--pixel); font-size: 16px; line-height: 1; padding: 0 4px;
@@ -430,10 +432,10 @@ body.gm-open #world-root { padding-left: 208px; }
 .chest-item { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .chest-qty { font-variant-numeric: tabular-nums; color: var(--gold-bright); }
 
-.chest-bag { display: flex; flex-direction: column; gap: 4px; max-height: 184px; overflow-y: auto; }
+.chest-bag { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
 .chest-bag-row {
   display: flex; justify-content: space-between; gap: 8px;
-  padding: 8px; text-align: left;
+  padding: 4px 8px; text-align: left;
   background: var(--bg-deep);
   border: 2px solid var(--bg-darkest);
   color: var(--text);
@@ -447,6 +449,5 @@ body.gm-open #world-root { padding-left: 208px; }
   color: var(--text-faint); min-height: 1.2em;
 }
 
-@media (max-width: 520px) {
-  #chest-panel { left: 16px; right: 16px; width: auto; }
-}
+/* No small-screen override: it is placed on the board, and the board is the
+   thing that gets smaller. */

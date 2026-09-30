@@ -183,6 +183,7 @@ window.Views.map = (function () {
     // Tokens are sized and repositioned in the same units the canvases just
     // used, so a resize moves everyone with the ground under them.
     for (const [id, o] of occupants) placeToken(id, o.tile, false);
+    placeChestPanel();
     updateCamera(false);
   }
 
@@ -574,7 +575,7 @@ window.Views.map = (function () {
       // tools. It does NOT move you: movement is WASD everywhere, the same as
       // in combat, and the mouse is for pointing at things.
       const chest = chestAt(tile);
-      if (chest) { void openChest(chest.id); return; }
+      if (chest) { void openChest(chest.id, { x: chest.x, y: chest.y }); return; }
       if (workableAt(tile)) { socket.emit('world:act', tile); return; }
     });
 
@@ -966,6 +967,7 @@ window.Views.map = (function () {
     socket.on('sim:state', ({ units }) => {
       if (occupants.size) for (const o of occupants.values()) { o.el?.remove(); o.el = null; }
       renderSim(units ?? []);
+      if (chestId && !chestStillInReach()) closeChest();
     });
 
     socket.on('sim:events', ({ events }) => {
@@ -1039,10 +1041,18 @@ window.Views.map = (function () {
   // explain, and the server is what decides whether a move is allowed anyway.
 
   let chestId = null;
+  let chestTile = null;      // where the thing we opened is standing
+  /** Give up on a chest past this, in tiles. Reach is 1; this is 1 plus slack. */
+  const CHEST_RANGE = 2.2;
 
   function chestPanel() {
     let el = document.getElementById('chest-panel');
-    if (el) return el;
+    if (el?.isConnected) return el;
+    // Inside the stage rather than fixed to the viewport: the chat is a real
+    // column, not an overlay, so anything pinned to the corner sits on top of
+    // it. On the stage it also rides the camera, which reads as the chest's own
+    // drawer rather than a dialog about a chest.
+    const stage = root?.querySelector('#map-stage');
     el = document.createElement('aside');
     el.id = 'chest-panel';
     el.hidden = true;
@@ -1055,21 +1065,48 @@ window.Views.map = (function () {
       <p class="chest-note" id="chest-note"></p>
       <h4>Carrying</h4>
       <div class="chest-bag" id="chest-bag"></div>`;
-    document.body.appendChild(el);
+    (stage ?? document.body).appendChild(el);
     el.querySelector('#chest-close').addEventListener('click', closeChest);
     return el;
   }
 
+  /**
+   * Put the panel beside the chest, kept inside the board.
+   *
+   * Offset to the right and up so it does not cover the chest itself, then
+   * clamped, because a chest near an edge would otherwise hang off it.
+   */
+  function placeChestPanel() {
+    const el = document.getElementById('chest-panel');
+    if (!el || el.hidden || !chestTile || !view || !cell) return;
+    const boardPx = cell * view.size;
+    const w = el.offsetWidth || 260;
+    const h = el.offsetHeight || 220;
+    const x = Math.min(Math.max(0, (chestTile.x + 1) * cell), Math.max(0, boardPx - w));
+    const y = Math.min(Math.max(0, (chestTile.y - 1) * cell), Math.max(0, boardPx - h));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }
+
   function closeChest() {
     chestId = null;
+    chestTile = null;
     const el = document.getElementById('chest-panel');
     if (el) el.hidden = true;
   }
 
-  async function openChest(id) {
+  /** Walked away from what you opened. Reach is enforced server-side regardless. */
+  function chestStillInReach() {
+    if (!chestTile || !focus) return true;
+    return Math.hypot(focus.x - (chestTile.x + 0.5), focus.y - (chestTile.y + 0.5)) <= CHEST_RANGE;
+  }
+
+  async function openChest(id, tile) {
     chestId = id;
+    chestTile = tile;
     const el = chestPanel();
     el.hidden = false;
+    placeChestPanel();
     el.querySelector('#chest-note').textContent = 'Opening…';
     await refreshChest();
   }
@@ -1084,6 +1121,7 @@ window.Views.map = (function () {
       if (!r.ok) { note.textContent = d.error ?? 'Cannot open that.'; return; }
       note.textContent = '';
       drawChest(d.chest, d.inventory ?? []);
+      placeChestPanel();
     } catch (err) {
       note.textContent = `Cannot open that: ${err}`;
     }
