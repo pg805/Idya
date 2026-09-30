@@ -1,7 +1,7 @@
 import prisma from '../database/prisma.js';
 import { Chunk, CHUNK_SIZE, chunkSeed } from './chunk.js';
 import { TOWN, WORLD_RADIUS, placeAt } from './places.js';
-import { obstaclesFor, placeObject } from './world_service.js';
+import { EDGE_BAND, obstaclesFor, placeObject } from './world_service.js';
 
 /**
  * Enemies standing in the world.
@@ -75,11 +75,15 @@ export async function seedSwallows(opts: {
         return s / 0x100000000;
       };
 
+      // Inside the edge band too: the seam between chunks is where people walk
+      // through, and something standing in the doorway reads as a blockage even
+      // now that it is not one.
+      const span = Math.max(1, CHUNK_SIZE - EDGE_BAND * 2);
       const taken = new Set<string>();
       let placed = 0;
       for (let tries = 0; tries < perChunk * 40 && placed < perChunk; tries++) {
-        const tx = Math.floor(next() * CHUNK_SIZE);
-        const ty = Math.floor(next() * CHUNK_SIZE);
+        const tx = EDGE_BAND + Math.floor(next() * span);
+        const ty = EDGE_BAND + Math.floor(next() * span);
         const at = `${tx},${ty}`;
         if (blocked.has(at) || taken.has(at)) continue;
         taken.add(at);

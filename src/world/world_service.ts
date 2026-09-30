@@ -71,6 +71,17 @@ export interface ChunkView {
  * stable while the trees moved. Uses the chunk seed, offset so it doesn't walk
  * the same sequence the terrain does.
  */
+/**
+ * How wide a clear band to leave around a chunk's edge.
+ *
+ * You cross between chunks by walking off the edge, arriving on the opposite
+ * one. A tree generated on the tile you arrive at makes that crossing fail, so
+ * the outer ring is kept free of obstacles and the seam between two chunks is
+ * always walkable. It also reads better: a wall of trunks exactly on the border
+ * looks like a fence somebody built rather than the middle of a wood.
+ */
+export const EDGE_BAND = 1;
+
 export function obstaclesFor(chunk: Chunk, place: Place): Obstacle[] {
   let state = (chunkSeed(chunk) ^ 0x9e3779b9) >>> 0;
   const next = () => {
@@ -85,9 +96,12 @@ export function obstaclesFor(chunk: Chunk, place: Place): Obstacle[] {
   const out: Obstacle[] = [];
   // Bounded rather than while-until-satisfied: a dense chunk shouldn't be able
   // to spin looking for the last free square.
+  // Drawn from the inner rectangle rather than rejected after the fact, so the
+  // band costs no attempts and a dense chunk still fills.
+  const span = Math.max(1, CHUNK_SIZE - EDGE_BAND * 2);
   for (let tries = 0; tries < place.obstacles * 12 && out.length < place.obstacles; tries++) {
-    const x = Math.floor(next() * CHUNK_SIZE);
-    const y = Math.floor(next() * CHUNK_SIZE);
+    const x = EDGE_BAND + Math.floor(next() * span);
+    const y = EDGE_BAND + Math.floor(next() * span);
     const key = `${x},${y}`;
     if (taken.has(key)) continue;
     taken.add(key);
