@@ -4430,11 +4430,14 @@ io.on('connection', (socket: Socket) => {
         y: offY === 0 ? to.y : (offY > 0 ? 0 : CHUNK_SIZE - 1),
       };
       const nextBlocked = (await blockedIn(next)) ?? new Set<string>();
-      if (!isPassable(arrive, nextBlocked)) {
-        socket.emit('world:blocked', { tile: presence.tile });
-        return;
-      }
-      await crossChunk(presence, next, arrive);
+      // A crossing is never refused for want of one free square. Obstacles are
+      // kept off the seam by EDGE_BAND, but creatures move, and something
+      // standing in the doorway must not lock the chunk behind it — you get
+      // nudged along the edge instead.
+      const landing = isPassable(arrive, nextBlocked)
+        ? arrive
+        : nearestFree(arrive, nextBlocked);
+      await crossChunk(presence, next, landing);
       return;
     }
 

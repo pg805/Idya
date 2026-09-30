@@ -34,10 +34,6 @@ export function blockedBy(
       .map(o => `${o.pos.x},${o.pos.y}`),
   );
   for (const o of objects) {
-    // Creatures are not terrain. An enemy is a WorldObject row like a barrel is,
-    // but standing where one stands has to stay possible, or a spawn on the tile
-    // you were about to arrive at makes a chunk unenterable.
-    if (o.kind === 'enemy') continue;
     const base = o.stack?.[0] ?? o.sprite;
     if (isWalkableSprite(base)) continue;
     const [w, h] = sizeOf(o.sprite);
