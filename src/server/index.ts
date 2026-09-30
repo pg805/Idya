@@ -33,7 +33,8 @@ import {
   loadChunk, paintSquare, placeObject, removeTopObject, removeObject,
   editTreePart, resetSquare, setTile,
 } from '../world/world_service.js';
-import { seedSwallows, clearEnemies } from '../world/spawns.js';
+import { seedSwallows, clearEnemies, ENEMY_KIND } from '../world/spawns.js';
+import { createWorldSim, type SimInput } from './world_sim.js';
 import { blockedBy, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
@@ -653,7 +654,9 @@ app.post('/api/dev/seed-swallows', async (req: Request, res: Response) => {
   if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
   const perChunk = Math.max(1, Math.min(12, Number(req.query.per ?? 3) || 3));
   try {
-    res.json(await seedSwallows({ perChunk }));
+    const result = await seedSwallows({ perChunk });
+    for (const pl of listPlaces()) await worldSim.refreshEnemies({ x: pl.x, y: pl.y });
+    res.json(result);
   } catch (err) {
     console.error('seed-swallows failed:', err);
     res.status(500).json({ error: 'Seeding failed' });
@@ -665,7 +668,9 @@ app.post('/api/dev/clear-enemies', async (req: Request, res: Response) => {
   if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
   if (!isDev(discordId)) { res.status(403).json({ error: 'Forbidden' }); return; }
   try {
-    res.json({ removed: await clearEnemies() });
+    const removed = await clearEnemies();
+    for (const pl of listPlaces()) await worldSim.refreshEnemies({ x: pl.x, y: pl.y });
+    res.json({ removed });
   } catch (err) {
     console.error('clear-enemies failed:', err);
     res.status(500).json({ error: 'Clear failed' });
@@ -4249,6 +4254,88 @@ function occupantsOf(chunk: Chunk): Array<{
   return out;
 }
 
+/**
+ * The world, stepping. One simulation per occupied chunk (docs/combat.md §1).
+ *
+ * Constructed here rather than inside the connection handler because it outlives
+ * any one socket: a chunk keeps stepping while anybody is standing in it.
+ */
+const worldSim = createWorldSim({
+  io,
+  chatRoom,
+  blockedIn,
+  // A dead enemy is a row that stops existing. Loot on the ground comes next;
+  // for now the body simply goes, and the chunk is told so the object list on
+  // every client drops it too.
+  // Crossing, driven by a body reaching the edge rather than by a keypress.
+  onExit: ({ socketId, from, dx, dy, along }) => {
+    const presence = chatPresence.get(socketId);
+    if (!presence) return;
+    if (presence.chunk.x !== from.x || presence.chunk.y !== from.y) return;
+    const next: Chunk = { x: from.x + dx, y: from.y + dy };
+    if (!isKnownPlace(next)) return;
+    // Come out of the opposite edge at the same place along it, so two chunks
+    // read as one continuous walk.
+    const tile = {
+      x: dx === 0 ? Math.floor(along.x) : (dx > 0 ? 0 : CHUNK_SIZE - 1),
+      y: dy === 0 ? Math.floor(along.y) : (dy > 0 ? 0 : CHUNK_SIZE - 1),
+    };
+    void crossInto(socketId, presence, next, tile);
+  },
+  onEnemyDied: (chunk, rowId) => {
+    void prisma.worldObject.delete({ where: { id: rowId } })
+      .then(() => { io.to(chatRoom(chunk)).emit('world:removed', { chunk, id: rowId }); })
+      .catch(() => { /* already gone */ });
+  },
+});
+
+/**
+ * Move somebody into a neighbouring chunk.
+ *
+ * Module level rather than per-socket, because the simulation is what notices a
+ * body reaching an edge and it has an id, not a closure. Both chunks are told,
+ * so everyone sees you leave and arrive.
+ */
+async function crossInto(
+  socketId: string, presence: WorldPresence, next: Chunk, tile: TilePos,
+): Promise<void> {
+  const socket = io.sockets.sockets.get(socketId);
+  if (!socket) return;
+
+  const previous = presence.chunk;
+  const blocked = (await blockedIn(next)) ?? new Set<string>();
+  // Never refused for want of one square: creatures move, and one standing on a
+  // seam must not close the border behind it.
+  const landing = isPassable(tile, blocked) ? tile : nearestFree(tile, blocked);
+
+  socket.leave(chatRoom(previous));
+  presence.chunk = next;
+  presence.tile = landing;
+  socket.join(chatRoom(next));
+  await persistPosition(presence.characterId, next, landing);
+  await logEvent({
+    accountId: presence.accountId, characterId: presence.characterId,
+    type: 'travelled', at: { chunk: next, tile: landing },
+    payload: { from: previous },
+  });
+
+  socket.emit('world:you', {
+    id: socketId,
+    name: presence.characterName,
+    sprite: presence.sprite,
+    chunk: next,
+    tile: landing,
+  });
+  socket.emit('chat:place', { chunk: next, place: placeAt(next) });
+
+  worldSim.leave(socketId);
+  await worldSim.join({
+    socketId, chunk: next, tile: landing,
+    name: presence.characterName, sprite: presence.sprite,
+  });
+  for (const c of [previous, next]) { broadcastPresence(c); broadcastOccupants(c); }
+}
+
 function broadcastOccupants(chunk: Chunk): void {
   io.to(chatRoom(chunk)).emit('world:here', { chunk, occupants: occupantsOf(chunk) });
 }
@@ -4368,121 +4455,35 @@ io.on('connection', (socket: Socket) => {
       chunk: presence.chunk,
       tile: presence.tile,
     });
+    await worldSim.join({
+      socketId: socket.id, chunk: presence.chunk, tile: presence.tile,
+      name: presence.characterName, sprite: presence.sprite,
+    });
     broadcastOccupants(presence.chunk);
   });
 
-
   /**
-   * Move somebody into a neighbouring chunk.
+   * Movement and aim, twenty-odd times a second.
    *
-   * Lifted out of the old world:travel handler, which is gone: you cross by
-   * walking off the edge now, not by pressing a button. Both places get told, so
-   * everyone sees you leave and arrive.
+   * Intent, not position: the client says which way it is pushing and where it
+   * is pointing, and the server decides where that puts it. Nothing here trusts
+   * a coordinate from the browser.
    */
-  async function crossChunk(presence: WorldPresence, next: Chunk, tile: TilePos): Promise<void> {
-    const previous = presence.chunk;
-    socket.leave(chatRoom(previous));
-    presence.chunk = next;
-    presence.tile = tile;
-    socket.join(chatRoom(next));
-    await persistPosition(presence.characterId, next, tile);
-    await logEvent({
-      accountId: presence.accountId, characterId: presence.characterId,
-      type: 'travelled', at: { chunk: next, tile },
-      payload: { from: previous },
+  socket.on('sim:input', (raw: unknown) => {
+    const d = (raw ?? {}) as Partial<SimInput>;
+    const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    worldSim.setInput(socket.id, {
+      // Clamped to a unit square; the engine normalises the direction itself, so
+      // a client claiming a long vector gains nothing.
+      moveX: Math.max(-1, Math.min(1, num(d.moveX))),
+      moveY: Math.max(-1, Math.min(1, num(d.moveY))),
+      aim: num(d.aim),
+      attack: d.attack === true,
     });
-    socket.emit('world:you', {
-      id: socket.id,
-      name: presence.characterName,
-      sprite: presence.sprite,
-      chunk: next,
-      tile,
-    });
-    socket.emit('chat:place', { chunk: next, place: placeAt(next) });
-    for (const c of [previous, next]) { broadcastPresence(c); broadcastOccupants(c); }
-  }
-
-  socket.on('world:step', async (raw: unknown) => {
-   try {
-    const presence = chatPresence.get(socket.id);
-    if (!presence) return;
-    if (!moveLimiter.check(presence.accountId).allowed) return;
-
-    // Parsed WITHOUT the bounds check on purpose: a step past the edge is a
-    // crossing, not a bad input. parseTilePos would have thrown it away.
-    const to = parseChunk(raw);
-    if (!to) return;
-    const dx = to.x - presence.tile.x;
-    const dy = to.y - presence.tile.y;
-    if (dx === 0 && dy === 0) return;
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) return;   // one square only
-
-    // Walked off the edge: carry on into the neighbour rather than stopping.
-    const offX = to.x < 0 ? -1 : to.x >= CHUNK_SIZE ? 1 : 0;
-    const offY = to.y < 0 ? -1 : to.y >= CHUNK_SIZE ? 1 : 0;
-    if (offX || offY) {
-      const next: Chunk = { x: presence.chunk.x + offX, y: presence.chunk.y + offY };
-      if (!isKnownPlace(next)) { socket.emit('world:blocked', { tile: presence.tile }); return; }
-      // You arrive at the opposite edge and keep the other axis, so the two
-      // chunks read as one continuous walk rather than a teleport.
-      const arrive: TilePos = {
-        x: offX === 0 ? to.x : (offX > 0 ? 0 : CHUNK_SIZE - 1),
-        y: offY === 0 ? to.y : (offY > 0 ? 0 : CHUNK_SIZE - 1),
-      };
-      const nextBlocked = (await blockedIn(next)) ?? new Set<string>();
-      // A crossing is never refused for want of one free square. Obstacles are
-      // kept off the seam by EDGE_BAND, but creatures move, and something
-      // standing in the doorway must not lock the chunk behind it — you get
-      // nudged along the edge instead.
-      const landing = isPassable(arrive, nextBlocked)
-        ? arrive
-        : nearestFree(arrive, nextBlocked);
-      await crossChunk(presence, next, landing);
-      return;
-    }
-
-    const blocked = await blockedIn(presence.chunk);
-    if (!blocked) return;
-    if (!isPassable(to, blocked)) { socket.emit('world:blocked', { tile: to }); return; }
-
-    // Same corner rule pathfinding uses: a diagonal needs one of its two
-    // orthogonal neighbours open, so you can't slip between two trees on the
-    // keyboard when a click would refuse to route you through the same gap.
-    if (dx !== 0 && dy !== 0) {
-      const sideA = { x: presence.tile.x + dx, y: presence.tile.y };
-      const sideB = { x: presence.tile.x, y: presence.tile.y + dy };
-      if (!isPassable(sideA, blocked) && !isPassable(sideB, blocked)) {
-        socket.emit('world:blocked', { tile: to });
-        return;
-      }
-    }
-
-    const from = presence.tile;
-    presence.tile = to;
-    await persistPosition(presence.characterId, presence.chunk, to);
-    void logMovement({
-      accountId: presence.accountId, characterId: presence.characterId,
-      chunk: presence.chunk, tile: to,
-    });
-    io.to(chatRoom(presence.chunk)).emit('world:walked', {
-      id: socket.id,
-      from,
-      path: [to],
-    });
-   } catch (err) {
-    // An unhandled rejection in a socket handler takes the whole process with
-    // it on modern Node, which turns one bad step into a dead server.
-    console.error('world:step failed:', err);
-   }
   });
 
-  // ---- editing the world ----
-  //
-  // GM-only for now. The town is built by placing things rather than by
-  // redrawing a map (docs/world.md §3), and this is the tool that does it.
-  // Every edit is broadcast, so anyone standing in the chunk watches it happen
-  // rather than finding it on their next visit.
 
+  /** The presence behind this socket, but only if it is allowed to edit. */
   async function requireGm(): Promise<WorldPresence | null> {
     const presence = chatPresence.get(socket.id);
     if (!presence) return null;
@@ -4513,6 +4514,7 @@ io.on('connection', (socket: Socket) => {
       payload: { material },
     });
     io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+      void worldSim.refreshBlocked(presence.chunk);
   });
 
   socket.on('world:place', async (raw: unknown) => {
@@ -4562,6 +4564,7 @@ io.on('connection', (socket: Socket) => {
           placedTree.id, placedTree.stack!, placedTree.y, at.y, sprite);
         if (edited) {
           io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id: edited.id });
+      void worldSim.refreshBlocked(presence.chunk);
           io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object: edited });
           return;
         }
@@ -4583,6 +4586,7 @@ io.on('connection', (socket: Socket) => {
         });
         await editTreePart(promoted.id, covering.stack, covering.y, at.y, sprite);
         io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+      void worldSim.refreshBlocked(presence.chunk);
         return;
       }
 
@@ -4629,9 +4633,11 @@ io.on('connection', (socket: Socket) => {
     // the object list alone can't express, so that case reloads.
     if (clearedGenerated) {
       io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+      void worldSim.refreshBlocked(presence.chunk);
     } else {
       for (const id of replaced) {
         io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+      void worldSim.refreshBlocked(presence.chunk);
       }
       io.to(chatRoom(presence.chunk)).emit('world:placed', { chunk: presence.chunk, object });
     }
@@ -4649,6 +4655,7 @@ io.on('connection', (socket: Socket) => {
         type: 'object_removed', at: { chunk: presence.chunk, tile: at }, payload: { id },
       });
       io.to(chatRoom(presence.chunk)).emit('world:removed', { chunk: presence.chunk, id });
+      void worldSim.refreshBlocked(presence.chunk);
     }
   });
 
@@ -4721,6 +4728,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     io.to(chatRoom(presence.chunk)).emit('world:changed', { chunk: presence.chunk });
+      void worldSim.refreshBlocked(presence.chunk);
     io.to(chatRoom(presence.chunk)).emit('world:worked', {
       chunk: presence.chunk, tile: at, job, by: presence.characterName,
     });
@@ -4792,6 +4800,11 @@ io.on('connection', (socket: Socket) => {
   socket.on('disconnect', () => {
     const presence = chatPresence.get(socket.id);
     if (!presence) return;
+    // The sim owns the live position; the row keeps the rounded tile, which is
+    // all it is for — where you were when you shut the tab.
+    const at = worldSim.tileOf(socket.id);
+    if (at) void persistPosition(presence.characterId, presence.chunk, at);
+    worldSim.leave(socket.id);
     chatPresence.delete(socket.id);
     forgetMovement(presence.accountId);
     void logEvent({

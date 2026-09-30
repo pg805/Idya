@@ -12,11 +12,6 @@ window.Views.map = (function () {
 
   const TILE_SRC = 32;      // the tileset's native tile size
   const STEP_MS = 130;      // time to cross one tile, so a walk reads as walking
-  // A diagonal step crosses the diagonal of a square, which is sqrt(2) tiles, not
-  // one. Stepping it on the same clock as a straight step would make cutting
-  // corners about 41% faster than walking in a line — the classic grid speedup.
-  // Charging it the extra time is what keeps speed the same in every direction.
-  const DIAG = Math.SQRT2;
   let chunk = { x: 0, y: 0 };
   let view = null;          // the loaded ChunkView
   let root = null;
@@ -40,14 +35,19 @@ window.Views.map = (function () {
   // Every direction key currently down, not just the latest. Holding two is how
   // you go diagonally, so the last one pressed must not replace the first.
   const heldKeys = new Map();    // key -> { dx, dy }
-  let stepTimer = null;
+  // The simulation is the source of truth for who is where. Its state arrives
+  // ~20x a second and the tokens are driven straight off it, so the old
+  // step-and-animate path is no longer what moves anybody.
+  const simUnits = new Map();     // id -> { wire, el, bar, box }
+  let simTimer = null;
+  let aim = 0;
+  let wantAttack = false;
+  let mouseTile = null;
   let cameraMs = STEP_MS;    // how long the step in flight is taking
   // Two keys meant as one diagonal never land in the same event. Waiting this
   // long before the FIRST step lets the second arrive and be counted, which is
   // the difference between going diagonally and going straight and then
   // diagonally. Short enough not to read as input lag next to a 130ms step.
-  const DIAGONAL_GRACE_MS = 55;
-  let graceTimer = null;
   let onKeyDown = null;
   let onKeyUp = null;
   let onBlur = null;
@@ -116,24 +116,28 @@ window.Views.map = (function () {
    * the second: the view follows you, and stops at the edges rather than
    * showing empty space past them. A board that fits is simply centred.
    */
+  // Where the camera is looking, in tile units. Set from the simulation, so it
+  // tracks the body continuously rather than snapping between squares.
+  let focus = null;
+
   function updateCamera(animate) {
     const wrap = root?.querySelector('.map-stage-wrap');
     const stage = root?.querySelector('#map-stage');
     if (!wrap || !stage || !view) return;
 
     const boardPx = cell * view.size;
-    const me = occupants.get(meId);
+    const at = focus ?? (myTile ? { x: myTile.x + 0.5, y: myTile.y + 0.5 } : null);
     const axis = (viewportPx, focusTile) => {
       if (boardPx <= viewportPx) return (viewportPx - boardPx) / 2;   // centre it
-      if (!me) return 0;
-      const wanted = focusTile * cell + cell / 2 - viewportPx / 2;
+      if (at === null) return 0;
+      const wanted = focusTile * cell - viewportPx / 2;
       return -Math.max(0, Math.min(wanted, boardPx - viewportPx));
     };
 
     stage.style.transitionDuration = animate ? `${cameraMs}ms` : '0ms';
     stage.style.transform =
-      `translate(${axis(wrap.clientWidth, me?.tile.x ?? 0)}px, ` +
-      `${axis(wrap.clientHeight, me?.tile.y ?? 0)}px)`;
+      `translate(${axis(wrap.clientWidth, at?.x ?? 0)}px, ` +
+      `${axis(wrap.clientHeight, at?.y ?? 0)}px)`;
   }
 
   function setZoom(next) {
@@ -248,6 +252,75 @@ window.Views.map = (function () {
     return entry;
   }
 
+  /**
+   * Draw the simulation.
+   *
+   * Tokens are positioned by body centre in tile units, so half a tile of offset
+   * puts the sprite over the body rather than beside it. A short linear CSS
+   * transition covers the gap between server frames; the server is authoritative
+   * and the browser is only smoothing between what it was told.
+   */
+  function renderSim(units) {
+    const layer = tokenLayer();
+    if (!layer || !cell) return;
+    const seen = new Set();
+
+    for (const u of units) {
+      seen.add(u.id);
+      let rec = simUnits.get(u.id);
+      if (!rec || !rec.el.isConnected) {
+        const el = document.createElement('div');
+        el.className = 'map-token sim' + (u.id === meId ? ' me' : '')
+          + (u.team === 'enemy' ? ' beast' : '');
+        el.innerHTML =
+          (u.sprite
+            ? `<img class="map-token-sprite" src="${spriteUrl(u.sprite)}" alt="">`
+            : '<div class="map-token-blank"></div>')
+          + '<span class="map-token-name"></span>'
+          + '<span class="sim-hp"><i></i></span>'
+          + '<span class="sim-box"></span>';
+        layer.appendChild(el);
+        rec = {
+          el,
+          name: el.querySelector('.map-token-name'),
+          hp: el.querySelector('.sim-hp i'),
+          box: el.querySelector('.sim-box'),
+        };
+        simUnits.set(u.id, rec);
+      }
+      rec.el.style.width = `${cell}px`;
+      rec.el.style.height = `${cell}px`;
+      // Bodies are centred on their coordinate; a token is a tile wide.
+      rec.el.style.transform = `translate(${(u.x - 0.5) * cell}px, ${(u.y - 0.9) * cell}px)`;
+      if (rec.name.textContent !== u.name) rec.name.textContent = u.team === 'enemy' ? '' : u.name;
+      rec.hp.style.width = `${Math.max(0, 100 * u.hp / u.maxHp)}%`;
+      rec.el.classList.toggle('hurt', u.hp < u.maxHp);
+
+      // The attack, drawn as the rectangle it actually is: pale while winding
+      // up, solid while the hitbox is live.
+      const live = u.phase === 'active';
+      const tell = u.phase === 'tell';
+      rec.box.hidden = !(live || tell);
+      if (live || tell) {
+        rec.box.className = 'sim-box ' + (live ? 'live' : 'tell');
+        rec.box.style.width = `${u.reach * cell}px`;
+        rec.box.style.height = `${u.width * cell}px`;
+        rec.box.style.transform = `rotate(${u.aim}rad)`;
+      }
+      if (u.id === meId) {
+        myTile = { x: Math.floor(u.x), y: Math.floor(u.y) };
+        focus = { x: u.x, y: u.y };
+        updateCamera(true);
+      }
+    }
+
+    for (const [id, rec] of simUnits) {
+      if (seen.has(id)) continue;
+      rec.el.remove();
+      simUnits.delete(id);
+    }
+  }
+
   /** Draw everyone we know about into the current layer. Safe to call twice. */
   function renderTokens() {
     if (!tokenLayer()) return;
@@ -293,28 +366,6 @@ window.Views.map = (function () {
    * drawn back to back and the walk lurches. Letting one timer own the pace
    * keeps every step the same length regardless of when its message arrived.
    */
-  function walkToken(id, path) {
-    const active = walks.get(id);
-    if (active) { active.queue.push(...path); return; }
-
-    const state = { queue: path.slice(), i: 0, timer: null };
-    walks.set(id, state);
-
-    const step = () => {
-      if (state.i >= state.queue.length) { walks.delete(id); return; }
-      const from = occupants.get(id)?.tile;
-      const to = state.queue[state.i++];
-      // A diagonal hop covers sqrt(2) tiles, so it gets sqrt(2) of the time.
-      // Timed per hop rather than per walk, because a path mixes both.
-      const diagonal = from && from.x !== to.x && from.y !== to.y;
-      const ms = diagonal ? STEP_MS * DIAG : STEP_MS;
-      placeToken(id, to, true, ms);
-      // Chained timeouts rather than an interval: an interval drifts against
-      // the CSS transition and the steps start to stutter.
-      state.timer = setTimeout(step, ms);
-    };
-    step();
-  }
 
   function stopWalk(id) {
     const active = walks.get(id);
@@ -331,76 +382,49 @@ window.Views.map = (function () {
     return { dx: Math.sign(dx), dy: Math.sign(dy) };
   }
 
-  function stepHeld() {
-    if (!heldKeys.size || !socket || !myTile || !view) return;
-    const dir = currentDir();
-    if (dir.dx === 0 && dir.dy === 0) return;   // pressing both ways at once
-    // The camera glides for as long as the step is paced to take, so a diagonal
-    // tracks the longer distance rather than arriving early and waiting.
-    cameraMs = (dir.dx !== 0 && dir.dy !== 0) ? STEP_MS * DIAG : STEP_MS;
-    const to = { x: myTile.x + dir.dx, y: myTile.y + dir.dy };
-    // Past the edge is a CROSSING, not a bad step: send it and let the server
-    // put us down in the neighbour. It answers with world:you, which reloads
-    // the stage, so guessing our own position here would fight that.
-    const crossing = to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size;
-    // A step, not a walk: pressing right into a tree should stop you against
-    // it, not route you around it.
-    socket.emit('world:step', to);
-    if (crossing) return;
-    // Assume it lands. Holding a key steps faster than a round trip, so waiting
-    // for the answer would ask to move from a square we have already left, and
-    // the server would path us somewhere strange. A refusal corrects it.
-    myTile = to;
+  /**
+   * Push our intent at the server.
+   *
+   * Direction and aim, not position. The server decides where that puts us, so
+   * nothing here has to be trusted. Attack is a one-shot flag: it is cleared as
+   * soon as it has been sent, and the server holds it until the cooldown allows
+   * it, which is what stops a press from being swallowed.
+   */
+  function sendInput() {
+    if (!socket || !myChunk) return;
+    let dx = 0, dy = 0;
+    for (const d of heldKeys.values()) { dx += d.dx; dy += d.dy; }
+    socket.emit('sim:input', {
+      moveX: Math.sign(dx), moveY: Math.sign(dy),
+      aim, attack: wantAttack,
+    });
+    wantAttack = false;
   }
 
+  function startInput() {
+    if (!simTimer) simTimer = setInterval(sendInput, 50);
+  }
+
+
+  /**
+   * Holding a key is now just a fact about the input we are already sending.
+   *
+   * There is nothing to schedule: sendInput runs on its own clock and reads
+   * whatever is held at the time. The diagonal grace window is gone with it —
+   * it existed so a diagonal could form before the first tile step fired, and
+   * there are no tile steps.
+   */
   function beginHold(key, dir) {
-    if (heldKeys.has(key)) return;                 // OS key repeat
-    const wasIdle = heldKeys.size === 0;
     heldKeys.set(key, dir);
-    // Adding a second direction changes where the next step goes, but it must
-    // not restart the clock, or easing into a diagonal stutters.
-    if (!wasIdle) return;
-
-    clearTimeout(graceTimer);
-    graceTimer = setTimeout(() => {
-      graceTimer = null;
-      startStepping();
-    }, DIAGONAL_GRACE_MS);
-  }
-
-  /** How long the step we are about to take should cost. */
-  function stepCost() {
-    const dir = currentDir();
-    return (dir.dx !== 0 && dir.dy !== 0) ? STEP_MS * DIAG : STEP_MS;
-  }
-
-  function startStepping() {
-    stepHeld();
-    scheduleStep();
-  }
-
-  // A self-rescheduling timeout rather than a fixed interval, because the gap
-  // between steps now depends on which way the next one goes.
-  function scheduleStep() {
-    clearTimeout(stepTimer);
-    stepTimer = setTimeout(() => { stepHeld(); scheduleStep(); }, stepCost());
   }
 
   function releaseHold(key) {
-    // A tap shorter than the grace window would otherwise be swallowed: the
-    // first step hasn't fired yet and the key is already going up. Take it now,
-    // while the direction is still held.
-    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; stepHeld(); }
     heldKeys.delete(key);
     if (heldKeys.size === 0) endHold();
   }
 
   function endHold() {
     heldKeys.clear();
-    clearTimeout(graceTimer);
-    graceTimer = null;
-    clearTimeout(stepTimer);
-    stepTimer = null;
   }
 
   const keyName = (e) => (KEYS[e.key] ? e.key : e.key?.toLowerCase?.());
@@ -480,7 +504,13 @@ window.Views.map = (function () {
     if (here) here.textContent = count === 1 ? 'Just you here.' : `${count} here.`;
   }
 
+  function clearSim() {
+    for (const rec of simUnits.values()) rec.el.remove();
+    simUnits.clear();
+  }
+
   function clearTokens() {
+    clearSim();
     for (const id of [...walks.keys()]) stopWalk(id);
     for (const o of occupants.values()) o.el?.remove();
     occupants.clear();
@@ -534,6 +564,29 @@ window.Views.map = (function () {
       updateCursor(workableAt(t) ? t : null, 'work');
     });
     stage.addEventListener('mouseleave', () => updateCursor(null));
+
+    // The mouse points; it does not move you. Aim is a real angle from the body
+    // to the cursor, so there is no direction to round off.
+    stage.addEventListener('mousemove', (e) => {
+      const r = stage.getBoundingClientRect();
+      mouseTile = {
+        x: (e.clientX - r.left) / cell,
+        y: (e.clientY - r.top) / cell,
+      };
+      if (focus) aim = Math.atan2(mouseTile.y - focus.y, mouseTile.x - focus.x);
+    });
+
+    stage.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (tool) return;                       // the build tool owns clicks while up
+      const r = stage.getBoundingClientRect();
+      const t = {
+        x: Math.floor((e.clientX - r.left) / cell),
+        y: Math.floor((e.clientY - r.top) / cell),
+      };
+      if (workableAt(t)) return;              // working the land, handled on click
+      wantAttack = true;
+    });
 
     stage.addEventListener('click', (e) => {
       if (!socket || !view) return;
@@ -874,6 +927,8 @@ window.Views.map = (function () {
     socket.on('world:you', async (me) => {
       meId = me.id;
       myTile = me.tile;
+      focus = { x: me.tile.x + 0.5, y: me.tile.y + 0.5 };
+      startInput();
       const changed = !myChunk || myChunk.x !== me.chunk.x || myChunk.y !== me.chunk.y;
       myChunk = me.chunk;
       // Nobody from the last place is here. Drop them now rather than letting
@@ -917,10 +972,31 @@ window.Views.map = (function () {
           && (entry.tile.x !== from.x || entry.tile.y !== from.y)) {
         placeToken(id, from, false);
       }
-      walkToken(id, path);
+      // Movement comes from sim:state now; this is only still here so an older
+      // client tab does not throw on a message it no longer needs.
+
     });
 
     // A step that ran into something. Nothing moves; we just stop pressing.
+    // The simulation, ~20x a second. This is what moves everybody now, so the
+    // old occupant tokens are taken down the first time it arrives rather than
+    // drawing two of each person.
+    socket.on('sim:state', ({ units }) => {
+      if (occupants.size) for (const o of occupants.values()) { o.el?.remove(); o.el = null; }
+      renderSim(units ?? []);
+    });
+
+    socket.on('sim:events', ({ events }) => {
+      for (const ev of events ?? []) {
+        if (ev.kind !== 'hit') continue;
+        const rec = simUnits.get(ev.on);
+        if (!rec) continue;
+        rec.el.classList.remove('struck');
+        void rec.el.offsetWidth;              // restart the flash
+        rec.el.classList.add('struck');
+      }
+    });
+
     socket.on('world:blocked', () => {
       endHold();
       const me = occupants.get(meId);

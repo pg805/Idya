@@ -323,3 +323,33 @@ body.gm-open #world-root { padding-left: 208px; }
   color: var(--ink-dim, #9aa4ad);
   min-height: 1.2em;
 }
+
+/* ---- the simulation's tokens ---- */
+/* Positioned by body centre in tile units, so a short linear transition is all
+   that is needed to cover the gap between server frames. */
+.map-token.sim { transition: transform 70ms linear; }
+.map-token.sim.struck { animation: sim-hit 220ms ease-out; }
+@keyframes sim-hit { 0%, 100% { filter: none; } 30% { filter: brightness(2.2) saturate(0.4); } }
+
+.sim-hp {
+  position: absolute; left: 18%; right: 18%; top: -3px; height: 3px;
+  background: #0007; border-radius: 2px; overflow: hidden;
+  opacity: 0; transition: opacity 140ms linear;
+}
+.map-token.sim.hurt .sim-hp { opacity: 1; }
+.sim-hp i { display: block; height: 100%; background: var(--moss, #7da35c); }
+
+/* The attack hitbox, drawn as the rectangle it is: swept from the body's centre
+   along the aim, so its origin is the left-middle of the box. */
+.sim-box {
+  position: absolute; left: 50%; top: 50%;
+  transform-origin: 0 50%; margin-top: -1px;
+  border-radius: 2px; pointer-events: none;
+}
+.sim-box.tell { background: rgba(209, 104, 83, 0.30); box-shadow: inset 0 0 0 1px rgba(209, 104, 83, 0.85); }
+.sim-box.live { background: rgba(208, 140, 77, 0.62); box-shadow: inset 0 0 0 1px rgba(208, 140, 77, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .map-token.sim { transition: none; }
+  .map-token.sim.struck { animation: none; }
+}
