@@ -324,10 +324,14 @@ window.Views.map = (function () {
     const dir = currentDir();
     if (dir.dx === 0 && dir.dy === 0) return;   // pressing both ways at once
     const to = { x: myTile.x + dir.dx, y: myTile.y + dir.dy };
-    if (to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size) return;
+    // Past the edge is a CROSSING, not a bad step: send it and let the server
+    // put us down in the neighbour. It answers with world:you, which reloads
+    // the stage, so guessing our own position here would fight that.
+    const crossing = to.x < 0 || to.y < 0 || to.x >= view.size || to.y >= view.size;
     // A step, not a walk: pressing right into a tree should stop you against
     // it, not route you around it.
     socket.emit('world:step', to);
+    if (crossing) return;
     // Assume it lands. Holding a key steps faster than a round trip, so waiting
     // for the answer would ask to move from a square we have already left, and
     // the server would path us somewhere strange. A refusal corrects it.
@@ -515,29 +519,27 @@ window.Views.map = (function () {
       };
       if (tile.x < 0 || tile.y < 0 || tile.x >= view.size || tile.y >= view.size) return;
       if (applyTool(tile)) return;
-      // Clicking a tree you are standing next to means working it, not trying
-      // to walk into it, which is what that click did before: fail.
+      // Clicking works the land and drives the GM tools. It does NOT move you:
+      // movement is WASD everywhere, the same as in combat, and the mouse is
+      // for pointing at things.
       if (workableAt(tile)) { socket.emit('world:act', tile); return; }
-      socket.emit('world:walk', tile);
     });
 
     root.querySelector('#map-place').textContent = view.place.name;
     root.querySelector('#map-blurb').textContent = view.place.blurb;
     root.querySelector('#map-coords').textContent = `(${chunk.x}, ${chunk.y})`;
 
-    const exits = root.querySelector('#map-exits');
-    exits.innerHTML = view.exits.length
-      ? view.exits.map(e =>
-          `<button class="map-exit" data-x="${e.x}" data-y="${e.y}">Go to ${esc(e.name)}</button>`,
-        ).join('')
+    // A signpost rather than a control. You leave by walking off the edge.
+    const bearing = (e) => {
+      const ns = e.y < chunk.y ? 'North' : e.y > chunk.y ? 'South' : '';
+      const ew = e.x > chunk.x ? 'East' : e.x < chunk.x ? 'West' : '';
+      return ns && ew ? `${ns}-${ew.toLowerCase()}` : (ns || ew);
+    };
+    root.querySelector('#map-exits').innerHTML = view.exits.length
+      ? view.exits
+          .map(e => `<span class="map-note">${bearing(e)}: ${esc(e.name)}</span>`)
+          .join('')
       : '<span class="map-note">Nowhere to go from here.</span>';
-    for (const btn of exits.querySelectorAll('.map-exit')) {
-      // Travel goes through the server: it moves your character, not just the
-      // camera, so everyone in both places sees you leave and arrive.
-      btn.addEventListener('click', () => {
-        socket?.emit('world:travel', { x: +btn.dataset.x, y: +btn.dataset.y });
-      });
-    }
 
     paint();
     // The stage is new. Apply whatever the server last said about this place,

@@ -28,13 +28,13 @@ import { PrismaIdentityDirectory, discordIdentity, emailIdentity } from '../auth
 import { hashPassword, verifyPassword, passwordProblem, normalizeEmail } from '../auth/password.js';
 import { RateLimiter, clientIp } from '../auth/rate_limit.js';
 import { TOWN, placeAt, listPlaces, isKnownPlace, exitsFrom } from '../world/places.js';
-import { chunkKey, parseChunk, type Chunk } from '../world/chunk.js';
+import { chunkKey, parseChunk, CHUNK_SIZE, type Chunk } from '../world/chunk.js';
 import {
   loadChunk, paintSquare, placeObject, removeTopObject, removeObject,
   editTreePart, resetSquare, setTile,
 } from '../world/world_service.js';
 import { seedSwallows, clearEnemies } from '../world/spawns.js';
-import { blockedBy, findPath, nearestFree, isPassable } from '../world/movement.js';
+import { blockedBy, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
 import { messageProblem, saveMessage } from '../chat/chat_service.js';
 import { createMailer } from '../auth/mailer.js';
@@ -4371,63 +4371,71 @@ io.on('connection', (socket: Socket) => {
     broadcastOccupants(presence.chunk);
   });
 
-  socket.on('world:walk', async (raw: unknown) => {
-    const presence = chatPresence.get(socket.id);
-    if (!presence) { socket.emit('world:error', { message: 'Not in the world yet.' }); return; }
-    if (!moveLimiter.check(presence.accountId).allowed) return;
-
-    const to = parseTilePos(raw);
-    if (!to) return;
-
-    const blocked = await blockedIn(presence.chunk);
-    if (!blocked) return;
-    if (!isPassable(to, blocked)) {
-      socket.emit('world:error', { message: "You can't stand there." });
-      return;
-    }
-
-    const path = findPath(presence.tile, to, blocked);
-    if (!path) { socket.emit('world:error', { message: "You can't get there." }); return; }
-    if (path.length === 0) return;
-
-    const from = presence.tile;
-    presence.tile = path[path.length - 1];
-    await persistPosition(presence.characterId, presence.chunk, presence.tile);
-    void logMovement({
-      accountId: presence.accountId, characterId: presence.characterId,
-      chunk: presence.chunk, tile: presence.tile,
-    });
-
-    // `from` as well as the path: a client whose token has drifted can correct
-    // silently before setting off, instead of animating out of the wrong square.
-    // The whole path goes out, not just the destination, so everyone watching
-    // sees the same walk rather than a jump.
-    io.to(chatRoom(presence.chunk)).emit('world:walked', {
-      id: socket.id,
-      from,
-      path,
-    });
-  });
 
   /**
-   * One tile, in one direction, or nothing.
+   * Move somebody into a neighbouring chunk.
    *
-   * What arrow keys use. Distinct from world:walk on purpose: walking into a
-   * tree should stop you against it, not route you around it. Pathfinding is
-   * what you asked for when you clicked a distant square; it is not what you
-   * asked for when you pressed right.
+   * Lifted out of the old world:travel handler, which is gone: you cross by
+   * walking off the edge now, not by pressing a button. Both places get told, so
+   * everyone sees you leave and arrive.
    */
+  async function crossChunk(presence: WorldPresence, next: Chunk, tile: TilePos): Promise<void> {
+    const previous = presence.chunk;
+    socket.leave(chatRoom(previous));
+    presence.chunk = next;
+    presence.tile = tile;
+    socket.join(chatRoom(next));
+    await persistPosition(presence.characterId, next, tile);
+    await logEvent({
+      accountId: presence.accountId, characterId: presence.characterId,
+      type: 'travelled', at: { chunk: next, tile },
+      payload: { from: previous },
+    });
+    socket.emit('world:you', {
+      id: socket.id,
+      name: presence.characterName,
+      sprite: presence.sprite,
+      chunk: next,
+      tile,
+    });
+    socket.emit('chat:place', { chunk: next, place: placeAt(next) });
+    for (const c of [previous, next]) { broadcastPresence(c); broadcastOccupants(c); }
+  }
+
   socket.on('world:step', async (raw: unknown) => {
     const presence = chatPresence.get(socket.id);
     if (!presence) return;
     if (!moveLimiter.check(presence.accountId).allowed) return;
 
-    const to = parseTilePos(raw);
+    // Parsed WITHOUT the bounds check on purpose: a step past the edge is a
+    // crossing, not a bad input. parseTilePos would have thrown it away.
+    const to = parseChunk(raw);
     if (!to) return;
     const dx = to.x - presence.tile.x;
     const dy = to.y - presence.tile.y;
     if (dx === 0 && dy === 0) return;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) return;   // one square only
+
+    // Walked off the edge: carry on into the neighbour rather than stopping.
+    const offX = to.x < 0 ? -1 : to.x >= CHUNK_SIZE ? 1 : 0;
+    const offY = to.y < 0 ? -1 : to.y >= CHUNK_SIZE ? 1 : 0;
+    if (offX || offY) {
+      const next: Chunk = { x: presence.chunk.x + offX, y: presence.chunk.y + offY };
+      if (!isKnownPlace(next)) { socket.emit('world:blocked', { tile: presence.tile }); return; }
+      // You arrive at the opposite edge and keep the other axis, so the two
+      // chunks read as one continuous walk rather than a teleport.
+      const arrive: TilePos = {
+        x: offX === 0 ? to.x : (offX > 0 ? 0 : CHUNK_SIZE - 1),
+        y: offY === 0 ? to.y : (offY > 0 ? 0 : CHUNK_SIZE - 1),
+      };
+      const nextBlocked = (await blockedIn(next)) ?? new Set<string>();
+      if (!isPassable(arrive, nextBlocked)) {
+        socket.emit('world:blocked', { tile: presence.tile });
+        return;
+      }
+      await crossChunk(presence, next, arrive);
+      return;
+    }
 
     const blocked = await blockedIn(presence.chunk);
     if (!blocked) return;
@@ -4725,45 +4733,6 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('world:travel', async (raw: unknown) => {
-    const presence = chatPresence.get(socket.id);
-    if (!presence) return;
-    const next = parseChunk(raw);
-    if (!next || !isKnownPlace(next)) {
-      socket.emit('world:error', { message: "There's nothing that way yet." });
-      return;
-    }
-    if (next.x === presence.chunk.x && next.y === presence.chunk.y) return;
-
-    const previous = presence.chunk;
-    const blocked = (await blockedIn(next)) ?? new Set<string>();
-    const tile = nearestFree(presence.tile, blocked);
-
-    socket.leave(chatRoom(previous));
-    presence.chunk = next;
-    presence.tile = tile;
-    socket.join(chatRoom(next));
-    await persistPosition(presence.characterId, next, tile);
-    await logEvent({
-      accountId: presence.accountId, characterId: presence.characterId,
-      type: 'travelled', at: { chunk: next, tile },
-      payload: { from: previous },
-    });
-
-    socket.emit('world:you', {
-      id: socket.id,
-      name: presence.characterName,
-      sprite: presence.sprite,
-      chunk: next,
-      tile,
-    });
-    socket.emit('chat:place', { chunk: next, place: placeAt(next) });
-
-    for (const c of [previous, next]) {
-      broadcastPresence(c);
-      broadcastOccupants(c);
-    }
-  });
 
   socket.on('chat:move', (raw: unknown) => {
     const presence = chatPresence.get(socket.id);

@@ -34,17 +34,6 @@
 
 .map-exits { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
-.map-exit {
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--text-2);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  padding: 5px 12px;
-  cursor: pointer;
-}
-.map-exit:hover { color: var(--gold-bright); border-color: var(--gold-dim); }
 
 /* The board's wrapper is a level below .map-view, so it has to carry the flex
    growth down: without this the viewport has no flex parent to grow into, and
