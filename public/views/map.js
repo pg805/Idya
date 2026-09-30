@@ -570,9 +570,11 @@ window.Views.map = (function () {
       };
       if (tile.x < 0 || tile.y < 0 || tile.x >= view.size || tile.y >= view.size) return;
       if (applyTool(tile)) return;
-      // Clicking works the land and drives the GM tools. It does NOT move you:
-      // movement is WASD everywhere, the same as in combat, and the mouse is
-      // for pointing at things.
+      // Clicking works the land, opens what can be opened, and drives the GM
+      // tools. It does NOT move you: movement is WASD everywhere, the same as
+      // in combat, and the mouse is for pointing at things.
+      const chest = chestAt(tile);
+      if (chest) { void openChest(chest.id); return; }
       if (workableAt(tile)) { socket.emit('world:act', tile); return; }
     });
 
@@ -668,6 +670,13 @@ window.Views.map = (function () {
 
   const withinReach = (tile) =>
     myTile && Math.max(Math.abs(tile.x - myTile.x), Math.abs(tile.y - myTile.y)) <= 1;
+
+  /** The chest on a square, if there is one and you can reach it. */
+  function chestAt(tile) {
+    if (!view || tool || !withinReach(tile)) return null;
+    return (view.objects ?? []).find(o =>
+      o.x === tile.x && o.y === tile.y && /^obj_chest/.test(o.sprite)) ?? null;
+  }
 
   /** Something to work on, close enough to work on it. */
   function workableAt(tile) {
@@ -906,7 +915,7 @@ window.Views.map = (function () {
       myChunk = me.chunk;
       // Nobody from the last place is here. Drop them now rather than letting
       // them be redrawn onto the new stage; the list for this place refills it.
-      if (changed) { latestOccupants = null; clearTokens(); }
+      if (changed) { latestOccupants = null; clearTokens(); closeChest(); }
       // The server decides where you are; the client follows it there.
       if (!view || view.chunk.x !== me.chunk.x || view.chunk.y !== me.chunk.y) {
         await load(me.chunk);
@@ -1022,6 +1031,117 @@ window.Views.map = (function () {
       clearTimeout(note._t);
       note._t = setTimeout(() => { note.hidden = true; }, 2500);
     });
+  }
+
+  // ---- chests ----
+  // Two rows of six. Clicking a chest slot takes the stack; clicking a bag row
+  // deposits it. No dragging: one click per move is less to build and less to
+  // explain, and the server is what decides whether a move is allowed anyway.
+
+  let chestId = null;
+
+  function chestPanel() {
+    let el = document.getElementById('chest-panel');
+    if (el) return el;
+    el = document.createElement('aside');
+    el.id = 'chest-panel';
+    el.hidden = true;
+    el.innerHTML = `
+      <header>
+        <h3>Chest</h3>
+        <button type="button" id="chest-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="chest-grid" id="chest-grid"></div>
+      <p class="chest-note" id="chest-note"></p>
+      <h4>Carrying</h4>
+      <div class="chest-bag" id="chest-bag"></div>`;
+    document.body.appendChild(el);
+    el.querySelector('#chest-close').addEventListener('click', closeChest);
+    return el;
+  }
+
+  function closeChest() {
+    chestId = null;
+    const el = document.getElementById('chest-panel');
+    if (el) el.hidden = true;
+  }
+
+  async function openChest(id) {
+    chestId = id;
+    const el = chestPanel();
+    el.hidden = false;
+    el.querySelector('#chest-note').textContent = 'Opening…';
+    await refreshChest();
+  }
+
+  async function refreshChest() {
+    if (!chestId) return;
+    const el = chestPanel();
+    const note = el.querySelector('#chest-note');
+    try {
+      const r = await fetch(`/api/chest?id=${encodeURIComponent(chestId)}`);
+      const d = await r.json();
+      if (!r.ok) { note.textContent = d.error ?? 'Cannot open that.'; return; }
+      note.textContent = '';
+      drawChest(d.chest, d.inventory ?? []);
+    } catch (err) {
+      note.textContent = `Cannot open that: ${err}`;
+    }
+  }
+
+  function drawChest(chest, bag) {
+    const el = chestPanel();
+    const grid = el.querySelector('#chest-grid');
+    const bySlot = new Map((chest.slots ?? []).map(sl => [sl.slot, sl]));
+    grid.style.setProperty('--chest-cols', chest.cols ?? 6);
+    grid.innerHTML = '';
+    for (let i = 0; i < (chest.size ?? 12); i++) {
+      const sl = bySlot.get(i);
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'chest-slot' + (sl ? ' filled' : '');
+      cell.disabled = !sl;
+      cell.innerHTML = sl
+        ? `<span class="chest-item">${esc(sl.name)}</span><span class="chest-qty">${sl.quantity}</span>`
+        : '';
+      if (sl) {
+        cell.title = `Take ${sl.quantity} ${sl.name}`;
+        cell.addEventListener('click', () => void moveChest('take', { slot: i }));
+      }
+      grid.appendChild(cell);
+    }
+
+    const bagEl = el.querySelector('#chest-bag');
+    bagEl.innerHTML = bag.length
+      ? ''
+      : '<p class="chest-note">Your hands are empty.</p>';
+    for (const row of bag) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chest-bag-row';
+      b.innerHTML = `<span>${esc(row.name)}</span><span class="chest-qty">${row.quantity}</span>`;
+      b.title = `Put ${row.quantity} ${row.name} in`;
+      b.addEventListener('click', () => void moveChest('put', { itemId: row.itemId }));
+      bagEl.appendChild(b);
+    }
+  }
+
+  async function moveChest(verb, body) {
+    if (!chestId) return;
+    const note = chestPanel().querySelector('#chest-note');
+    try {
+      const r = await fetch(`/api/chest/${verb}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: chestId, ...body }),
+      });
+      const d = await r.json();
+      if (!r.ok) { note.textContent = d.error ?? 'That did not work.'; return; }
+      note.textContent = '';
+      await refreshChest();
+    } catch (err) {
+      note.textContent = `That did not work: ${err}`;
+    }
   }
 
   function mount(el) {

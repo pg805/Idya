@@ -133,8 +133,33 @@ model WorldObject {
   owner_account_id String?
   created_at       DateTime @default(now())
 
+  /// Contents, for the things that hold things. Empty for everything else.
+  slots ChestSlot[]
+
   @@index([chunk_x, chunk_y])
   @@index([owner_account_id])
+}
+
+// One slot of a container standing in the world.
+//
+// Slots rather than a quantity map, because a chest is a GRID somebody arranges:
+// where a stack sits is a decision the player made, and collapsing it to
+// "item -> count" would reshuffle their chest every time they opened it. That is
+// the difference from InventoryItem, which is a bag and has no order.
+//
+// A row only exists for an occupied slot, so an empty chest is no rows at all.
+model ChestSlot {
+  object_id String
+  /// 0-11: two rows of six.
+  slot      Int
+  item_id   String
+  quantity  Int    @default(1)
+
+  object WorldObject @relation(fields: [object_id], references: [id], onDelete: Cascade)
+  item   Item        @relation(fields: [item_id], references: [id])
+
+  @@id([object_id, slot])
+  @@index([object_id])
 }
 
 // A job the GM has handed out.
@@ -317,6 +342,7 @@ model Item {
   name        String
   description String
   inventory   InventoryItem[]
+  chest_slots ChestSlot[]
 }
 
 // Lumberjack orchard: a plot multiplies a planted item over 4h ticks (capped at

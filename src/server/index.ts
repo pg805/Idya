@@ -34,6 +34,9 @@ import {
   editTreePart, resetSquare, setTile,
 } from '../world/world_service.js';
 import { seedSwallows, clearEnemies, ENEMY_KIND } from '../world/spawns.js';
+import {
+  readChest, takeFromChest, putInChest, isChestSprite, CHEST_SLOTS,
+} from '../world/chests.js';
 import { createWorldSim, type SimInput } from './world_sim.js';
 import { blockedBy, nearestFree, isPassable } from '../world/movement.js';
 import { parseTilePos, type TilePos } from '../world/chunk.js';
@@ -643,6 +646,100 @@ app.use((req: Request, res: Response, next) => {
 // combat shell, not a front door. `/` is routed to the landing page below.
 app.use(express.static(join(__dirname, '../../public'), { index: false }));
 app.use(express.json());
+
+// --- Chests ---
+// A chest is a WorldObject with a chest sprite; its contents are ChestSlot rows.
+//
+// Every one of these checks you are STANDING NEXT TO IT, server-side. A chest in
+// a shared world is somewhere other people can be, so reach cannot be something
+// the client is trusted to have respected.
+
+/** The live position of whoever this account is playing, or null if not in the world. */
+function whereIs(accountId: string): { chunk: Chunk; tile: TilePos; characterId: string } | null {
+  for (const [socketId, presence] of chatPresence) {
+    if (presence.accountId !== accountId) continue;
+    // No character means nothing to put anything into or take anything out of.
+    if (!presence.characterId) return null;
+    const at = worldSim.tileOf(socketId) ?? presence.tile;
+    return { chunk: presence.chunk, tile: at, characterId: presence.characterId };
+  }
+  return null;
+}
+
+/** The chest you are close enough to use, or a reason you are not. */
+async function reachableChest(accountId: string, objectId: string): Promise<
+  { ok: true; characterId: string } | { ok: false; status: number; error: string }
+> {
+  const me = whereIs(accountId);
+  if (!me) return { ok: false, status: 409, error: 'You are not in the world.' };
+
+  const row = await prisma.worldObject.findUnique({ where: { id: objectId } });
+  if (!row) return { ok: false, status: 404, error: 'No such chest.' };
+  if (!isChestSprite(row.sprite)) return { ok: false, status: 400, error: 'That is not a chest.' };
+  if (row.chunk_x !== me.chunk.x || row.chunk_y !== me.chunk.y) {
+    return { ok: false, status: 403, error: 'That chest is somewhere else.' };
+  }
+  // Chebyshev, so a diagonal counts as next to it.
+  const near = Math.max(Math.abs(row.tile_x - me.tile.x), Math.abs(row.tile_y - me.tile.y)) <= 1;
+  if (!near) return { ok: false, status: 403, error: 'Too far away.' };
+
+  return { ok: true, characterId: me.characterId };
+}
+
+app.get('/api/chest', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const id = String(req.query.id ?? '');
+  const gate = await reachableChest(discordId, id);
+  if (!gate.ok) { res.status(gate.status).json({ error: gate.error }); return; }
+
+  const [chest, bag] = await Promise.all([
+    readChest(id),
+    prisma.inventoryItem.findMany({
+      where: { character_id: gate.characterId },
+      include: { item: true },
+      orderBy: { item_id: 'asc' },
+    }),
+  ]);
+  res.json({
+    chest,
+    inventory: bag.map(r => ({ itemId: r.item_id, name: r.item.name, quantity: r.quantity })),
+  });
+});
+
+app.post('/api/chest/take', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { id, slot, quantity } = (req.body ?? {}) as { id?: string; slot?: number; quantity?: number };
+  const gate = await reachableChest(discordId, String(id ?? ''));
+  if (!gate.ok) { res.status(gate.status).json({ error: gate.error }); return; }
+  if (!Number.isInteger(slot) || slot! < 0 || slot! >= CHEST_SLOTS) {
+    res.status(400).json({ error: 'No such slot.' }); return;
+  }
+  const out = await takeFromChest({
+    objectId: String(id), slot: slot as number,
+    characterId: gate.characterId, quantity,
+  });
+  if (!out.ok) { res.status(400).json({ error: out.why }); return; }
+  res.json(await readChest(String(id)));
+});
+
+app.post('/api/chest/put', async (req: Request, res: Response) => {
+  const discordId = resolveAuth(req);
+  if (!discordId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const { id, itemId, quantity, slot } =
+    (req.body ?? {}) as { id?: string; itemId?: string; quantity?: number; slot?: number };
+  const gate = await reachableChest(discordId, String(id ?? ''));
+  if (!gate.ok) { res.status(gate.status).json({ error: gate.error }); return; }
+  if (!itemId) { res.status(400).json({ error: 'Which item?' }); return; }
+  const out = await putInChest({
+    objectId: String(id), itemId: String(itemId),
+    characterId: gate.characterId, quantity,
+    slot: Number.isInteger(slot) ? slot : undefined,
+  });
+  if (!out.ok) { res.status(400).json({ error: out.why }); return; }
+  res.json(await readChest(String(id)));
+});
 
 // --- Dev: put swallows in the world ---
 // Inert for now: they stand in their chunks and nothing walks into them, because
