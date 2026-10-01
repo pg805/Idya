@@ -4696,6 +4696,7 @@ io.on('connection', (socket: Socket) => {
       moveY: Math.max(-1, Math.min(1, num(d.moveY))),
       aim: num(d.aim),
       attack: d.attack === true,
+      special: d.special === true,
     });
   });
 

@@ -92,8 +92,15 @@ export interface SimInput {
   moveY: number;
   aim: number;
   attack: boolean;
-  /** The right button: a weapon's heavy swing, if it has one. */
-  special?: boolean;
+  /**
+   * The right button: a weapon's heavy swing, if it has one.
+   *
+   * Required rather than optional, and every field here should stay that way.
+   * The socket handler in `index.ts` rebuilds this object field by field to
+   * sanitise it, so an optional field is one the compiler lets that handler
+   * silently drop — which is exactly how this arrived unplugged.
+   */
+  special: boolean;
 }
 
 /** What the client needs to draw a unit. Kept small: this goes out 20x a second. */
