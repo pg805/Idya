@@ -1,7 +1,7 @@
 # Painted terrain
 
 The combat board is drawn with the pixel-art tileset from the Asset Library
-(`G:\Pixel Art\Asset Library`) instead of coloured divs. Purely cosmetic in this
+(`D:\Pixel Art\Asset Library`) instead of coloured divs. Purely cosmetic in this
 first pass — the engine still sees a grid of empty squares and obstacles — but
 the data is shaped so terrain can earn gameplay meaning later without moving.
 

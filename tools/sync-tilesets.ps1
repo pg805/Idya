@@ -14,7 +14,7 @@
 # BOM as ANSI, and a stray em dash in a comment becomes a parse error.
 
 param(
-    [string]$Library = 'G:\Pixel Art\Asset Library'
+    [string]$Library = 'D:\Pixel Art\Asset Library'
 )
 
 $ErrorActionPreference = 'Stop'

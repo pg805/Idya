@@ -30,8 +30,8 @@ import re
 import shutil
 import sys
 
-LIBRARY = os.environ.get('IDYA_ASSET_LIBRARY', r'G:\Pixel Art\Asset Library')
-SPRITES = os.environ.get('IDYA_SPRITE_LIBRARY', r'G:\Pixel Art\Sprites')
+LIBRARY = os.environ.get('IDYA_ASSET_LIBRARY', r'D:\Pixel Art\Asset Library')
+SPRITES = os.environ.get('IDYA_SPRITE_LIBRARY', r'D:\Pixel Art\Sprites')
 
 # Two palettes, both fair game. The terrain one names its colours by material
 # ("water 5", "pop gold") and keeps those names; the sprite one names them by

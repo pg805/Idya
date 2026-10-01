@@ -119,7 +119,7 @@ The artist's bitmap font (four 8x8-cell `fnt_*.png` sheets in the Asset Library)
 
 Metrics aren't guessed: advance = ink width + 1px, space = 4px, derived by reproducing `fnt_specimen_tight.png` pixel-for-pixel. `--verify` re-runs that check against the built font, and it should stay at 100%.
 
-Canvases are sized to the board's exact device-pixel footprint so nothing is rescaled twice. Generated server-side (`src/combat/terrain.ts`, lazily via `Board.terrain`), painted by `public/terrain.js`. **Full detail, including the mistakes already made and why: `docs/terrain.md`** — read it before changing the layering, the grid, or the scale. Art source of truth is the Asset Library (`G:\Pixel Art\Asset Library`) and its `build-tilesets.lua`; `npm run tiles:sync` copies the exported sheets into `public/tiles/`.
+Canvases are sized to the board's exact device-pixel footprint so nothing is rescaled twice. Generated server-side (`src/combat/terrain.ts`, lazily via `Board.terrain`), painted by `public/terrain.js`. **Full detail, including the mistakes already made and why: `docs/terrain.md`** — read it before changing the layering, the grid, or the scale. Art source of truth is the Asset Library (`D:\Pixel Art\Asset Library`) and its `build-tilesets.lua`; `npm run tiles:sync` copies the exported sheets into `public/tiles/`.
 
 ## Important Classes
 

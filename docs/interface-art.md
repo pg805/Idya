@@ -68,7 +68,7 @@ Everything here is **32x32**, one world tile, drawn 1:1.
 |---|---|---|---|
 | Feather | item | `public/items/swallow_feather.png` | drops from swallows today |
 | Wood | item | `public/items/sulwood.png` | the one material in scope |
-| Sword | item* | id not settled — see below | session 0 weapon |
+| ~~Sword~~ | sprite | `public/sprites/weapon_sword_01.png` | **done** — drawn mid-swing |
 | Axe | item* | id not settled | session 0 weapon + tool |
 | Shovel | item* | id not settled | session 0 weapon + tool |
 | Magic big tree | world prop | Asset Library | a landmark worth naming a place after |
@@ -81,12 +81,25 @@ the id is the key in `src/economy/items.ts`. An item with no file falls back to
 `_missing.png`, the magenta checkerboard, which is off-palette on purpose so an
 unmade asset looks wrong rather than passable.
 
-**\* The three weapons have no folder yet.** Weapons are YAML in
-`database/weapons/`, not `InventoryItem` rows, so `public/items/` does not serve
-them and the current ids (`sword_wood`, `axe_wood`, `shovel_wood`) are the old
-system's. The new L1 ids are still open (`items.md`). None of that changes the
-drawing, so they are safe to make now; wiring them up is a small change once the
-ids land.
+**\* Weapons are not items, so they go in `public/sprites/`.** Weapons are YAML
+in `database/weapons/`, not `InventoryItem` rows, so `public/items/` does not
+serve them. `public/sprites/<name>.png` does, through `spriteUrl()` in
+`public/views/map.js`, which is the same route a character token takes — so a
+weapon sprite needs no new convention and no build step. The sword is in and
+drawn mid-swing; the axe and shovel land the same way.
+
+An *inventory icon* for a weapon is a separate drawing at a separate path, and
+needs the new L1 ids first (`items.md`), which are still open.
+
+### Getting a PNG out of a .aseprite
+
+`python tools/aseprite_png.py <in.aseprite> <out.png> [--preview]`.
+
+Aseprite's own CLI is the right tool and is not installed here, so that script
+reads the format directly: indexed or RGBA, any number of layers, no pillow.
+`--preview` prints the drawing as ASCII and lists its colours, which is how to
+check an export without opening it — and how the sword's four colours were
+confirmed to be palette entries.
 
 ### World props: through the Asset Library
 

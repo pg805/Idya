@@ -57,12 +57,29 @@ const PLAYER_THRUST: AttackShape = {
 const SWALLOW_PECK: AttackShape = {
   reach: 1, width: 0.5, activeMs: 140, coolMs: 1100, tellMs: 360, damage: 7,
 };
-interface EnemyKit { hp: number; speed: number; vision: number; attack: AttackShape }
+/**
+ * `weapon` is the sprite a unit is seen swinging, drawn in place of the plain
+ * hitbox rectangle. Cosmetic only, which is why it lives here and not on
+ * `AttackShape`: the engine has no notion of sprites and should not grow one.
+ * A kit without it keeps the rectangle, which is right for a beak or a claw.
+ */
+interface EnemyKit {
+  hp: number; speed: number; vision: number; attack: AttackShape; weapon?: string;
+}
 const ENEMY_KITS: Record<string, EnemyKit> = {
   lithkem_swallow:  { hp: 20, speed: SWALLOW_SPEED,        vision: VISION_TILES, attack: SWALLOW_PECK },
   tutorial_swallow: { hp: 20, speed: SWALLOW_SPEED * 0.92, vision: VISION_TILES * 0.75, attack: SWALLOW_PECK },
 };
 const DEFAULT_KIT = ENEMY_KITS.lithkem_swallow;
+
+/**
+ * What the player is seen holding.
+ *
+ * A constant because there is exactly one placeholder kit to hold anything. It
+ * belongs to the weapon, so when weapons become real (docs/items.md) this reads
+ * off the equipped one instead.
+ */
+const PLAYER_WEAPON = 'weapon_sword_01';
 
 export interface SimInput {
   moveX: number;
@@ -85,6 +102,8 @@ interface UnitWire {
   aim: number;
   reach: number;
   width: number;
+  /** Sprite to draw mid-swing; null means draw the hitbox rectangle. */
+  weapon: string | null;
 }
 
 interface Member {
@@ -101,7 +120,7 @@ interface Sim {
   members: Map<string, Member>;
   enemies: RtUnit[];
   /** Sprite and name per enemy id, for the wire. */
-  meta: Map<string, { name: string; sprite: string }>;
+  meta: Map<string, { name: string; sprite: string; weapon: string | null }>;
   last: number;
 }
 
@@ -168,7 +187,9 @@ export function createWorldSim(deps: WorldSimDeps) {
         // Staggered, so a freshly loaded flock does not turn in unison.
         wanderX: 0, wanderY: 0, wanderMs: Math.random() * 1200,
       });
-      sim.meta.set(row.id, { name: key.replace(/_/g, ' '), sprite: row.sprite });
+      sim.meta.set(row.id, {
+        name: key.replace(/_/g, ' '), sprite: row.sprite, weapon: kit.weapon ?? null,
+      });
     }
   }
 
@@ -247,6 +268,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: u.id, team: 'player', name: m.name, sprite: m.sprite,
         x: round(u.x), y: round(u.y), hp: Math.round(u.hp), maxHp: u.maxHp,
         phase: u.phase, aim: round(u.aim), reach: u.attack.reach, width: u.attack.width,
+        weapon: PLAYER_WEAPON,
       });
     }
     for (const e of sim.enemies) {
@@ -256,6 +278,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: e.id, team: 'enemy', name: meta?.name ?? 'thing', sprite: meta?.sprite ?? 'penguin',
         x: round(e.x), y: round(e.y), hp: Math.round(e.hp), maxHp: e.maxHp,
         phase: e.phase, aim: round(e.aim), reach: e.attack.reach, width: e.attack.width,
+        weapon: meta?.weapon ?? null,
       });
     }
     return out;

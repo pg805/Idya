@@ -359,14 +359,22 @@ body.gm-open #world-root { padding-left: 208px; }
 .map-token.sim.hurt .sim-hp { opacity: 1; }
 .sim-hp i { display: block; height: 100%; background: var(--teal); }
 
-/* The attack hitbox, drawn as the rectangle it is: swept from the body's centre
-   along the aim, so its origin is the left-middle of the box. Square corners,
-   because a 32px world has no rounded ones. */
-.sim-box {
-  position: absolute; left: 50%; top: 50%;
-  transform-origin: 0 50%; margin-top: -1px;
+/* The attack, swept from the body along the aim.
+   Both of these hang off the BODY, which is not the middle of the token: a
+   token is a tile tall and stands with its feet on the ground (translate -0.9
+   in map.js), so the body is at 90% of its height. Anchoring at 50% drew the
+   hitbox most of a tile high, floating above the thing it describes. */
+.sim-box, .sim-weapon {
+  position: absolute; left: 50%; top: 90%;
   pointer-events: none;
 }
+/* Origin at the left-middle, so the box sweeps outward from the body rather
+   than spinning about its own centre. Square corners, because a 32px world has
+   no rounded ones. */
+.sim-box { transform-origin: 0 50%; }
+/* The sword rotates about its own centre and is pushed out by the transform in
+   map.js, so the origin stays the default. */
+.sim-weapon { image-rendering: pixelated; }
 .sim-box.tell { background: var(--warn-bright); opacity: .34; outline: 1px solid var(--warn-bright); }
 .sim-box.live { background: var(--gold-dim); opacity: .72; outline: 1px solid var(--gold-bright); }
 

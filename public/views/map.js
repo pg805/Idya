@@ -252,13 +252,15 @@ window.Views.map = (function () {
             : '<div class="map-token-blank"></div>')
           + '<span class="map-token-name"></span>'
           + '<span class="sim-hp"><i></i></span>'
-          + '<span class="sim-box"></span>';
+          + '<span class="sim-box"></span>'
+          + '<img class="sim-weapon" alt="">';
         layer.appendChild(el);
         rec = {
           el,
           name: el.querySelector('.map-token-name'),
           hp: el.querySelector('.sim-hp i'),
           box: el.querySelector('.sim-box'),
+          weapon: el.querySelector('.sim-weapon'),
         };
         simUnits.set(u.id, rec);
       }
@@ -270,16 +272,40 @@ window.Views.map = (function () {
       rec.hp.style.width = `${Math.max(0, 100 * u.hp / u.maxHp)}%`;
       rec.el.classList.toggle('hurt', u.hp < u.maxHp);
 
-      // The attack, drawn as the rectangle it actually is: pale while winding
-      // up, solid while the hitbox is live.
+      // The attack. A unit with a weapon sprite swings the weapon; one without
+      // gets the hitbox rectangle, which is right for a beak or a claw and is
+      // still what a wind-up shows, since a drawn-back sword is animation.
       const live = u.phase === 'active';
       const tell = u.phase === 'tell';
-      rec.box.hidden = !(live || tell);
-      if (live || tell) {
+      const swings = live && !!u.weapon;
+
+      rec.box.hidden = !((live && !u.weapon) || tell);
+      if (!rec.box.hidden) {
+        const along = u.reach * cell, across = u.width * cell;
         rec.box.className = 'sim-box ' + (live ? 'live' : 'tell');
-        rec.box.style.width = `${u.reach * cell}px`;
-        rec.box.style.height = `${u.width * cell}px`;
+        rec.box.style.width = `${along}px`;
+        rec.box.style.height = `${across}px`;
+        // Centre the sweep on the body. This was a flat -1px, which left the
+        // rectangle sitting half its own height low.
+        rec.box.style.marginTop = `${-across / 2}px`;
         rec.box.style.transform = `rotate(${u.aim}rad)`;
+      }
+
+      rec.weapon.hidden = !swings;
+      if (swings) {
+        const len = u.reach * cell;
+        const src = spriteUrl(u.weapon);
+        if (rec.weapon.getAttribute('src') !== src) rec.weapon.setAttribute('src', src);
+        rec.weapon.style.width = `${len}px`;
+        rec.weapon.style.height = `${len}px`;
+        rec.weapon.style.marginLeft = `${-len / 2}px`;
+        rec.weapon.style.marginTop = `${-len / 2}px`;
+        // Read left to right, each step in the frame the last one left: turn to
+        // the aim, push out along it so the grip is at the body and the blade
+        // points away, then turn the sprite itself, which is drawn pointing up,
+        // a quarter so its up becomes the aim.
+        rec.weapon.style.transform =
+          `rotate(${u.aim}rad) translateX(${len / 2}px) rotate(90deg)`;
       }
       if (u.id === meId) {
         myTile = { x: Math.floor(u.x), y: Math.floor(u.y) };

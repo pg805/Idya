@@ -21,7 +21,7 @@ from PIL import Image
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
-LIB = os.environ.get('IDYA_ASSET_LIB', r'G:\Pixel Art\Asset Library')
+LIB = os.environ.get('IDYA_ASSET_LIB', r'D:\Pixel Art\Asset Library')
 OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'fonts')
 
 CELL = 8          # glyph cell, px
