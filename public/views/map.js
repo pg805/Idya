@@ -278,10 +278,17 @@ window.Views.map = (function () {
       const live = u.phase === 'active';
       const tell = u.phase === 'tell';
       const swings = live && !!u.weapon;
+      // Older servers did not send it; 0.34 is what every body has used.
+      const radius = u.r ?? 0.34;
 
       rec.box.hidden = !((live && !u.weapon) || tell);
       if (!rec.box.hidden) {
-        const along = u.reach * cell, across = u.width * cell;
+        // The swept length, matching sweptLength() in src/combat/realtime.ts:
+        // reach is measured from the body's EDGE, so the rectangle the engine
+        // tests is the radius plus the reach. A box drawn to reach alone was
+        // short by a radius and told the player they had less range than they
+        // do, which for an enemy telegraph is the wrong way to be wrong.
+        const along = (radius + u.reach) * cell, across = u.width * cell;
         rec.box.className = 'sim-box ' + (live ? 'live' : 'tell');
         rec.box.style.width = `${along}px`;
         rec.box.style.height = `${across}px`;
@@ -294,7 +301,7 @@ window.Views.map = (function () {
       rec.weapon.hidden = !swings;
       if (swings) {
         const len = u.reach * cell;
-        const grip = (u.r ?? 0.34) * cell;
+        const grip = radius * cell;
         const src = spriteUrl(u.weapon);
         if (rec.weapon.getAttribute('src') !== src) rec.weapon.setAttribute('src', src);
         rec.weapon.style.width = `${len}px`;
@@ -311,6 +318,10 @@ window.Views.map = (function () {
         // pinned at the centre the sword pivoted about one spot like a clock
         // hand, which read as lying on the floor; held at the edge it orbits
         // the body the way an arm carries it.
+        //
+        // It also lands exactly on the hitbox now. Grip at `radius`, tip at
+        // radius + reach, which is sweptLength() in src/combat/realtime.ts —
+        // the engine measures reach from the body's edge for this reason.
         rec.weapon.style.transform =
           `rotate(${u.aim}rad) translateX(${grip + len / 2}px) rotate(90deg)`;
       }

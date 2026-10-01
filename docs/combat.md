@@ -76,6 +76,17 @@ distinguishes weapons**: a thrust is long and thin, a swing is short and wide. O
 tile grid at reach 1 a thrust and a swing are both "the adjacent tile", so the
 difference could not be expressed at all without a weapon reaching three tiles.
 
+**Reach is measured from the body's edge, not its centre** (`sweptLength` in
+`src/combat/realtime.ts`), so the rectangle actually swept is the radius plus the
+reach. Two reasons. A weapon is held at the hand and reaches out from there, so
+measuring from the centre let a unit's own girth eat into its reach and a fatter
+enemy would have had a shorter one for free. And it is what lets the drawing tell
+the truth: a weapon sprite's grip sits on the body's edge and its tip on the far
+edge of the hitbox, both exactly, with the art at 1:1. The alternative was
+squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
+art into 21px and dropping rows of pixels. Enemies are measured the same way, so
+a telegraph is the length of the thing about to hit you.
+
 ### There is no tick the player can feel
 
 Movement and attacks run on the frame clock; cooldowns are milliseconds. The server

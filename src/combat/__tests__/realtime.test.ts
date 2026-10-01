@@ -1,5 +1,5 @@
 import {
-  stepWorld, driveEnemy, rectHitsCircle, exitDirection,
+  stepWorld, driveEnemy, rectHitsCircle, exitDirection, sweptLength,
   type RtUnit, type StepWorld, type AttackShape, type RtEvent,
 } from '../realtime.js';
 
@@ -70,6 +70,45 @@ describe('hitbox geometry', () => {
 
   test('works on the diagonal', () => {
     expect(rectHitsCircle(5, 5, Math.PI / 4, 1, 0.45, { x: 5.6, y: 5.6, r: 0.34 })).toBe(true);
+  });
+});
+
+describe('reach is measured from the body edge', () => {
+  // The renderer draws to this: a weapon's grip sits at `r` and its tip at
+  // sweptLength, so these numbers are what make the drawing honest rather than
+  // decorative. Changing the measure without changing map.js silently puts the
+  // sword back out of step with what it hits.
+  test('the swept rectangle is the radius plus the reach', () => {
+    expect(sweptLength(0.34, 1)).toBeCloseTo(1.34, 5);
+    expect(sweptLength(0, 1)).toBe(1);
+  });
+
+  test('a fatter body reaches further, rather than eating its own reach', () => {
+    expect(sweptLength(0.6, 1)).toBeGreaterThan(sweptLength(0.34, 1));
+  });
+
+  test('the drawn tip is the real boundary', () => {
+    // Head on, so the target's nearest surface is (distance - its radius) away.
+    // With r 0.34 and reach 1 the sweep ends at 1.34, so a 0.34 target is
+    // caught out to 1.68 between centres and not beyond it.
+    const swept = sweptLength(0.34, 1);
+    const hitAt = (d: number) =>
+      rectHitsCircle(5, 5, 0, swept, 0.45, { x: 5 + d, y: 5, r: 0.34 });
+    expect(hitAt(1.60)).toBe(true);
+    expect(hitAt(1.67)).toBe(true);
+    expect(hitAt(1.70)).toBe(false);
+    expect(hitAt(2.00)).toBe(false);
+  });
+
+  test('a swing lands on something the old centre-measured reach would have missed', () => {
+    // The gap this closed: just past reach-from-centre, comfortably inside
+    // reach-from-edge. Nothing should be standing in a dead band that the
+    // sword visibly covers.
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    const e = unit({ id: 'e', team: 'enemy', x: 6.5, y: 5 });
+    p.aim = 0; p.wantAttack = true;
+    run([p, e], world(), 4);
+    expect(e.hp).toBeLessThan(100);
   });
 });
 

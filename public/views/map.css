@@ -370,12 +370,16 @@ body.gm-open #world-root { padding-left: 208px; }
    covering a swallow's feet on screen is a rectangle that really hits it —
    draw it any higher and it would appear to cover a unit it misses.
 
-   The SWORD is held in a hand, so it goes at the sprite's middle. Its length is
-   a depiction and not a promise: it is drawn 1:1 (see the drawing queue in
-   docs/interface-art.md) and pushed out by a body radius, so its tip carries
-   that radius past where the hitbox actually stops. Scaling it to end exactly
-   on the reach would mean drawing 32px of art into 21px, which drops rows of
-   pixels and looks broken. A generous flourish for 120ms is the better trade. */
+   The SWORD is held in a hand, so it goes at the sprite's middle.
+
+   Its length is exact, not a flourish. The grip sits at the body radius and
+   the tip at radius + reach, which is sweptLength() in src/combat/realtime.ts
+   and the real far edge of the hitbox. Getting there meant moving the ENGINE,
+   not the art: reach is now measured from the body's edge rather than its
+   centre, so a 1:1 sword spans precisely what it hits. Squeezing the art to
+   fit a centre-measured reach instead would have meant drawing 32px into 21px,
+   dropping rows of pixels. Enemies are measured the same way, so a telegraph
+   is the length of the thing that is about to hit you. */
 .sim-box, .sim-weapon {
   position: absolute; left: 50%;
   pointer-events: none;

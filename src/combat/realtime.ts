@@ -24,7 +24,18 @@ export type Team = 'player' | 'enemy';
 
 /** What an attack looks like. The numbers a weapon will eventually carry. */
 export interface AttackShape {
-  /** How far the rectangle reaches, in tiles. */
+  /**
+   * How far the rectangle reaches BEYOND the body, in tiles.
+   *
+   * Measured from the body's edge, not its centre, so `sweptLength` is what
+   * actually gets swept. A weapon is held at the hand and reaches out from
+   * there; measuring from the centre made a unit's own girth eat into its
+   * reach, so a fatter enemy would have had a shorter one for free.
+   *
+   * It is also what lets the drawing tell the truth: the sword sprite's grip
+   * sits on the body's edge and its tip on the far edge of the hitbox, both
+   * exactly, with the art at 1:1.
+   */
   reach: number;
   /** How wide it is, in tiles. Narrow is a thrust, wide is a swing. */
   width: number;
@@ -137,11 +148,21 @@ function angleTo(a: number, b: number): number {
 }
 
 /**
+ * How far an attack sweeps from the body's CENTRE.
+ *
+ * `reach` is measured from the body's edge, so the swept rectangle is that plus
+ * the radius. One definition, because the renderer draws to it too: the client
+ * puts a weapon's grip at `r` and its tip here (see `.sim-weapon` in map.css).
+ */
+export const sweptLength = (r: number, reach: number): number => r + reach;
+
+/**
  * Does an oriented rectangle swept from (ux, uy) overlap a circle?
  *
  * The rectangle runs from the body's centre outward along `angle` for `len`,
- * `w` wide. Works by rotating the target into the rectangle's own frame, where
- * the nearest point is a clamp on each axis.
+ * `w` wide — so callers pass `sweptLength`, not `reach` on its own. Works by
+ * rotating the target into the rectangle's own frame, where the nearest point
+ * is a clamp on each axis.
  */
 export function rectHitsCircle(
   ux: number, uy: number, angle: number, len: number, w: number,
@@ -276,7 +297,8 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
     if (u.phase === 'active') {
       for (const t of live()) {
         if (t.team === u.team || u.struck.includes(t.id)) continue;
-        if (!rectHitsCircle(u.x, u.y, u.aim, u.attack.reach, u.attack.width, t)) continue;
+        const swept = sweptLength(u.r, u.attack.reach);
+        if (!rectHitsCircle(u.x, u.y, u.aim, swept, u.attack.width, t)) continue;
         u.struck.push(t.id);
         t.hp = Math.max(0, t.hp - u.attack.damage);
         events.push({ kind: 'hit', by: u.id, on: t.id, damage: u.attack.damage, at: { x: t.x, y: t.y } });
@@ -364,7 +386,7 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[], dtMs = 0): void {
   // Close to just inside reach, then commit. Stopping short of the hitbox's own
   // length keeps it from shuffling on the boundary. It runs the way it is
   // FACING, not straight at the target, so a turn is something you can see.
-  if (bestD > u.attack.reach * 0.85 + best.r) {
+  if (bestD > sweptLength(u.r, u.attack.reach) * 0.85 + best.r) {
     u.moveX = Math.cos(u.aim);
     u.moveY = Math.sin(u.aim);
   } else if (u.cool <= 0) {
