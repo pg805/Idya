@@ -320,11 +320,32 @@ window.Views.map = (function () {
    */
 
   /**
-   * Out and back: the tip, more of it, the whole sword, then back down the way
-   * it came. Three drawings for five frames, since 4 and 5 are 2 and 1 again,
-   * and the retreat reads as the hand pulling back.
+   * Out and back: 1..n, then back down to 1.
+   *
+   * The tip, more of it, the whole weapon, then the way it came — the retreat
+   * reads as the hand pulling in. Three drawings give five steps, which is the
+   * sword; five would give nine.
+   *
+   * The count arrives with the swing event, so a new melee weapon needs nothing
+   * in this file: it is an entry in MELEE in src/combat/melee.ts plus the
+   * drawings. This mirrors swingSequence() there, which is the definition and
+   * is the one with tests on it; the browser cannot import TypeScript.
    */
-  const THRUST_FRAMES = [1, 2, 3, 2, 1];
+  const outAndBack = (n) => {
+    const seq = [];
+    for (let i = 1; i <= n; i++) seq.push(i);
+    for (let i = n - 1; i >= 1; i--) seq.push(i);
+    return seq;
+  };
+
+  /** Built once per count rather than per frame. */
+  const frameSequences = new Map();
+  function sequenceFor(n) {
+    const count = (Number.isInteger(n) && n > 0) ? n : 3;
+    let seq = frameSequences.get(count);
+    if (!seq) { seq = outAndBack(count); frameSequences.set(count, seq); }
+    return seq;
+  }
 
   /** Weapons whose numbered frames 404; they fall back to the single sprite. */
   const framelessWeapons = new Set();
@@ -338,8 +359,8 @@ window.Views.map = (function () {
   const swingClocks = new Map();
   const tellClocks = new Map();
 
-  function noteSwing(id, ms) {
-    swingClocks.set(id, { start: performance.now(), ms: ms || 1 });
+  function noteSwing(id, ms, frames) {
+    swingClocks.set(id, { start: performance.now(), ms: ms || 1, seq: sequenceFor(frames) });
     tellClocks.delete(id);
   }
   function noteTell(id, ms) {
@@ -361,6 +382,7 @@ window.Views.map = (function () {
       const rec = simUnits.get(u.id);
       if (!rec) continue;
 
+      const swing = swingClocks.get(u.id);
       const swingT = clockAt(swingClocks, u.id, now);
       const tellT = clockAt(tellClocks, u.id, now);
       // The snapshot is the backstop for a clock that never started.
@@ -392,12 +414,13 @@ window.Views.map = (function () {
 
       rec.weapon.hidden = !swings;
       if (swings) {
-        // Without a clock there is no progress to read, so hold the full sword
-        // rather than guessing at a frame.
+        // Without a clock there is no progress to read, so hold the weapon
+        // fully extended rather than guessing at a frame.
+        const seq = swing?.seq ?? sequenceFor(3);
         const step = swingT === null
-          ? THRUST_FRAMES.length - 1
-          : Math.min(THRUST_FRAMES.length - 1, Math.floor(swingT * THRUST_FRAMES.length));
-        const frame = THRUST_FRAMES[step];
+          ? seq.length - 1
+          : Math.min(seq.length - 1, Math.floor(swingT * seq.length));
+        const frame = seq[step];
         if (rec.frame !== frame || rec.weaponName !== u.weapon) {
           rec.frame = frame;
           rec.weaponName = u.weapon;
@@ -1119,7 +1142,7 @@ window.Views.map = (function () {
         // A swing and a wind-up each start a clock, which is what the attack
         // frame loop animates from. The duration rides along on the shape, so
         // a weapon's own timing drives its animation.
-        if (ev.kind === 'swing') { noteSwing(ev.by, ev.shape?.activeMs); continue; }
+        if (ev.kind === 'swing') { noteSwing(ev.by, ev.shape?.activeMs, ev.frames); continue; }
         if (ev.kind === 'tell') { noteTell(ev.by, ev.shape?.tellMs); continue; }
         if (ev.kind !== 'hit') continue;
         const rec = simUnits.get(ev.on);

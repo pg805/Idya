@@ -97,6 +97,15 @@ A weapon swings through numbered frames beside its base sprite. The thrust is
 five frames from **three drawings** — `1, 2, 3, 2, 1` — so it goes out and comes
 back, and the retreat reads as the hand pulling in.
 
+**Any melee weapon gets this animation for free.** To add one: draw its frames,
+then add a line to `MELEE` in `src/combat/melee.ts` saying its sprite name, how
+many drawings there are, and its attack shape. Nothing in the renderer or the
+engine changes. The frame count drives the sequence (3 drawings make 5 steps, 5
+make 9), and the length is the attack's own `activeMs`, so a heavy weapon
+animates slowly without restating anything. `melee.test.ts` checks that every
+frame a weapon claims actually exists as a file, so a miscounted entry fails
+there rather than rendering a broken image.
+
 | Frame | Shows |
 |---|---|
 | `weapon_sword_01_1.png` | the tip, just clear of the body |
@@ -113,8 +122,16 @@ drawing. They animate correctly and their cut ends are blunt, which is what
 drawing them properly fixes. Overwrite any of the three; nothing needs rebuilding.
 
 Timing is not in the art. The animation's length is the weapon's `activeMs`, so
-the frames divide whatever the hitbox's live window is — 250ms and five frames
+the frames divide whatever the hitbox's live window is — 250ms and five steps
 means 50ms each. A weapon with a slower swing animates slower for free.
+
+Two rules the drawing has to follow, because the renderer depends on both:
+
+- **It points up**, tip on the top row and grip on the bottom. The renderer
+  turns "up" into the direction of the aim.
+- **It spans the whole canvas.** The grip lands on the body's edge and the tip
+  on the far edge of the hitbox, so padding at either end draws a weapon that
+  falls short of what it hits.
 
 A weapon with no numbered frames still swings; it just swings its single sprite,
 noted once when the first frame 404s.

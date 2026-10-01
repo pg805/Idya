@@ -4,8 +4,11 @@ import { CHUNK_SIZE, chunkKey, type Chunk } from '../world/chunk.js';
 import { ENEMY_KIND } from '../world/spawns.js';
 import {
   stepWorld, driveEnemy, exitDirection,
-  type AttackShape, type RtUnit, type StepWorld,
+  type AttackShape, type RtUnit, type StepWorld, type RtEvent,
 } from '../combat/realtime.js';
+// Weapons live apart so they can be read and tested without the database.
+// Adding one is an entry there plus the drawings; nothing here changes.
+import { MELEE, PLAYER_MELEE, type MeleeWeapon } from '../combat/melee.js';
 
 /**
  * The world, stepping.
@@ -51,60 +54,36 @@ const VISION_TILES = CHUNK_SIZE / 3;
  * Health from database/enemies/lithkem_swallow.yaml; the rest is the harness's
  * tuning, which is the only tuning that has ever been played.
  */
-/**
- * Pace. A swing's cycle is `tellMs + activeMs + coolMs`, because the cooldown
- * only starts once the hitbox closes — so `coolMs` is the dead time between
- * swings and the dial for how fast a thing attacks. `activeMs` is the
- * animation's length and changing it would change what you see.
- *
- * Tuned to roughly Hades' light attack, which chains about three a second.
- * The floor here is the animation: a new swing cannot start until the last one
- * finishes, so 250ms of thrust puts the ceiling at four a second however small
- * the cooldown gets.
- */
-const PLAYER_THRUST: AttackShape = {
-  // 350ms a swing held down, 2.9 a second, against 690ms and 1.45 before.
-  //
-  // Measured, not added up: `cool` is decremented at the top of a step and the
-  // start check runs later in the same one, so the last cooldown tick is also
-  // the tick the next swing begins on. The cycle is therefore one tick short of
-  // activeMs + coolMs — 7 ticks, not 8.
-  //
-  // activeMs is 5 server ticks and the animation's length: the hitbox is live
-  // for exactly as long as the sword is on screen, so what you see is what
-  // hits. A target is struck once per swing, so the rate IS the damage: 46/s
-  // against 23/s before.
-  reach: 1, width: 0.45, activeMs: 250, coolMs: 150, tellMs: 0, damage: 16,
-};
 const SWALLOW_PECK: AttackShape = {
   // 1000ms a peck, against 1538ms. The wind-up is untouched: it is the whole
   // dodge window, and the fight gets faster by closing the dead time after a
   // peck rather than by giving less warning before one.
   reach: 1, width: 0.5, activeMs: 140, coolMs: 500, tellMs: 360, damage: 7,
 };
-/**
- * `weapon` is the sprite a unit is seen swinging, drawn in place of the plain
- * hitbox rectangle. Cosmetic only, which is why it lives here and not on
- * `AttackShape`: the engine has no notion of sprites and should not grow one.
- * A kit without it keeps the rectangle, which is right for a beak or a claw.
- */
+
 interface EnemyKit {
-  hp: number; speed: number; vision: number; attack: AttackShape; weapon?: string;
+  hp: number;
+  speed: number;
+  vision: number;
+  /** A natural attack — a beak, a claw. Drawn as the plain hitbox rectangle. */
+  attack?: AttackShape;
+  /** Or a key into MELEE, which brings its shape and its sprite with it. */
+  melee?: string;
+}
+
+/** A kit's shape and its look, from whichever of the two it declares. */
+function kitWeapon(kit: EnemyKit): { attack: AttackShape; weapon: MeleeWeapon | null } {
+  const held = kit.melee ? MELEE[kit.melee] ?? null : null;
+  // A held weapon's shape wins: a thing swinging a sword swings a sword.
+  const attack = held?.attack ?? kit.attack;
+  if (!attack) throw new Error('an enemy kit needs either attack or melee');
+  return { attack, weapon: held };
 }
 const ENEMY_KITS: Record<string, EnemyKit> = {
   lithkem_swallow:  { hp: 20, speed: SWALLOW_SPEED,        vision: VISION_TILES, attack: SWALLOW_PECK },
   tutorial_swallow: { hp: 20, speed: SWALLOW_SPEED * 0.92, vision: VISION_TILES * 0.75, attack: SWALLOW_PECK },
 };
 const DEFAULT_KIT = ENEMY_KITS.lithkem_swallow;
-
-/**
- * What the player is seen holding.
- *
- * A constant because there is exactly one placeholder kit to hold anything. It
- * belongs to the weapon, so when weapons become real (docs/items.md) this reads
- * off the equipped one instead.
- */
-const PLAYER_WEAPON = 'weapon_sword_01';
 
 export interface SimInput {
   moveX: number;
@@ -149,7 +128,7 @@ interface Sim {
   members: Map<string, Member>;
   enemies: RtUnit[];
   /** Sprite and name per enemy id, for the wire. */
-  meta: Map<string, { name: string; sprite: string; weapon: string | null }>;
+  meta: Map<string, { name: string; sprite: string; weapon: MeleeWeapon | null }>;
   last: number;
 }
 
@@ -206,18 +185,19 @@ export function createWorldSim(deps: WorldSimDeps) {
       const data = (row.data ?? {}) as { enemy?: string };
       const key = data.enemy ?? 'lithkem_swallow';
       const kit = ENEMY_KITS[key] ?? DEFAULT_KIT;
+      const held = kitWeapon(kit);
       sim.enemies.push({
         id: row.id, ref: row.id, team: 'enemy',
         // Bodies stand in the middle of the tile they were placed on.
         x: row.tile_x + 0.5, y: row.tile_y + 0.5, r: 0.34,
-        hp: kit.hp, maxHp: kit.hp, speed: kit.speed, vision: kit.vision, attack: kit.attack,
+        hp: kit.hp, maxHp: kit.hp, speed: kit.speed, vision: kit.vision, attack: held.attack,
         moveX: 0, moveY: 0, aim: Math.random() * Math.PI * 2, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         // Staggered, so a freshly loaded flock does not turn in unison.
         wanderX: 0, wanderY: 0, wanderMs: Math.random() * 1200,
       });
       sim.meta.set(row.id, {
-        name: key.replace(/_/g, ' '), sprite: row.sprite, weapon: kit.weapon ?? null,
+        name: key.replace(/_/g, ' '), sprite: row.sprite, weapon: held.weapon,
       });
     }
   }
@@ -233,7 +213,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       unit: {
         id: args.socketId, ref: args.socketId, team: 'player',
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
-        hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0, attack: PLAYER_THRUST,
+        hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0, attack: MELEE[PLAYER_MELEE].attack,
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         wanderX: 0, wanderY: 0, wanderMs: 0,
@@ -289,6 +269,31 @@ export function createWorldSim(deps: WorldSimDeps) {
     if (sim) await loadEnemies(sim);
   }
 
+  /**
+   * How many drawings the thing swinging has, so the client can play them.
+   *
+   * Sent on the event rather than in every state frame: it never changes
+   * mid-swing, and the state goes out twenty times a second.
+   */
+  function framesFor(sim: Sim, id: string): number | undefined {
+    if (sim.members.has(id)) return MELEE[PLAYER_MELEE].frames;
+    return sim.meta.get(id)?.weapon?.frames;
+  }
+
+  /**
+   * Attach what the renderer needs to an engine event.
+   *
+   * `tell` used to be filtered out here, which left the enemy wind-up running
+   * off the phase field in the state frames instead of its own clock — so it
+   * inherited the same off-by-one the swing had, visible for one sample fewer
+   * than it is dangerous for. It goes out now.
+   */
+  function dress(sim: Sim, e: RtEvent): RtEvent & { frames?: number } {
+    if (e.kind !== 'swing' && e.kind !== 'tell') return e;
+    const frames = framesFor(sim, e.by);
+    return frames === undefined ? e : { ...e, frames };
+  }
+
   function wire(sim: Sim): UnitWire[] {
     const out: UnitWire[] = [];
     for (const m of sim.members.values()) {
@@ -297,7 +302,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: u.id, team: 'player', name: m.name, sprite: m.sprite,
         x: round(u.x), y: round(u.y), hp: Math.round(u.hp), maxHp: u.maxHp,
         phase: u.phase, aim: round(u.aim), reach: u.attack.reach, width: u.attack.width,
-        weapon: PLAYER_WEAPON, r: u.r,
+        weapon: MELEE[PLAYER_MELEE].sprite, r: u.r,
         swingAim: u.swingAim === undefined ? null : round(u.swingAim),
       });
     }
@@ -308,7 +313,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: e.id, team: 'enemy', name: meta?.name ?? 'thing', sprite: meta?.sprite ?? 'penguin',
         x: round(e.x), y: round(e.y), hp: Math.round(e.hp), maxHp: e.maxHp,
         phase: e.phase, aim: round(e.aim), reach: e.attack.reach, width: e.attack.width,
-        weapon: meta?.weapon ?? null, r: e.r,
+        weapon: meta?.weapon?.sprite ?? null, r: e.r,
         swingAim: e.swingAim === undefined ? null : round(e.swingAim),
       });
     }
@@ -356,9 +361,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       const room = deps.chatRoom(sim.chunk);
       deps.io.to(room).emit('sim:state', { units: wire(sim) });
       if (events.length) {
-        deps.io.to(room).emit('sim:events', {
-          events: events.filter(e => e.kind !== 'tell'),
-        });
+        deps.io.to(room).emit('sim:events', { events: events.map(e => dress(sim, e)) });
       }
     }
   }
