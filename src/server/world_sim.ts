@@ -104,6 +104,8 @@ interface UnitWire {
   width: number;
   /** Sprite to draw mid-swing; null means draw the hitbox rectangle. */
   weapon: string | null;
+  /** Body radius in tiles. The client hangs a held weapon off it. */
+  r: number;
 }
 
 interface Member {
@@ -268,7 +270,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: u.id, team: 'player', name: m.name, sprite: m.sprite,
         x: round(u.x), y: round(u.y), hp: Math.round(u.hp), maxHp: u.maxHp,
         phase: u.phase, aim: round(u.aim), reach: u.attack.reach, width: u.attack.width,
-        weapon: PLAYER_WEAPON,
+        weapon: PLAYER_WEAPON, r: u.r,
       });
     }
     for (const e of sim.enemies) {
@@ -278,7 +280,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: e.id, team: 'enemy', name: meta?.name ?? 'thing', sprite: meta?.sprite ?? 'penguin',
         x: round(e.x), y: round(e.y), hp: Math.round(e.hp), maxHp: e.maxHp,
         phase: e.phase, aim: round(e.aim), reach: e.attack.reach, width: e.attack.width,
-        weapon: meta?.weapon ?? null,
+        weapon: meta?.weapon ?? null, r: e.r,
       });
     }
     return out;

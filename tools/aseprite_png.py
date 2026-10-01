@@ -3,22 +3,26 @@ Export a .aseprite file to PNG, without Aseprite.
 
     python tools/aseprite_png.py <in.aseprite> <out.png> [--preview]
 
-Aseprite's own CLI (`aseprite -b in.aseprite --save-as out.png`) is the right
-tool and does more than this. It is not installed on this machine, and an item
-icon is one 32x32 drawing, so this reads the format directly instead: header,
-palette chunk, cel chunk, composite, write a PNG. Pure stdlib, no pillow.
+Prefers Aseprite's own CLI, which is authoritative. Set IDYA_ASEPRITE to its
+exe, or let it be found in the usual Steam places. `--pure` skips it.
 
-What it handles: indexed (8-bit) and RGBA (32-bit) colour depth, one or many
-layers composited in order, the modern palette chunk and both old ones. What it
-does not: grayscale, blend modes other than normal, layer opacity, tilemaps,
-and frames past the first. It raises rather than guessing on any of those.
+Without it, falls back to reading the format directly: header, palette chunk,
+cel chunk, composite, write a PNG. Pure stdlib, no pillow. That path handles
+indexed (8-bit) and RGBA (32-bit) depth, one or many layers composited in
+order, and the modern palette chunk plus both old ones; it raises rather than
+guessing on grayscale, blend modes other than normal, layer opacity, tilemaps,
+and frames past the first. It was written before Aseprite turned up here and
+is kept because it agrees with the CLI pixel for pixel and needs nothing
+installed.
 
 --preview prints the drawing as ASCII and lists the colours it used, which is
 how you check an export without opening it.
 
 Format reference: https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md
 """
+import os
 import struct
+import subprocess
 import sys
 import zlib
 
@@ -169,16 +173,47 @@ def preview(w, h, pixels):
         print(f'    {key}  x{n}')
 
 
+# Where Aseprite tends to be. The Steam entry is a library on another drive,
+# which is why this is a list and not one path.
+ASEPRITE_CANDIDATES = (
+    r'G:\SteamLibrary\steamapps\common\Aseprite\Aseprite.exe',
+    r'C:\Program Files\Steam\steamapps\common\Aseprite\Aseprite.exe',
+    r'C:\Program Files\Aseprite\Aseprite.exe',
+    r'D:\SteamLibrary\steamapps\common\Aseprite\Aseprite.exe',
+)
+
+
+def find_aseprite():
+    """The Aseprite exe, or None to use the built-in reader."""
+    named = os.environ.get('IDYA_ASEPRITE')
+    if named:
+        return named if os.path.exists(named) else None
+    for path in ASEPRITE_CANDIDATES:
+        if os.path.exists(path):
+            return path
+    return None
+
+
 def main(argv):
     if len(argv) < 3:
         print(__doc__.strip())
         return 2
     src, dest = argv[1], argv[2]
-    w, h, pixels = read_aseprite(src)
+
+    # Preview reads the source either way, since it is the drawing that is
+    # being checked and not the export.
     if '--preview' in argv:
+        w, h, pixels = read_aseprite(src)
         preview(w, h, pixels)
-    size = write_png(dest, w, h, pixels)
-    print(f'{src} -> {dest}  {w}x{h}, {size} bytes')
+
+    exe = None if '--pure' in argv else find_aseprite()
+    if exe:
+        subprocess.run([exe, '-b', src, '--save-as', dest], check=True)
+        print(f'{src} -> {dest}  via {os.path.basename(exe)}')
+    else:
+        w, h, pixels = read_aseprite(src)
+        size = write_png(dest, w, h, pixels)
+        print(f'{src} -> {dest}  {w}x{h}, {size} bytes  (built-in reader)')
     return 0
 
 

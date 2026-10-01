@@ -294,6 +294,7 @@ window.Views.map = (function () {
       rec.weapon.hidden = !swings;
       if (swings) {
         const len = u.reach * cell;
+        const grip = (u.r ?? 0.34) * cell;
         const src = spriteUrl(u.weapon);
         if (rec.weapon.getAttribute('src') !== src) rec.weapon.setAttribute('src', src);
         rec.weapon.style.width = `${len}px`;
@@ -301,11 +302,17 @@ window.Views.map = (function () {
         rec.weapon.style.marginLeft = `${-len / 2}px`;
         rec.weapon.style.marginTop = `${-len / 2}px`;
         // Read left to right, each step in the frame the last one left: turn to
-        // the aim, push out along it so the grip is at the body and the blade
-        // points away, then turn the sprite itself, which is drawn pointing up,
-        // a quarter so its up becomes the aim.
+        // the aim, push out far enough that the GRIP sits on the body's edge
+        // rather than at its centre, then turn the sprite itself, which is
+        // drawn pointing up, a quarter so its up becomes the aim.
+        //
+        // The push is the body radius plus half the sword, which puts the grip
+        // a radius out and the blade beyond it. That radius is the whole point:
+        // pinned at the centre the sword pivoted about one spot like a clock
+        // hand, which read as lying on the floor; held at the edge it orbits
+        // the body the way an arm carries it.
         rec.weapon.style.transform =
-          `rotate(${u.aim}rad) translateX(${len / 2}px) rotate(90deg)`;
+          `rotate(${u.aim}rad) translateX(${grip + len / 2}px) rotate(90deg)`;
       }
       if (u.id === meId) {
         myTile = { x: Math.floor(u.x), y: Math.floor(u.y) };

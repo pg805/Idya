@@ -359,22 +359,34 @@ body.gm-open #world-root { padding-left: 208px; }
 .map-token.sim.hurt .sim-hp { opacity: 1; }
 .sim-hp i { display: block; height: 100%; background: var(--teal); }
 
-/* The attack, swept from the body along the aim.
-   Both of these hang off the BODY, which is not the middle of the token: a
-   token is a tile tall and stands with its feet on the ground (translate -0.9
-   in map.js), so the body is at 90% of its height. Anchoring at 50% drew the
-   hitbox most of a tile high, floating above the thing it describes. */
+/* The attack, swept along the aim. The two halves hang off deliberately
+   different heights, and the reason is worth keeping.
+
+   A token is a tile tall and stands with its feet on the ground (translate -0.9
+   in map.js), so the unit's actual position is 90% down it.
+
+   The RECTANGLE is a world-space hitbox, so it goes there, on the ground plane.
+   Everyone else's body is drawn at that same height, which means a rectangle
+   covering a swallow's feet on screen is a rectangle that really hits it —
+   draw it any higher and it would appear to cover a unit it misses.
+
+   The SWORD is held in a hand, so it goes at the sprite's middle. Its length is
+   a depiction and not a promise: it is drawn 1:1 (see the drawing queue in
+   docs/interface-art.md) and pushed out by a body radius, so its tip carries
+   that radius past where the hitbox actually stops. Scaling it to end exactly
+   on the reach would mean drawing 32px of art into 21px, which drops rows of
+   pixels and looks broken. A generous flourish for 120ms is the better trade. */
 .sim-box, .sim-weapon {
-  position: absolute; left: 50%; top: 90%;
+  position: absolute; left: 50%;
   pointer-events: none;
 }
-/* Origin at the left-middle, so the box sweeps outward from the body rather
-   than spinning about its own centre. Square corners, because a 32px world has
-   no rounded ones. */
-.sim-box { transform-origin: 0 50%; }
-/* The sword rotates about its own centre and is pushed out by the transform in
-   map.js, so the origin stays the default. */
-.sim-weapon { image-rendering: pixelated; }
+/* On the ground plane, and with its origin at the left-middle so it sweeps
+   outward from the body rather than spinning about its own centre. Square
+   corners, because a 32px world has no rounded ones. */
+.sim-box { top: 90%; transform-origin: 0 50%; }
+/* At the sprite's middle. It rotates about its own centre and is pushed out to
+   the body's edge by the transform in map.js, so the origin stays default. */
+.sim-weapon { top: 50%; image-rendering: pixelated; }
 .sim-box.tell { background: var(--warn-bright); opacity: .34; outline: 1px solid var(--warn-bright); }
 .sim-box.live { background: var(--gold-dim); opacity: .72; outline: 1px solid var(--gold-bright); }
 

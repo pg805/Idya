@@ -95,11 +95,15 @@ needs the new L1 ids first (`items.md`), which are still open.
 
 `python tools/aseprite_png.py <in.aseprite> <out.png> [--preview]`.
 
-Aseprite's own CLI is the right tool and is not installed here, so that script
-reads the format directly: indexed or RGBA, any number of layers, no pillow.
+Uses Aseprite's own CLI, found in the usual Steam places or named by
+`IDYA_ASEPRITE`. If it is not there, the script reads the format itself
+instead — indexed or RGBA, any number of layers, stdlib only — so an export
+never depends on the machine. The two agree pixel for pixel; `--pure` forces
+the built-in reader, which is how that gets checked.
+
 `--preview` prints the drawing as ASCII and lists its colours, which is how to
-check an export without opening it — and how the sword's four colours were
-confirmed to be palette entries.
+check a drawing without opening it, and how the sword's four were confirmed to
+be palette entries.
 
 ### World props: through the Asset Library
 
