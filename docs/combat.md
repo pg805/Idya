@@ -111,10 +111,24 @@ a duration, which covers the whole window and runs at the browser's frame rate
 rather than the server's twenty. The phase field is still read as a backstop for
 joining mid-swing or losing the event.
 
-The cooldown runs from the END of the active window, so a longer swing is a
-longer cycle: 250 + 500 = 750ms, against 620ms before. Lengthening the window
-makes connecting with a moving target more forgiving without making the weapon
-stronger, because the damage is still one hit per swing.
+**The cooldown runs from the END of the active window**, so a swing's cycle is
+`tellMs + activeMs + coolMs` and `coolMs` is the dial for attack rate. `activeMs`
+is the animation's length, so it is not: changing it changes what you see.
+
+Pace is roughly Hades' light attack. The player thrusts every **350ms**, 2.9 a
+second; a swallow pecks every **1000ms**. The floor is the animation — a swing
+cannot start until the last one finishes — so 250ms of thrust caps the player at
+four a second however small the cooldown gets.
+
+Those are measured rather than added up, and they come out one tick short of
+`activeMs + coolMs`: `cool` is decremented at the top of a step and the start
+check runs later in the same one, so the last cooldown tick is also the tick the
+next swing begins on.
+
+A target is struck once per swing, so **rate is damage** here. Tune the feel on
+`coolMs` with that in mind, and note what it does to the enemy side too: an
+enemy's `tellMs` is the whole dodge window, so speed its attacks up by closing
+the dead time after one rather than by giving less warning before it.
 
 ### There is no tick the player can feel
 

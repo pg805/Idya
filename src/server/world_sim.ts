@@ -51,20 +51,36 @@ const VISION_TILES = CHUNK_SIZE / 3;
  * Health from database/enemies/lithkem_swallow.yaml; the rest is the harness's
  * tuning, which is the only tuning that has ever been played.
  */
+/**
+ * Pace. A swing's cycle is `tellMs + activeMs + coolMs`, because the cooldown
+ * only starts once the hitbox closes — so `coolMs` is the dead time between
+ * swings and the dial for how fast a thing attacks. `activeMs` is the
+ * animation's length and changing it would change what you see.
+ *
+ * Tuned to roughly Hades' light attack, which chains about three a second.
+ * The floor here is the animation: a new swing cannot start until the last one
+ * finishes, so 250ms of thrust puts the ceiling at four a second however small
+ * the cooldown gets.
+ */
 const PLAYER_THRUST: AttackShape = {
-  // activeMs is 5 server ticks, which is the thrust animation's length: the
-  // hitbox is live for exactly as long as the sword is on screen, so what you
-  // see is what hits. 120ms was 2.4 ticks, which drew on two and struck on
-  // three.
+  // 350ms a swing held down, 2.9 a second, against 690ms and 1.45 before.
   //
-  // The cooldown runs from the END of the active window, so lengthening it
-  // lengthens the whole cycle: 250 + 500 = 750ms a swing, against 620 before.
-  // A target is struck once per swing, so this is slower per hit rather than
-  // stronger, and the extra window buys forgiveness on a moving target.
-  reach: 1, width: 0.45, activeMs: 250, coolMs: 500, tellMs: 0, damage: 16,
+  // Measured, not added up: `cool` is decremented at the top of a step and the
+  // start check runs later in the same one, so the last cooldown tick is also
+  // the tick the next swing begins on. The cycle is therefore one tick short of
+  // activeMs + coolMs — 7 ticks, not 8.
+  //
+  // activeMs is 5 server ticks and the animation's length: the hitbox is live
+  // for exactly as long as the sword is on screen, so what you see is what
+  // hits. A target is struck once per swing, so the rate IS the damage: 46/s
+  // against 23/s before.
+  reach: 1, width: 0.45, activeMs: 250, coolMs: 150, tellMs: 0, damage: 16,
 };
 const SWALLOW_PECK: AttackShape = {
-  reach: 1, width: 0.5, activeMs: 140, coolMs: 1100, tellMs: 360, damage: 7,
+  // 1000ms a peck, against 1538ms. The wind-up is untouched: it is the whole
+  // dodge window, and the fight gets faster by closing the dead time after a
+  // peck rather than by giving less warning before one.
+  reach: 1, width: 0.5, activeMs: 140, coolMs: 500, tellMs: 360, damage: 7,
 };
 /**
  * `weapon` is the sprite a unit is seen swinging, drawn in place of the plain
