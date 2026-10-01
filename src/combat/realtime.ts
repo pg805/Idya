@@ -89,6 +89,16 @@ export interface RtUnit {
   phase: Phase;
   /** Milliseconds left in the current phase. */
   tLeft: number;
+  /**
+   * The aim a swing committed to, held for its whole active window.
+   *
+   * The hit test used `aim` live, which re-read the mouse every tick. Harmless
+   * at a 120ms window; at 250ms it meant one swing could be spun through a full
+   * circle and catch everything around you, since a target is only struck once
+   * per swing but the rectangle kept moving. A thrust goes where it was
+   * pointed. Undefined outside a swing.
+   */
+  swingAim?: number;
   /** Milliseconds until the attack is available. */
   cool: number;
   /** Ids already hit by the swing in flight, so one swing lands once each. */
@@ -277,6 +287,7 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
     } else {
       u.phase = 'active';
       u.tLeft = u.attack.activeMs;
+      u.swingAim = u.aim;
       events.push({ kind: 'swing', by: u.id, aim: u.aim, shape: u.attack });
     }
   }
@@ -291,6 +302,10 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       u.phase = 'active';
       u.tLeft = u.attack.activeMs;
       u.struck = [];
+      // Committed here rather than at the tell, so a wind-up can still be
+      // turned: the telegraph shows where it is going and the last moment to
+      // read it is the moment it commits.
+      u.swingAim = u.aim;
       events.push({ kind: 'swing', by: u.id, aim: u.aim, shape: u.attack });
     }
 
@@ -298,7 +313,8 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       for (const t of live()) {
         if (t.team === u.team || u.struck.includes(t.id)) continue;
         const swept = sweptLength(u.r, u.attack.reach);
-        if (!rectHitsCircle(u.x, u.y, u.aim, swept, u.attack.width, t)) continue;
+        const aimed = u.swingAim ?? u.aim;
+        if (!rectHitsCircle(u.x, u.y, aimed, swept, u.attack.width, t)) continue;
         u.struck.push(t.id);
         t.hp = Math.max(0, t.hp - u.attack.damage);
         events.push({ kind: 'hit', by: u.id, on: t.id, damage: u.attack.damage, at: { x: t.x, y: t.y } });
@@ -311,6 +327,7 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       if (u.tLeft <= 0) {
         u.phase = 'idle';
         u.cool = u.attack.coolMs;
+        u.swingAim = undefined;
       }
     }
   }

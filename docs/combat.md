@@ -87,6 +87,35 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
+### A swing commits to its aim, and is drawn for exactly as long as it hits
+
+The hitbox is live for `activeMs`, and that is also the animation's length, so
+**what is on screen is what hits**. The player thrust is 250ms, five server
+ticks, which is five animation frames at one tick each.
+
+Two things follow from making the window that long.
+
+**The aim is committed when the swing goes live** (`swingAim` in
+`src/combat/realtime.ts`). The hit test used to re-read `aim` every active tick,
+which was harmless over 120ms and a spin attack over 250ms: a target is struck
+once per swing, so sweeping the mouse through a circle caught everything around
+you off one press. A thrust goes where it was pointed. An enemy's wind-up still
+turns, because it commits on release rather than at the start, so the telegraph
+stays readable right up to the moment it means something.
+
+**The client animates off the `swing` and `tell` events, not the phase field.**
+A 250ms window is five ticks but the phase field is only sampled on four: the
+fifth sets itself idle before the state goes out while still running its hit
+check, so a blow could land from a sword that was never drawn. An event carries
+a duration, which covers the whole window and runs at the browser's frame rate
+rather than the server's twenty. The phase field is still read as a backstop for
+joining mid-swing or losing the event.
+
+The cooldown runs from the END of the active window, so a longer swing is a
+longer cycle: 250 + 500 = 750ms, against 620ms before. Lengthening the window
+makes connecting with a moving target more forgiving without making the weapon
+stronger, because the damage is still one hit per swing.
+
 ### There is no tick the player can feel
 
 Movement and attacks run on the frame clock; cooldowns are milliseconds. The server

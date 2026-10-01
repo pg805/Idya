@@ -52,7 +52,16 @@ const VISION_TILES = CHUNK_SIZE / 3;
  * tuning, which is the only tuning that has ever been played.
  */
 const PLAYER_THRUST: AttackShape = {
-  reach: 1, width: 0.45, activeMs: 120, coolMs: 500, tellMs: 0, damage: 16,
+  // activeMs is 5 server ticks, which is the thrust animation's length: the
+  // hitbox is live for exactly as long as the sword is on screen, so what you
+  // see is what hits. 120ms was 2.4 ticks, which drew on two and struck on
+  // three.
+  //
+  // The cooldown runs from the END of the active window, so lengthening it
+  // lengthens the whole cycle: 250 + 500 = 750ms a swing, against 620 before.
+  // A target is struck once per swing, so this is slower per hit rather than
+  // stronger, and the extra window buys forgiveness on a moving target.
+  reach: 1, width: 0.45, activeMs: 250, coolMs: 500, tellMs: 0, damage: 16,
 };
 const SWALLOW_PECK: AttackShape = {
   reach: 1, width: 0.5, activeMs: 140, coolMs: 1100, tellMs: 360, damage: 7,
@@ -106,6 +115,8 @@ interface UnitWire {
   weapon: string | null;
   /** Body radius in tiles. The client hangs a held weapon off it. */
   r: number;
+  /** The aim a swing committed to, or null when not swinging. */
+  swingAim: number | null;
 }
 
 interface Member {
@@ -271,6 +282,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         x: round(u.x), y: round(u.y), hp: Math.round(u.hp), maxHp: u.maxHp,
         phase: u.phase, aim: round(u.aim), reach: u.attack.reach, width: u.attack.width,
         weapon: PLAYER_WEAPON, r: u.r,
+        swingAim: u.swingAim === undefined ? null : round(u.swingAim),
       });
     }
     for (const e of sim.enemies) {
@@ -281,6 +293,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         x: round(e.x), y: round(e.y), hp: Math.round(e.hp), maxHp: e.maxHp,
         phase: e.phase, aim: round(e.aim), reach: e.attack.reach, width: e.attack.width,
         weapon: meta?.weapon ?? null, r: e.r,
+        swingAim: e.swingAim === undefined ? null : round(e.swingAim),
       });
     }
     return out;

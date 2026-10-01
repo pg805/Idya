@@ -39,6 +39,8 @@ window.Views.map = (function () {
   // ~20x a second and the tokens are driven straight off it, so the old
   // step-and-animate path is no longer what moves anybody.
   const simUnits = new Map();     // id -> { wire, el, bar, box }
+  let simState = [];              // the last state, for the attack frame loop
+  let attackLoop = null;          // requestAnimationFrame handle
   let simTimer = null;
   let aim = 0;
   let wantAttack = false;
@@ -237,6 +239,8 @@ window.Views.map = (function () {
   function renderSim(units) {
     const layer = tokenLayer();
     if (!layer || !cell) return;
+    simState = units;
+    startAttackLoop();
     const seen = new Set();
 
     for (const u of units) {
@@ -262,6 +266,14 @@ window.Views.map = (function () {
           box: el.querySelector('.sim-box'),
           weapon: el.querySelector('.sim-weapon'),
         };
+        // A weapon that has not been drawn frame by frame yet still swings; it
+        // just swings one picture. Noted so the next frame stops asking.
+        rec.weapon.addEventListener('error', () => {
+          const name = rec.weaponName;
+          if (!name || framelessWeapons.has(name)) return;
+          framelessWeapons.add(name);
+          rec.weapon.setAttribute('src', spriteUrl(name));
+        });
         simUnits.set(u.id, rec);
       }
       rec.el.style.width = `${cell}px`;
@@ -272,14 +284,94 @@ window.Views.map = (function () {
       rec.hp.style.width = `${Math.max(0, 100 * u.hp / u.maxHp)}%`;
       rec.el.classList.toggle('hurt', u.hp < u.maxHp);
 
-      // The attack. A unit with a weapon sprite swings the weapon; one without
-      // gets the hitbox rectangle, which is right for a beak or a claw and is
-      // still what a wind-up shows, since a drawn-back sword is animation.
-      const live = u.phase === 'active';
-      const tell = u.phase === 'tell';
+      // The attack is NOT drawn here. It runs on its own frame loop below, so
+      // the swing animates at the browser's rate instead of the server's 20.
+      if (u.id === meId) {
+        myTile = { x: Math.floor(u.x), y: Math.floor(u.y) };
+        focus = { x: u.x, y: u.y };
+        updateCamera(true);
+      }
+    }
+
+    for (const [id, rec] of simUnits) {
+      if (seen.has(id)) continue;
+      rec.el.remove();
+      simUnits.delete(id);
+    }
+  }
+
+  /**
+   * The swing, on its own clock.
+   *
+   * Driven by the `swing` and `tell` EVENTS rather than the phase field in each
+   * snapshot, for three reasons that all bite at once.
+   *
+   * A 250ms window is five server ticks, and the phase field is only sampled on
+   * four of them: the fifth sets itself idle before the state goes out, while
+   * still running its hit check, so a blow could land from a sword that was
+   * never drawn. An event plus a duration covers the whole window.
+   *
+   * Five frames across four samples cannot be animated at all. On a clock the
+   * animation runs at the browser's frame rate and its length comes from the
+   * shape, so a heavier weapon animates longer without anyone restating it.
+   *
+   * The phase field is still consulted as a backstop: joining mid-swing, or
+   * losing the event, leaves the clock empty and the snapshot is all there is.
+   */
+
+  /**
+   * Out and back: the tip, more of it, the whole sword, then back down the way
+   * it came. Three drawings for five frames, since 4 and 5 are 2 and 1 again,
+   * and the retreat reads as the hand pulling back.
+   */
+  const THRUST_FRAMES = [1, 2, 3, 2, 1];
+
+  /** Weapons whose numbered frames 404; they fall back to the single sprite. */
+  const framelessWeapons = new Set();
+
+  function weaponFrameUrl(weapon, n) {
+    if (framelessWeapons.has(weapon)) return spriteUrl(weapon);
+    return spriteUrl(`${weapon}_${n}`);
+  }
+
+  /** Clocks started by events, keyed by unit: when it began and how long. */
+  const swingClocks = new Map();
+  const tellClocks = new Map();
+
+  function noteSwing(id, ms) {
+    swingClocks.set(id, { start: performance.now(), ms: ms || 1 });
+    tellClocks.delete(id);
+  }
+  function noteTell(id, ms) {
+    tellClocks.set(id, { start: performance.now(), ms: ms || 1 });
+  }
+
+  /** How far through a clock, or null when it has run out or never started. */
+  function clockAt(clocks, id, now) {
+    const c = clocks.get(id);
+    if (!c) return null;
+    const t = (now - c.start) / c.ms;
+    if (t >= 1) { clocks.delete(id); return null; }
+    return t < 0 ? 0 : t;
+  }
+
+  function paintAttacks(now) {
+    if (!cell) return;
+    for (const u of simState) {
+      const rec = simUnits.get(u.id);
+      if (!rec) continue;
+
+      const swingT = clockAt(swingClocks, u.id, now);
+      const tellT = clockAt(tellClocks, u.id, now);
+      // The snapshot is the backstop for a clock that never started.
+      const live = swingT !== null || u.phase === 'active';
+      const tell = swingT === null && (tellT !== null || u.phase === 'tell');
       const swings = live && !!u.weapon;
-      // Older servers did not send it; 0.34 is what every body has used.
       const radius = u.r ?? 0.34;
+      // A committed swing keeps the angle it was thrown at; see swingAim in
+      // src/combat/realtime.ts. Falls back to the live facing for a wind-up,
+      // which is still being aimed.
+      const angle = (live && u.swingAim != null) ? u.swingAim : u.aim;
 
       rec.box.hidden = !((live && !u.weapon) || tell);
       if (!rec.box.hidden) {
@@ -295,15 +387,25 @@ window.Views.map = (function () {
         // Centre the sweep on the body. This was a flat -1px, which left the
         // rectangle sitting half its own height low.
         rec.box.style.marginTop = `${-across / 2}px`;
-        rec.box.style.transform = `rotate(${u.aim}rad)`;
+        rec.box.style.transform = `rotate(${angle}rad)`;
       }
 
       rec.weapon.hidden = !swings;
       if (swings) {
+        // Without a clock there is no progress to read, so hold the full sword
+        // rather than guessing at a frame.
+        const step = swingT === null
+          ? THRUST_FRAMES.length - 1
+          : Math.min(THRUST_FRAMES.length - 1, Math.floor(swingT * THRUST_FRAMES.length));
+        const frame = THRUST_FRAMES[step];
+        if (rec.frame !== frame || rec.weaponName !== u.weapon) {
+          rec.frame = frame;
+          rec.weaponName = u.weapon;
+          rec.weapon.setAttribute('src', weaponFrameUrl(u.weapon, frame));
+        }
+
         const len = u.reach * cell;
         const grip = radius * cell;
-        const src = spriteUrl(u.weapon);
-        if (rec.weapon.getAttribute('src') !== src) rec.weapon.setAttribute('src', src);
         rec.weapon.style.width = `${len}px`;
         rec.weapon.style.height = `${len}px`;
         rec.weapon.style.marginLeft = `${-len / 2}px`;
@@ -314,29 +416,27 @@ window.Views.map = (function () {
         // drawn pointing up, a quarter so its up becomes the aim.
         //
         // The push is the body radius plus half the sword, which puts the grip
-        // a radius out and the blade beyond it. That radius is the whole point:
-        // pinned at the centre the sword pivoted about one spot like a clock
-        // hand, which read as lying on the floor; held at the edge it orbits
-        // the body the way an arm carries it.
-        //
-        // It also lands exactly on the hitbox now. Grip at `radius`, tip at
-        // radius + reach, which is sweptLength() in src/combat/realtime.ts —
-        // the engine measures reach from the body's edge for this reason.
+        // a radius out and the blade beyond it. Pinned at the centre the sword
+        // pivoted about one spot like a clock hand and read as lying on the
+        // floor; held at the edge it orbits the body the way an arm carries it.
+        // Grip at `radius`, tip at radius + reach, which is sweptLength() in
+        // src/combat/realtime.ts, so both ends sit on the real hitbox.
         rec.weapon.style.transform =
-          `rotate(${u.aim}rad) translateX(${grip + len / 2}px) rotate(90deg)`;
-      }
-      if (u.id === meId) {
-        myTile = { x: Math.floor(u.x), y: Math.floor(u.y) };
-        focus = { x: u.x, y: u.y };
-        updateCamera(true);
+          `rotate(${angle}rad) translateX(${grip + len / 2}px) rotate(90deg)`;
+      } else if (rec.frame !== undefined) {
+        rec.frame = undefined;          // so the next swing starts at frame 1
       }
     }
+  }
 
-    for (const [id, rec] of simUnits) {
-      if (seen.has(id)) continue;
-      rec.el.remove();
-      simUnits.delete(id);
-    }
+  function startAttackLoop() {
+    if (attackLoop !== null) return;
+    const step = (now) => {
+      if (!tokenLayer()) { attackLoop = null; return; }
+      paintAttacks(now);
+      attackLoop = requestAnimationFrame(step);
+    };
+    attackLoop = requestAnimationFrame(step);
   }
 
   /** Draw everyone we know about into the current layer. Safe to call twice. */
@@ -1016,6 +1116,11 @@ window.Views.map = (function () {
 
     socket.on('sim:events', ({ events }) => {
       for (const ev of events ?? []) {
+        // A swing and a wind-up each start a clock, which is what the attack
+        // frame loop animates from. The duration rides along on the shape, so
+        // a weapon's own timing drives its animation.
+        if (ev.kind === 'swing') { noteSwing(ev.by, ev.shape?.activeMs); continue; }
+        if (ev.kind === 'tell') { noteTell(ev.by, ev.shape?.tellMs); continue; }
         if (ev.kind !== 'hit') continue;
         const rec = simUnits.get(ev.on);
         if (!rec) continue;

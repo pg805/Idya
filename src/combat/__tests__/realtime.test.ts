@@ -232,6 +232,74 @@ describe('attacks', () => {
   });
 });
 
+describe('a swing commits to its aim', () => {
+  // The window is five ticks long so the animation has frames to play. That
+  // made the old behaviour — re-reading `aim` on every active tick — into a
+  // spin attack: a target is struck once per swing, so sweeping the mouse
+  // through a circle caught everything standing around you off one press.
+  const SPIN: AttackShape = {
+    reach: 1, width: 0.45, activeMs: 250, coolMs: 500, tellMs: 0, damage: 16,
+  };
+
+  test('turning mid-swing does not drag the hitbox round', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: SPIN });
+    const front = unit({ id: 'front', team: 'enemy', x: 6, y: 5 });
+    const behind = unit({ id: 'behind', team: 'enemy', x: 4, y: 5 });
+    p.aim = 0; p.wantAttack = true;
+    run([p, front, behind], world(), 2);
+    p.aim = Math.PI;                           // spin to face the other one
+    run([p, front, behind], world(), 4);
+    expect(front.hp).toBeLessThan(100);        // caught where it was pointed
+    expect(behind.hp).toBe(100);               // and not where it swung to
+  });
+
+  test('the committed aim is published, so the drawing can match it', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: SPIN });
+    expect(p.swingAim).toBeUndefined();
+    p.aim = 1.25; p.wantAttack = true;
+    run([p], world(), 1);
+    expect(p.swingAim).toBeCloseTo(1.25, 5);
+    p.aim = 3;                                 // the facing moves on
+    run([p], world(), 1);
+    expect(p.swingAim).toBeCloseTo(1.25, 5);   // the swing does not
+  });
+
+  test('it is released when the swing ends', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: SPIN });
+    p.aim = 1; p.wantAttack = true;
+    run([p], world(), 20);                     // 20 frames of 1/60 clears 250ms
+    expect(p.phase).toBe('idle');
+    expect(p.swingAim).toBeUndefined();
+  });
+
+  test('a wind-up can still be turned, since it commits on release', () => {
+    // The telegraph is there to be read, so the last moment it can change has
+    // to be the moment it goes live, not the moment it starts.
+    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5 });
+    e.aim = 0; e.wantAttack = true;
+    run([e], world(), 1);
+    expect(e.phase).toBe('tell');
+    e.aim = Math.PI;                           // turn during the wind-up
+    // Step only until it goes live. Running blindly past that clears it again,
+    // since the claws are active for 140ms and then done.
+    for (let i = 0; i < 60 && e.phase !== 'active'; i++) run([e], world(), 1);
+    expect(e.phase).toBe('active');
+    expect(e.swingAim).toBeCloseTo(Math.PI, 5);
+  });
+
+  test('the window is five ticks, so five frames each get one', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: SPIN });
+    p.wantAttack = true;
+    let swinging = 0;
+    for (let i = 0; i < 10; i++) {
+      run([p], world(), 1, 0.05);              // the server's 50ms tick
+      if (p.phase === 'active') swinging++;
+    }
+    expect(swinging).toBe(4);                   // the fifth sets idle as it goes
+    expect(SPIN.activeMs / 50).toBe(5);         // but is still struck on
+  });
+});
+
 describe('enemies', () => {
   test('closes the distance, telegraphs, and gets damage in', () => {
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });

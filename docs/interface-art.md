@@ -68,7 +68,7 @@ Everything here is **32x32**, one world tile, drawn 1:1.
 |---|---|---|---|
 | Feather | item | `public/items/swallow_feather.png` | drops from swallows today |
 | Wood | item | `public/items/sulwood.png` | the one material in scope |
-| ~~Sword~~ | sprite | `public/sprites/weapon_sword_01.png` | **done** — drawn mid-swing |
+| ~~Sword~~ | sprite | `public/sprites/weapon_sword_01.png` | **done** — animated, see below |
 | Axe | item* | id not settled | session 0 weapon + tool |
 | Shovel | item* | id not settled | session 0 weapon + tool |
 | Magic big tree | world prop | Asset Library | a landmark worth naming a place after |
@@ -90,6 +90,34 @@ drawn mid-swing; the axe and shovel land the same way.
 
 An *inventory icon* for a weapon is a separate drawing at a separate path, and
 needs the new L1 ids first (`items.md`), which are still open.
+
+### Animation frames: `<weapon>_<n>.png`
+
+A weapon swings through numbered frames beside its base sprite. The thrust is
+five frames from **three drawings** — `1, 2, 3, 2, 1` — so it goes out and comes
+back, and the retreat reads as the hand pulling in.
+
+| Frame | Shows |
+|---|---|
+| `weapon_sword_01_1.png` | the tip, just clear of the body |
+| `weapon_sword_01_2.png` | out to the hilt |
+| `weapon_sword_01_3.png` | the whole sword |
+
+**The three in the repo now are placeholders, derived rather than drawn.** The
+renderer maps the top of the canvas to the far end of the sweep and the bottom
+to the body, so "less sword out" is the art slid down the canvas and cut off at
+the top — the tip advances while the hilt is still inside the body. Frames 1 and
+2 are that crop of the real sword at 11 and 22 rows (22 is exactly where the
+crossguard ends, so frame 2 lands on "to the hilt"), and frame 3 is the full
+drawing. They animate correctly and their cut ends are blunt, which is what
+drawing them properly fixes. Overwrite any of the three; nothing needs rebuilding.
+
+Timing is not in the art. The animation's length is the weapon's `activeMs`, so
+the frames divide whatever the hitbox's live window is — 250ms and five frames
+means 50ms each. A weapon with a slower swing animates slower for free.
+
+A weapon with no numbered frames still swings; it just swings its single sprite,
+noted once when the first frame 404s.
 
 ### Getting a PNG out of a .aseprite
 
