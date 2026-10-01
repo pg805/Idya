@@ -9,7 +9,7 @@ import {
 // Weapons live apart so they can be read and tested without the database.
 // Adding one is an entry there plus the drawings; nothing here changes.
 import {
-  MELEE, PLAYER_MELEE, swingFor, type MeleeWeapon,
+  MELEE, PLAYER_MELEE, swingFor, primaryOf, extraShapesOf, type MeleeWeapon,
 } from '../combat/melee.js';
 
 /**
@@ -77,7 +77,7 @@ interface EnemyKit {
 function kitWeapon(kit: EnemyKit): { attack: AttackShape; weapon: MeleeWeapon | null } {
   const held = kit.melee ? MELEE[kit.melee] ?? null : null;
   // A held weapon's shape wins: a thing swinging a sword swings a sword.
-  const attack = held?.light.shape ?? kit.attack;
+  const attack = held ? primaryOf(held).shape : kit.attack;
   if (!attack) throw new Error('an enemy kit needs either attack or melee');
   return { attack, weapon: held };
 }
@@ -91,16 +91,16 @@ export interface SimInput {
   moveX: number;
   moveY: number;
   aim: number;
-  attack: boolean;
   /**
-   * The right button: a weapon's heavy swing, if it has one.
+   * Which attack slot was pressed, or null for none: 0 is the left button, 1
+   * the right, 2 is Q.
    *
    * Required rather than optional, and every field here should stay that way.
    * The socket handler in `index.ts` rebuilds this object field by field to
    * sanitise it, so an optional field is one the compiler lets that handler
-   * silently drop — which is exactly how this arrived unplugged.
+   * silently drop — which is how `special` once arrived unplugged.
    */
-  special: boolean;
+  swing: number | null;
 }
 
 /** What the client needs to draw a unit. Kept small: this goes out 20x a second. */
@@ -225,8 +225,8 @@ export function createWorldSim(deps: WorldSimDeps) {
         id: args.socketId, ref: args.socketId, team: 'player',
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
         hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0,
-        attack: MELEE[PLAYER_MELEE].light.shape,
-        special: MELEE[PLAYER_MELEE].heavy?.shape,
+        attack: primaryOf(MELEE[PLAYER_MELEE]).shape,
+        extras: extraShapesOf(MELEE[PLAYER_MELEE]),
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         wanderX: 0, wanderY: 0, wanderMs: 0,
@@ -264,8 +264,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       m.unit.aim = input.aim;
       // Held rather than overwritten: an early press waits for the cooldown
       // instead of being dropped (docs/combat.md §0b).
-      if (input.attack) m.unit.wantAttack = true;
-      if (input.special) m.unit.wantSpecial = true;
+      if (input.swing !== null) m.unit.wantSlot = input.swing;
       return;
     }
   }

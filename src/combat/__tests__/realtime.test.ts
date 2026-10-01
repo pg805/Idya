@@ -1,6 +1,6 @@
 import {
   stepWorld, driveEnemy, rectHitsCircle, exitDirection, sweptLength,
-  swingAngle, snapAim, SNAP,
+  swingAngle, snapAim, SNAP, slotShape, slotCount,
   type RtUnit, type StepWorld, type AttackShape, type RtEvent,
 } from '../realtime.js';
 
@@ -371,39 +371,57 @@ describe('an arc sweeps', () => {
   });
 });
 
-describe('two attacks on one weapon', () => {
+describe('attack slots', () => {
   const ARC: AttackShape = {
     reach: 1, width: 0.45, activeMs: 250, coolMs: 250, tellMs: 0,
     damage: 12, spread: Math.PI / 2,
   };
+  const SPIN: AttackShape = { ...ARC, spread: Math.PI * 2, damage: 9 };
+  /** Slot 0 is the thrust it is built with; 1 is the arc, 2 the spin. */
   const armed = () => {
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    p.special = ARC;
+    p.extras = [ARC, SPIN];
     return p;
   };
 
-  test('the right button throws the special, not the light attack', () => {
+  test('slot 0 is the primary, which is the field every unit has', () => {
+    const p = armed();
+    expect(slotShape(p, 0)).toBe(p.attack);
+    expect(slotCount(p)).toBe(3);
+  });
+
+  test('a slot throws its own shape, not the primary', () => {
     const p = armed();
     const side = unit({ id: 'side', team: 'enemy', x: 5 + Math.cos(SNAP), y: 5 + Math.sin(SNAP) });
-    p.aim = 0; p.wantSpecial = true;
+    p.aim = 0; p.wantSlot = 1;
     run([p, side], world(), 20);
-    expect(side.hp).toBe(100 - ARC.damage);       // the arc's damage, not the thrust's
+    // Caught off to the side, which only the arc reaches, for the arc's damage.
+    expect(side.hp).toBe(100 - ARC.damage);
+  });
+
+  test('slot 2 is the one bound to Q', () => {
+    const p = armed();
+    const behind = unit({ id: 'behind', team: 'enemy', x: 4, y: 5 });
+    p.aim = 0; p.wantSlot = 2;
+    run([p, behind], world(), 20);
+    // Only a full turn comes round far enough to reach something behind you.
+    expect(behind.hp).toBe(100 - SPIN.damage);
   });
 
   test('a swing in flight keeps its own shape', () => {
-    // Pressing the other button mid-swing must not change what is in the air.
+    // Pressing another button mid-swing must not change what is in the air.
     const p = armed();
-    p.aim = 0; p.wantSpecial = true;
+    p.aim = 0; p.wantSlot = 1;
     run([p], world(), 1);
     expect(p.using).toBe(ARC);
-    p.wantAttack = true;
+    p.wantSlot = 0;
     run([p], world(), 2);
     expect(p.using).toBe(ARC);
   });
 
   test('and releases the shape when it ends', () => {
     const p = armed();
-    p.wantSpecial = true;
+    p.wantSlot = 1;
     run([p], world(), 20);
     expect(p.phase).toBe('idle');
     expect(p.using).toBeUndefined();
@@ -411,17 +429,29 @@ describe('two attacks on one weapon', () => {
 
   test('the cooldown is the one belonging to the swing that was thrown', () => {
     const p = armed();
-    p.wantSpecial = true;
+    p.wantSlot = 1;
     run([p], world(), 20);
     expect(p.cool).toBeGreaterThan(0);
     expect(p.cool).toBeLessThanOrEqual(ARC.coolMs);
   });
 
-  test('a unit with no special ignores the button', () => {
-    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    p.wantSpecial = true;
+  test('a slot the unit does not have is ignored', () => {
+    const p = armed();
+    p.wantSlot = 7;
     run([p], world(), 2);
     expect(p.phase).toBe('idle');
+    expect(slotShape(p, 7)).toBeNull();
+  });
+
+  test('a unit with no extras still throws its primary', () => {
+    // driveEnemy sets the bare flag rather than a slot, so that path has to
+    // keep working for everything without slots.
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    const foe = unit({ id: 'foe', team: 'enemy', x: 6, y: 5 });
+    p.aim = 0; p.wantAttack = true;
+    run([p, foe], world(), 4);
+    expect(foe.hp).toBeLessThan(100);
+    expect(slotCount(p)).toBe(1);
   });
 
   test('swingAngle is the one rule both the hitbox and the drawing use', () => {

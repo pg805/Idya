@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   MELEE, PLAYER_MELEE, TICK_MS, swingSequence, swingsOf, swingFor, frameSprite,
-  type Swing,
+  primaryOf, extraShapesOf, type Swing,
 } from '../melee.js';
 import { swingAngle, snapAim, SNAP } from '../realtime.js';
 
@@ -15,9 +15,17 @@ const SPRITES = path.join(process.cwd(), 'public', 'sprites');
 /** Every (weapon, swing) pair, named, for table-driven checks. */
 const allSwings: Array<[string, Swing, string]> = Object.entries(MELEE).flatMap(
   ([key, w]) => swingsOf(w).map((sw, i) => [
-    `${key} ${i === 0 ? 'light' : 'heavy'}`, sw, w.sprite,
+    `${key} slot ${i} (${sw.name})`, sw, w.sprite,
   ] as [string, Swing, string]),
 );
+
+/** The sword's swings by name, for the specific checks below. */
+const sword = MELEE[PLAYER_MELEE];
+const byName = (n: string): Swing => {
+  const found = swingsOf(sword).find(sw => sw.name === n);
+  if (!found) throw new Error(`no swing named ${n}`);
+  return found;
+};
 
 describe('swingSequence', () => {
   test('a fixed-angle swing goes out and back', () => {
@@ -55,7 +63,7 @@ describe('swingSequence', () => {
 
 describe('where a swing points', () => {
   test('a thrust holds the angle it committed to', () => {
-    const thrust = MELEE[PLAYER_MELEE].light.shape;
+    const thrust = byName('thrust').shape;
     expect(thrust.spread).toBeUndefined();
     for (const p of [0, 0.5, 1]) {
       expect(swingAngle(thrust, 1.1, p)).toBeCloseTo(1.1, 6);
@@ -63,7 +71,7 @@ describe('where a swing points', () => {
   });
 
   test('an arc runs from half a spread behind to half ahead', () => {
-    const arc = MELEE[PLAYER_MELEE].heavy!.shape;
+    const arc = byName('arc').shape;
     const spread = arc.spread!;
     expect(swingAngle(arc, 0, 0)).toBeCloseTo(-spread / 2, 6);
     expect(swingAngle(arc, 0, 0.5)).toBeCloseTo(0, 6);
@@ -73,19 +81,19 @@ describe('where a swing points', () => {
   test('so the aim is the middle of the arc, which is where it connects', () => {
     // Point at a thing and the blade passes through it half way through the
     // swing, rather than starting on it and leaving.
-    const arc = MELEE[PLAYER_MELEE].heavy!.shape;
+    const arc = byName('arc').shape;
     expect(swingAngle(arc, 2, 0.5)).toBeCloseTo(2, 6);
   });
 
   test('progress outside 0..1 is clamped rather than overswinging', () => {
-    const arc = MELEE[PLAYER_MELEE].heavy!.shape;
+    const arc = byName('arc').shape;
     expect(swingAngle(arc, 0, -1)).toBeCloseTo(swingAngle(arc, 0, 0), 6);
     expect(swingAngle(arc, 0, 9)).toBeCloseTo(swingAngle(arc, 0, 1), 6);
   });
 });
 
 describe('an arc runs between compass points', () => {
-  const arc = MELEE[PLAYER_MELEE].heavy!.shape;
+  const arc = byName('arc').shape;
 
   test('a quarter turn is three of the eight points', () => {
     expect(arc.spread).toBeCloseTo(Math.PI / 2, 6);
@@ -155,10 +163,22 @@ describe('the weapon table', () => {
 
   test('a shape identifies which swing it belongs to', () => {
     // dress() in world_sim leans on this to send the right frame count.
-    const w = MELEE[PLAYER_MELEE];
-    expect(swingFor(w, w.light.shape)).toBe(w.light);
-    expect(swingFor(w, w.heavy!.shape)).toBe(w.heavy);
-    expect(swingFor(w, { ...w.light.shape })).toBeNull();
+    for (const sw of swingsOf(sword)) expect(swingFor(sword, sw.shape)).toBe(sw);
+    expect(swingFor(sword, { ...sword.swings[0].shape })).toBeNull();
+  });
+
+  test('slots are ordered, and the extras are everything after the first', () => {
+    // RtUnit keeps the primary as a field and the rest as a list, so these have
+    // to line up or Q throws the wrong thing.
+    expect(primaryOf(sword)).toBe(sword.swings[0]);
+    expect(extraShapesOf(sword)).toEqual(sword.swings.slice(1).map(sw => sw.shape));
+    expect(extraShapesOf(sword)).toHaveLength(sword.swings.length - 1);
+  });
+
+  test('every swing has a name, and they are distinct', () => {
+    const names = swingsOf(sword).map(sw => sw.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const n of names) expect(n).toMatch(/^[a-z][a-z ]*$/);
   });
 });
 
@@ -179,8 +199,24 @@ describe('what a swing costs', () => {
     expect(perFrame).toBeLessThanOrEqual(300);
   });
 
-  test('the arc trades damage for catching several things', () => {
-    const w = MELEE[PLAYER_MELEE];
-    expect(w.heavy!.shape.damage).toBeLessThan(w.light.shape.damage);
+  test('the swings differ ONLY in spread, for now', () => {
+    // Deliberate while the feel is being judged: same damage, same window,
+    // same recovery, so the shape of the swing is the only variable. The spin
+    // is strictly best at these numbers, which is expected and is not balance.
+    const [first, ...rest] = swingsOf(sword).map(sw => sw.shape);
+    for (const shape of rest) {
+      expect(shape.damage).toBe(first.damage);
+      expect(shape.activeMs).toBe(first.activeMs);
+      expect(shape.coolMs).toBe(first.coolMs);
+      expect(shape.reach).toBe(first.reach);
+      expect(shape.width).toBe(first.width);
+    }
+    // And the spreads are what tell them apart.
+    const spreads = swingsOf(sword).map(sw => sw.shape.spread ?? 0);
+    expect(new Set(spreads).size).toBe(spreads.length);
+  });
+
+  test('the spin goes the whole way round', () => {
+    expect(byName('spin').shape.spread).toBeCloseTo(Math.PI * 2, 6);
   });
 });

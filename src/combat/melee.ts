@@ -46,43 +46,51 @@ export const TICK_MS = 50;
  * so 250ms of thrust caps the player at four a second however small the
  * cooldown gets.
  */
-const SWORD_THRUST: AttackShape = {
-  // 350ms a swing held down, 2.9 a second, against 690ms and 1.45 before.
-  //
-  // Measured, not added up: `cool` is decremented at the top of a step and the
-  // start check runs later in the same one, so the last cooldown tick is also
-  // the tick the next swing begins on. The cycle is one tick short of
-  // activeMs + coolMs — 7 ticks, not 8.
-  //
-  // A target is struck once per swing, so the rate IS the damage: 46/s against
-  // 23/s before.
+/**
+ * The sword's three swings, **deliberately identical except for `spread`.**
+ *
+ * Same damage, same window, same recovery, so the only thing that differs is
+ * the shape of the swing. That makes them comparable while the feel is being
+ * judged: the spin is strictly the best of the three at these numbers, which is
+ * fine for testing and is not a balance proposal.
+ *
+ * Every one of these is a per-swing dial. A weapon's heavy attack can recover
+ * slower than its light one, and two weapons can price the same shape
+ * differently — nothing is shared between swings but the sprite.
+ */
+const SWING_BASE = {
   reach: 1, width: 0.45, activeMs: 250, coolMs: 150, tellMs: 0, damage: 16,
-};
+} as const;
+
+/** Left: straight out and back. */
+const SWORD_THRUST: AttackShape = { ...SWING_BASE };
 
 /**
- * The arc, on the right button.
+ * Right: a quarter turn, which is three of the eight compass points.
  *
- * `spread` is a quarter turn, which is three of the eight compass points, and a
- * swept attack snaps its aim to the nearest of them — so the arc always runs
- * between compass points. Centred on a cardinal it goes diagonal to diagonal;
- * centred on a diagonal it goes cardinal to cardinal. One rule, both cases.
- *
- * The hitbox turns with the blade rather than opening as the whole fan at once,
- * so what is drawn is still what hits. The fan is the area the swing SWEEPS,
- * and at reach 1 a 0.45-wide blade overlaps itself the whole way round, so it
- * covers solidly rather than in slices.
- *
- * Less damage than the thrust, because it can catch several things on the way
- * past: a target is struck once per swing, so three enemies standing in the arc
- * take one hit each.
+ * A swept attack snaps its aim to the nearest point, so the arc always runs
+ * between them: centred on a cardinal it goes diagonal to diagonal, centred on
+ * a diagonal it goes cardinal to cardinal. One rule, both cases.
  */
-const SWORD_ARC: AttackShape = {
-  reach: 1, width: 0.45, activeMs: 250, coolMs: 250, tellMs: 0,
-  damage: 12, spread: Math.PI / 2,
-};
+const SWORD_ARC: AttackShape = { ...SWING_BASE, spread: Math.PI / 2 };
+
+/**
+ * Q: the whole way round.
+ *
+ * 250ms for a full turn is 1440 degrees a second, which may well read as a
+ * blur rather than a swing — the point of putting it in at the same window as
+ * the others is to find that out. `activeMs` is the dial, and raising it
+ * lengthens the hitbox with the animation, because they are the same number.
+ *
+ * Snapping is kept even though a full circle starts and ends in the same place:
+ * it decides which side the blade comes round from, which is visible.
+ */
+const SWORD_SPIN: AttackShape = { ...SWING_BASE, spread: Math.PI * 2 };
 
 /** One attack a weapon can throw: what it does, and how it is drawn. */
 export interface Swing {
+  /** For reading code and logs; the slot is what binds it to a button. */
+  name: string;
   shape: AttackShape;
   /**
    * Numbered drawings, at `<sprite>_<n>.png`.
@@ -98,23 +106,35 @@ export interface Swing {
 export interface MeleeWeapon {
   /** Sprite base name in public/sprites/. Frames are `<sprite>_<n>.png`. */
   sprite: string;
-  /** The left button. */
-  light: Swing;
-  /** The right button, if it has one. */
-  heavy?: Swing;
+  /**
+   * In slot order. Slot 0 is the left button, 1 the right, 2 is Q.
+   *
+   * A weapon with fewer swings simply has fewer bound buttons; the client asks
+   * for a slot and a unit without it ignores the press.
+   */
+  swings: Swing[];
 }
 
 export const MELEE: Record<string, MeleeWeapon> = {
   sword_01: {
     sprite: 'weapon_sword_01',
-    light: { shape: SWORD_THRUST, frames: 3 },
-    heavy: { shape: SWORD_ARC, frames: 0 },
+    swings: [
+      { name: 'thrust', shape: SWORD_THRUST, frames: 3 },
+      { name: 'arc', shape: SWORD_ARC, frames: 0 },
+      { name: 'spin', shape: SWORD_SPIN, frames: 0 },
+    ],
   },
 };
 
 /** Every swing a weapon has, for walking them. */
-export const swingsOf = (w: MeleeWeapon): Swing[] =>
-  w.heavy ? [w.light, w.heavy] : [w.light];
+export const swingsOf = (w: MeleeWeapon): Swing[] => w.swings;
+
+/** The primary swing, which every weapon has. */
+export const primaryOf = (w: MeleeWeapon): Swing => w.swings[0];
+
+/** The swings behind slots 1 and up, which is what RtUnit.extras wants. */
+export const extraShapesOf = (w: MeleeWeapon): AttackShape[] =>
+  w.swings.slice(1).map(sw => sw.shape);
 
 /** Which of a weapon's swings a given shape is, or null if it is not one. */
 export const swingFor = (w: MeleeWeapon, shape: AttackShape): Swing | null =>

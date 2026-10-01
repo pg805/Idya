@@ -114,10 +114,20 @@ export interface RtUnit {
    * pointed. Undefined outside a swing.
    */
   swingAim?: number;
-  /** A second attack, if it has one. Thrown with `wantSpecial`. */
-  special?: AttackShape;
-  /** Pressed the second attack. */
-  wantSpecial?: boolean;
+  /**
+   * Further attacks, in slot order from 1. Slot 0 is `attack`.
+   *
+   * Every unit has a primary, which is why that one is a plain field and is
+   * what `driveEnemy` reasons about. Extras are a list so a fourth ability is
+   * an append and a key binding rather than another field threaded through
+   * five files.
+   */
+  extras?: AttackShape[];
+  /**
+   * The slot pressed, or null. Held until a swing can start, so an early
+   * press waits for the cooldown rather than being dropped.
+   */
+  wantSlot?: number | null;
   /**
    * The shape of the swing in flight, which is `attack` or `special`.
    *
@@ -211,6 +221,14 @@ export function swingSequenceFor(frames: number, spread?: number): number[] {
   if (!spread) for (let i = n - 1; i >= 1; i--) out.push(i);
   return out;
 }
+
+/** The shape in a slot: 0 is the primary, 1 and up are the extras. */
+export const slotShape = (u: RtUnit, slot: number): AttackShape | null => (
+  slot === 0 ? u.attack : u.extras?.[slot - 1] ?? null
+);
+
+/** How many slots a unit can throw. */
+export const slotCount = (u: RtUnit): number => 1 + (u.extras?.length ?? 0);
 
 /** An eighth of a circle: the step a swept attack's aim snaps to. */
 export const SNAP = Math.PI / 4;
@@ -348,10 +366,13 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
 
   // ---- starting an attack ----
   for (const u of live()) {
-    const wants = u.wantSpecial && u.special ? u.special : u.wantAttack ? u.attack : null;
+    // A named slot wins over the bare `wantAttack`, which is what driveEnemy
+    // and anything else without slots still sets.
+    const slot = u.wantSlot ?? (u.wantAttack ? 0 : null);
+    const wants = slot === null ? null : slotShape(u, slot);
     if (!wants || u.phase !== 'idle' || u.cool > 0) continue;
     u.wantAttack = false;
-    u.wantSpecial = false;
+    u.wantSlot = null;
     u.struck = [];
     // Held for the duration: letting go of the button, or pressing the other
     // one, must not change a swing that is already in the air.

@@ -43,8 +43,14 @@ window.Views.map = (function () {
   let attackLoop = null;          // requestAnimationFrame handle
   let simTimer = null;
   let aim = 0;
-  let wantAttack = false;
-  let wantSpecial = false;        // the right button, for now the arc
+  /**
+   * The attack slot pressed since the last input went out, or null.
+   *
+   * Slots rather than a flag per button: 0 is left, 1 right, 2 is Q, and the
+   * weapon decides what each one does (MELEE in src/combat/melee.ts). A fourth
+   * ability is a key here and an entry there.
+   */
+  let wantSlot = null;
   let mouseTile = null;
   let cameraMs = STEP_MS;    // how long the step in flight is taking
   // Two keys meant as one diagonal never land in the same event. Waiting this
@@ -567,10 +573,9 @@ window.Views.map = (function () {
     for (const d of heldKeys.values()) { dx += d.dx; dy += d.dy; }
     socket.emit('sim:input', {
       moveX: Math.sign(dx), moveY: Math.sign(dy),
-      aim, attack: wantAttack, special: wantSpecial,
+      aim, swing: wantSlot,
     });
-    wantAttack = false;
-    wantSpecial = false;
+    wantSlot = null;
   }
 
   function startInput() {
@@ -617,6 +622,13 @@ window.Views.map = (function () {
       if ((e.key === 'f' || e.key === 'F') && tool) {
         e.preventDefault();
         flipStep();
+        return;
+      }
+      // Q is slot 2. Not a movement key and not taken by a tool, and the
+      // free keys beside WASD are the ones Controls reserves for abilities.
+      if ((e.key === 'q' || e.key === 'Q') && !tool) {
+        e.preventDefault();
+        wantSlot = 2;
         return;
       }
       const key = keyName(e);
@@ -749,9 +761,9 @@ window.Views.map = (function () {
     });
 
     stage.addEventListener('mousedown', (e) => {
-      // Left is the light attack, right the heavy one. Right is where the
-      // shield is meant to go (docs/combat.md, Controls); it is on the arc for
-      // now so there is something to swing while testing it.
+      // Left is slot 0, right is slot 1. Right is where the shield is meant to
+      // go (docs/combat.md, Controls); it is on a swing for now so there is
+      // something to throw while the feel is being judged.
       if (e.button !== 0 && e.button !== 2) return;
       if (tool) return;                       // the build tool owns clicks while up
       const r = stage.getBoundingClientRect();
@@ -760,8 +772,7 @@ window.Views.map = (function () {
         y: Math.floor((e.clientY - r.top) / cell),
       };
       if (workableAt(t)) return;              // working the land, handled on click
-      if (e.button === 2) wantSpecial = true;
-      else wantAttack = true;
+      wantSlot = e.button === 2 ? 1 : 0;
     });
 
     // Otherwise the right button opens the browser's menu over the fight.

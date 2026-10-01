@@ -87,36 +87,62 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
-### Two swings: a thrust and an arc
+### Swings live in slots
 
-A weapon has a **light** swing on the left button and an optional **heavy** one
-on the right (`MELEE` in `src/combat/melee.ts`). The sword's heavy is an arc,
-and the difference between the two is one field: `spread`, the radians the
-hitbox turns through while it is live. Absent means it holds still, which is a
-thrust.
+A weapon carries an ordered list of swings (`MELEE` in `src/combat/melee.ts`),
+and the client asks for one by **slot**: 0 is the left button, 1 the right, 2 is
+Q. A weapon with fewer swings simply has fewer bound buttons — a unit ignores a
+slot it does not have. A fourth ability is an entry in that list and a key
+binding, nothing else.
 
-**The arc's hitbox turns with the blade** rather than opening as the whole fan
-at once, so what is drawn is still what hits. The fan is the area the swing
-*sweeps*, and at reach 1 a 0.45-wide blade overlaps itself the whole way round,
-so it covers solidly rather than in slices. A body at the far end of the arc is
-struck late in the swing, which is the test that keeps the drawing honest.
+The engine keeps the primary as a field and the rest as `extras`, because every
+unit has a primary and that is what `driveEnemy` reasons about; only players
+currently have more than one.
 
-**A swept attack snaps its aim to the nearest eighth of a circle**, so the arc
-always runs between compass points. Centred on a cardinal it runs diagonal to
-diagonal; centred on a diagonal it runs cardinal to cardinal. Those are the same
-rule rather than two cases. A quarter turn spans three of the eight points.
+**Every timing is per swing.** A weapon's heavy attack can recover slower than
+its light one, and two weapons can price the same shape differently. Nothing is
+shared between swings except the sprite.
+
+The sword's three are **deliberately identical except for `spread`** while the
+feel is being judged — same damage, same window, same recovery — so the only
+variable is the shape of the swing. The spin is strictly the best of the three
+at these numbers. That is expected and is not a balance claim.
+
+| Slot | Button | Swing | `spread` |
+|---|---|---|---|
+| 0 | left | thrust | none, holds its angle |
+| 1 | right | arc | a quarter turn |
+| 2 | Q | spin | the whole way round |
+
+### Spread is the whole difference between them
+
+`spread` is the radians a hitbox turns through while it is live. Absent means it
+holds one angle, which is a thrust.
+
+**The hitbox turns with the blade** rather than opening as the whole shape at
+once, so what is drawn is still what hits. The fan is the area a swing *sweeps*,
+and at reach 1 a 0.45-wide blade overlaps itself the whole way round, so it
+covers solidly rather than in slices. A body at the far end of an arc is struck
+late in the swing, which is the test that keeps the drawing honest.
+
+**A swept attack snaps its aim to the nearest eighth of a circle**, so an arc
+runs between compass points: centred on a cardinal it runs diagonal to diagonal,
+centred on a diagonal it runs cardinal to cardinal. Those are the same rule
+rather than two cases. A quarter turn spans three of the eight points. The spin
+is snapped too, which decides which side the blade comes round from.
 
 The committed aim is the **middle** of the arc, not its start, so pointing at
 something means the blade passes through it half way through the swing.
 
 `swingAngle` is the single definition of where a swing points at a given moment,
 used by the hitbox and mirrored by the renderer. A target is struck once per
-swing, so an arc across three enemies hits each of them once — which is why it
-does less damage per hit than the thrust.
+swing, so a sweep across three enemies hits each of them once.
 
-**Right button is the arc only for testing.** The Controls section has it as the
-shield; the arc is there so there is something to swing while the feel is being
-judged.
+**Right button and Q are swings only for testing.** Controls has the right
+button as the shield; they carry swings for now so there is something to throw
+while the feel is being judged. 250ms for a full turn is 1440 degrees a second,
+which may well read as a blur — `activeMs` is the dial, and raising it lengthens
+the hitbox along with the animation, because they are the same number.
 
 ### A swing commits to its aim, and is drawn for exactly as long as it hits
 
