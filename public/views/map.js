@@ -362,14 +362,15 @@ window.Views.map = (function () {
    * Where a swing points when it is `progress` of the way through.
    *
    * Mirrors swingAngle() in src/combat/realtime.ts, which is the definition and
-   * has the tests. A thrust holds its committed angle; an arc starts half its
-   * spread behind and turns through it, so the aim is the MIDDLE of the arc and
-   * the blade passes through what you pointed at half way.
+   * has the tests. A thrust holds its committed angle; a swept swing turns
+   * through its spread, and aimAt says where along that turn the aimed
+   * direction falls — the middle for a short arc, the start for a full circle.
    */
-  function swingAngleAt(committed, spread, progress) {
+  function swingAngleAt(committed, spread, progress, aimAt) {
     if (!spread) return committed;
     const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
-    return committed - spread / 2 + spread * p;
+    const at = typeof aimAt === 'number' ? aimAt : 0.5;
+    return committed - spread * at + spread * p;
   }
 
   /** Weapons whose numbered frames 404; they fall back to the single sprite. */
@@ -384,10 +385,10 @@ window.Views.map = (function () {
   const swingClocks = new Map();
   const tellClocks = new Map();
 
-  function noteSwing(id, ms, frames, aim, spread) {
+  function noteSwing(id, ms, frames, aim, spread, aimAt) {
     swingClocks.set(id, {
       start: performance.now(), ms: ms || 1,
-      seq: sequenceFor(frames, spread), aim, spread: spread || 0,
+      seq: sequenceFor(frames, spread), aim, spread: spread || 0, aimAt,
     });
     tellClocks.delete(id);
   }
@@ -425,7 +426,7 @@ window.Views.map = (function () {
       // aimed, and to the state's committed angle if the event was missed.
       const committed = swing?.aim ?? (u.swingAim != null ? u.swingAim : u.aim);
       const angle = live
-        ? swingAngleAt(committed, swing?.spread ?? 0, swingT ?? 1)
+        ? swingAngleAt(committed, swing?.spread ?? 0, swingT ?? 1, swing?.aimAt)
         : u.aim;
 
       rec.box.hidden = !((live && !u.weapon) || tell);
@@ -1195,7 +1196,8 @@ window.Views.map = (function () {
         // frame loop animates from. The duration rides along on the shape, so
         // a weapon's own timing drives its animation.
         if (ev.kind === 'swing') {
-          noteSwing(ev.by, ev.shape?.activeMs, ev.frames, ev.aim, ev.shape?.spread);
+          noteSwing(ev.by, ev.shape?.activeMs, ev.frames, ev.aim,
+            ev.shape?.spread, ev.shape?.aimAt);
           continue;
         }
         if (ev.kind === 'tell') { noteTell(ev.by, ev.shape?.tellMs); continue; }

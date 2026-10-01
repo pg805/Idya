@@ -129,10 +129,19 @@ late in the swing, which is the test that keeps the drawing honest.
 runs between compass points: centred on a cardinal it runs diagonal to diagonal,
 centred on a diagonal it runs cardinal to cardinal. Those are the same rule
 rather than two cases. A quarter turn spans three of the eight points. The spin
-is snapped too, which decides which side the blade comes round from.
+is snapped too, which decides where the turn begins, visible from its first
+frame now that it starts on the aim.
 
-The committed aim is the **middle** of the arc, not its start, so pointing at
-something means the blade passes through it half way through the swing.
+**`aimAt` says where along the sweep the aimed direction falls**, 0 to 1,
+defaulting to the middle.
+
+The middle is what a short arc wants: point at something and the blade passes
+through it half way, so aiming at a thing cuts it. The **start** is what a full
+circle wants — centring a 360 means beginning behind yourself and only reaching
+the mouse half way round, which reads as a delay before the attack arrives. The
+spin uses `aimAt: 0`, so it begins on the mouse and travels round the back.
+
+Aimed east, that is: spin `E S W N E`, arc `NE E E SE SE`.
 
 `swingAngle` is the single definition of where a swing points at a given moment,
 used by the hitbox and mirrored by the renderer. A target is struck once per

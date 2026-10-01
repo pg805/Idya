@@ -219,4 +219,21 @@ describe('what a swing costs', () => {
   test('the spin goes the whole way round', () => {
     expect(byName('spin').shape.spread).toBeCloseTo(Math.PI * 2, 6);
   });
+
+  test('the spin starts ON the aim and turns away from it', () => {
+    // Centred, a full circle would start behind you and only reach the mouse
+    // half way round, which reads as the attack arriving late.
+    const spin = byName('spin').shape;
+    expect(spin.aimAt).toBe(0);
+    expect(swingAngle(spin, 1, 0)).toBeCloseTo(1, 6);
+    expect(swingAngle(spin, 1, 1)).toBeCloseTo(1 + Math.PI * 2, 6);
+    // Half way round is directly behind the aim.
+    expect(swingAngle(spin, 0, 0.5)).toBeCloseTo(Math.PI, 6);
+  });
+
+  test('the arc stays centred, so it still cuts what you point at', () => {
+    const arc = byName('arc').shape;
+    expect(arc.aimAt).toBeUndefined();          // the 0.5 default
+    expect(swingAngle(arc, 2, 0.5)).toBeCloseTo(2, 6);
+  });
 });

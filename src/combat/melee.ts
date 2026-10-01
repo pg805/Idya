@@ -75,7 +75,13 @@ const SWORD_THRUST: AttackShape = { ...SWING_BASE };
 const SWORD_ARC: AttackShape = { ...SWING_BASE, spread: Math.PI / 2 };
 
 /**
- * Q: the whole way round.
+ * Q: the whole way round, **starting at the mouse**.
+ *
+ * `aimAt: 0` rather than the default centre. Centring a full circle on the aim
+ * means starting behind yourself and only reaching the mouse half way round,
+ * which reads as a delay before the attack arrives. Starting on the aim puts
+ * the blade where you pointed immediately and sends it round the back from
+ * there.
  *
  * 250ms for a full turn is 1440 degrees a second, which may well read as a
  * blur rather than a swing — the point of putting it in at the same window as
@@ -83,9 +89,9 @@ const SWORD_ARC: AttackShape = { ...SWING_BASE, spread: Math.PI / 2 };
  * lengthens the hitbox with the animation, because they are the same number.
  *
  * Snapping is kept even though a full circle starts and ends in the same place:
- * it decides which side the blade comes round from, which is visible.
+ * it decides where the turn begins, which is now visible from the first frame.
  */
-const SWORD_SPIN: AttackShape = { ...SWING_BASE, spread: Math.PI * 2 };
+const SWORD_SPIN: AttackShape = { ...SWING_BASE, spread: Math.PI * 2, aimAt: 0 };
 
 /** One attack a weapon can throw: what it does, and how it is drawn. */
 export interface Swing {

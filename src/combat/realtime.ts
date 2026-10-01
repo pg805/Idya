@@ -59,6 +59,21 @@ export interface AttackShape {
    */
   spread?: number;
   /**
+   * Where along the sweep the aimed direction falls, 0 to 1. Default 0.5.
+   *
+   * 0.5 centres the arc on the aim, so the blade passes through what you
+   * pointed at half way through the swing. That is what a short arc wants: aim
+   * at a thing and it is cut.
+   *
+   * 0 starts the swing ON the aim and turns away from there. That is what a
+   * full circle wants — centring a 360 on the aim means starting behind
+   * yourself and only reaching the mouse half way round, which reads as a
+   * delay before the attack arrives.
+   *
+   * Ignored without `spread`, since a thrust has nowhere to fall along.
+   */
+  aimAt?: number;
+  /**
    * Wind-up before the hitbox appears, in ms.
    *
    * Zero for players: their attacks resolve immediately and cost is what makes
@@ -239,10 +254,9 @@ export const snapAim = (aim: number): number => Math.round(aim / SNAP) * SNAP;
 /**
  * Where a swing points when it is `progress` of the way through, 0 to 1.
  *
- * A thrust holds the angle it committed to. A swept attack starts half its
- * spread behind that and turns through it, so the committed aim is the MIDDLE
- * of the arc rather than its start — aim at a thing and the blade passes
- * through it half way, which is where a swing wants to connect.
+ * A thrust holds the angle it committed to. A swept attack turns through its
+ * spread, and `aimAt` says where along that turn the committed aim falls: the
+ * middle for a short arc, the start for a full circle.
  *
  * `public/views/map.js` mirrors this so the drawing and the hitbox agree; this
  * is the definition and has the tests on it.
@@ -252,7 +266,8 @@ export function swingAngle(
 ): number {
   if (!shape.spread) return committed;
   const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
-  return committed - shape.spread / 2 + shape.spread * p;
+  const aimAt = shape.aimAt ?? 0.5;
+  return committed - shape.spread * aimAt + shape.spread * p;
 }
 
 /**
