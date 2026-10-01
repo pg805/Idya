@@ -1,5 +1,6 @@
 import {
   stepWorld, driveEnemy, rectHitsCircle, exitDirection, sweptLength,
+  swingAngle, snapAim, SNAP,
   type RtUnit, type StepWorld, type AttackShape, type RtEvent,
 } from '../realtime.js';
 
@@ -297,6 +298,135 @@ describe('a swing commits to its aim', () => {
     }
     expect(swinging).toBe(4);                   // the fifth sets idle as it goes
     expect(SPIN.activeMs / 50).toBe(5);         // but is still struck on
+  });
+});
+
+describe('an arc sweeps', () => {
+  const ARC: AttackShape = {
+    reach: 1, width: 0.45, activeMs: 250, coolMs: 250, tellMs: 0,
+    damage: 12, spread: Math.PI / 2,
+  };
+  // Three bodies at the arc's start, middle and end, a tile out from the
+  // swinger. Aimed east, the quarter turn runs north-east to south-east.
+  const ring = (at: number[]) => at.map((a, i) => unit({
+    id: `e${i}`, team: 'enemy',
+    x: 5 + Math.cos(a), y: 5 + Math.sin(a),
+  }));
+
+  test('it catches everything along the way, once each', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: ARC });
+    const foes = ring([-SNAP, 0, SNAP]);
+    p.aim = 0; p.wantAttack = true;
+    run([p, ...foes], world(), 20);
+    for (const f of foes) expect(f.hp).toBe(100 - ARC.damage);
+  });
+
+  test('a thrust in the same spot catches only what it points at', () => {
+    // The difference the arc buys, stated as a comparison rather than assumed.
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    const foes = ring([-SNAP, 0, SNAP]);
+    p.aim = 0; p.wantAttack = true;
+    run([p, ...foes], world(), 20);
+    expect(foes[1].hp).toBeLessThan(100);
+    expect(foes[0].hp).toBe(100);
+    expect(foes[2].hp).toBe(100);
+  });
+
+  test('the hitbox is where the blade IS, not the whole fan at once', () => {
+    // What keeps the drawing honest: the body at the END of the arc is struck
+    // late in the swing, after the one at the start.
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: ARC });
+    const first = unit({ id: 'first', team: 'enemy', x: 5 + Math.cos(-SNAP), y: 5 + Math.sin(-SNAP) });
+    const last = unit({ id: 'last', team: 'enemy', x: 5 + Math.cos(SNAP), y: 5 + Math.sin(SNAP) });
+    p.aim = 0; p.wantAttack = true;
+
+    let firstAt = 0, lastAt = 0, tick = 0;
+    for (let i = 0; i < 10; i++) {
+      tick++;
+      const events = run([p, first, last], world(), 1, 0.05);
+      for (const ev of events) {
+        if (ev.kind !== 'hit') continue;
+        if (ev.on === 'first' && !firstAt) firstAt = tick;
+        if (ev.on === 'last' && !lastAt) lastAt = tick;
+      }
+    }
+    expect(firstAt).toBeGreaterThan(0);
+    expect(lastAt).toBeGreaterThan(firstAt);
+  });
+
+  test('it snaps to a compass point, so the arc has fixed ends', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: ARC });
+    p.aim = 0.2;                                  // off east by a bit
+    p.wantAttack = true;
+    run([p], world(), 1);
+    expect(p.swingAim).toBeCloseTo(0, 6);         // pulled onto east
+    expect(p.swingAim).toBeCloseTo(snapAim(0.2), 6);
+  });
+
+  test('a thrust is not snapped, because it is aimed', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    p.aim = 0.2; p.wantAttack = true;
+    run([p], world(), 1);
+    expect(p.swingAim).toBeCloseTo(0.2, 6);
+  });
+});
+
+describe('two attacks on one weapon', () => {
+  const ARC: AttackShape = {
+    reach: 1, width: 0.45, activeMs: 250, coolMs: 250, tellMs: 0,
+    damage: 12, spread: Math.PI / 2,
+  };
+  const armed = () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    p.special = ARC;
+    return p;
+  };
+
+  test('the right button throws the special, not the light attack', () => {
+    const p = armed();
+    const side = unit({ id: 'side', team: 'enemy', x: 5 + Math.cos(SNAP), y: 5 + Math.sin(SNAP) });
+    p.aim = 0; p.wantSpecial = true;
+    run([p, side], world(), 20);
+    expect(side.hp).toBe(100 - ARC.damage);       // the arc's damage, not the thrust's
+  });
+
+  test('a swing in flight keeps its own shape', () => {
+    // Pressing the other button mid-swing must not change what is in the air.
+    const p = armed();
+    p.aim = 0; p.wantSpecial = true;
+    run([p], world(), 1);
+    expect(p.using).toBe(ARC);
+    p.wantAttack = true;
+    run([p], world(), 2);
+    expect(p.using).toBe(ARC);
+  });
+
+  test('and releases the shape when it ends', () => {
+    const p = armed();
+    p.wantSpecial = true;
+    run([p], world(), 20);
+    expect(p.phase).toBe('idle');
+    expect(p.using).toBeUndefined();
+  });
+
+  test('the cooldown is the one belonging to the swing that was thrown', () => {
+    const p = armed();
+    p.wantSpecial = true;
+    run([p], world(), 20);
+    expect(p.cool).toBeGreaterThan(0);
+    expect(p.cool).toBeLessThanOrEqual(ARC.coolMs);
+  });
+
+  test('a unit with no special ignores the button', () => {
+    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
+    p.wantSpecial = true;
+    run([p], world(), 2);
+    expect(p.phase).toBe('idle');
+  });
+
+  test('swingAngle is the one rule both the hitbox and the drawing use', () => {
+    expect(swingAngle(ARC, 0, 0)).toBeCloseTo(-Math.PI / 4, 6);
+    expect(swingAngle(ARC, 0, 1)).toBeCloseTo(Math.PI / 4, 6);
   });
 });
 

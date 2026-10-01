@@ -44,6 +44,7 @@ window.Views.map = (function () {
   let simTimer = null;
   let aim = 0;
   let wantAttack = false;
+  let wantSpecial = false;        // the right button, for now the arc
   let mouseTile = null;
   let cameraMs = STEP_MS;    // how long the step in flight is taking
   // Two keys meant as one diagonal never land in the same event. Waiting this
@@ -331,20 +332,38 @@ window.Views.map = (function () {
    * drawings. This mirrors swingSequence() there, which is the definition and
    * is the one with tests on it; the browser cannot import TypeScript.
    */
-  const outAndBack = (n) => {
+  const swingSequence = (frames, spread) => {
+    const n = (Number.isInteger(frames) && frames > 0) ? frames : 0;
+    if (n === 0) return [0];                 // 0 means the base sprite alone
     const seq = [];
     for (let i = 1; i <= n; i++) seq.push(i);
-    for (let i = n - 1; i >= 1; i--) seq.push(i);
+    // A swept swing runs once: its angle is the animation, and retracing would
+    // walk the blade back along its own arc.
+    if (!spread) for (let i = n - 1; i >= 1; i--) seq.push(i);
     return seq;
   };
 
-  /** Built once per count rather than per frame. */
+  /** Built once per shape of swing rather than per frame. */
   const frameSequences = new Map();
-  function sequenceFor(n) {
-    const count = (Number.isInteger(n) && n > 0) ? n : 3;
-    let seq = frameSequences.get(count);
-    if (!seq) { seq = outAndBack(count); frameSequences.set(count, seq); }
+  function sequenceFor(frames, spread) {
+    const key = `${frames}|${spread ? 1 : 0}`;
+    let seq = frameSequences.get(key);
+    if (!seq) { seq = swingSequence(frames, spread); frameSequences.set(key, seq); }
     return seq;
+  }
+
+  /**
+   * Where a swing points when it is `progress` of the way through.
+   *
+   * Mirrors swingAngle() in src/combat/realtime.ts, which is the definition and
+   * has the tests. A thrust holds its committed angle; an arc starts half its
+   * spread behind and turns through it, so the aim is the MIDDLE of the arc and
+   * the blade passes through what you pointed at half way.
+   */
+  function swingAngleAt(committed, spread, progress) {
+    if (!spread) return committed;
+    const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
+    return committed - spread / 2 + spread * p;
   }
 
   /** Weapons whose numbered frames 404; they fall back to the single sprite. */
@@ -359,8 +378,11 @@ window.Views.map = (function () {
   const swingClocks = new Map();
   const tellClocks = new Map();
 
-  function noteSwing(id, ms, frames) {
-    swingClocks.set(id, { start: performance.now(), ms: ms || 1, seq: sequenceFor(frames) });
+  function noteSwing(id, ms, frames, aim, spread) {
+    swingClocks.set(id, {
+      start: performance.now(), ms: ms || 1,
+      seq: sequenceFor(frames, spread), aim, spread: spread || 0,
+    });
     tellClocks.delete(id);
   }
   function noteTell(id, ms) {
@@ -390,10 +412,15 @@ window.Views.map = (function () {
       const tell = swingT === null && (tellT !== null || u.phase === 'tell');
       const swings = live && !!u.weapon;
       const radius = u.r ?? 0.34;
-      // A committed swing keeps the angle it was thrown at; see swingAim in
-      // src/combat/realtime.ts. Falls back to the live facing for a wind-up,
-      // which is still being aimed.
-      const angle = (live && u.swingAim != null) ? u.swingAim : u.aim;
+      // Where the blade is now. A thrust holds the angle it committed to; an
+      // arc has turned part of the way through its spread, which is the same
+      // rule the hitbox uses, so the drawing cannot drift off what it hits.
+      // Falls back to the live facing for a wind-up, which is still being
+      // aimed, and to the state's committed angle if the event was missed.
+      const committed = swing?.aim ?? (u.swingAim != null ? u.swingAim : u.aim);
+      const angle = live
+        ? swingAngleAt(committed, swing?.spread ?? 0, swingT ?? 1)
+        : u.aim;
 
       rec.box.hidden = !((live && !u.weapon) || tell);
       if (!rec.box.hidden) {
@@ -416,7 +443,7 @@ window.Views.map = (function () {
       if (swings) {
         // Without a clock there is no progress to read, so hold the weapon
         // fully extended rather than guessing at a frame.
-        const seq = swing?.seq ?? sequenceFor(3);
+        const seq = swing?.seq ?? sequenceFor(3, 0);
         const step = swingT === null
           ? seq.length - 1
           : Math.min(seq.length - 1, Math.floor(swingT * seq.length));
@@ -424,7 +451,10 @@ window.Views.map = (function () {
         if (rec.frame !== frame || rec.weaponName !== u.weapon) {
           rec.frame = frame;
           rec.weaponName = u.weapon;
-          rec.weapon.setAttribute('src', weaponFrameUrl(u.weapon, frame));
+          // Frame 0 is the base sprite: a swing with no numbered drawings,
+          // which is what a turning blade wants since it is out the whole way.
+          rec.weapon.setAttribute('src',
+            frame === 0 ? spriteUrl(u.weapon) : weaponFrameUrl(u.weapon, frame));
         }
 
         const len = u.reach * cell;
@@ -537,9 +567,10 @@ window.Views.map = (function () {
     for (const d of heldKeys.values()) { dx += d.dx; dy += d.dy; }
     socket.emit('sim:input', {
       moveX: Math.sign(dx), moveY: Math.sign(dy),
-      aim, attack: wantAttack,
+      aim, attack: wantAttack, special: wantSpecial,
     });
     wantAttack = false;
+    wantSpecial = false;
   }
 
   function startInput() {
@@ -718,7 +749,10 @@ window.Views.map = (function () {
     });
 
     stage.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
+      // Left is the light attack, right the heavy one. Right is where the
+      // shield is meant to go (docs/combat.md, Controls); it is on the arc for
+      // now so there is something to swing while testing it.
+      if (e.button !== 0 && e.button !== 2) return;
       if (tool) return;                       // the build tool owns clicks while up
       const r = stage.getBoundingClientRect();
       const t = {
@@ -726,7 +760,14 @@ window.Views.map = (function () {
         y: Math.floor((e.clientY - r.top) / cell),
       };
       if (workableAt(t)) return;              // working the land, handled on click
-      wantAttack = true;
+      if (e.button === 2) wantSpecial = true;
+      else wantAttack = true;
+    });
+
+    // Otherwise the right button opens the browser's menu over the fight.
+    stage.addEventListener('contextmenu', (e) => {
+      if (tool) return;                       // the build tool may want it
+      e.preventDefault();
     });
 
     stage.addEventListener('click', (e) => {
@@ -1142,7 +1183,10 @@ window.Views.map = (function () {
         // A swing and a wind-up each start a clock, which is what the attack
         // frame loop animates from. The duration rides along on the shape, so
         // a weapon's own timing drives its animation.
-        if (ev.kind === 'swing') { noteSwing(ev.by, ev.shape?.activeMs, ev.frames); continue; }
+        if (ev.kind === 'swing') {
+          noteSwing(ev.by, ev.shape?.activeMs, ev.frames, ev.aim, ev.shape?.spread);
+          continue;
+        }
         if (ev.kind === 'tell') { noteTell(ev.by, ev.shape?.tellMs); continue; }
         if (ev.kind !== 'hit') continue;
         const rec = simUnits.get(ev.on);

@@ -87,6 +87,37 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
+### Two swings: a thrust and an arc
+
+A weapon has a **light** swing on the left button and an optional **heavy** one
+on the right (`MELEE` in `src/combat/melee.ts`). The sword's heavy is an arc,
+and the difference between the two is one field: `spread`, the radians the
+hitbox turns through while it is live. Absent means it holds still, which is a
+thrust.
+
+**The arc's hitbox turns with the blade** rather than opening as the whole fan
+at once, so what is drawn is still what hits. The fan is the area the swing
+*sweeps*, and at reach 1 a 0.45-wide blade overlaps itself the whole way round,
+so it covers solidly rather than in slices. A body at the far end of the arc is
+struck late in the swing, which is the test that keeps the drawing honest.
+
+**A swept attack snaps its aim to the nearest eighth of a circle**, so the arc
+always runs between compass points. Centred on a cardinal it runs diagonal to
+diagonal; centred on a diagonal it runs cardinal to cardinal. Those are the same
+rule rather than two cases. A quarter turn spans three of the eight points.
+
+The committed aim is the **middle** of the arc, not its start, so pointing at
+something means the blade passes through it half way through the swing.
+
+`swingAngle` is the single definition of where a swing points at a given moment,
+used by the hitbox and mirrored by the renderer. A target is struck once per
+swing, so an arc across three enemies hits each of them once — which is why it
+does less damage per hit than the thrust.
+
+**Right button is the arc only for testing.** The Controls section has it as the
+shield; the arc is there so there is something to swing while the feel is being
+judged.
+
 ### A swing commits to its aim, and is drawn for exactly as long as it hits
 
 The hitbox is live for `activeMs`, and that is also the animation's length, so

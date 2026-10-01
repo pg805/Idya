@@ -136,6 +136,19 @@ Two rules the drawing has to follow, because the renderer depends on both:
 A weapon with no numbered frames still swings; it just swings its single sprite,
 noted once when the first frame 404s.
 
+### The arc needs no drawings at all, yet
+
+The sword's heavy swing is a quarter-turn arc, and its frame count is **0**,
+which means the base sprite alone. That is the honest answer rather than a
+shortcut: the blade is out the whole way round and its ANGLE is doing the
+animating, so one drawing rotated through the arc is the whole animation.
+
+Numbered frames for an arc would be poses *on top of* the rotation — the blade
+trailing, the wrist turning over — so they compose rather than conflict. Raise
+`frames` on the heavy swing when there are such poses to show, and note that a
+swept swing plays `1..n` once rather than out and back, since retracing would
+walk the blade backwards along its own arc.
+
 ### Getting a PNG out of a .aseprite
 
 `python tools/aseprite_png.py <in.aseprite> <out.png> [--preview]`.

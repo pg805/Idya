@@ -44,6 +44,21 @@ export interface AttackShape {
   /** How long before it can be thrown again, in ms. */
   coolMs: number;
   /**
+   * Radians the hitbox SWEEPS during its active window. Absent means it holds
+   * one angle, which is a thrust.
+   *
+   * A swept rectangle covers a fan: at reach 1 a 0.45-wide blade turned through
+   * 90 degrees overlaps itself the whole way round, so the area is solid rather
+   * than five separate slices. A target is struck once per swing, so sweeping
+   * across three of them hits each one as the blade passes it.
+   *
+   * A swept attack also SNAPS its committed aim to the nearest eighth of a
+   * circle, so the arc runs between compass points: centred on a cardinal it
+   * runs diagonal to diagonal, and centred on a diagonal it runs cardinal to
+   * cardinal. Those are the same rule, not two cases.
+   */
+  spread?: number;
+  /**
    * Wind-up before the hitbox appears, in ms.
    *
    * Zero for players: their attacks resolve immediately and cost is what makes
@@ -99,6 +114,17 @@ export interface RtUnit {
    * pointed. Undefined outside a swing.
    */
   swingAim?: number;
+  /** A second attack, if it has one. Thrown with `wantSpecial`. */
+  special?: AttackShape;
+  /** Pressed the second attack. */
+  wantSpecial?: boolean;
+  /**
+   * The shape of the swing in flight, which is `attack` or `special`.
+   *
+   * Held for the duration so that releasing the button, or pressing the other
+   * one, cannot change what is already in the air.
+   */
+  using?: AttackShape;
   /** Milliseconds until the attack is available. */
   cool: number;
   /** Ids already hit by the swing in flight, so one swing lands once each. */
@@ -165,6 +191,51 @@ function angleTo(a: number, b: number): number {
  * puts a weapon's grip at `r` and its tip here (see `.sim-weapon` in map.css).
  */
 export const sweptLength = (r: number, reach: number): number => r + reach;
+
+/**
+ * The drawings a swing plays through, in order.
+ *
+ * A fixed-angle swing goes out and back — 1..n then down to 1 — because the
+ * extension is the whole animation and the retreat reads as the hand pulling
+ * in. A SWEPT swing runs 1..n once, since its angle is doing the animating and
+ * retracing would walk the blade back along its own arc.
+ *
+ * Zero drawings is one step on the base sprite, which is the honest answer for
+ * a turning blade that is out the whole way round.
+ */
+export function swingSequenceFor(frames: number, spread?: number): number[] {
+  const n = (Number.isInteger(frames) && frames > 0) ? frames : 0;
+  if (n === 0) return [0];
+  const out: number[] = [];
+  for (let i = 1; i <= n; i++) out.push(i);
+  if (!spread) for (let i = n - 1; i >= 1; i--) out.push(i);
+  return out;
+}
+
+/** An eighth of a circle: the step a swept attack's aim snaps to. */
+export const SNAP = Math.PI / 4;
+
+/** The nearest compass point, of the eight. */
+export const snapAim = (aim: number): number => Math.round(aim / SNAP) * SNAP;
+
+/**
+ * Where a swing points when it is `progress` of the way through, 0 to 1.
+ *
+ * A thrust holds the angle it committed to. A swept attack starts half its
+ * spread behind that and turns through it, so the committed aim is the MIDDLE
+ * of the arc rather than its start — aim at a thing and the blade passes
+ * through it half way, which is where a swing wants to connect.
+ *
+ * `public/views/map.js` mirrors this so the drawing and the hitbox agree; this
+ * is the definition and has the tests on it.
+ */
+export function swingAngle(
+  shape: AttackShape, committed: number, progress: number,
+): number {
+  if (!shape.spread) return committed;
+  const p = progress < 0 ? 0 : progress > 1 ? 1 : progress;
+  return committed - shape.spread / 2 + shape.spread * p;
+}
 
 /**
  * Does an oriented rectangle swept from (ux, uy) overlap a circle?
@@ -277,47 +348,57 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
 
   // ---- starting an attack ----
   for (const u of live()) {
-    if (!u.wantAttack || u.phase !== 'idle' || u.cool > 0) continue;
+    const wants = u.wantSpecial && u.special ? u.special : u.wantAttack ? u.attack : null;
+    if (!wants || u.phase !== 'idle' || u.cool > 0) continue;
     u.wantAttack = false;
+    u.wantSpecial = false;
     u.struck = [];
-    if (u.attack.tellMs > 0) {
+    // Held for the duration: letting go of the button, or pressing the other
+    // one, must not change a swing that is already in the air.
+    u.using = wants;
+    if (wants.tellMs > 0) {
       u.phase = 'tell';
-      u.tLeft = u.attack.tellMs;
-      events.push({ kind: 'tell', by: u.id, aim: u.aim, shape: u.attack });
+      u.tLeft = wants.tellMs;
+      events.push({ kind: 'tell', by: u.id, aim: u.aim, shape: wants });
     } else {
       u.phase = 'active';
-      u.tLeft = u.attack.activeMs;
-      u.swingAim = u.aim;
-      events.push({ kind: 'swing', by: u.id, aim: u.aim, shape: u.attack });
+      u.tLeft = wants.activeMs;
+      u.swingAim = wants.spread ? snapAim(u.aim) : u.aim;
+      events.push({ kind: 'swing', by: u.id, aim: u.swingAim, shape: wants });
     }
   }
 
   // ---- attacks in flight ----
   for (const u of live()) {
     if (u.phase === 'idle') continue;
+    const shape = u.using ?? u.attack;
     u.tLeft -= ms;
 
     if (u.phase === 'tell') {
       if (u.tLeft > 0) continue;
       u.phase = 'active';
-      u.tLeft = u.attack.activeMs;
+      u.tLeft = shape.activeMs;
       u.struck = [];
       // Committed here rather than at the tell, so a wind-up can still be
       // turned: the telegraph shows where it is going and the last moment to
       // read it is the moment it commits.
-      u.swingAim = u.aim;
-      events.push({ kind: 'swing', by: u.id, aim: u.aim, shape: u.attack });
+      u.swingAim = shape.spread ? snapAim(u.aim) : u.aim;
+      events.push({ kind: 'swing', by: u.id, aim: u.swingAim, shape });
     }
 
     if (u.phase === 'active') {
+      // Where the blade is NOW. A thrust holds still and a swept attack has
+      // turned part of the way through its arc, so the hitbox is wherever the
+      // drawing is rather than the whole fan at once.
+      const progress = shape.activeMs > 0 ? 1 - u.tLeft / shape.activeMs : 1;
+      const aimed = swingAngle(shape, u.swingAim ?? u.aim, progress);
+      const swept = sweptLength(u.r, shape.reach);
       for (const t of live()) {
         if (t.team === u.team || u.struck.includes(t.id)) continue;
-        const swept = sweptLength(u.r, u.attack.reach);
-        const aimed = u.swingAim ?? u.aim;
-        if (!rectHitsCircle(u.x, u.y, aimed, swept, u.attack.width, t)) continue;
+        if (!rectHitsCircle(u.x, u.y, aimed, swept, shape.width, t)) continue;
         u.struck.push(t.id);
-        t.hp = Math.max(0, t.hp - u.attack.damage);
-        events.push({ kind: 'hit', by: u.id, on: t.id, damage: u.attack.damage, at: { x: t.x, y: t.y } });
+        t.hp = Math.max(0, t.hp - shape.damage);
+        events.push({ kind: 'hit', by: u.id, on: t.id, damage: shape.damage, at: { x: t.x, y: t.y } });
         if (t.hp === 0 && !t.dead) {
           t.dead = true;
           t.phase = 'idle';
@@ -326,8 +407,9 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       }
       if (u.tLeft <= 0) {
         u.phase = 'idle';
-        u.cool = u.attack.coolMs;
+        u.cool = shape.coolMs;
         u.swingAim = undefined;
+        u.using = undefined;
       }
     }
   }

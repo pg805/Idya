@@ -8,7 +8,9 @@ import {
 } from '../combat/realtime.js';
 // Weapons live apart so they can be read and tested without the database.
 // Adding one is an entry there plus the drawings; nothing here changes.
-import { MELEE, PLAYER_MELEE, type MeleeWeapon } from '../combat/melee.js';
+import {
+  MELEE, PLAYER_MELEE, swingFor, type MeleeWeapon,
+} from '../combat/melee.js';
 
 /**
  * The world, stepping.
@@ -75,7 +77,7 @@ interface EnemyKit {
 function kitWeapon(kit: EnemyKit): { attack: AttackShape; weapon: MeleeWeapon | null } {
   const held = kit.melee ? MELEE[kit.melee] ?? null : null;
   // A held weapon's shape wins: a thing swinging a sword swings a sword.
-  const attack = held?.attack ?? kit.attack;
+  const attack = held?.light.shape ?? kit.attack;
   if (!attack) throw new Error('an enemy kit needs either attack or melee');
   return { attack, weapon: held };
 }
@@ -90,6 +92,8 @@ export interface SimInput {
   moveY: number;
   aim: number;
   attack: boolean;
+  /** The right button: a weapon's heavy swing, if it has one. */
+  special?: boolean;
 }
 
 /** What the client needs to draw a unit. Kept small: this goes out 20x a second. */
@@ -213,7 +217,9 @@ export function createWorldSim(deps: WorldSimDeps) {
       unit: {
         id: args.socketId, ref: args.socketId, team: 'player',
         x: args.tile.x + 0.5, y: args.tile.y + 0.5, r: 0.34,
-        hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0, attack: MELEE[PLAYER_MELEE].attack,
+        hp: 100, maxHp: 100, speed: PLAYER_SPEED, vision: 0,
+        attack: MELEE[PLAYER_MELEE].light.shape,
+        special: MELEE[PLAYER_MELEE].heavy?.shape,
         moveX: 0, moveY: 0, aim: 0, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         wanderX: 0, wanderY: 0, wanderMs: 0,
@@ -252,6 +258,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       // Held rather than overwritten: an early press waits for the cooldown
       // instead of being dropped (docs/combat.md §0b).
       if (input.attack) m.unit.wantAttack = true;
+      if (input.special) m.unit.wantSpecial = true;
       return;
     }
   }
@@ -275,9 +282,9 @@ export function createWorldSim(deps: WorldSimDeps) {
    * Sent on the event rather than in every state frame: it never changes
    * mid-swing, and the state goes out twenty times a second.
    */
-  function framesFor(sim: Sim, id: string): number | undefined {
-    if (sim.members.has(id)) return MELEE[PLAYER_MELEE].frames;
-    return sim.meta.get(id)?.weapon?.frames;
+  function weaponOf(sim: Sim, id: string): MeleeWeapon | null {
+    if (sim.members.has(id)) return MELEE[PLAYER_MELEE];
+    return sim.meta.get(id)?.weapon ?? null;
   }
 
   /**
@@ -290,8 +297,12 @@ export function createWorldSim(deps: WorldSimDeps) {
    */
   function dress(sim: Sim, e: RtEvent): RtEvent & { frames?: number } {
     if (e.kind !== 'swing' && e.kind !== 'tell') return e;
-    const frames = framesFor(sim, e.by);
-    return frames === undefined ? e : { ...e, frames };
+    const weapon = weaponOf(sim, e.by);
+    if (!weapon) return e;
+    // Which of the weapon's swings this is, so the right frame count goes out:
+    // the shapes are shared constants, so identity answers it.
+    const swing = swingFor(weapon, e.shape);
+    return swing ? { ...e, frames: swing.frames } : e;
   }
 
   function wire(sim: Sim): UnitWire[] {

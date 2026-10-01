@@ -1,4 +1,4 @@
-import type { AttackShape } from './realtime.js';
+import { swingSequenceFor, type AttackShape } from './realtime.js';
 
 /**
  * Held melee weapons.
@@ -59,17 +59,66 @@ const SWORD_THRUST: AttackShape = {
   reach: 1, width: 0.45, activeMs: 250, coolMs: 150, tellMs: 0, damage: 16,
 };
 
+/**
+ * The arc, on the right button.
+ *
+ * `spread` is a quarter turn, which is three of the eight compass points, and a
+ * swept attack snaps its aim to the nearest of them — so the arc always runs
+ * between compass points. Centred on a cardinal it goes diagonal to diagonal;
+ * centred on a diagonal it goes cardinal to cardinal. One rule, both cases.
+ *
+ * The hitbox turns with the blade rather than opening as the whole fan at once,
+ * so what is drawn is still what hits. The fan is the area the swing SWEEPS,
+ * and at reach 1 a 0.45-wide blade overlaps itself the whole way round, so it
+ * covers solidly rather than in slices.
+ *
+ * Less damage than the thrust, because it can catch several things on the way
+ * past: a target is struck once per swing, so three enemies standing in the arc
+ * take one hit each.
+ */
+const SWORD_ARC: AttackShape = {
+  reach: 1, width: 0.45, activeMs: 250, coolMs: 250, tellMs: 0,
+  damage: 12, spread: Math.PI / 2,
+};
+
+/** One attack a weapon can throw: what it does, and how it is drawn. */
+export interface Swing {
+  shape: AttackShape;
+  /**
+   * Numbered drawings, at `<sprite>_<n>.png`.
+   *
+   * **Zero means the base sprite alone**, which is right for a swing that
+   * turns: the blade is out the whole way round and its angle is doing the
+   * animating, so one drawing is honest rather than lazy. Raise it when there
+   * are poses to show.
+   */
+  frames: number;
+}
+
 export interface MeleeWeapon {
   /** Sprite base name in public/sprites/. Frames are `<sprite>_<n>.png`. */
   sprite: string;
-  /** How many drawings there are. The swing plays 1..n then back to 1. */
-  frames: number;
-  attack: AttackShape;
+  /** The left button. */
+  light: Swing;
+  /** The right button, if it has one. */
+  heavy?: Swing;
 }
 
 export const MELEE: Record<string, MeleeWeapon> = {
-  sword_01: { sprite: 'weapon_sword_01', frames: 3, attack: SWORD_THRUST },
+  sword_01: {
+    sprite: 'weapon_sword_01',
+    light: { shape: SWORD_THRUST, frames: 3 },
+    heavy: { shape: SWORD_ARC, frames: 0 },
+  },
 };
+
+/** Every swing a weapon has, for walking them. */
+export const swingsOf = (w: MeleeWeapon): Swing[] =>
+  w.heavy ? [w.light, w.heavy] : [w.light];
+
+/** Which of a weapon's swings a given shape is, or null if it is not one. */
+export const swingFor = (w: MeleeWeapon, shape: AttackShape): Swing | null =>
+  swingsOf(w).find(sw => sw.shape === shape) ?? null;
 
 /**
  * What the player is holding: a key into `MELEE`.
@@ -81,23 +130,13 @@ export const MELEE: Record<string, MeleeWeapon> = {
 export const PLAYER_MELEE = 'sword_01';
 
 /**
- * The frames a swing plays, out and back: 1..n, then back down to 1.
+ * The frames a swing plays.
  *
- * The tip, more of it, the whole weapon, then the way it came — the retreat
- * reads as the hand pulling in, which is why the sequence is a palindrome
- * rather than a loop. Three drawings cover five steps because 4 and 5 are 2
- * and 1 again.
- *
- * `public/views/map.js` mirrors this as `outAndBack`, because the browser
- * cannot import TypeScript. This is the definition; that is the copy.
+ * Re-exported from the engine, which owns it because the same progress drives
+ * the hitbox's angle. `public/views/map.js` mirrors it, since the browser
+ * cannot import TypeScript; that one is the copy and this one has the tests.
  */
-export function swingSequence(frames: number): number[] {
-  const n = (Number.isInteger(frames) && frames > 0) ? frames : 1;
-  const out: number[] = [];
-  for (let i = 1; i <= n; i++) out.push(i);
-  for (let i = n - 1; i >= 1; i--) out.push(i);
-  return out;
-}
+export const swingSequence = swingSequenceFor;
 
 /** The sprite file a given frame of a weapon's swing is drawn from. */
 export const frameSprite = (weapon: MeleeWeapon, frame: number): string =>
