@@ -245,6 +245,44 @@ export const slotShape = (u: RtUnit, slot: number): AttackShape | null => (
 /** How many slots a unit can throw. */
 export const slotCount = (u: RtUnit): number => 1 + (u.extras?.length ?? 0);
 
+/**
+ * How far a hit shoves the thing it lands on, in tiles.
+ *
+ * A quarter of a square: enough to register as a flinch and to break a pair
+ * that has walked into each other, not enough to move anybody meaningfully.
+ * It is a displacement rather than an impulse that decays, because at this size
+ * the client's own 70ms smoothing between server frames is the whole animation.
+ */
+export const KNOCKBACK = 0.25;
+
+/**
+ * Shove a body away from whatever hit it.
+ *
+ * Directed along attacker-to-target, so it is always directly away from the
+ * blow rather than along the aim: being clipped by the edge of a spin pushes
+ * you outward from the spinner, which is the direction that reads as being hit.
+ *
+ * Resolved through the same collision the movement step uses, so a shove cannot
+ * post somebody through a wall or off the chunk. Overlap with other bodies is
+ * left to the next tick's `resolveBodies`, which is what pushes pairs apart
+ * anyway.
+ */
+export function knockBack(
+  target: RtUnit, fromX: number, fromY: number, world: StepWorld, distance = KNOCKBACK,
+): void {
+  let dx = target.x - fromX, dy = target.y - fromY;
+  const d = Math.hypot(dx, dy);
+  if (d > 1e-6) { dx /= d; dy /= d; }
+  else {
+    // Standing exactly on top of each other: no direction to leave by, so use
+    // the way the target is facing and shove it forward rather than nowhere.
+    dx = Math.cos(target.aim); dy = Math.sin(target.aim);
+  }
+  target.x = clamp(target.x + dx * distance, target.r, world.size - target.r);
+  target.y = clamp(target.y + dy * distance, target.r, world.size - target.r);
+  resolveTiles(target, world);
+}
+
 /** An eighth of a circle: the step a swept attack's aim snaps to. */
 export const SNAP = Math.PI / 4;
 
@@ -434,6 +472,9 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
         if (!rectHitsCircle(u.x, u.y, aimed, swept, shape.width, t)) continue;
         u.struck.push(t.id);
         t.hp = Math.max(0, t.hp - shape.damage);
+        // Shoved before the event is raised, so `at` is where the body ends up
+        // rather than where it was standing when the blow connected.
+        knockBack(t, u.x, u.y, world);
         events.push({ kind: 'hit', by: u.id, on: t.id, damage: shape.damage, at: { x: t.x, y: t.y } });
         if (t.hp === 0 && !t.dead) {
           t.dead = true;

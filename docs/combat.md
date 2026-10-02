@@ -87,6 +87,28 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
+### A hit shoves
+
+Every blow pushes the body it lands on a **quarter square directly away from
+whatever hit it** (`KNOCKBACK` in `src/combat/realtime.ts`). Away from the
+attacker rather than along the aim, so being clipped by the edge of a spin
+pushes you outward from the spinner, which is the direction that reads as being
+hit.
+
+It is a displacement, not an impulse that decays: at a quarter square the
+client's own 70ms smoothing between server frames is the whole animation. It
+resolves through the same collision the movement step uses, so a shove cannot
+post anybody through a wall or off the chunk.
+
+**It accumulates, and that is the interesting part.** Nothing pulls a target
+back, so from touching distance five hits walk it out of a 1.34 reach — three
+if it started a tile away. One shove never breaks contact, so a follow-up always
+connects, but a player who stands still loses the fight to their own knockback.
+Melee means following what you are hitting. Walking it down lands better than
+twice what standing does.
+
+It applies to both sides, so an enemy's peck shoves the player too.
+
 ### Swings live in slots
 
 A weapon carries an ordered list of swings (`MELEE` in `src/combat/melee.ts`),
