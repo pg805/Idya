@@ -461,50 +461,96 @@ describe('attack slots', () => {
 });
 
 describe('knockback', () => {
-  test('a hit shoves the body a quarter square away', () => {
+  /** Step until the shove is spent, reporting the biggest single frame. */
+  const settle = (u: RtUnit, w = world(), ticks = 12) => {
+    let biggest = 0;
+    for (let i = 0; i < ticks; i++) {
+      const was = { x: u.x, y: u.y };
+      stepWorld([u], w, 0.05);
+      biggest = Math.max(biggest, Math.hypot(u.x - was.x, u.y - was.y));
+    }
+    return biggest;
+  };
+
+  test('a hit shoves the body half a square away', () => {
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    const e = unit({ id: 'e', team: 'enemy', x: 6, y: 5 });
+    const e = unit({ id: 'e', team: 'enemy', x: 6, y: 5, speed: 0 });
     p.aim = 0; p.wantAttack = true;
     run([p, e], world(), 2);
     expect(e.hp).toBeLessThan(100);
-    expect(e.x - 6).toBeCloseTo(KNOCKBACK, 6);
+    settle(e);
+    expect(e.x - 6).toBeCloseTo(KNOCKBACK, 2);
     expect(e.y).toBeCloseTo(5, 6);
+  });
+
+  test('it is spent over several frames, not teleported', () => {
+    // The reason it is a decaying push rather than a displacement: half a
+    // square delivered at once is three times a full-speed frame step, and it
+    // arrived as a snap. No frame of a shove may outrun a sprint.
+    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5, speed: 0 });
+    knockBack(e, 4, 5);
+    const biggest = settle(e);
+    const sprint = 5.6 * 0.05;                  // a player's fastest frame
+    expect(biggest).toBeLessThanOrEqual(sprint * 1.1);
+    expect(biggest).toBeGreaterThan(sprint * 0.5);   // and still a real shove
   });
 
   test('it goes away from the attacker, not along the aim', () => {
     // Clipped by the edge of a swing, you are pushed outward from the swinger
     // rather than in the direction the blade was travelling.
-    const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    const e = unit({ id: 'e', team: 'enemy', x: 5 + Math.cos(0.4), y: 5 + Math.sin(0.4) });
+    const e = unit({ id: 'e', team: 'enemy', x: 5 + Math.cos(0.4), y: 5 + Math.sin(0.4), speed: 0 });
     const before = { x: e.x, y: e.y };
-    knockBack(e, p.x, p.y, world());
+    knockBack(e, 5, 5);
+    settle(e);
     const moved = Math.atan2(e.y - before.y, e.x - before.x);
-    expect(moved).toBeCloseTo(0.4, 6);          // straight out from the body
-    expect(Math.hypot(e.x - before.x, e.y - before.y)).toBeCloseTo(KNOCKBACK, 6);
+    expect(moved).toBeCloseTo(0.4, 4);          // straight out from the body
+    expect(Math.hypot(e.x - before.x, e.y - before.y)).toBeCloseTo(KNOCKBACK, 2);
+  });
+
+  test('two hits at once stack rather than replacing each other', () => {
+    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5, speed: 0 });
+    knockBack(e, 4, 5);
+    knockBack(e, 4, 5);
+    settle(e);
+    expect(e.x - 5).toBeCloseTo(KNOCKBACK * 2, 2);
   });
 
   test('a wall stops it rather than letting it through', () => {
     // Backed against a tree with the blow coming from the front.
-    const e = unit({ id: 'e', team: 'enemy', x: 5.5, y: 5.5 });
-    knockBack(e, 4.5, 5.5, world(['6,5']), 1.0);
+    const e = unit({ id: 'e', team: 'enemy', x: 5.5, y: 5.5, speed: 0 });
+    knockBack(e, 4.5, 5.5);
+    settle(e, world(['6,5']));
     expect(e.x).toBeLessThanOrEqual(6 - e.r + 1e-6);
   });
 
+  test('no frame of a shove is longer than the body is wide', () => {
+    // This is WHY a wall stops it. Collision pushes a body out of the nearest
+    // face of a tile, so a step that carries the centre past the middle of one
+    // gets ejected out the far side instead — it tunnels. Staying under the
+    // radius is what keeps that impossible, and it is the real ceiling on how
+    // hard a hit may shove.
+    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5, speed: 0 });
+    knockBack(e, 4, 5);
+    expect(settle(e)).toBeLessThan(e.r);
+  });
+
   test('the chunk edge stops it too', () => {
-    const e = unit({ id: 'e', team: 'enemy', x: 0.5, y: 5 });
-    knockBack(e, 5, 5, world(), 2);
+    const e = unit({ id: 'e', team: 'enemy', x: 0.5, y: 5, speed: 0 });
+    knockBack(e, 5, 5);
+    settle(e);
     expect(e.x).toBeGreaterThanOrEqual(e.r - 1e-6);
   });
 
   test('bodies on the same spot shove somewhere rather than nowhere', () => {
     // No direction to leave by, so it uses the facing instead of dividing by
     // zero and landing on NaN.
-    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5 });
+    const e = unit({ id: 'e', team: 'enemy', x: 5, y: 5, speed: 0 });
     e.aim = Math.PI / 2;
-    knockBack(e, 5, 5, world());
+    knockBack(e, 5, 5);
+    settle(e);
     expect(Number.isFinite(e.x)).toBe(true);
     expect(Number.isFinite(e.y)).toBe(true);
-    expect(e.y - 5).toBeCloseTo(KNOCKBACK, 6);
+    expect(e.y - 5).toBeCloseTo(KNOCKBACK, 2);
   });
 
   test('it lands on the player too, not just on enemies', () => {
@@ -513,52 +559,49 @@ describe('knockback', () => {
     e.aim = 0; e.wantAttack = true;
     run([p, e], world(), 40);                   // past the 360ms wind-up
     expect(p.hp).toBeLessThan(100);
-    expect(p.x).toBeGreaterThan(6);
+    expect(p.x).toBeGreaterThan(6.3);
   });
 
   test('one shove does not break contact, so a follow-up connects', () => {
     // The thing that would make knockback self-defeating: if a single hit put
     // the target out of range, the first blow would protect it from the second.
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    const e = unit({ id: 'e', team: 'enemy', x: 6, y: 5, hp: 1000, maxHp: 1000 });
+    const e = unit({ id: 'e', team: 'enemy', x: 5.7, y: 5, hp: 1000, maxHp: 1000, speed: 0 });
     p.aim = 0;
     p.wantAttack = true;
     run([p, e], world(), 2);
     const after = e.hp;
     expect(after).toBeLessThan(1000);
-    // Wait out the cooldown and swing again, without moving.
     for (let i = 0; i < 12; i++) { p.wantAttack = true; run([p, e], world(), 1, 0.05); }
     expect(e.hp).toBeLessThan(after);
   });
 
   test('but it accumulates, so a standing player loses reach', () => {
-    // Worth pinning because it is a real consequence rather than a bug: each
-    // hit pushes a quarter square and nothing pulls the target back, so five
-    // shoves from touching distance walk it out of a 1.34 reach. Melee means
-    // following it, which is the next test.
+    // A real consequence rather than a bug: nothing pulls a target back, so
+    // half a square a hit walks it out of a 1.34 reach in a few blows. Melee
+    // means following it, which is the next test.
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
     const e = unit({ id: 'e', team: 'enemy', x: 5.68, y: 5, hp: 1e6, maxHp: 1e6, speed: 0 });
     p.aim = 0;
     let hits = 0;
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 160; i++) {
       p.wantAttack = true;
       for (const ev of run([p, e], world(), 1, 0.05)) if (ev.kind === 'hit') hits++;
     }
-    expect(hits).toBe(5);
+    expect(hits).toBeGreaterThan(1);
+    expect(hits).toBeLessThan(5);
     expect(e.x - p.x - e.r).toBeGreaterThan(sweptLength(p.r, p.attack.reach));
   });
 
   test('a player who steps forward keeps connecting', () => {
     // Stated against the standing case rather than a bare number, which is the
-    // claim that matters: walking it down beats letting it drift away. It is
-    // not EVERY swing, because the shove plus the bodies pushing apart keeps
-    // nudging it out of a 4.2-tile-a-second advance.
+    // claim that matters: walking it down beats letting it drift away.
     const chase = (walk: boolean) => {
       const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
       const e = unit({ id: 'e', team: 'enemy', x: 5.68, y: 5, hp: 1e6, maxHp: 1e6, speed: 0 });
       p.aim = 0;
       let hits = 0;
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < 160; i++) {
         p.wantAttack = true;
         if (walk) p.moveX = 1;
         for (const ev of run([p, e], world(), 1, 0.05)) if (ev.kind === 'hit') hits++;
@@ -570,11 +613,12 @@ describe('knockback', () => {
 
   test('a killing blow still shoves, so the body falls back', () => {
     const p = unit({ id: 'p', team: 'player', x: 5, y: 5 });
-    const e = unit({ id: 'e', team: 'enemy', x: 6, y: 5, hp: 1 });
+    const e = unit({ id: 'e', team: 'enemy', x: 6, y: 5, hp: 1, speed: 0 });
     p.aim = 0; p.wantAttack = true;
     run([p, e], world(), 2);
     expect(e.dead).toBe(true);
-    expect(e.x).toBeGreaterThan(6);
+    // Dead bodies leave the simulation, so the shove is owed but never spent.
+    expect(Math.hypot(e.kbX ?? 0, e.kbY ?? 0)).toBeCloseTo(KNOCKBACK, 6);
   });
 });
 

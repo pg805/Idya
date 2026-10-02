@@ -89,25 +89,34 @@ a telegraph is the length of the thing about to hit you.
 
 ### A hit shoves
 
-Every blow pushes the body it lands on a **quarter square directly away from
+Every blow pushes the body it lands on **half a square directly away from
 whatever hit it** (`KNOCKBACK` in `src/combat/realtime.ts`). Away from the
 attacker rather than along the aim, so being clipped by the edge of a spin
 pushes you outward from the spinner, which is the direction that reads as being
-hit.
+hit. It applies to both sides, so an enemy's peck shoves the player too.
 
-It is a displacement, not an impulse that decays: at a quarter square the
-client's own 70ms smoothing between server frames is the whole animation. It
-resolves through the same collision the movement step uses, so a shove cannot
-post anybody through a wall or off the chunk.
+**It is a decaying push, not a displacement.** A hit only lines the shove up;
+the movement step spends it, taking `1 - exp(-dt / KNOCKBACK_TAU)` of whatever
+is left each tick, so a body leaves at about the speed of a sprint and eases
+into a stop over roughly 150ms. Moving it all at once was wrong twice over: half
+a square in one frame is three times a full-speed step, so it arrived as a snap,
+and the body appeared to jump again when it resumed walking.
 
-**It accumulates, and that is the interesting part.** Nothing pulls a target
-back, so from touching distance five hits walk it out of a 1.34 reach — three
-if it started a tile away. One shove never breaks contact, so a follow-up always
-connects, but a player who stands still loses the fight to their own knockback.
-Melee means following what you are hitting. Walking it down lands better than
-twice what standing does.
+Spending it in the movement step also means it goes through the same collision
+as walking, so a shove cannot post anybody through a wall or off the chunk.
 
-It applies to both sides, so an enemy's peck shoves the player too.
+**There is a ceiling on how hard a hit may shove, and it is the body's radius.**
+Collision pushes a body out of the nearest face of a tile, so a single step that
+carries the centre past the middle of one gets ejected out the *far* side — it
+tunnels. The biggest frame of the current shove is 0.283 against a radius of
+0.34, which is why a wall holds. A harder hit wants a smaller `KNOCKBACK_TAU`
+spreading it over more frames, not a bigger step.
+
+**It accumulates, and that shapes how melee plays.** Nothing pulls a target
+back, so half a square a hit walks it out of a 1.34 reach in three blows. One
+shove never breaks contact, so a follow-up always connects, but a player who
+stands still loses the fight to their own knockback: standing lands 3 hits where
+walking forward lands 23. Melee means following what you are hitting.
 
 ### Swings live in slots
 

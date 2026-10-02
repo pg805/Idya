@@ -144,6 +144,14 @@ export interface RtUnit {
    */
   wantSlot?: number | null;
   /**
+   * Shove still owed to this body, in tiles, spent over the next few ticks.
+   *
+   * Carried rather than applied at once so a hit does not teleport anybody;
+   * see `KNOCKBACK_TAU`.
+   */
+  kbX?: number;
+  kbY?: number;
+  /**
    * The shape of the swing in flight, which is `attack` or `special`.
    *
    * Held for the duration so that releasing the button, or pressing the other
@@ -248,27 +256,42 @@ export const slotCount = (u: RtUnit): number => 1 + (u.extras?.length ?? 0);
 /**
  * How far a hit shoves the thing it lands on, in tiles.
  *
- * A quarter of a square: enough to register as a flinch and to break a pair
- * that has walked into each other, not enough to move anybody meaningfully.
- * It is a displacement rather than an impulse that decays, because at this size
- * the client's own 70ms smoothing between server frames is the whole animation.
+ * Half a square. A quarter was too small to read as being hit.
  */
-export const KNOCKBACK = 0.25;
+export const KNOCKBACK = 0.5;
 
 /**
- * Shove a body away from whatever hit it.
+ * How quickly a shove is spent, as a time constant in seconds.
+ *
+ * The shove is a DECAYING DISPLACEMENT, not a teleport. Instant was wrong twice
+ * over: at half a square it is three times a full-speed frame step, so it
+ * arrived as a snap, and the body jumped again when it resumed walking. Spread
+ * over a few ticks it leaves at a believable speed and slows into a stop, and
+ * the client's existing smoothing has something sane to interpolate.
+ *
+ * Framed as a time constant rather than a frame count so it does not change
+ * with the tick rate: each step takes `1 - exp(-dt / tau)` of whatever is left,
+ * which is most of it in the first 50ms and the tail inside 150.
+ */
+export const KNOCKBACK_TAU = 0.06;
+
+/** Below this much left, the rest is not worth a frame. */
+const KNOCKBACK_DONE = 0.002;
+
+/**
+ * Line a body up to be shoved away from whatever hit it.
  *
  * Directed along attacker-to-target, so it is always directly away from the
  * blow rather than along the aim: being clipped by the edge of a spin pushes
  * you outward from the spinner, which is the direction that reads as being hit.
  *
- * Resolved through the same collision the movement step uses, so a shove cannot
- * post somebody through a wall or off the chunk. Overlap with other bodies is
- * left to the next tick's `resolveBodies`, which is what pushes pairs apart
- * anyway.
+ * This only records the push. It is SPENT in the movement step, which is what
+ * puts it through the same collision as walking, so a shove cannot post
+ * somebody through a wall or off the chunk. Two hits landing together stack
+ * rather than the second replacing the first.
  */
 export function knockBack(
-  target: RtUnit, fromX: number, fromY: number, world: StepWorld, distance = KNOCKBACK,
+  target: RtUnit, fromX: number, fromY: number, distance = KNOCKBACK,
 ): void {
   let dx = target.x - fromX, dy = target.y - fromY;
   const d = Math.hypot(dx, dy);
@@ -278,9 +301,20 @@ export function knockBack(
     // the way the target is facing and shove it forward rather than nowhere.
     dx = Math.cos(target.aim); dy = Math.sin(target.aim);
   }
-  target.x = clamp(target.x + dx * distance, target.r, world.size - target.r);
-  target.y = clamp(target.y + dy * distance, target.r, world.size - target.r);
-  resolveTiles(target, world);
+  target.kbX = (target.kbX ?? 0) + dx * distance;
+  target.kbY = (target.kbY ?? 0) + dy * distance;
+}
+
+/** Spend a share of whatever shove is left on this body. */
+function spendKnockback(u: RtUnit, dt: number): void {
+  const left = Math.hypot(u.kbX ?? 0, u.kbY ?? 0);
+  if (left < KNOCKBACK_DONE) { u.kbX = 0; u.kbY = 0; return; }
+  const share = 1 - Math.exp(-dt / KNOCKBACK_TAU);
+  const sx = (u.kbX ?? 0) * share, sy = (u.kbY ?? 0) * share;
+  u.x += sx;
+  u.y += sy;
+  u.kbX = (u.kbX ?? 0) - sx;
+  u.kbY = (u.kbY ?? 0) - sy;
 }
 
 /** An eighth of a circle: the step a swept attack's aim snaps to. */
@@ -409,6 +443,9 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       u.x += (u.moveX / len) * u.throttle * u.speed * dt;
       u.y += (u.moveY / len) * u.throttle * u.speed * dt;
     }
+    // Being shoved is movement too, so it happens here and goes through the
+    // same collision below rather than displacing the body behind its back.
+    spendKnockback(u, dt);
   }
   resolveBodies(live());
   for (const u of live()) {
@@ -472,9 +509,9 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
         if (!rectHitsCircle(u.x, u.y, aimed, swept, shape.width, t)) continue;
         u.struck.push(t.id);
         t.hp = Math.max(0, t.hp - shape.damage);
-        // Shoved before the event is raised, so `at` is where the body ends up
-        // rather than where it was standing when the blow connected.
-        knockBack(t, u.x, u.y, world);
+        // Only lines the shove up; the movement step spends it, so `at` is
+        // where the body was struck rather than where it ends up.
+        knockBack(t, u.x, u.y);
         events.push({ kind: 'hit', by: u.id, on: t.id, damage: shape.damage, at: { x: t.x, y: t.y } });
         if (t.hp === 0 && !t.dead) {
           t.dead = true;
