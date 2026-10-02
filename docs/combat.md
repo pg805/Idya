@@ -87,21 +87,21 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
-### A body has one speed
+### Creatures wind up slowly, players do not
 
-Wandering used to run at 0.4 throttle against a chase's 1.0, so noticing you
-meant instantly moving two and a half times faster. Easing that over
-`ACCEL_SECONDS` was not enough — the change of gear was itself the thing that
-looked wrong. **A creature now moves at `speed` whatever it is doing**, and the
-difference between pottering and hunting is where it goes and how often it
-stops, not how fast it travels.
+A potter is 0.4 throttle and a chase is 1.0, and getting faster is eased over
+`ACCEL_SECONDS`. On a player's ramp that is three frames, the first of them 57%
+quicker than the last frame of pottering — which is what read as the body
+popping forward the moment it noticed you.
 
-What that costs: an idle swallow covers about 17 tiles in ten seconds and ends
-up 7 from where it started, against roughly 3 before, so a flock spreads across
-a chunk faster and will eventually bunch against the edges — enemies are clamped
-to the chunk and have no `exitDirection`. `speed` on the kit is the one dial for
-all of it, and there is room to come down: a swallow is 3.4 against a player's
-5.6, and it could not catch a running player at either value.
+So **acceleration is per unit**, because the two ends want opposite things. A
+player's throttle changes because they pressed something, so a short ramp is
+the controls answering. A creature's changes on its own, so a short ramp is a
+pop: `CREATURE_ACCEL` spreads the same 0.4 to 1.0 over about half a second, and
+no frame is more than about a tenth quicker than the one before.
+
+The speeds themselves are unchanged — a potter still potters and a chase still
+chases at `speed`. Only the time between them moved.
 
 ### Noticing you is a turn, not a lurch
 

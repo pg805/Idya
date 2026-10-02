@@ -3,7 +3,7 @@ import prisma from '../database/prisma.js';
 import { CHUNK_SIZE, chunkKey, type Chunk } from '../world/chunk.js';
 import { ENEMY_KIND } from '../world/spawns.js';
 import {
-  stepWorld, driveEnemy, exitDirection,
+  stepWorld, driveEnemy, exitDirection, CREATURE_ACCEL,
   type AttackShape, type RtUnit, type StepWorld, type RtEvent,
 } from '../combat/realtime.js';
 // Weapons live apart so they can be read and tested without the database.
@@ -202,6 +202,7 @@ export function createWorldSim(deps: WorldSimDeps) {
         // Bodies stand in the middle of the tile they were placed on.
         x: row.tile_x + 0.5, y: row.tile_y + 0.5, r: 0.34,
         hp: kit.hp, maxHp: kit.hp, speed: kit.speed, vision: kit.vision, attack: held.attack,
+        accel: CREATURE_ACCEL,
         moveX: 0, moveY: 0, aim: Math.random() * Math.PI * 2, wantAttack: false,
         phase: 'idle', tLeft: 0, cool: 0, struck: [], dead: false, throttle: 0,
         // Staggered, so a freshly loaded flock does not turn in unison.

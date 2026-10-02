@@ -1,6 +1,7 @@
 import {
   stepWorld, driveEnemy, rectHitsCircle, exitDirection, sweptLength,
   swingAngle, snapAim, SNAP, slotShape, slotCount, knockBack, KNOCKBACK,
+  CREATURE_ACCEL,
   type RtUnit, type StepWorld, type AttackShape, type RtEvent,
 } from '../realtime.js';
 
@@ -662,7 +663,10 @@ describe('enemies', () => {
 describe('noticing you', () => {
   /** A swallow settled into pottering along a fixed heading. */
   const pottering = (heading: number) => {
-    const e = unit({ id: 'e', team: 'enemy', x: 10, y: 10, speed: 3.4, vision: 8 });
+    const e = unit({
+      id: 'e', team: 'enemy', x: 10, y: 10, speed: 3.4, vision: 8,
+      accel: CREATURE_ACCEL,
+    });
     e.wanderMs = 1e9;                           // hold this heading
     e.wanderX = Math.cos(heading) * 0.4;
     e.wanderY = Math.sin(heading) * 0.4;
@@ -704,6 +708,48 @@ describe('noticing you', () => {
       stepWorld([p, e], world(), 1 / 20);
     }
     expect(e.throttle).toBeCloseTo(1, 2);
+  });
+
+  test('its speed never pops when it notices you', () => {
+    // The thing that read as jumping. A potter is 0.4 throttle and a chase is
+    // 1.0, and on a player's quick ramp that is reached in three frames — the
+    // first of them 57% faster than the last frame of pottering. A creature
+    // winds up over CREATURE_ACCEL instead, so no frame is much quicker than
+    // the one before it.
+    const e = pottering(0.3);
+    const p = unit({ id: 'p', team: 'player', x: 16, y: 6, speed: 0 });
+    for (let i = 0; i < 10; i++) {              // settle the potter
+      driveEnemy(e, [], 50);
+      stepWorld([e], world(), 1 / 20);
+    }
+    let last = 0, worst = 0;
+    for (let i = 0; i < 24; i++) {
+      const was = { x: e.x, y: e.y };
+      driveEnemy(e, [p], 50);
+      stepWorld([p, e], world(), 1 / 20);
+      const step = Math.hypot(e.x - was.x, e.y - was.y);
+      if (last > 1e-4) worst = Math.max(worst, (step - last) / last);
+      last = step;
+    }
+    expect(worst).toBeLessThan(0.2);
+  });
+
+  test('but it does reach full speed, so winding up is not crawling', () => {
+    const e = pottering(0.3);
+    const p = unit({ id: 'p', team: 'player', x: 16, y: 6, speed: 0 });
+    for (let i = 0; i < 40; i++) {
+      driveEnemy(e, [p], 50);
+      stepWorld([p, e], world(), 1 / 20);
+    }
+    expect(e.throttle).toBeCloseTo(1, 2);
+  });
+
+  test('a player still answers at once, which is why accel is per unit', () => {
+    const me = unit({ id: 'me', team: 'player', x: 5, y: 5 });
+    me.moveX = 1;
+    run([me], world(), 1, 0.05);
+    // A fifth of full speed inside one frame; a creature takes ten.
+    expect(me.throttle).toBeGreaterThan(0.2);
   });
 
   test('it still closes the distance from behind', () => {

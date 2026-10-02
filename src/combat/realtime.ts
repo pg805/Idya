@@ -152,6 +152,17 @@ export interface RtUnit {
   kbX?: number;
   kbY?: number;
   /**
+   * Seconds to wind up to full speed. Defaults to `ACCEL_SECONDS`.
+   *
+   * Per unit because the two ends want opposite things. A player wants it
+   * short, so the controls answer at once. A creature wants it LONG, because
+   * its throttle changes on its own and a short ramp makes that change read as
+   * a pop: a swallow going from a potter to a chase over three frames gained
+   * 57% of its speed in the first one, which is what looked like a jump the
+   * moment it noticed you.
+   */
+  accel?: number;
+  /**
    * The shape of the swing in flight, which is `attack` or `special`.
    *
    * Held for the duration so that releasing the button, or pressing the other
@@ -259,6 +270,16 @@ export const slotCount = (u: RtUnit): number => 1 + (u.extras?.length ?? 0);
  * Half a square. A quarter was too small to read as being hit.
  */
 export const KNOCKBACK = 0.5;
+
+/**
+ * How long a creature takes to wind up to full speed, in seconds.
+ *
+ * Much longer than a player's, and for the opposite reason. A player's throttle
+ * changes because they pressed something, so it should answer immediately. A
+ * creature's changes on its own — it notices you — and anything quick there
+ * reads as the body popping forward rather than setting off after you.
+ */
+export const CREATURE_ACCEL = 0.9;
 
 /**
  * How quickly a shove is spent, as a time constant in seconds.
@@ -435,7 +456,7 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
     const len = Math.hypot(u.moveX, u.moveY);
     const want = Math.min(1, len);
     if (want > u.throttle) {
-      u.throttle = Math.min(want, u.throttle + dt / ACCEL_SECONDS);
+      u.throttle = Math.min(want, u.throttle + dt / (u.accel ?? ACCEL_SECONDS));
     } else {
       u.throttle = want;
     }
@@ -559,19 +580,8 @@ export function exitDirection(u: RtUnit, size: number): { dx: number; dy: number
  * `dtMs` is how long since the last call, used only to time the wander.
  */
 
-/*
- * A body has ONE speed.
- *
- * Wandering used to run at 0.4 throttle against a chase's 1.0, so noticing you
- * meant instantly moving two and a half times faster. Easing it over
- * ACCEL_SECONDS was not enough: the jump in speed was the thing that looked
- * wrong, not the abruptness of it. A creature that moves at one speed and
- * simply starts heading for you reads better than one that changes gear.
- *
- * Pace is `speed` on the unit, so a slow thing is slow everywhere, and the
- * difference between pottering and hunting is where it goes and how often it
- * stops — not how fast it travels.
- */
+/** How far a wandering body drifts, as a fraction of its speed. */
+const WANDER_THROTTLE = 0.4;
 /** How long one wander heading or pause lasts, in ms. */
 const WANDER_MIN_MS = 700;
 const WANDER_MAX_MS = 2000;
@@ -642,8 +652,8 @@ function wander(u: RtUnit, dtMs: number): void {
       u.wanderX = 0; u.wanderY = 0;
     } else {
       const a = Math.random() * Math.PI * 2;
-      u.wanderX = Math.cos(a);
-      u.wanderY = Math.sin(a);
+      u.wanderX = Math.cos(a) * WANDER_THROTTLE;
+      u.wanderY = Math.sin(a) * WANDER_THROTTLE;
       u.aim = a;                  // face where it is going
     }
   }
