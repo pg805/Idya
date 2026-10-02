@@ -599,9 +599,19 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[], dtMs = 0): void {
   // Close to just inside reach, then commit. Stopping short of the hitbox's own
   // length keeps it from shuffling on the boundary. It runs the way it is
   // FACING, not straight at the target, so a turn is something you can see.
+  //
+  // Scaled by how much it is ALREADY facing the target, which is what stops
+  // that turn being a lurch. The facing when a body notices you is whatever
+  // its last wander picked, so it could be anything: at full throttle along a
+  // stale heading a swallow spent 200ms sprinting the wrong way and came back
+  // round in an arc, which read as the thing jumping sideways the moment it
+  // saw you. Now it leans into the turn — nearly still while it comes about,
+  // up to speed once it is pointed at you — so the turn is still visible and
+  // is no longer travel in the wrong direction.
+  const facing = Math.max(0, Math.cos(angleTo(u.aim, wanted)));
   if (bestD > sweptLength(u.r, u.attack.reach) * 0.85 + best.r) {
-    u.moveX = Math.cos(u.aim);
-    u.moveY = Math.sin(u.aim);
+    u.moveX = Math.cos(u.aim) * facing;
+    u.moveY = Math.sin(u.aim) * facing;
   } else if (u.cool <= 0) {
     u.wantAttack = true;
   }

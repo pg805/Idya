@@ -659,6 +659,64 @@ describe('enemies', () => {
   });
 });
 
+describe('noticing you', () => {
+  /** A swallow settled into pottering along a fixed heading. */
+  const pottering = (heading: number) => {
+    const e = unit({ id: 'e', team: 'enemy', x: 10, y: 10, speed: 3.4, vision: 8 });
+    e.wanderMs = 1e9;                           // hold this heading
+    e.wanderX = Math.cos(heading) * 0.4;
+    e.wanderY = Math.sin(heading) * 0.4;
+    e.aim = heading;
+    return e;
+  };
+
+  test('it turns towards you before it travels, from any heading', () => {
+    // The lurch this prevents: a body runs the way it is FACING, and the facing
+    // when it notices you is whatever its last wander picked. At full throttle
+    // along a stale heading it sprinted the wrong way for 200ms and came back
+    // in an arc, which read as jumping sideways the moment it saw you.
+    for (const heading of [0, 1, 2, Math.PI, -1, -2.5]) {
+      const e = pottering(heading);
+      const p = unit({ id: 'p', team: 'player', x: 4, y: 10, speed: 0 });
+      for (let i = 0; i < 8; i++) {             // settle the potter
+        driveEnemy(e, [], 50);
+        stepWorld([e], world(), 1 / 20);
+      }
+      let worst = 0;
+      for (let i = 0; i < 12; i++) {
+        const before = Math.hypot(p.x - e.x, p.y - e.y);
+        driveEnemy(e, [p], 50);
+        stepWorld([p, e], world(), 1 / 20);
+        const after = Math.hypot(p.x - e.x, p.y - e.y);
+        worst = Math.max(worst, after - before);   // ground GAINED away from us
+      }
+      // A hair of drift while it comes about is fine; travel is not.
+      expect(worst).toBeLessThan(0.01);
+    }
+  });
+
+  test('and it does get up to speed once it is pointed at you', () => {
+    // The other half: leaning into the turn must not leave it crawling.
+    const e = pottering(Math.PI);
+    const p = unit({ id: 'p', team: 'player', x: 4, y: 10, speed: 0 });
+    for (let i = 0; i < 20; i++) {
+      driveEnemy(e, [p], 50);
+      stepWorld([p, e], world(), 1 / 20);
+    }
+    expect(e.throttle).toBeCloseTo(1, 2);
+  });
+
+  test('it still closes the distance from behind', () => {
+    const e = pottering(0);                     // facing away from the player
+    const p = unit({ id: 'p', team: 'player', x: 4, y: 10, speed: 0 });
+    for (let i = 0; i < 200; i++) {
+      driveEnemy(e, [p], 50);
+      stepWorld([p, e], world(), 1 / 20);
+    }
+    expect(Math.hypot(p.x - e.x, p.y - e.y)).toBeLessThan(1.5);
+  });
+});
+
 describe('throttle', () => {
   test('a short intent vector moves slower', () => {
     // Magnitude is a throttle, not a direction, so a wandering body can potter
