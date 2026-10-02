@@ -559,8 +559,19 @@ export function exitDirection(u: RtUnit, size: number): { dx: number; dy: number
  * `dtMs` is how long since the last call, used only to time the wander.
  */
 
-/** How far a wandering body drifts, as a fraction of its speed. */
-const WANDER_THROTTLE = 0.4;
+/*
+ * A body has ONE speed.
+ *
+ * Wandering used to run at 0.4 throttle against a chase's 1.0, so noticing you
+ * meant instantly moving two and a half times faster. Easing it over
+ * ACCEL_SECONDS was not enough: the jump in speed was the thing that looked
+ * wrong, not the abruptness of it. A creature that moves at one speed and
+ * simply starts heading for you reads better than one that changes gear.
+ *
+ * Pace is `speed` on the unit, so a slow thing is slow everywhere, and the
+ * difference between pottering and hunting is where it goes and how often it
+ * stops — not how fast it travels.
+ */
 /** How long one wander heading or pause lasts, in ms. */
 const WANDER_MIN_MS = 700;
 const WANDER_MAX_MS = 2000;
@@ -602,12 +613,11 @@ export function driveEnemy(u: RtUnit, targets: RtUnit[], dtMs = 0): void {
   //
   // Scaled by how much it is ALREADY facing the target, which is what stops
   // that turn being a lurch. The facing when a body notices you is whatever
-  // its last wander picked, so it could be anything: at full throttle along a
-  // stale heading a swallow spent 200ms sprinting the wrong way and came back
-  // round in an arc, which read as the thing jumping sideways the moment it
-  // saw you. Now it leans into the turn — nearly still while it comes about,
-  // up to speed once it is pointed at you — so the turn is still visible and
-  // is no longer travel in the wrong direction.
+  // its last wander picked, so it could be anything: along a stale heading a
+  // swallow spent 200ms travelling the wrong way and came back round in an
+  // arc. Now it leans into the turn — nearly still while it comes about, up to
+  // speed once it is pointed at you — so the turn is visible without being
+  // travel in the wrong direction.
   const facing = Math.max(0, Math.cos(angleTo(u.aim, wanted)));
   if (bestD > sweptLength(u.r, u.attack.reach) * 0.85 + best.r) {
     u.moveX = Math.cos(u.aim) * facing;
@@ -632,8 +642,8 @@ function wander(u: RtUnit, dtMs: number): void {
       u.wanderX = 0; u.wanderY = 0;
     } else {
       const a = Math.random() * Math.PI * 2;
-      u.wanderX = Math.cos(a) * WANDER_THROTTLE;
-      u.wanderY = Math.sin(a) * WANDER_THROTTLE;
+      u.wanderX = Math.cos(a);
+      u.wanderY = Math.sin(a);
       u.aim = a;                  // face where it is going
     }
   }

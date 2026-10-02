@@ -87,21 +87,36 @@ squeezing the sprite to fit a centre-measured reach, which means drawing 32px of
 art into 21px and dropping rows of pixels. Enemies are measured the same way, so
 a telegraph is the length of the thing about to hit you.
 
+### A body has one speed
+
+Wandering used to run at 0.4 throttle against a chase's 1.0, so noticing you
+meant instantly moving two and a half times faster. Easing that over
+`ACCEL_SECONDS` was not enough — the change of gear was itself the thing that
+looked wrong. **A creature now moves at `speed` whatever it is doing**, and the
+difference between pottering and hunting is where it goes and how often it
+stops, not how fast it travels.
+
+What that costs: an idle swallow covers about 17 tiles in ten seconds and ends
+up 7 from where it started, against roughly 3 before, so a flock spreads across
+a chunk faster and will eventually bunch against the edges — enemies are clamped
+to the chunk and have no `exitDirection`. `speed` on the kit is the one dial for
+all of it, and there is room to come down: a swallow is 3.4 against a player's
+5.6, and it could not catch a running player at either value.
+
 ### Noticing you is a turn, not a lurch
 
 An enemy runs the way it is **facing** rather than straight at its target, so a
 turn is something you can watch happen. The catch is that the facing when it
-notices you is whatever its last wander picked, which could be anything.
+notices you is whatever its last wander picked, which could be anything — along
+a stale heading a swallow spent 200ms travelling the wrong way and came back
+round in an arc.
 
-At full throttle along that stale heading a swallow spent 200ms sprinting the
-wrong way and came back round in an arc — it read as the bird jumping sideways
-the moment it saw you. So the move is **scaled by how much it already faces the
-target**: nearly still while it comes about, up to speed once it is pointed at
-you. The turn stays visible and stops being travel in the wrong direction.
+So the move is **scaled by how much it already faces the target**: nearly still
+while it comes about, up to speed once it is pointed at you. The turn stays
+visible and stops being travel in the wrong direction.
 
 Note that `wander` sets the facing outright rather than turning into it, which
-is fine at a potter's throttle and is also why the heading at aggro is
-arbitrary.
+is why the heading when it notices you is arbitrary in the first place.
 
 ### A hit shoves
 
