@@ -479,6 +479,53 @@ function loose(u: RtUnit, shape: AttackShape, shots: RtShot[]): void {
 }
 
 /**
+ * The furthest a shot may advance before it is made to look around, in tiles.
+ *
+ * Comfortably under a body's radius plus a shot's, which is what stops a fast
+ * one skipping over a target between frames. At 19 tiles a second a shot covers
+ * 0.95 of a tile in a 50ms frame and a body is 0.46 wide to it, so without
+ * substepping there are positions it passes straight through — the same
+ * tunnelling the knockback has, except here the step is bigger than the thing
+ * it has to notice rather than smaller.
+ *
+ * Substepping makes speed a free dial: a quicker shot takes more looks rather
+ * than becoming less reliable.
+ */
+const SHOT_SUBSTEP = 0.25;
+
+/** Advance one shot a little and spend it on whatever it reaches. */
+function advanceShot(
+  s: RtShot, units: RtUnit[], world: StepWorld, dt: number, events: RtEvent[],
+): void {
+  const travel = Math.hypot(s.vx, s.vy) * dt;
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
+  s.left -= travel;
+
+  if (s.left <= 0
+    || s.x < 0 || s.y < 0 || s.x > world.size || s.y > world.size
+    || world.blocked.has(`${Math.floor(s.x)},${Math.floor(s.y)}`)) {
+    s.dead = true;
+    return;
+  }
+
+  for (const t of units) {
+    if (t.dead || t.team === s.team || t.id === s.by) continue;
+    if (Math.hypot(t.x - s.x, t.y - s.y) > t.r + s.r) continue;
+    t.hp = Math.max(0, t.hp - s.damage);
+    knockBack(t, s.x, s.y, s.knockback);
+    events.push({ kind: 'hit', by: s.by, on: t.id, damage: s.damage, at: { x: t.x, y: t.y } });
+    if (t.hp === 0 && !t.dead) {
+      t.dead = true;
+      t.phase = 'idle';
+      events.push({ kind: 'died', id: t.id, ref: t.ref, team: t.team, at: { x: t.x, y: t.y } });
+    }
+    s.dead = true;
+    return;
+  }
+}
+
+/**
  * Move everything in flight, and spend whatever it lands on.
  *
  * Stops on the FIRST thing it hits rather than piercing, which is what an
@@ -490,30 +537,9 @@ function stepShots(
   for (const s of shots) {
     if (s.dead) continue;
     const travel = Math.hypot(s.vx, s.vy) * dt;
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    s.left -= travel;
-
-    if (s.left <= 0
-      || s.x < 0 || s.y < 0 || s.x > world.size || s.y > world.size
-      || world.blocked.has(`${Math.floor(s.x)},${Math.floor(s.y)}`)) {
-      s.dead = true;
-      continue;
-    }
-
-    for (const t of units) {
-      if (t.dead || t.team === s.team || t.id === s.by) continue;
-      if (Math.hypot(t.x - s.x, t.y - s.y) > t.r + s.r) continue;
-      t.hp = Math.max(0, t.hp - s.damage);
-      knockBack(t, s.x, s.y, s.knockback);
-      events.push({ kind: 'hit', by: s.by, on: t.id, damage: s.damage, at: { x: t.x, y: t.y } });
-      if (t.hp === 0 && !t.dead) {
-        t.dead = true;
-        t.phase = 'idle';
-        events.push({ kind: 'died', id: t.id, ref: t.ref, team: t.team, at: { x: t.x, y: t.y } });
-      }
-      s.dead = true;
-      break;
+    const looks = Math.max(1, Math.ceil(travel / SHOT_SUBSTEP));
+    for (let i = 0; i < looks && !s.dead; i++) {
+      advanceShot(s, units, world, dt / looks, events);
     }
   }
 }

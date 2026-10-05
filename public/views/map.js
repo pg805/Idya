@@ -423,10 +423,10 @@ window.Views.map = (function () {
   const swingClocks = new Map();
   const tellClocks = new Map();
 
-  function noteSwing(id, ms, frames, aim, spread, aimAt) {
+  function noteSwing(id, ms, frames, aim, spread, aimAt, isShot) {
     swingClocks.set(id, {
       start: performance.now(), ms: ms || 1,
-      seq: sequenceFor(frames, spread), aim, spread: spread || 0, aimAt,
+      seq: sequenceFor(frames, spread), aim, spread: spread || 0, aimAt, isShot,
     });
     tellClocks.delete(id);
   }
@@ -455,7 +455,12 @@ window.Views.map = (function () {
       // The snapshot is the backstop for a clock that never started.
       const live = swingT !== null || u.phase === 'active';
       const tell = swingT === null && (tellT !== null || u.phase === 'tell');
-      const swings = live && !!u.weapon;
+      // A shot is already drawn as the thing in flight, so the held weapon
+      // stays down: otherwise firing drew a sword at the body AND threw one.
+      // The phase backstop below cannot tell a shot from a swing, so a lost
+      // event can still flash one for a window; cosmetic, and it needs a
+      // release pose drawn before it is worth a field on every state frame.
+      const swings = live && !!u.weapon && !swing?.isShot;
       const radius = u.r ?? 0.34;
       // Where the blade is now. A thrust holds the angle it committed to; an
       // arc has turned part of the way through its spread, which is the same
@@ -1241,7 +1246,7 @@ window.Views.map = (function () {
         // a weapon's own timing drives its animation.
         if (ev.kind === 'swing') {
           noteSwing(ev.by, ev.shape?.activeMs, ev.frames, ev.aim,
-            ev.shape?.spread, ev.shape?.aimAt);
+            ev.shape?.spread, ev.shape?.aimAt, !!ev.shape?.shot);
           continue;
         }
         if (ev.kind === 'tell') { noteTell(ev.by, ev.shape?.tellMs); continue; }

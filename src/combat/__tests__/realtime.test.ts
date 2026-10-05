@@ -579,6 +579,28 @@ describe('shots', () => {
     expect(e.hp).toBe(100);
   });
 
+  test('it cannot pass through a body, at any speed', () => {
+    // At 19 tiles a second a shot covers 0.95 of a tile in a frame and a body
+    // is 0.46 wide to it, so a single move per frame leaves positions it goes
+    // straight through. It takes more looks per frame instead, which is what
+    // makes speed a free dial rather than a reliability trade.
+    for (const speed of [19, 40, 80]) {
+      const shape: AttackShape = { ...BOW, shot: { speed, range: 12 } };
+      let missed = 0;
+      // Every hundredth of a tile across the flight, so a gap cannot hide
+      // between two sampled distances.
+      for (let d = 200; d <= 900; d++) {
+        const p = unit({ id: 'p', team: 'player', x: 5, y: 5, attack: shape });
+        const e = unit({ id: 'e', team: 'enemy', x: 5 + d / 100, y: 5, speed: 0 });
+        const shots: RtShot[] = [];
+        p.aim = 0; p.wantAttack = true;
+        fly([p, e], shots);
+        if (e.hp === 100) missed++;
+      }
+      expect(missed).toBe(0);
+    }
+  });
+
   test('the engine still works without anywhere to put shots', () => {
     // stepWorld is called without the array in plenty of places.
     const p = archer();

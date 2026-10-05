@@ -191,7 +191,17 @@ without any line-of-sight code. It can also be dodged and has to be led, which
 is the counterweight range needs.
 
 It carries the swing's damage and the standard knockback, and it cannot hit the
-unit that fired it or anything on that side.
+unit that fired it or anything on that side. **The held weapon stays down while
+a shot is out**, or firing would draw a sword at the body as well as throwing
+one.
+
+**A shot looks around several times a frame**, because at 19 tiles a second it
+covers 0.95 of a tile per tick and a body is only 0.46 wide to it — one move a
+frame leaves positions it passes straight through. This is the knockback's
+tunnelling again with the sign flipped: there the step had to stay under the
+body's radius, here it cannot, so it is split instead. That makes speed a free
+dial rather than a trade against reliability, and a test sweeps every hundredth
+of a tile across the flight at three speeds to keep it that way.
 
 **The ranged tax is priced on the archetype, not computed.** A shot simply buys
 less damage than a swing — 11 against 16 — rather than a formula weighing range
@@ -199,7 +209,9 @@ against width against cooldown. One hand-set number per archetype is the whole
 balancing surface.
 
 Slot 3, on E, firing the sword sprite, both temporary: there is nothing to
-switch weapons with yet and the arrow is not drawn.
+switch weapons with yet and the arrow is not drawn. Nothing is drawn at the
+body on release either, which wants a bow-and-release pose before it is worth
+sending a flag on every state frame.
 
 ### Spread is the whole difference between them
 

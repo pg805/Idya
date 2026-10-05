@@ -104,12 +104,13 @@ const SWORD_SPIN: AttackShape = { ...SWING_BASE, spread: Math.PI * 2, aimAt: 0 }
  * buys less damage than a swing does, one hand-set number instead of a formula
  * weighing range against width against cooldown.
  *
- * 14 tiles a second against a player's 5.6, so it outruns you but is slow
- * enough to sidestep at a distance. 8 tiles of range, the same as a swallow
- * sees, so nothing can shoot at what cannot see it back.
+ * 19 tiles a second against a player's 5.6, so it comfortably outruns you and
+ * still takes about 420ms to cross its own range, which is long enough to
+ * sidestep at a distance and not at point blank. 8 tiles of range, the same as
+ * a swallow sees, so nothing can shoot at what cannot see it back.
  */
 const SWORD_SHOT: AttackShape = {
-  ...SWING_BASE, damage: 11, shot: { speed: 14, range: 8 },
+  ...SWING_BASE, damage: 11, shot: { speed: 19, range: 8 },
 };
 
 /** One attack a weapon can throw: what it does, and how it is drawn. */
