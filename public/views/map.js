@@ -11,7 +11,21 @@ window.Views = window.Views || {};
 window.Views.map = (function () {
 
   const TILE_SRC = 32;      // the tileset's native tile size
-  const STEP_MS = 130;      // time to cross one tile, so a walk reads as walking
+  /**
+   * How long the browser takes to cover the gap between two server frames.
+   *
+   * ONE number for the tokens, the things in flight, and the camera, and they
+   * must agree. The camera used to run on a 130ms leftover from tile-stepping
+   * while the tokens ran on 70, and since both chase the same position at
+   * different rates, your own token drifted forward as you set off and slid
+   * back as you stopped — rubber banding, and only ever on yourself, because
+   * only your own token is the one the camera is trying to hold still.
+   *
+   * Longer than the 50ms tick on purpose: it leaves headroom for a frame that
+   * arrives late, which otherwise lets the token reach its target and stop
+   * dead until the next one lands. CSS reads it as `--sim-smooth`.
+   */
+  const SIM_SMOOTH_MS = 70;
   let chunk = { x: 0, y: 0 };
   let view = null;          // the loaded ChunkView
   let root = null;
@@ -20,7 +34,6 @@ window.Views.map = (function () {
   let meId = null;
   let cell = TILE_SRC;
   const occupants = new Map();   // socket id -> { name, sprite, tile, el }
-  const walks = new Map();       // socket id -> in-flight walk, so a new one joins on
   // Where the SERVER thinks we are, which is the end of the last accepted walk
   // rather than wherever the token has animated to. Steps have to be pathed from
   // here or a held key would ask to move from a square we have already left.
@@ -52,7 +65,7 @@ window.Views.map = (function () {
    */
   let wantSlot = null;
   let mouseTile = null;
-  let cameraMs = STEP_MS;    // how long the step in flight is taking
+  let cameraMs = SIM_SMOOTH_MS;
   // Two keys meant as one diagonal never land in the same event. Waiting this
   // long before the FIRST step lets the second arrive and be counted, which is
   // the difference between going diagonally and going straight and then
@@ -185,13 +198,16 @@ window.Views.map = (function () {
       { onReady: () => paint() },   // sheets may still be loading on first paint
     );
 
+    // One definition of the smoothing, so the camera and what it is following
+    // cannot drift apart.
+    root.style.setProperty('--sim-smooth', `${SIM_SMOOTH_MS}ms`);
+
     stage.classList.toggle('loading', !painted);
     root.querySelector('#map-scale').textContent =
       `${view.size}x${view.size} tiles, drawn at ${cell}px`;
 
-    // Tokens are sized and repositioned in the same units the canvases just
-    // used, so a resize moves everyone with the ground under them.
-    for (const [id, o] of occupants) placeToken(id, o.tile, false);
+    // Tokens follow on the simulation's next frame, which sizes them from the
+    // same `cell` the canvases just used.
     placeChestPanel();
     updateCamera(false);
   }
@@ -213,25 +229,23 @@ window.Views.map = (function () {
    * can simply be drawn again afterwards instead of being lost with the layer
    * that was replaced underneath them.
    */
+  /**
+   * Record who is here.
+   *
+   * **This does not draw anybody.** The simulation owns every token: it has the
+   * real position twenty times a second, where this list carries the rounded
+   * tile from whenever somebody last arrived or left.
+   *
+   * Drawing from both is what caused the rubber banding. Each player had two
+   * tokens — one live and one grid-snapped — and a repaint would put the second
+   * back on the server's persisted tile, so a copy of you kept jumping to the
+   * middle of a square while the real one walked on. The record is still wanted
+   * for the roster and its count; the element is not.
+   */
   function ensureToken(id, o) {
     let entry = occupants.get(id);
     if (entry) Object.assign(entry, o);
-    else { entry = { ...o, el: null }; occupants.set(id, entry); }
-
-    const layer = tokenLayer();
-    if (!layer) return entry;                       // drawn later, by renderTokens
-    if (entry.el?.isConnected) return entry;
-
-    const el = document.createElement('div');
-    el.className = 'map-token' + (id === meId ? ' me' : '');
-    el.innerHTML =
-      (o.sprite
-        ? `<img class="map-token-sprite" src="${spriteUrl(o.sprite)}" alt="">`
-        : '<div class="map-token-blank"></div>') +
-      `<span class="map-token-name"></span>`;
-    el.querySelector('.map-token-name').textContent = o.name;
-    layer.appendChild(el);
-    entry.el = el;
+    else { entry = { ...o }; occupants.set(id, entry); }
     return entry;
   }
 
@@ -542,57 +556,25 @@ window.Views.map = (function () {
     attackLoop = requestAnimationFrame(step);
   }
 
-  /** Draw everyone we know about into the current layer. Safe to call twice. */
-  function renderTokens() {
-    if (!tokenLayer()) return;
-    for (const [id, o] of occupants) {
-      ensureToken(id, o);
-      // o.tile is kept current by placeToken as tokens walk, so this redraws
-      // where they actually are rather than where the last list said.
-      if (!walks.has(id)) placeToken(id, o.tile, false);
-    }
-  }
+  /**
+   * Nothing to redraw: the simulation's next frame paints everybody.
+   *
+   * Kept as a name because travelling and repainting both used to call it, and
+   * a no-op reads better at those call sites than their having to know that
+   * tokens are somebody else's business now.
+   */
+  function renderTokens() {}
 
   function spriteUrl(token) {
     const cdn = window.getLayoutData?.()?.spriteCdn;
     return cdn ? `${cdn}/${token}.png` : `/sprites/${token}.png`;
   }
 
-  function placeToken(id, tile, animate, ms) {
-    const entry = occupants.get(id);
-    if (!entry?.el) return;
-    entry.tile = tile;
-    entry.el.style.transitionDuration = animate ? `${ms ?? STEP_MS}ms` : '0ms';
-    entry.el.style.width = `${cell}px`;
-    entry.el.style.height = `${cell}px`;
-    entry.el.style.transform = `translate(${tile.x * cell}px, ${tile.y * cell}px)`;
-    // The view rides along with you, at the same pace as the step.
-    if (id === meId) updateCamera(animate);
-  }
-
   /**
-   * Walk a token along a path, one tile at a time.
+   * The camera rides with you.
    *
-   * A path arriving while one is already running is APPENDED to it rather than
-   * replacing it, and the existing timer keeps its cadence. Two reasons:
-   *
-   * The server moves you the instant it accepts a walk, so a second click is
-   * pathed from where you will END UP rather than from where your token is.
-   * Replacing outright snaps the token to the old destination before setting
-   * off again; continuing joins the two up, because the new path starts
-   * adjacent to exactly the square the old one finished on.
-   *
-   * And restarting the stepper on each arrival makes a held arrow key stutter:
-   * every message fires a step immediately, so two landing close together are
-   * drawn back to back and the walk lurches. Letting one timer own the pace
-   * keeps every step the same length regardless of when its message arrived.
+   * Called from the simulation's frame now that nothing walks tile by tile.
    */
-
-  function stopWalk(id) {
-    const active = walks.get(id);
-    if (active) clearTimeout(active.timer);
-    walks.delete(id);
-  }
 
   // ---- keyboard ----
 
@@ -718,20 +700,9 @@ window.Views.map = (function () {
       const entry = ensureToken(o.id, o);
       if (!entry?.el) continue;    // no stage yet; renderTokens will place it
 
-      // The list says WHO is here. Where they are comes from walks, which are
-      // live; the list is only sent on joins and departures, so its positions
-      // are as old as the last one of those. Repositioning from it threw
-      // everybody back to where they stood when somebody last arrived, which is
-      // what made chopping look like it teleported you.
-      if (!isNew) continue;
-
-      placeToken(o.id, o.tile, false);
     }
-    for (const [id, entry] of [...occupants]) {
-      if (seen.has(id)) continue;
-      stopWalk(id);
-      entry.el?.remove();
-      occupants.delete(id);
+    for (const id of [...occupants.keys()]) {
+      if (!seen.has(id)) occupants.delete(id);
     }
     const count = occupants.size;
     const here = root?.querySelector('#map-here');
@@ -745,8 +716,6 @@ window.Views.map = (function () {
 
   function clearTokens() {
     clearSim();
-    for (const id of [...walks.keys()]) stopWalk(id);
-    for (const o of occupants.values()) o.el?.remove();
     occupants.clear();
   }
 
@@ -1213,20 +1182,9 @@ window.Views.map = (function () {
       // The server accepted it, so that's where we are now even though the
       // token is still catching up.
       if (id === meId) myTile = path[path.length - 1];
-      if (!occupants.has(id)) return;
-
-      // The walk begins where the server says it begins. If our token has
-      // drifted from that (a refused step we had already assumed, a missed
-      // update), put it right with no animation first, so the walk itself is
-      // never seen starting from the wrong square.
-      const entry = occupants.get(id);
-      if (from && !walks.has(id) && entry?.tile
-          && (entry.tile.x !== from.x || entry.tile.y !== from.y)) {
-        placeToken(id, from, false);
-      }
-      // Movement comes from sim:state now; this is only still here so an older
-      // client tab does not throw on a message it no longer needs.
-
+      // Movement comes from sim:state. Nothing to do with a walk any more; the
+      // handler stays only so a server still sending them does not reach a
+      // client with no listener.
     });
 
     // A step that ran into something. Nothing moves; we just stop pressing.

@@ -71,6 +71,8 @@ Everything here is **32x32**, one world tile, drawn 1:1.
 | ~~Sword~~ | sprite | `public/sprites/weapon_sword_01.png` | **done** — animated, see below |
 | Axe | item* | id not settled | session 0 weapon + tool |
 | Shovel | item* | id not settled | session 0 weapon + tool |
+| Bow + release pose | sprite | `public/sprites/weapon_bow_01*.png` | a shot draws nothing at the body |
+| Arrow | sprite | `public/sprites/proj_arrow_01.png` | shots throw the sword |
 | Magic big tree | world prop | Asset Library | a landmark worth naming a place after |
 | Ruins | world prop | Asset Library | the first POI prop |
 
@@ -135,6 +137,25 @@ Two rules the drawing has to follow, because the renderer depends on both:
 
 A weapon with no numbered frames still swings; it just swings its single sprite,
 noted once when the first frame 404s.
+
+### A shot needs two drawings, and they are different jobs
+
+Firing currently draws **nothing** at the body and throws the sword sprite. Two
+separate things would fix that:
+
+- **The projectile** — `proj_arrow_01.png`, 32x32, pointing **up** like a
+  weapon, since the renderer turns up into the direction of travel. Drop it in
+  and the shot throws it instead of a sword.
+- **The bow, held** — a weapon's frames are swung from the grip, which is wrong
+  for a bow: it should be held across the body, drawn, and released. That is
+  the same `frames` mechanism (`weapon_bow_01_1..3`: raised, drawn, released),
+  so the drawings slot in without new code, but the *sequence* wants to play
+  once and stay on the last frame rather than out and back — a third style
+  beside `thrust` and `arc`.
+
+Until the bow exists the held weapon simply stays down during a shot, which
+looks like nothing rather than looking wrong. It used to draw a sword at the
+body AND throw one.
 
 ### The arc needs no drawings at all, yet
 

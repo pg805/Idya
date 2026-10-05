@@ -347,7 +347,7 @@ body.gm-open #world-root { padding-left: 208px; }
 /* ---- the simulation's tokens ---- */
 /* Positioned by body centre in tile units, so a short linear transition is all
    that is needed to cover the gap between server frames. */
-.map-token.sim { transition: transform 70ms linear; }
+.map-token.sim { transition: transform var(--sim-smooth, 70ms) linear; }
 .map-token.sim.struck { animation: sim-hit 220ms ease-out; }
 @keyframes sim-hit { 0%, 100% { filter: none; } 30% { filter: brightness(2.2) saturate(0.4); } }
 
@@ -366,7 +366,7 @@ body.gm-open #world-root { padding-left: 208px; }
   transform-origin: 50% 50%;
   image-rendering: pixelated;
   pointer-events: none;
-  transition: transform 70ms linear;
+  transition: transform var(--sim-smooth, 70ms) linear;
   will-change: transform;
 }
 
