@@ -74,6 +74,21 @@ export interface AttackShape {
    */
   aimAt?: number;
   /**
+   * Throws a projectile instead of swinging a hitbox.
+   *
+   * `speed` in tiles a second, `range` in tiles before it falls short. The
+   * swing's own `activeMs` is still the animation — drawing and releasing —
+   * and the shot leaves as it goes live.
+   *
+   * A travelling shot rather than a line along the aim, for a reason beyond
+   * matching how a swing is drawn: NOTHING in the hit path consults
+   * `world.blocked`. A melee rect at reach 1 never notices, but a six-tile
+   * line would fire straight through a forest. A shot collides as it goes, so
+   * cover works without line-of-sight code, and it can be dodged and has to
+   * be led, which is the counterweight range needs.
+   */
+  shot?: { speed: number; range: number };
+  /**
    * Wind-up before the hitbox appears, in ms.
    *
    * Zero for players: their attacks resolve immediately and cost is what makes
@@ -409,6 +424,100 @@ function resolveTiles(u: RtUnit, world: StepWorld): void {
   }
 }
 
+/**
+ * Something in flight.
+ *
+ * Deliberately not an `RtUnit`: it has no throttle, no phase, no body to push
+ * and nothing to push it, and sharing the type would mean every unit loop
+ * learning to skip it.
+ */
+export interface RtShot {
+  /** The unit that fired it, so it cannot shoot itself. */
+  by: string;
+  team: RtUnit['team'];
+  x: number;
+  y: number;
+  /** Tiles a second. */
+  vx: number;
+  vy: number;
+  r: number;
+  damage: number;
+  knockback: number;
+  /** Which way it points, for drawing. */
+  aim: number;
+  /** Tiles left before it falls short. */
+  left: number;
+  dead: boolean;
+}
+
+/** How fat a shot is for collision: small, but not a point. */
+const SHOT_RADIUS = 0.12;
+
+/**
+ * Put a shot in the air, if this swing is one.
+ *
+ * Leaves from the body's edge along the committed aim, which is the same place
+ * a held weapon's grip sits, so a bow looks like it released from the hand.
+ */
+function loose(u: RtUnit, shape: AttackShape, shots: RtShot[]): void {
+  if (!shape.shot) return;
+  const aim = u.swingAim ?? u.aim;
+  shots.push({
+    by: u.id,
+    team: u.team,
+    x: u.x + Math.cos(aim) * u.r,
+    y: u.y + Math.sin(aim) * u.r,
+    vx: Math.cos(aim) * shape.shot.speed,
+    vy: Math.sin(aim) * shape.shot.speed,
+    r: SHOT_RADIUS,
+    damage: shape.damage,
+    knockback: KNOCKBACK,
+    aim,
+    left: shape.shot.range,
+    dead: false,
+  });
+}
+
+/**
+ * Move everything in flight, and spend whatever it lands on.
+ *
+ * Stops on the FIRST thing it hits rather than piercing, which is what an
+ * arrow does and what keeps a crowd from being mown through by one shot.
+ */
+function stepShots(
+  shots: RtShot[], units: RtUnit[], world: StepWorld, dt: number, events: RtEvent[],
+): void {
+  for (const s of shots) {
+    if (s.dead) continue;
+    const travel = Math.hypot(s.vx, s.vy) * dt;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.left -= travel;
+
+    if (s.left <= 0
+      || s.x < 0 || s.y < 0 || s.x > world.size || s.y > world.size
+      || world.blocked.has(`${Math.floor(s.x)},${Math.floor(s.y)}`)) {
+      s.dead = true;
+      continue;
+    }
+
+    for (const t of units) {
+      if (t.dead || t.team === s.team || t.id === s.by) continue;
+      if (Math.hypot(t.x - s.x, t.y - s.y) > t.r + s.r) continue;
+      t.hp = Math.max(0, t.hp - s.damage);
+      knockBack(t, s.x, s.y, s.knockback);
+      events.push({ kind: 'hit', by: s.by, on: t.id, damage: s.damage, at: { x: t.x, y: t.y } });
+      if (t.hp === 0 && !t.dead) {
+        t.dead = true;
+        t.phase = 'idle';
+        events.push({ kind: 'died', id: t.id, ref: t.ref, team: t.team, at: { x: t.x, y: t.y } });
+      }
+      s.dead = true;
+      break;
+    }
+  }
+}
+
 /** Keep bodies out of each other, splitting the overlap between the pair. */
 function resolveBodies(units: RtUnit[]): void {
   for (let i = 0; i < units.length; i++) {
@@ -433,7 +542,9 @@ function resolveBodies(units: RtUnit[]): void {
  * separated, then attacks resolve against where everything ended up. Resolving
  * attacks first would let a body be hit at a position it had already left.
  */
-export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEvent[] {
+export function stepWorld(
+  units: RtUnit[], world: StepWorld, dt: number, shots: RtShot[] = [],
+): RtEvent[] {
   const events: RtEvent[] = [];
   const ms = dt * 1000;
   const live = (): RtUnit[] => units.filter(u => !u.dead);
@@ -474,6 +585,8 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
     u.y = clamp(u.y, u.r, world.size - u.r);
     resolveTiles(u, world);
   }
+  // After the bodies have settled, so a shot hits where things ended up.
+  stepShots(shots, units, world, dt, events);
 
   // ---- starting an attack ----
   for (const u of live()) {
@@ -496,6 +609,7 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       u.phase = 'active';
       u.tLeft = wants.activeMs;
       u.swingAim = wants.spread ? snapAim(u.aim) : u.aim;
+      loose(u, wants, shots);
       events.push({ kind: 'swing', by: u.id, aim: u.swingAim, shape: wants });
     }
   }
@@ -515,10 +629,20 @@ export function stepWorld(units: RtUnit[], world: StepWorld, dt: number): RtEven
       // turned: the telegraph shows where it is going and the last moment to
       // read it is the moment it commits.
       u.swingAim = shape.spread ? snapAim(u.aim) : u.aim;
+      loose(u, shape, shots);
       events.push({ kind: 'swing', by: u.id, aim: u.swingAim, shape });
     }
 
-    if (u.phase === 'active') {
+    if (u.phase === 'active' && shape.shot) {
+      // The shot is already away and doing its own hitting; the active window
+      // is just the animation finishing.
+      if (u.tLeft <= 0) {
+        u.phase = 'idle';
+        u.cool = shape.coolMs;
+        u.swingAim = undefined;
+        u.using = undefined;
+      }
+    } else if (u.phase === 'active') {
       // Where the blade is NOW. A thrust holds still and a swept attack has
       // turned part of the way through its arc, so the hitbox is wherever the
       // drawing is rather than the whole fan at once.

@@ -93,6 +93,25 @@ const SWORD_ARC: AttackShape = { ...SWING_BASE, spread: Math.PI / 2 };
  */
 const SWORD_SPIN: AttackShape = { ...SWING_BASE, spread: Math.PI * 2, aimAt: 0 };
 
+/**
+ * E: a shot, for testing ranged.
+ *
+ * On the sword because there is nothing to switch weapons with yet, and it
+ * throws the sword sprite because the arrow is not drawn. Both are temporary.
+ *
+ * Less damage than the thrust, which is the ranged tax, and that tax is on the
+ * ARCHETYPE rather than worked out from the physical numbers: a shot simply
+ * buys less damage than a swing does, one hand-set number instead of a formula
+ * weighing range against width against cooldown.
+ *
+ * 14 tiles a second against a player's 5.6, so it outruns you but is slow
+ * enough to sidestep at a distance. 8 tiles of range, the same as a swallow
+ * sees, so nothing can shoot at what cannot see it back.
+ */
+const SWORD_SHOT: AttackShape = {
+  ...SWING_BASE, damage: 11, shot: { speed: 14, range: 8 },
+};
+
 /** One attack a weapon can throw: what it does, and how it is drawn. */
 export interface Swing {
   /** For reading code and logs; the slot is what binds it to a button. */
@@ -128,6 +147,7 @@ export const MELEE: Record<string, MeleeWeapon> = {
       { name: 'thrust', shape: SWORD_THRUST, frames: 3 },
       { name: 'arc', shape: SWORD_ARC, frames: 0 },
       { name: 'spin', shape: SWORD_SPIN, frames: 0 },
+      { name: 'shot', shape: SWORD_SHOT, frames: 0 },
     ],
   },
 };

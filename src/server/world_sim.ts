@@ -3,7 +3,7 @@ import prisma from '../database/prisma.js';
 import { CHUNK_SIZE, chunkKey, type Chunk } from '../world/chunk.js';
 import { ENEMY_KIND } from '../world/spawns.js';
 import {
-  stepWorld, driveEnemy, exitDirection, CREATURE_ACCEL,
+  stepWorld, driveEnemy, exitDirection, CREATURE_ACCEL, type RtShot,
   type AttackShape, type RtUnit, type StepWorld, type RtEvent,
 } from '../combat/realtime.js';
 // Weapons live apart so they can be read and tested without the database.
@@ -136,6 +136,8 @@ interface Member {
 interface Sim {
   chunk: Chunk;
   world: StepWorld;
+  /** Everything in flight here. Owned by the sim; the engine moves it. */
+  shots: RtShot[];
   members: Map<string, Member>;
   enemies: RtUnit[];
   /** Sprite and name per enemy id, for the wire. */
@@ -179,6 +181,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       members: new Map(),
       enemies: [],
       meta: new Map(),
+      shots: [],
       last: Date.now(),
     };
     sims.set(key, sim);
@@ -312,6 +315,21 @@ export function createWorldSim(deps: WorldSimDeps) {
     return swing ? { ...e, frames: swing.frames } : e;
   }
 
+  /**
+   * What the client needs to draw things in flight.
+   *
+   * The sprite is looked up from whoever fired it, so the engine never has to
+   * know what a projectile looks like.
+   */
+  function wireShots(sim: Sim): Array<{
+    x: number; y: number; aim: number; sprite: string | null;
+  }> {
+    return sim.shots.filter(sh => !sh.dead).map(sh => ({
+      x: round(sh.x), y: round(sh.y), aim: round(sh.aim),
+      sprite: weaponOf(sim, sh.by)?.sprite ?? null,
+    }));
+  }
+
   function wire(sim: Sim): UnitWire[] {
     const out: UnitWire[] = [];
     for (const m of sim.members.values()) {
@@ -352,7 +370,9 @@ export function createWorldSim(deps: WorldSimDeps) {
       const units = [...players, ...sim.enemies];
       for (const e of sim.enemies) driveEnemy(e, players, dt * 1000);
 
-      const events = stepWorld(units, sim.world, dt);
+      const events = stepWorld(units, sim.world, dt, sim.shots);
+      // Spent shots leave, the same way dead enemies do.
+      if (sim.shots.some(sh => sh.dead)) sim.shots = sim.shots.filter(sh => !sh.dead);
 
       // Walked into the edge and still pushing at it: that is a crossing. The
       // engine clamps bodies inside the chunk, so "at the edge" is the clamp
@@ -377,7 +397,7 @@ export function createWorldSim(deps: WorldSimDeps) {
       if (sim.enemies.some(e => e.dead)) sim.enemies = sim.enemies.filter(e => !e.dead);
 
       const room = deps.chatRoom(sim.chunk);
-      deps.io.to(room).emit('sim:state', { units: wire(sim) });
+      deps.io.to(room).emit('sim:state', { units: wire(sim), shots: wireShots(sim) });
       if (events.length) {
         deps.io.to(room).emit('sim:events', { events: events.map(e => dress(sim, e)) });
       }

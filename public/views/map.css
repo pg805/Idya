@@ -359,6 +359,17 @@ body.gm-open #world-root { padding-left: 208px; }
 .map-token.sim.hurt .sim-hp { opacity: 1; }
 .sim-hp i { display: block; height: 100%; background: var(--teal); }
 
+/* Something in flight. Positioned from the top-left like a token and turned
+   about its own centre, so the transform carries both. */
+.sim-shot {
+  position: absolute; top: 0; left: 0;
+  transform-origin: 50% 50%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  transition: transform 70ms linear;
+  will-change: transform;
+}
+
 /* The attack, swept along the aim. The two halves hang off deliberately
    different heights, and the reason is worth keeping.
 

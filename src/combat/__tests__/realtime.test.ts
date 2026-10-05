@@ -2,7 +2,7 @@ import {
   stepWorld, driveEnemy, rectHitsCircle, exitDirection, sweptLength,
   swingAngle, snapAim, SNAP, slotShape, slotCount, knockBack, KNOCKBACK,
   CREATURE_ACCEL,
-  type RtUnit, type StepWorld, type AttackShape, type RtEvent,
+  type RtUnit, type StepWorld, type AttackShape, type RtEvent, type RtShot,
 } from '../realtime.js';
 
 // The engine, with no server, no database and no clock: stepWorld is pure, so a
@@ -461,6 +461,132 @@ describe('attack slots', () => {
   });
 });
 
+describe('shots', () => {
+  const BOW: AttackShape = {
+    reach: 1, width: 0.45, activeMs: 250, coolMs: 150, tellMs: 0,
+    damage: 11, shot: { speed: 14, range: 8 },
+  };
+  const archer = (x = 5, y = 5) => {
+    const p = unit({ id: 'p', team: 'player', x, y, attack: BOW });
+    return p;
+  };
+  /**
+   * Run the ticks. Not "while something is in the air" — the first tick is the
+   * one that puts it there, so a condition on the list never starts.
+   */
+  const fly = (units: RtUnit[], shots: RtShot[], w = world(), ticks = 40) => {
+    for (let i = 0; i < ticks; i++) stepWorld(units, w, 0.05, shots);
+  };
+
+  test('a swing with a shot puts one in the air', () => {
+    const p = archer();
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    stepWorld([p], world(), 0.05, shots);
+    expect(shots).toHaveLength(1);
+    expect(shots[0].by).toBe('p');
+    expect(shots[0].team).toBe('player');
+  });
+
+  test('it leaves from the body edge, travelling along the aim', () => {
+    const p = archer();
+    const shots: RtShot[] = [];
+    p.aim = Math.PI / 2; p.wantAttack = true;
+    stepWorld([p], world(), 0.05, shots);
+    const s = shots[0];
+    expect(Math.atan2(s.vy, s.vx)).toBeCloseTo(Math.PI / 2, 6);
+    expect(Math.hypot(s.vx, s.vy)).toBeCloseTo(14, 6);
+  });
+
+  test('it hits something in its path and stops there', () => {
+    const p = archer();
+    const e = unit({ id: 'e', team: 'enemy', x: 9, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, e], shots);
+    expect(e.hp).toBe(100 - BOW.damage);
+    expect(shots.every(s => s.dead)).toBe(true);
+  });
+
+  test('and shoves what it hits, like a blow does', () => {
+    const p = archer();
+    const e = unit({ id: 'e', team: 'enemy', x: 9, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, e], shots);
+    for (let i = 0; i < 12; i++) stepWorld([p, e], world(), 0.05, shots);
+    expect(e.x).toBeGreaterThan(9.3);
+  });
+
+  test('it stops at the first body rather than piercing a crowd', () => {
+    const p = archer();
+    const near = unit({ id: 'near', team: 'enemy', x: 8, y: 5, speed: 0 });
+    const far = unit({ id: 'far', team: 'enemy', x: 10, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, near, far], shots);
+    expect(near.hp).toBeLessThan(100);
+    expect(far.hp).toBe(100);
+  });
+
+  test('a wall stops it, which is why it travels rather than being a line', () => {
+    // Nothing in the melee hit path consults world.blocked, so a six-tile line
+    // along the aim would fire straight through a forest. A shot collides as
+    // it goes, so cover works without any line-of-sight code.
+    const p = archer();
+    const e = unit({ id: 'e', team: 'enemy', x: 9, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, e], shots, world(['7,5']));
+    expect(e.hp).toBe(100);
+    expect(shots.every(s => s.dead)).toBe(true);
+  });
+
+  test('it falls short past its range', () => {
+    const p = archer();
+    const e = unit({ id: 'e', team: 'enemy', x: 20, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, e], shots);
+    expect(e.hp).toBe(100);
+  });
+
+  test('it cannot shoot the thing that fired it, or its own side', () => {
+    const p = archer();
+    const mate = unit({ id: 'mate', team: 'player', x: 7, y: 5, speed: 0 });
+    const shots: RtShot[] = [];
+    p.aim = 0; p.wantAttack = true;
+    fly([p, mate], shots);
+    expect(mate.hp).toBe(100);
+    expect(p.hp).toBe(100);
+  });
+
+  test('it leaves the board rather than bouncing round it', () => {
+    const p = archer(2, 5);
+    const shots: RtShot[] = [];
+    p.aim = Math.PI; p.wantAttack = true;      // straight at the west edge
+    fly([p], shots);
+    expect(shots.every(s => s.dead)).toBe(true);
+  });
+
+  test('a shot swing has no melee hitbox of its own', () => {
+    // Otherwise a bow would also be a sword at point blank.
+    const p = archer();
+    const e = unit({ id: 'e', team: 'enemy', x: 5.8, y: 5, speed: 0, r: 0.34 });
+    const shots: RtShot[] = [];
+    p.aim = Math.PI; p.wantAttack = true;      // fire the OTHER way
+    for (let i = 0; i < 8; i++) stepWorld([p, e], world(), 0.05, shots);
+    expect(e.hp).toBe(100);
+  });
+
+  test('the engine still works without anywhere to put shots', () => {
+    // stepWorld is called without the array in plenty of places.
+    const p = archer();
+    p.aim = 0; p.wantAttack = true;
+    expect(() => run([p], world(), 4)).not.toThrow();
+  });
+});
+
 describe('knockback', () => {
   /** Step until the shove is spent, reporting the biggest single frame. */
   const settle = (u: RtUnit, w = world(), ticks = 12) => {
@@ -840,16 +966,24 @@ describe('wandering', () => {
   test('it stops sometimes', () => {
     // Pauses are half the point: a body that never stops reads as patrolling
     // rather than idling.
-    const e = unit({ id: 'e', team: 'enemy', x: 12, y: 12, vision: 6 });
+    //
+    // Averaged over a flock rather than measured on one bird. Thirty seconds
+    // is only about twenty wander decisions, so a single bird can draw its way
+    // to almost no pauses — this failed once at 5%, which is roughly a one in
+    // a thousand run. The configured rate is what is being asserted, so the
+    // sample should be big enough to show it.
     let still = 0, frames = 0;
-    for (let i = 0; i < 1800; i++) {
-      driveEnemy(e, [], 1000 / 60);
-      frames++;
-      if (e.moveX === 0 && e.moveY === 0) still++;
-      stepWorld([e], world(), 1 / 60);
+    for (let bird = 0; bird < 30; bird++) {
+      const e = unit({ id: `e${bird}`, team: 'enemy', x: 12, y: 12, vision: 6 });
+      for (let i = 0; i < 1200; i++) {
+        driveEnemy(e, [], 1000 / 60);
+        frames++;
+        if (e.moveX === 0 && e.moveY === 0) still++;
+        stepWorld([e], world(), 1 / 60);
+      }
     }
-    expect(still / frames).toBeGreaterThan(0.15);
-    expect(still / frames).toBeLessThan(0.8);
+    expect(still / frames).toBeGreaterThan(0.25);
+    expect(still / frames).toBeLessThan(0.65);
   });
 });
 

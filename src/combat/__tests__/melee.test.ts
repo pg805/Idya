@@ -199,11 +199,14 @@ describe('what a swing costs', () => {
     expect(perFrame).toBeLessThanOrEqual(300);
   });
 
-  test('the swings differ ONLY in spread, for now', () => {
+  test('the MELEE swings differ only in spread, for now', () => {
     // Deliberate while the feel is being judged: same damage, same window,
     // same recovery, so the shape of the swing is the only variable. The spin
     // is strictly best at these numbers, which is expected and is not balance.
-    const [first, ...rest] = swingsOf(sword).map(sw => sw.shape);
+    // The shot is excluded — it pays a ranged tax, checked below.
+    const [first, ...rest] = swingsOf(sword)
+      .map(sw => sw.shape)
+      .filter(shape => !shape.shot);
     for (const shape of rest) {
       expect(shape.damage).toBe(first.damage);
       expect(shape.activeMs).toBe(first.activeMs);
@@ -212,8 +215,26 @@ describe('what a swing costs', () => {
       expect(shape.width).toBe(first.width);
     }
     // And the spreads are what tell them apart.
-    const spreads = swingsOf(sword).map(sw => sw.shape.spread ?? 0);
+    const spreads = swingsOf(sword)
+      .filter(sw => !sw.shape.shot)
+      .map(sw => sw.shape.spread ?? 0);
     expect(new Set(spreads).size).toBe(spreads.length);
+  });
+
+  test('a shot buys less damage than a swing, and that is the ranged tax', () => {
+    // Priced on the ARCHETYPE rather than worked out from the physical
+    // numbers: a shot simply buys less, one hand-set number instead of a
+    // formula weighing range against width against cooldown.
+    const shot = byName('shot').shape;
+    expect(shot.shot).toBeDefined();
+    expect(shot.damage).toBeLessThan(byName('thrust').shape.damage);
+  });
+
+  test('a shot is faster than a player but slow enough to sidestep', () => {
+    const { speed, range } = byName('shot').shape.shot!;
+    expect(speed).toBeGreaterThan(5.6);        // outruns the thing it is aimed at
+    expect(speed).toBeLessThan(30);            // but is not a line drawn instantly
+    expect(range).toBeLessThanOrEqual(8);      // no further than a swallow can see
   });
 
   test('the spin goes the whole way round', () => {

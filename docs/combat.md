@@ -176,6 +176,31 @@ at these numbers. That is expected and is not a balance claim.
 | 1 | right | arc | a quarter turn |
 | 2 | Q | spin | the whole way round |
 
+### A shot travels
+
+A swing with a `shot` throws a projectile instead of opening a hitbox. It leaves
+from the body's edge along the committed aim as the swing goes live, travels at
+its own speed, and stops on the **first** thing it touches — a body, a solid
+tile, the chunk edge, or its own range running out.
+
+**Travelling rather than a line along the aim, and the reason is not aesthetics:
+nothing in the melee hit path consults `world.blocked`.** A rect at reach 1
+never notices, but a six-tile line would fire straight through a forest, and a
+chunk of woodland has 34 trees in it. A shot collides as it goes, so cover works
+without any line-of-sight code. It can also be dodged and has to be led, which
+is the counterweight range needs.
+
+It carries the swing's damage and the standard knockback, and it cannot hit the
+unit that fired it or anything on that side.
+
+**The ranged tax is priced on the archetype, not computed.** A shot simply buys
+less damage than a swing — 11 against 16 — rather than a formula weighing range
+against width against cooldown. One hand-set number per archetype is the whole
+balancing surface.
+
+Slot 3, on E, firing the sword sprite, both temporary: there is nothing to
+switch weapons with yet and the arrow is not drawn.
+
 ### Spread is the whole difference between them
 
 `spread` is the radians a hitbox turns through while it is live. Absent means it

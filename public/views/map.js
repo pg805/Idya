@@ -243,11 +243,12 @@ window.Views.map = (function () {
    * transition covers the gap between server frames; the server is authoritative
    * and the browser is only smoothing between what it was told.
    */
-  function renderSim(units) {
+  function renderSim(units, shots) {
     const layer = tokenLayer();
     if (!layer || !cell) return;
     simState = units;
     startAttackLoop();
+    renderShots(layer, shots ?? []);
     const seen = new Set();
 
     for (const u of units) {
@@ -305,6 +306,43 @@ window.Views.map = (function () {
       rec.el.remove();
       simUnits.delete(id);
     }
+  }
+
+  /**
+   * Things in flight.
+   *
+   * Pooled by index rather than keyed by id: a shot has no identity worth
+   * tracking, there are never many, and the server sends the whole list every
+   * frame. Drawn with the same 70ms smoothing as a body so it does not stutter
+   * between frames.
+   */
+  const shotEls = [];
+
+  function renderShots(layer, shots) {
+    for (let i = 0; i < shots.length; i++) {
+      let el = shotEls[i];
+      if (!el || !el.isConnected) {
+        el = document.createElement('img');
+        el.className = 'sim-shot';
+        el.alt = '';
+        layer.appendChild(el);
+        shotEls[i] = el;
+      }
+      const sh = shots[i];
+      const src = sh.sprite ? spriteUrl(sh.sprite) : null;
+      if (src && el.getAttribute('src') !== src) el.setAttribute('src', src);
+      el.hidden = !src;
+      el.style.width = `${cell}px`;
+      el.style.height = `${cell}px`;
+      // Centred on the shot, then turned so the sprite's up points the way it
+      // is travelling — the same quarter turn a held weapon gets.
+      el.style.transform = `translate(${(sh.x - 0.5) * cell}px, ${(sh.y - 0.5) * cell}px)`
+        + ` rotate(${sh.aim}rad) rotate(90deg)`;
+    }
+    for (let i = shots.length; i < shotEls.length; i++) {
+      if (shotEls[i]) { shotEls[i].remove(); shotEls[i] = null; }
+    }
+    shotEls.length = shots.length;
   }
 
   /**
@@ -625,11 +663,17 @@ window.Views.map = (function () {
         flipStep();
         return;
       }
-      // Q is slot 2. Not a movement key and not taken by a tool, and the
-      // free keys beside WASD are the ones Controls reserves for abilities.
+      // Q is slot 2 and E is slot 3. Not movement keys and not taken by a
+      // tool, and the free keys beside WASD are the ones Controls reserves
+      // for abilities.
       if ((e.key === 'q' || e.key === 'Q') && !tool) {
         e.preventDefault();
         wantSlot = 2;
+        return;
+      }
+      if ((e.key === 'e' || e.key === 'E') && !tool) {
+        e.preventDefault();
+        wantSlot = 3;
         return;
       }
       const key = keyName(e);
@@ -1184,9 +1228,9 @@ window.Views.map = (function () {
     // The simulation, ~20x a second. This is what moves everybody now, so the
     // old occupant tokens are taken down the first time it arrives rather than
     // drawing two of each person.
-    socket.on('sim:state', ({ units }) => {
+    socket.on('sim:state', ({ units, shots }) => {
       if (occupants.size) for (const o of occupants.values()) { o.el?.remove(); o.el = null; }
-      renderSim(units ?? []);
+      renderSim(units ?? [], shots ?? []);
       if (chestId && !chestStillInReach()) closeChest();
     });
 
